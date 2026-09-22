@@ -1,7 +1,7 @@
 {
   "name": "WriterForge",
-  "version": "12.0",
-  "phase": "reactive-evolution-literary-taste",
+  "version": "13.0",
+  "phase": "novelist-growth-observed-story-originality-ending-backtrace",
   "principle": "grow novelist capability without always-on skill bloat",
   "priority_model": {
     "P0": "always-light",
@@ -47,7 +47,10 @@
     "outline overrides discovery",
     "reviewer per sentence",
     "self-promotion from training-set success only",
-    "skill birth for near-duplicate mechanisms"
+    "skill birth for near-duplicate mechanisms",
+    "cosmetic trope swaps counted as originality",
+    "nonlinear chronology used as prestige decoration",
+    "trusting planned story over accepted prose evidence"
   ],
   "reader_model": {
     "source_reader": "spoiler-blind first-pass during LEARN",
@@ -91,7 +94,8 @@
       "free_indirect_voice",
       "detail_utility",
       "strategic_reversal",
-      "punctuation_as_performance"
+      "punctuation_as_performance",
+      "temporal_reordering"
     ]
   },
   "reactive_skill_runtime": {
@@ -111,7 +115,17 @@
       "project_taste",
       "beta_reader"
     ],
-    "human_anchor_for_promotion": true
+    "human_anchor_for_promotion": true,
+    "orthogonal_originality": {
+      "axes": [
+        "form",
+        "knowledge",
+        "goal",
+        "role"
+      ],
+      "function_preservation": true,
+      "absolute_novelty_score": false
+    }
   },
   "evolution_engine": {
     "runtime_priority": "P3/offline",
@@ -126,14 +140,16 @@
     ],
     "maturity_levels": "L1-L10 qualitative only",
     "skill_birth_gate": "merge near-duplicates; create only distinct mechanisms",
-    "dependency_revalidation": true
+    "dependency_revalidation": true,
+    "observed_story_auditor": true
   },
   "story_sense": {
     "purpose": "select dominant literary problem rather than activate all valid critiques",
-    "runtime_priority": "P2 explicit literary_diagnosis/review_conflict"
+    "runtime_priority": "P2 explicit literary_diagnosis/review_conflict",
+    "ending_backtrace": true
   },
   "test_status": {
-    "passed": 64,
+    "passed": 72,
     "failed": 0,
     "suite": "python -m unittest discover -s tests -q"
   }

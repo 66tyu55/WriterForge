@@ -1,12 +1,12 @@
 ---
-name: writer-forge-v12
+name: writer-forge-v13
 description: >
   Long-form fiction runtime with Reader-First source learning, lean scene craft,
   reactive dependency-driven skill execution, controlled self-evolution, story-sense routing,
   and pairwise literary taste learning. Designed for novel creation, not generic copywriting.
 ---
 
-# WriterForge V12
+# WriterForge V13
 
 WriterForge is a long-form **fiction writer system**. It does not optimize for generic writing, marketing copy, essays, or AI-detector bypass.
 
@@ -70,6 +70,16 @@ Rules:
 ## Writer Maturity
 
 Writer maturity is L1-L10, independent of software version. It represents qualitative shifts in fiction ability, not memory points. Overall promotion is blocked by unresolved Capability Lag / Skill Debt.
+
+## Novel-level literary judgment
+
+At chapter/arc/revision boundaries, WriterForge may use three additional mechanisms without creating new always-on agents:
+
+- **Ending Backtrace**: trace climax/payoff backward to established setup, protagonist choice, central question, and irreversible consequence. An ending problem may require upstream revision rather than local polishing.
+- **Orthogonal Originality**: preserve required story function while checking whether form, knowledge, goal, and role all follow the genre default. A cosmetic rename is not an originality upgrade.
+- **Observed Story**: reverse-outline accepted prose and compare observed scene function/character choice/state delta/reader effect with the plan. Persistent divergence can propose emergence; it never silently rewrites Canon.
+
+Nonlinear chronology is a Scene Turn & Rhythm technique, not a new Skill. Use it only when changing order improves reader understanding, anticipation, or emotional pressure while causality remains reconstructable.
 
 ## Commit discipline
 

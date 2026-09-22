@@ -1,4 +1,4 @@
-# Literary Taste Engine｜小说家的审美选择
+# Literary Taste Engine｜小说家的审美选择（V13）
 
 Taste 解决的问题不是“这一段有没有错误”，而是：多个版本都成立时，为什么当前作品应该选择其中一个。
 
@@ -66,3 +66,20 @@ confidence:
 - Taste Judge 不看候选生成顺序、模型身份、token/成本等无关信息。
 - Judge 只看当前 Scene Contract、必要前文和候选正文。
 - Taste Promotion 必须有外部读者锚点。
+
+
+## Orthogonal Originality｜反俗套但不破坏故事功能
+
+“熟悉”本身不是错误；问题是故事元素在多个轴上同时采用默认答案。V13 用四个轴观察：
+
+- `form`：它表面是什么；
+- `knowledge`：它知道多少主线真相；
+- `goal`：它自己的目标是什么；
+- `role`：它是否只为主角/主线服务。
+
+诊断：
+- 四轴都没变：`DEFAULT_CLUSTER`；
+- 只换 form，逻辑没变：`COSMETIC_SWAP`；
+- 为了新奇丢掉必要 story function：`FUNCTION_LOSS`。
+
+Taste 不把“越陌生越好”当原则。真正的选择仍然回到 Character Truth、Reader Effect、因果、作品声音和长期回声。

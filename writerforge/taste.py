@@ -151,3 +151,52 @@ class LiteraryTasteEngine:
     @staticmethod
     def can_learn(decision: TasteDecision, *, min_confidence: float = 0.60) -> bool:
         return bool(decision.stable and decision.preferred_id and decision.confidence >= min_confidence)
+
+
+@dataclass(frozen=True)
+class StoryElementProfile:
+    """Functional profile of a story element; surface form is only one axis."""
+    form: str
+    knowledge: str
+    goal: str
+    role: str
+    functions: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class OriginalityDiagnosis:
+    changed_axes: tuple[str, ...]
+    unchanged_axes: tuple[str, ...]
+    missing_functions: tuple[str, ...]
+    issues: tuple[str, ...]
+    rule: str = "Preserve required story function while changing the default logic on one or more meaningful axes; novelty alone is not a virtue."
+
+
+class OrthogonalOriginality:
+    """Detects default-pattern clustering without treating familiarity itself as a defect."""
+
+    AXES = ("form", "knowledge", "goal", "role")
+
+    def diagnose(
+        self,
+        *,
+        candidate: StoryElementProfile,
+        default: StoryElementProfile,
+        required_functions: Iterable[str] = (),
+    ) -> OriginalityDiagnosis:
+        changed = tuple(axis for axis in self.AXES if getattr(candidate, axis) != getattr(default, axis))
+        unchanged = tuple(axis for axis in self.AXES if axis not in changed)
+        missing = tuple(sorted(set(required_functions) - set(candidate.functions)))
+        issues: list[str] = []
+        if not changed:
+            issues.append("DEFAULT_CLUSTER")
+        elif changed == ("form",):
+            issues.append("COSMETIC_SWAP")
+        if missing:
+            issues.append("FUNCTION_LOSS")
+        # A protagonist-serving role plus plot-aware knowledge is a common sign that
+        # the element exists only because the author needs it, regardless of surface novelty.
+        if candidate.knowledge == default.knowledge and candidate.role == default.role and candidate.goal == default.goal:
+            if "DEFAULT_CLUSTER" not in issues and "COSMETIC_SWAP" not in issues:
+                issues.append("PLOT_SERVICE_LOGIC_UNCHANGED")
+        return OriginalityDiagnosis(changed, unchanged, missing, tuple(issues))

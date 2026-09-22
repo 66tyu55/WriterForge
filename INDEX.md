@@ -1,4 +1,4 @@
-# WriterForge V12 Index
+# WriterForge V13 Index
 
 ## Core Runtime
 - LEARN / WRITE mutual exclusion
@@ -49,3 +49,9 @@
 - `integration/EVOLUTION_ASSIMILATION.md`
 - `integration/UPSTREAM_ASSIMILATION.md`
 - `integration/PERFORMANCE_BUDGET.md`
+
+## V13 Literary Growth
+- Ending Backtrace lives under Story Sense / structural diagnosis.
+- Orthogonal Originality lives under Literary Taste; it preserves function before novelty.
+- Observed Story Auditor lives under Evolution; it reverse-outlines accepted prose rather than trusting plans.
+- `temporal_reordering` remains an internal Scene Turn & Rhythm card.

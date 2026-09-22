@@ -372,3 +372,58 @@ class EvolutionEngine:
             statement=candidate.capability_statement,
             evidence_id=candidate.evidence_id,
         )
+
+
+@dataclass(frozen=True)
+class ObservedScene:
+    """What an accepted scene actually did, independent of what the plan claimed it would do."""
+    scene_id: str
+    planned_function: str = ""
+    observed_function: str = ""
+    character_choice: str = ""
+    state_delta_keys: tuple[str, ...] = ()
+    reader_effects: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class StoryDrift:
+    scene_id: str
+    planned_function: str
+    observed_function: str
+
+
+@dataclass(frozen=True)
+class ObservedStoryReport:
+    drifts: tuple[StoryDrift, ...]
+    functionless_scene_ids: tuple[str, ...]
+    persistent_unplanned_functions: tuple[str, ...]
+    observed_spine: tuple[str, ...]
+    rule: str = "Treat accepted prose as evidence of the story that exists; compare it with the plan without automatically forcing either one to win."
+
+
+class ObservedStoryAuditor:
+    """A reverse-outline pass for WriterForge's own accepted fiction."""
+
+    def analyze(self, scenes: Iterable[ObservedScene], *, emergence_threshold: int = 2) -> ObservedStoryReport:
+        items = list(scenes)
+        drifts: list[StoryDrift] = []
+        functionless: list[str] = []
+        unplanned_counts: Counter[str] = Counter()
+        spine: list[str] = []
+
+        for scene in items:
+            observed = scene.observed_function.strip()
+            planned = scene.planned_function.strip()
+            if observed:
+                spine.append(observed)
+            if planned and observed and planned != observed:
+                drifts.append(StoryDrift(scene.scene_id, planned, observed))
+                unplanned_counts[observed] += 1
+            elif not planned and observed:
+                unplanned_counts[observed] += 1
+
+            if not observed and not scene.character_choice.strip() and not scene.state_delta_keys and not scene.reader_effects:
+                functionless.append(scene.scene_id)
+
+        persistent = tuple(sorted(k for k, v in unplanned_counts.items() if v >= max(2, emergence_threshold)))
+        return ObservedStoryReport(tuple(drifts), tuple(functionless), persistent, tuple(spine))

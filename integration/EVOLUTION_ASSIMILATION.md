@@ -24,3 +24,11 @@ V12 不复制外部仓库文本，只吸收可独立实现的机制。
 - Pairwise order-swap stability：翻票的 Taste 判断不学习。
 - Reactive Skill Runtime：dependency fingerprint + selective stale propagation + single-flight + idempotent commit。
 - Story Sense Router：一次只处理 dominant literary problem，防 checklist tyranny。
+
+
+## V13 自研增强
+
+- `Observed Story Auditor`：将 reverse-outline 从“研究别人的书”反过来用于审视 WriterForge 自己的 accepted prose。
+- 计划与实际正文的偏差不自动判错；持续偏差进入 Emergence Proposal，functionless scene 才进入强审查。
+- Ending Backtrace 的失败可形成结构性 Failure Cluster，例如连续多个项目出现 `PAYOFF_WITHOUT_SETUP` 或 `UNEARNED_RESOLUTION`。
+- Originality 训练必须做 function-preservation transfer，防止模型学成“为了不同而不同”。

@@ -136,6 +136,12 @@ TECHNIQUES: tuple[TechniqueCard, ...] = (
         review_question="Is the punctuation performing a real hesitation/pressure shift, or manufacturing drama?",
     ),
     TechniqueCard(
+        "temporal_reordering", CraftGroup.SCENE_TURN_RHYTHM,
+        "Depart from chronology only when the new order changes reader understanding, anticipation, or emotional pressure while keeping causality reconstructable.",
+        ("nonlinear", "time_order", "recontextualization", "prolepsis", "analepsis"),
+        review_question="What becomes clearer or more charged because this moment is out of chronological order, and can the reader still rebuild cause and effect?",
+    ),
+    TechniqueCard(
         "detail_utility", CraftGroup.PERCEPTION_DESCRIPTION,
         "Prefer details that perform more than decoration: character, relation, world, atmosphere, plot, or foreshadowing.",
         ("detail_utility", "description", "specificity"),
@@ -161,7 +167,7 @@ _GROUP_TRIGGER_MAP = {
     CraftGroup.PERCEPTION_DESCRIPTION: {"description", "place", "character_entrance", "white_room", "psychic_distance", "pov", "detail_utility", "specificity", "free_indirect", "voice", "motif", "long_term_echo", "symbol", "object_return"},
     CraftGroup.COGNITIVE_MOTION: {"interiority", "rumination", "cognitive_loop", "decision", "over_self_aware", "hidden_motive", "self_deception"},
     CraftGroup.NARRATIVE_RESTRAINT: {"over_explain", "duplicate_commentary", "stating_moral", "reflection_tail", "premature_explanation", "mystery", "reveal"},
-    CraftGroup.SCENE_TURN_RHYTHM: {"scene", "no_turn", "stagnation", "padding", "slow_exit", "overstay", "flat_rhythm", "choppy", "prose_rhythm", "scene_summary", "omission", "pacing", "magnification", "reversal", "setup_payoff", "surprise_inevitability", "punctuation", "hesitation", "interruption", "micro_rhythm"},
+    CraftGroup.SCENE_TURN_RHYTHM: {"scene", "no_turn", "stagnation", "padding", "slow_exit", "overstay", "flat_rhythm", "choppy", "prose_rhythm", "scene_summary", "omission", "pacing", "magnification", "reversal", "setup_payoff", "surprise_inevitability", "punctuation", "hesitation", "interruption", "micro_rhythm", "nonlinear", "time_order", "recontextualization", "prolepsis", "analepsis"},
 }
 
 

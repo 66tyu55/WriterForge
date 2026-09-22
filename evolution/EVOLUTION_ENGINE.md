@@ -1,4 +1,4 @@
-# Evolution Engine｜小说家能力自我迭代
+# Evolution Engine｜小说家能力自我迭代（V13）
 
 Evolution Engine 不参与普通正文生成。它是 P3/offline 元系统，负责判断 WriterForge 是否真的学会了新的小说创作能力。
 
@@ -94,3 +94,25 @@ Skill 升级改变 capability contract 后，只有直接依赖者标记 `NEEDS_
 真正不同才允许 Skill Birth。
 
 无效或被替代的 Skill 进入 retired/shadow，可回滚但不进入正常调度。
+
+
+## Observed Story / Reverse Outline
+
+Evolution 不能只看计划、Prompt 和 Reviewer。对**已接受正文**做低频反向观察：
+
+```text
+accepted prose
+  -> observed scene function
+  -> actual character choice
+  -> actual state delta
+  -> actual reader effect
+  -> observed story spine
+```
+
+再与 planned story 比较。
+
+- 单次偏离：普通 Discovery 证据；
+- 同一种未计划功能反复出现：`persistent_unplanned_function`，可进入 Emergence Proposal；
+- 场景既无可观察功能、人物选择、状态变化，也无有效 reader effect：functionless scene candidate。
+
+重要：Observed Story 是证据，不是自动纠错器。计划可能错，正文也可能错；Story Sense / Taste / Reader Evidence 再决定下一步。

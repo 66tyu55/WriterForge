@@ -1,0 +1,13 @@
+WriterForge V13
+Test command: python -m unittest discover -s tests -q
+Result: 72/72 passed
+
+V13 additions:
+- ending backward-trace diagnostics
+- setup/payoff and earned-resolution checks
+- orthogonal originality default/cosmetic/function-loss checks
+- observed-story reverse-outline drift detection
+- quiet-scene reader-effect exemption
+- temporal reordering remains an internal Craft card
+
+All V7-V12 regression tests remain green.

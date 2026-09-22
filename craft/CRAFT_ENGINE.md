@@ -1,4 +1,4 @@
-# Craft Engine｜轻量文学技法引擎
+# Craft Engine｜轻量文学技法引擎（V13）
 
 Craft Engine 负责“怎么写出来”，但不是常驻 Prompt 栈。
 
@@ -48,6 +48,7 @@ Craft Engine 负责“怎么写出来”，但不是常驻 Prompt 栈。
 - narrative_magnification（Scene / Summary / Omission）
 - strategic_reversal（已建立规则 + 对手假设 + 隐藏杠杆 + hindsight fairness）
 - punctuation_as_performance（只在停顿/犹豫/打断真正属于人物时使用）
+- temporal_reordering（只有当非线性顺序真正改变理解/预期/情绪压力且因果可重建时使用）
 
 ## 强制原则
 
@@ -56,3 +57,10 @@ Craft Engine 负责“怎么写出来”，但不是常驻 Prompt 栈。
 - Craft Auditor 只指出失败，不自动 humanize。
 - 安静场景可以合法存在；没有外部大事件不等于没有 Delta。
 - 固定感官数量、固定句长、固定对白比例禁止进入核心。
+
+
+## V13 约束
+
+- “留白”不是新 Skill：`telling_detail + trust_the_reader` 已覆盖负空间/推断参与。
+- “关键情绪时刻”不是模板：只作为 Reader Effect / Scene Function 的目标，不建立固定节拍表。
+- 非线性时间不是高级感装饰；如果换回顺序后体验不受损，优先保持清楚的时间因果。

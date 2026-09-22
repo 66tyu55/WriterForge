@@ -1,4 +1,4 @@
-# Craft Assimilation Policy — V12
+# Craft Assimilation Policy — V13
 
 WriterForge 只吸收可解释、可回归、可按需触发的小说技法机制；不复制外部 Skill 文本，也不把作者表面风格当成能力。
 
@@ -41,3 +41,14 @@ WriterForge 只吸收可解释、可回归、可按需触发的小说技法机�
 3. 独立失败模式；
 4. 不与已有 Technique Card 高度重合；
 5. 能进入 held-out / transfer / regression 测试。
+
+
+## V13 吸收
+
+- `jwynia/agent-skills` Endings：吸收“结尾必须可向前追溯、意外与必然同时成立、结尾问题可能需要上游修订”的机制；不复制它的完整 checklist。
+- `jwynia/agent-skills` Cliche Transcendence：吸收 Form / Knowledge / Goal / Role 的正交性判断与“先保留 function”原则；拒绝把八步流程变成每次创作固定打卡。
+- `jwynia/agent-skills` Reverse Outliner：吸收“从成稿反推实际结构/功能”的思想，并改造成 WriterForge 自己的 Observed Story Auditor。
+- `jwynia/agent-skills` Key Moments：只吸收“先定义目标 Reader Experience，再让情节服务它”；拒绝固定类型节拍表。
+- `pilcrow` fiction guidance：进一步确认 load-bearing concrete detail / free indirect / reader inference；这些已由 telling_detail + free_indirect_voice + trust_the_reader 覆盖，因此不新建 Skill。
+
+新增唯一 Technique Card：`temporal_reordering`，仍属于 Scene Turn & Rhythm。

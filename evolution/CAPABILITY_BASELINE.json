@@ -2,13 +2,73 @@
   "note": "Do not assign maturity numbers from architecture alone. Calibrate with held-out literary tasks first.",
   "status": "needs_calibration",
   "skills": [
-    {"name": "character_engine", "level": null},
-    {"name": "dialogue_craft", "level": null, "depends_on": ["character_engine", "knowledge_ledger"]},
-    {"name": "cognitive_motion", "level": null, "depends_on": ["character_engine"]},
-    {"name": "perception_description", "level": null, "depends_on": ["pov_distance"]},
-    {"name": "narrative_restraint", "level": null},
-    {"name": "scene_turn_rhythm", "level": null, "depends_on": ["scene_planner"]},
-    {"name": "literary_taste", "level": null, "depends_on": ["reader_engine", "craft_engine"]},
-    {"name": "story_sense", "level": null, "depends_on": ["review_signals", "reader_engine"]}
-  ]
+    {
+      "name": "character_engine",
+      "level": null
+    },
+    {
+      "name": "dialogue_craft",
+      "level": null,
+      "depends_on": [
+        "character_engine",
+        "knowledge_ledger"
+      ]
+    },
+    {
+      "name": "cognitive_motion",
+      "level": null,
+      "depends_on": [
+        "character_engine"
+      ]
+    },
+    {
+      "name": "perception_description",
+      "level": null,
+      "depends_on": [
+        "pov_distance"
+      ]
+    },
+    {
+      "name": "narrative_restraint",
+      "level": null
+    },
+    {
+      "name": "scene_turn_rhythm",
+      "level": null,
+      "depends_on": [
+        "scene_planner"
+      ]
+    },
+    {
+      "name": "literary_taste",
+      "level": null,
+      "depends_on": [
+        "reader_engine",
+        "craft_engine"
+      ]
+    },
+    {
+      "name": "story_sense",
+      "level": null,
+      "depends_on": [
+        "review_signals",
+        "reader_engine"
+      ]
+    }
+  ],
+  "v13_mechanisms": {
+    "story_sense": [
+      "ending_backtrace"
+    ],
+    "literary_taste": [
+      "orthogonal_originality"
+    ],
+    "evolution": [
+      "observed_story_auditor"
+    ],
+    "scene_turn_rhythm": [
+      "temporal_reordering"
+    ],
+    "note": "Mechanisms are absorbed into existing capability domains; no maturity number is assigned from architecture alone."
+  }
 }
