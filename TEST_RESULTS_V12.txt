@@ -1,0 +1,19 @@
+WriterForge V12
+Test command: python -m unittest discover -s tests -q
+Result: 64/64 passed
+
+V12 coverage includes:
+- dependency fingerprint cache
+- selective invalidation
+- single-flight duplicate suppression
+- idempotent commit
+- pairwise taste order-swap stability
+- taste persistence
+- capability lag / downstream revalidation
+- failure clustering
+- train/held-out/transfer curriculum
+- skill birth merge gate
+- promotion gate
+- scene craft contract stability
+- story sense dominant-problem routing
+- gated self-promotion control

@@ -1,0 +1,51 @@
+# WriterForge V12 Index
+
+## Core Runtime
+- LEARN / WRITE mutual exclusion
+- Xuehai snapshots + reactive middleware
+- Canon / causality / character / knowledge / promise / memory
+
+## Reader
+- Reader-First source learning
+- Cold Reader
+- Genre-isolated Actual Reader Critic
+
+## Craft
+- `craft/CRAFT_ENGINE.md`
+- Five routed groups only
+- Scene Craft Contract: choose once, reuse until dependency invalidation
+
+## Story Sense
+- `story_sense/STORY_SENSE.md`
+- Dominant literary problem routing; avoids checklist overload
+
+## Literary Taste
+- `taste/LITERARY_TASTE_ENGINE.md`
+- Pairwise comparison + order-swap stability
+- Source / Actual Reader / Project taste remain distinct
+
+## Evolution
+- `evolution/EVOLUTION_ENGINE.md`
+- `evolution/CURRICULUM_PROTOCOL.md`
+- `evolution/WRITER_MATURITY_LEVELS.md`
+- Failure clusters, frontier exercises, held-out/transfer/regression, promotion gates
+
+## Reactive Skill Runtime
+- `reactive/REACTIVE_SKILL_RUNTIME.md`
+- dependency fingerprints
+- selective invalidation
+- single-flight duplicate suppression
+- idempotent commit
+
+## Cross-cut
+- Taste
+- Discovery
+- Multiscale
+- Emergence
+- Rewrite
+
+## Integration
+- `integration/CRAFT_ASSIMILATION.md`
+- `integration/EVOLUTION_ASSIMILATION.md`
+- `integration/UPSTREAM_ASSIMILATION.md`
+- `integration/PERFORMANCE_BUDGET.md`
