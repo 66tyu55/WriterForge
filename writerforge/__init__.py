@@ -30,3 +30,8 @@ from .story_sense import (
     StorySenseRouter, StorySenseDecision, LiterarySignal,
     EndingBacktraceInput, EndingBacktraceResult, EndingBacktraceAnalyzer,
 )
+
+from .embodied_scene import (
+    EmbodiedSceneResolver, EmbodiedSceneResult, PerceptualCue, PerceptualChannel,
+    SceneEnvironment, SceneEntity, SceneAction, PerceptionContext,
+)

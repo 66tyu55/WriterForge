@@ -11,6 +11,7 @@
 - Genre-isolated Actual Reader Critic
 
 ## Craft
+- `craft/EMBODIED_SCENE_RESOLVER.md` — scene causality -> perceptual affordances; not a sixth Craft group
 - `craft/CRAFT_ENGINE.md`
 - Five routed groups only
 - Scene Craft Contract: choose once, reuse until dependency invalidation

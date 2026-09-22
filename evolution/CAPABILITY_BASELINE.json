@@ -70,5 +70,11 @@
       "temporal_reordering"
     ],
     "note": "Mechanisms are absorbed into existing capability domains; no maturity number is assigned from architecture alone."
+  },
+  "v14_mechanisms": {
+    "perception_description": [
+      "embodied_scene_resolver"
+    ],
+    "note": "Sensory phenomena are derived from scene causality and absorbed into the existing perception_description capability; no new Craft group or maturity number is created."
   }
 }

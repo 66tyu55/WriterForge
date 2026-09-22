@@ -1,12 +1,12 @@
 ---
-name: writer-forge-v13
+name: writer-forge-v14
 description: >
   Long-form fiction runtime with Reader-First source learning, lean scene craft,
   reactive dependency-driven skill execution, controlled self-evolution, story-sense routing,
   and pairwise literary taste learning. Designed for novel creation, not generic copywriting.
 ---
 
-# WriterForge V13
+# WriterForge V14
 
 WriterForge is a long-form **fiction writer system**. It does not optimize for generic writing, marketing copy, essays, or AI-detector bypass.
 
@@ -15,6 +15,10 @@ WriterForge is a long-form **fiction writer system**. It does not optimize for g
 - **LEARN** reads original works sequentially, first as a spoiler-blind reader, then studies craft/effect.
 - **WRITE** writes the project using a pinned Xuehai snapshot and cannot mutate Xuehai.
 - Project experience, taste, reader feedback, and failures remain separate from source evidence.
+
+## Embodied Scene Causality
+
+Sound, temperature, touch, smell, bodily manifestation, and environmental texture are not separate Skills or sensory quotas. Derive them from `environment + entity + action/contact + established character embodiment`, then let POV attention and Perception & Description select zero or a few cues. Emotion alone must not trigger canned body language.
 
 ## Scene-time Craft
 

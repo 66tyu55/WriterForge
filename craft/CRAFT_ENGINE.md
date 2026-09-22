@@ -57,6 +57,7 @@ Craft Engine 负责“怎么写出来”，但不是常驻 Prompt 栈。
 - Craft Auditor 只指出失败，不自动 humanize。
 - 安静场景可以合法存在；没有外部大事件不等于没有 Delta。
 - 固定感官数量、固定句长、固定对白比例禁止进入核心。
+- 声音、温度、触感、身体表现不作为独立 Skill；由 `Embodied Scene Resolver` 从世界/动作/人物状态自然派生，再交给本组筛选。
 
 
 ## V13 约束

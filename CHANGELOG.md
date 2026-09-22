@@ -1,5 +1,13 @@
 # Changelog
 
+## v14.0.0 — 2026-09-22
+
+- Added Embodied Scene Resolver: causal perceptual affordances derived from world state, entity properties, action/contact, and character-specific embodiment.
+- Kept sound, temperature, touch, and emotion manifestation inside the existing Perception & Description capability rather than creating sensory micro-skills.
+- Added POV attention filtering with no five-sense quotas and semantic cues rather than pre-written prose.
+- Emotion no longer maps to stock body-language reactions unless a character-specific tendency has already been established.
+- Added dependency fingerprinting so unchanged embodied scene state can be reused by the reactive runtime.
+
 ## v13.0.0 — 2026-09-22
 
 - Added Ending Backtrace: endings are checked backward against established setups, protagonist choice, the central dramatic question, expansion, over-explanation, and irreversible change.

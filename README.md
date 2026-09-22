@@ -1,4 +1,4 @@
-# WriterForge V13 — Novelist Growth Without Skill Bloat
+# WriterForge V14 — Novelist Growth Without Skill Bloat
 
 WriterForge 是面向**长篇小说创作**的作家系统，不是通用润色器。V13 继续沿用 LEARN / WRITE 隔离、Reader-First、Canon/Character/Promise/Memory、Reactive Skill Runtime、Literary Taste 与 Evolution Engine，并补上三个成熟小说家经常依赖、但普通 AI 写作系统缺失的能力。
 
