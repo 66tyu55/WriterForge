@@ -1,0 +1,65 @@
+{
+  "source_span_id": "work01-ch01-p001-s001",
+  "work_id": "work01",
+  "location": {
+    "chapter": 1,
+    "paragraph": 1,
+    "sentence": 1
+  },
+  "text": "",
+  "tracks": {
+    "plot": [],
+    "object": [],
+    "character": [],
+    "environment": [],
+    "time": [],
+    "location": [],
+    "sense": [],
+    "emotion": []
+  },
+  "craft": {
+    "sentence_function": "",
+    "transition": "",
+    "rhythm": "",
+    "specificity": "",
+    "show_vs_tell": "",
+    "information_order": ""
+  },
+  "lexicon": [],
+  "classification": {
+    "library_class": "",
+    "culture": "",
+    "period": "",
+    "genre": "",
+    "subgenre": [],
+    "source_role": "core|auxiliary"
+  },
+  "provenance": {
+    "batch_id": "",
+    "source_file": "",
+    "source_version": "",
+    "verified": false
+  },
+  "dedup": {
+    "normalized_hash": "",
+    "exact_duplicate_of": null,
+    "near_duplicate_of": null,
+    "method_cluster": null
+  },
+  "quality": {
+    "sentence_quality_weight": 1,
+    "paragraph_quality_weight": 1,
+    "method_reliability_weight": 1,
+    "reasons": []
+  },
+  "effects": {
+    "horror": 0,
+    "humor": 0,
+    "anger": 0,
+    "hot_blooded": 0,
+    "hatred": 0,
+    "mystery": 0,
+    "tenderness": 0,
+    "awe": 0
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "context": "betrayal aftermath / close third",
+  "preferred_id": "candidate_b",
+  "alternative_id": "candidate_a",
+  "reasons": ["keeps the character's self-deception alive", "does not explain the irreversible action twice"],
+  "tradeoffs": ["less immediate emotional explicitness"],
+  "conditions": ["later chapter must repay the delayed emotional release"],
+  "source": "beta_reader",
+  "confidence": 0.82,
+  "tags": ["restraint", "betrayal", "aftertaste"]
+}

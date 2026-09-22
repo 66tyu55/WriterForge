@@ -1,0 +1,140 @@
+{
+  "name": "WriterForge",
+  "version": "12.0",
+  "phase": "reactive-evolution-literary-taste",
+  "principle": "grow novelist capability without always-on skill bloat",
+  "priority_model": {
+    "P0": "always-light",
+    "P1": "reactive",
+    "P2": "boundary",
+    "P3": "offline-heavy"
+  },
+  "assimilated_strengths": {
+    "story-skills": [
+      "deterministic continuity contracts",
+      "promise/payoff discipline"
+    ],
+    "novel-creator-skill": [
+      "two-stage retrieval thinking",
+      "checkpoint/regression mindset"
+    ],
+    "better-writing": [
+      "voice-first editing",
+      "false-positive caution",
+      "lazy loading"
+    ],
+    "NovelWritingAgent": [
+      "memory budget",
+      "canon patch",
+      "reviewer board concept"
+    ],
+    "AuthorAgent": [
+      "reviewer isolation",
+      "project lifecycle"
+    ]
+  },
+  "anti_patterns": [
+    "AI self-feedback promoted to source evidence",
+    "AI self-judgment as sole literary promotion evidence",
+    "absolute literary quality score as taste truth",
+    "all skills always on",
+    "automatic prose humanizer",
+    "craft reviewer on every sentence",
+    "fixed sensory/dialogue quotas",
+    "global recompute after local dependency change",
+    "many craft skills always on",
+    "mechanical humanizer rewrite",
+    "outline overrides discovery",
+    "reviewer per sentence",
+    "self-promotion from training-set success only",
+    "skill birth for near-duplicate mechanisms"
+  ],
+  "reader_model": {
+    "source_reader": "spoiler-blind first-pass during LEARN",
+    "predicted_reader": "cold reader during WRITE",
+    "actual_reader": "human feedback, highest priority"
+  },
+  "new_executable_modules": [
+    "reader_learning",
+    "cold_reader",
+    "reader_effects",
+    "craft_engine",
+    "reactive_runtime",
+    "taste",
+    "evolution",
+    "story_sense"
+  ],
+  "actual_reader_corpus": {
+    "record_count": 34,
+    "genre_count": 10,
+    "genre_isolated": true,
+    "runtime_priority": "P2",
+    "usage": "review evidence only, never direct prose generation"
+  },
+  "craft_engine": {
+    "architecture": "one router + one auditor",
+    "groups": [
+      "dialogue_action",
+      "perception_description",
+      "cognitive_motion",
+      "narrative_restraint",
+      "scene_turn_rhythm"
+    ],
+    "max_active_groups_per_call": 2,
+    "router_priority": "P1 explicit-trigger only",
+    "auditor_priority": "P2 explicit-review only",
+    "auto_rewrite": false,
+    "scene_contract": "select once per scene and reuse until relevant dependency invalidation",
+    "added_techniques": [
+      "narrative_magnification",
+      "motif_return",
+      "free_indirect_voice",
+      "detail_utility",
+      "strategic_reversal",
+      "punctuation_as_performance"
+    ]
+  },
+  "reactive_skill_runtime": {
+    "dependency_fingerprint": true,
+    "selective_invalidation": true,
+    "singleflight": true,
+    "idempotent_commit": true,
+    "rule": "compute may repeat; commit must be idempotent"
+  },
+  "literary_taste": {
+    "mode": "pairwise-not-absolute-score",
+    "order_swap_check": true,
+    "unstable_judgment_learnable": false,
+    "evidence_layers": [
+      "source_taste",
+      "actual_reader",
+      "project_taste",
+      "beta_reader"
+    ],
+    "human_anchor_for_promotion": true
+  },
+  "evolution_engine": {
+    "runtime_priority": "P3/offline",
+    "loop": [
+      "failure_cluster",
+      "capability_diagnosis",
+      "curriculum",
+      "heldout",
+      "transfer",
+      "regression",
+      "promotion_gate"
+    ],
+    "maturity_levels": "L1-L10 qualitative only",
+    "skill_birth_gate": "merge near-duplicates; create only distinct mechanisms",
+    "dependency_revalidation": true
+  },
+  "story_sense": {
+    "purpose": "select dominant literary problem rather than activate all valid critiques",
+    "runtime_priority": "P2 explicit literary_diagnosis/review_conflict"
+  },
+  "test_status": {
+    "passed": 64,
+    "failed": 0,
+    "suite": "python -m unittest discover -s tests -q"
+  }
+}

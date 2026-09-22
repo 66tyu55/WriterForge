@@ -1,0 +1,8 @@
+{
+  "primary_genre": "英文超级英雄_黑暗长篇",
+  "record_count": 5,
+  "works": {
+    "Worm": 5
+  },
+  "rule": "Only comments whose work belongs to this primary genre are stored here. Cross-genre traits are secondary tags only."
+}

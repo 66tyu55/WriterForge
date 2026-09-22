@@ -1,0 +1,9 @@
+{
+  "primary_genre": "悬疑_无限流_规则生存",
+  "record_count": 6,
+  "works": {
+    "十日终焉": 5,
+    "诸神愚戏": 1
+  },
+  "rule": "Only comments whose work belongs to this primary genre are stored here. Cross-genre traits are secondary tags only."
+}

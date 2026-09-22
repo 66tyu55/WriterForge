@@ -1,0 +1,510 @@
+{
+  "仙侠玄幻_宗门修炼": {
+    "record_count": 2,
+    "works": {
+      "全宗都是舔狗，小师妹是真狗": 1,
+      "满门冤种炮灰，皆由师妹带飞": 1
+    },
+    "top_signals": [
+      [
+        "reread_naturalness",
+        1
+      ],
+      [
+        "character_consistency",
+        1
+      ],
+      [
+        "twist_plausibility",
+        1
+      ],
+      [
+        "genre_comparison",
+        1
+      ],
+      [
+        "early_hook_false_positive",
+        1
+      ],
+      [
+        "midstory_decline",
+        1
+      ],
+      [
+        "world_logic_break",
+        1
+      ],
+      [
+        "overexposure",
+        1
+      ]
+    ],
+    "reader_status_examples": [
+      "54小时初评→143小时二刷追评",
+      "33分钟初评→13小时追评"
+    ],
+    "principle": "This profile is evidence from long-form/longitudinal reader comments in this genre only; do not use as a universal rule."
+  },
+  "同人_原作角色延展": {
+    "record_count": 2,
+    "works": {
+      "HP：东方留学生她只想种田": 2
+    },
+    "top_signals": [
+      [
+        "multi_reread",
+        1
+      ],
+      [
+        "voice_stability",
+        1
+      ],
+      [
+        "character_fidelity",
+        1
+      ],
+      [
+        "relationship_naturalness",
+        1
+      ],
+      [
+        "genre_expertise",
+        1
+      ],
+      [
+        "character_agency",
+        1
+      ],
+      [
+        "fanfic_fidelity",
+        1
+      ],
+      [
+        "reader_standard_raise",
+        1
+      ]
+    ],
+    "reader_status_examples": [
+      "49小时初评→214小时追评→五刷/计划六刷",
+      "约100小时，重刷5遍"
+    ],
+    "principle": "This profile is evidence from long-form/longitudinal reader comments in this genre only; do not use as a universal rule."
+  },
+  "快穿_多世界单元": {
+    "record_count": 1,
+    "works": {
+      "快穿：男配他提桶跑路了": 1
+    },
+    "top_signals": [
+      [
+        "author_growth",
+        1
+      ],
+      [
+        "early_drop_risk",
+        1
+      ],
+      [
+        "midlate_recovery",
+        1
+      ],
+      [
+        "narrative_completeness",
+        1
+      ]
+    ],
+    "reader_status_examples": [
+      "22小时初评→53小时追评→看完很久后二刷"
+    ],
+    "principle": "This profile is evidence from long-form/longitudinal reader comments in this genre only; do not use as a universal rule."
+  },
+  "悬疑_无限流_规则生存": {
+    "record_count": 6,
+    "works": {
+      "十日终焉": 5,
+      "诸神愚戏": 1
+    },
+    "top_signals": [
+      [
+        "character_memory",
+        2
+      ],
+      [
+        "character_attachment",
+        1
+      ],
+      [
+        "promise_payoff_trust",
+        1
+      ],
+      [
+        "community_identity",
+        1
+      ],
+      [
+        "postpublication_trust_collapse",
+        1
+      ],
+      [
+        "ensemble_attachment",
+        1
+      ],
+      [
+        "character_consistency",
+        1
+      ],
+      [
+        "foreshadowing_payoff",
+        1
+      ],
+      [
+        "continuity_trust",
+        1
+      ],
+      [
+        "serial_habit",
+        1
+      ],
+      [
+        "ending_dissonance",
+        1
+      ],
+      [
+        "resolution_quality",
+        1
+      ]
+    ],
+    "reader_status_examples": [
+      "追更一年以上，阅读88小时",
+      "4小时初评→77小时追评",
+      "长期每日追更",
+      "97小时，二刷",
+      "零散阅读约三年，280小时，二刷",
+      "80小时"
+    ],
+    "principle": "This profile is evidence from long-form/longitudinal reader comments in this genre only; do not use as a universal rule."
+  },
+  "游戏入侵_末世_系统生存": {
+    "record_count": 3,
+    "works": {
+      "游戏入侵：抢男女主机缘会上瘾诶": 3
+    },
+    "top_signals": [
+      [
+        "character_attachment",
+        1
+      ],
+      [
+        "symbolic_memory",
+        1
+      ],
+      [
+        "serial_commitment",
+        1
+      ],
+      [
+        "reread_intent",
+        1
+      ],
+      [
+        "reread_causal_validation",
+        1
+      ],
+      [
+        "character_growth",
+        1
+      ],
+      [
+        "world_scale_payoff",
+        1
+      ],
+      [
+        "voice_attachment",
+        1
+      ],
+      [
+        "micro_detail_power",
+        1
+      ],
+      [
+        "foreshadowing_subtlety",
+        1
+      ],
+      [
+        "character_liveness",
+        1
+      ]
+    ],
+    "reader_status_examples": [
+      "79小时追平→150小时完结→二刷",
+      "38小时，二刷200+章",
+      "109小时→161小时追评"
+    ],
+    "principle": "This profile is evidence from long-form/longitudinal reader comments in this genre only; do not use as a universal rule."
+  },
+  "英文LitRPG_史诗长篇": {
+    "record_count": 1,
+    "works": {
+      "The Wandering Inn": 1
+    },
+    "top_signals": [
+      [
+        "binge_mode_dependency",
+        1
+      ],
+      [
+        "serialization_transition",
+        1
+      ],
+      [
+        "reread_behavior",
+        1
+      ],
+      [
+        "habit",
+        1
+      ]
+    ],
+    "reader_status_examples": [
+      "一年以上，每天读数小时追平"
+    ],
+    "principle": "This profile is evidence from long-form/longitudinal reader comments in this genre only; do not use as a universal rule."
+  },
+  "英文时间循环_ProgressionFantasy": {
+    "record_count": 3,
+    "works": {
+      "The Years of Apocalypse": 1,
+      "Mother of Learning": 2
+    },
+    "top_signals": [
+      [
+        "slow_start",
+        2
+      ],
+      [
+        "early_textwall_risk",
+        1
+      ],
+      [
+        "delayed_hook",
+        1
+      ],
+      [
+        "character_growth",
+        1
+      ],
+      [
+        "genre_satisfaction",
+        1
+      ],
+      [
+        "genre_prejudice",
+        1
+      ],
+      [
+        "longform_conversion",
+        1
+      ],
+      [
+        "reread_intent",
+        1
+      ],
+      [
+        "character_bonding_delay",
+        1
+      ],
+      [
+        "pacing_inflection",
+        1
+      ],
+      [
+        "retention_threshold",
+        1
+      ]
+    ],
+    "reader_status_examples": [
+      "追平前100章",
+      "一个月左右一口气听完整系列",
+      "长期社区读者反馈"
+    ],
+    "principle": "This profile is evidence from long-form/longitudinal reader comments in this genre only; do not use as a universal rule."
+  },
+  "英文超级英雄_黑暗长篇": {
+    "record_count": 5,
+    "works": {
+      "Worm": 5
+    },
+    "top_signals": [
+      [
+        "retention_failure",
+        1
+      ],
+      [
+        "restart_behavior",
+        1
+      ],
+      [
+        "longform_memory_load",
+        1
+      ],
+      [
+        "surprise",
+        1
+      ],
+      [
+        "arc_dropout",
+        1
+      ],
+      [
+        "reengagement",
+        1
+      ],
+      [
+        "surprise_inevitability",
+        1
+      ],
+      [
+        "character_attachment",
+        1
+      ],
+      [
+        "arc_specific_dropout",
+        1
+      ],
+      [
+        "character_investment",
+        1
+      ],
+      [
+        "pacing_drag",
+        1
+      ],
+      [
+        "recovery",
+        1
+      ]
+    ],
+    "reader_status_examples": [
+      "历时约3年，中途停读约2年，最终读完",
+      "历时4年完成",
+      "约半年以上持续读完",
+      "约三周高强度沉浸读完",
+      "读完后仍持续数日反刍"
+    ],
+    "principle": "This profile is evidence from long-form/longitudinal reader comments in this genre only; do not use as a universal rule."
+  },
+  "英文进阶奇幻_ProgressionFantasy": {
+    "record_count": 2,
+    "works": {
+      "Millennial Mage": 1,
+      "Mark of the Fool": 1
+    },
+    "top_signals": [
+      [
+        "cast_turnover_cost",
+        1
+      ],
+      [
+        "worldbuilding_retention",
+        1
+      ],
+      [
+        "progression_impact",
+        1
+      ],
+      [
+        "longform_cast_attachment",
+        1
+      ],
+      [
+        "binge_retention",
+        1
+      ],
+      [
+        "filler_tolerance",
+        1
+      ],
+      [
+        "payoff",
+        1
+      ],
+      [
+        "curriculum_worldbuilding",
+        1
+      ]
+    ],
+    "reader_status_examples": [
+      "追到约242章",
+      "约10天连续追平"
+    ],
+    "principle": "This profile is evidence from long-form/longitudinal reader comments in this genre only; do not use as a universal rule."
+  },
+  "都市异能_神话_怪物": {
+    "record_count": 9,
+    "works": {
+      "我在精神病院学斩神": 3,
+      "异兽迷城": 6
+    },
+    "top_signals": [
+      [
+        "trope_fatigue",
+        1
+      ],
+      [
+        "catchphrase_overuse",
+        1
+      ],
+      [
+        "death_desensitization",
+        1
+      ],
+      [
+        "late_arc_recovery",
+        1
+      ],
+      [
+        "promise_payoff_failure",
+        1
+      ],
+      [
+        "ending_compression",
+        1
+      ],
+      [
+        "unresolved_threads",
+        1
+      ],
+      [
+        "ensemble_loss",
+        1
+      ],
+      [
+        "grief_accumulation",
+        1
+      ],
+      [
+        "system_rule_attachment",
+        1
+      ],
+      [
+        "retrospective_resonance",
+        1
+      ],
+      [
+        "supporting_character_weakness",
+        1
+      ]
+    ],
+    "reader_status_examples": [
+      "35小时初评→46小时追评，早期约70章开始看",
+      "113小时完结评论",
+      "32小时中后期评论",
+      "54小时完结后，后续改评分",
+      "看过多部后回看，34小时",
+      "42小时完结评论",
+      "84小时初评→154小时二刷追评",
+      "63小时→66小时追评"
+    ],
+    "principle": "This profile is evidence from long-form/longitudinal reader comments in this genre only; do not use as a universal rule."
+  }
+}

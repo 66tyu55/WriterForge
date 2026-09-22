@@ -1,0 +1,13 @@
+{
+  "skill": "cognitive_motion",
+  "from_level": 4,
+  "to_level": 5,
+  "capability_statement": "Can move major emotional shocks from reaction through dilemma into changed action tendency without repetitive rumination.",
+  "failure_cluster": "COGNITIVE_LOOP",
+  "bounded_changes": [],
+  "heldout_suite": [],
+  "transfer_suite": [],
+  "regression_suite": [],
+  "external_anchor_required": false,
+  "status": "candidate"
+}

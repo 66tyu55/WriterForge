@@ -1,0 +1,23 @@
+{
+  "project": {
+    "title": "",
+    "theme": "",
+    "target_effect": "",
+    "pov": "",
+    "tense": "",
+    "genre": "",
+    "constraints": []
+  },
+  "cursor": {
+    "chapter": 1,
+    "scene": 1,
+    "paragraph": 1,
+    "sentence_index": 0
+  },
+  "established_plot": [],
+  "future_beats": [],
+  "characters": {},
+  "locations": {},
+  "items": {},
+  "unresolved_threads": []
+}

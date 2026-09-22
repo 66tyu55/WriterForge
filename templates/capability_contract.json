@@ -1,0 +1,8 @@
+{
+  "name": "dialogue_craft",
+  "level": 5,
+  "statement": "Can sustain subtext across unfamiliar relationships using private/public goals and bounded character knowledge.",
+  "depends_on": {"character_engine": 5},
+  "status": "active",
+  "revision": 1
+}

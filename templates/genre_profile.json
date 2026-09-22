@@ -1,0 +1,17 @@
+{
+  "target_profile": {
+    "primary_genre": "",
+    "secondary_genres": [],
+    "desired_effects": [],
+    "world_requirements": []
+  },
+  "coverage_matrix": {
+    "genre_mechanics": {},
+    "effects": {},
+    "scene_types": {},
+    "pacing": {}
+  },
+  "sources": [],
+  "warnings": [],
+  "gaps": []
+}

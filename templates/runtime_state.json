@@ -1,0 +1,13 @@
+{
+  "mode": "IDLE",
+  "active_xuehai_snapshot": null,
+  "write_session": null,
+  "learn_session": null,
+  "middleware": {
+    "observer_enabled": true,
+    "pinned_snapshot": null,
+    "last_state_hash": null,
+    "active_dependencies": [],
+    "cache_version": 1
+  }
+}

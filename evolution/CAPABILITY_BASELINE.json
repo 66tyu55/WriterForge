@@ -1,0 +1,14 @@
+{
+  "note": "Do not assign maturity numbers from architecture alone. Calibrate with held-out literary tasks first.",
+  "status": "needs_calibration",
+  "skills": [
+    {"name": "character_engine", "level": null},
+    {"name": "dialogue_craft", "level": null, "depends_on": ["character_engine", "knowledge_ledger"]},
+    {"name": "cognitive_motion", "level": null, "depends_on": ["character_engine"]},
+    {"name": "perception_description", "level": null, "depends_on": ["pov_distance"]},
+    {"name": "narrative_restraint", "level": null},
+    {"name": "scene_turn_rhythm", "level": null, "depends_on": ["scene_planner"]},
+    {"name": "literary_taste", "level": null, "depends_on": ["reader_engine", "craft_engine"]},
+    {"name": "story_sense", "level": null, "depends_on": ["review_signals", "reader_engine"]}
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "scenario_id": "dialogue_craft:SUBTEXT_FAIL:transfer-01",
+  "capability": "dialogue_craft",
+  "split": "transfer",
+  "relationship": "ruler_subject",
+  "pressure": "duty",
+  "information_pattern": "shared_goal_value_conflict",
+  "task": "Create a scene that demonstrates the target ability without naming the technique or explaining the answer.",
+  "success_evidence": ["observable state or reader-effect change", "no answer leakage", "transfer across context"]
+}

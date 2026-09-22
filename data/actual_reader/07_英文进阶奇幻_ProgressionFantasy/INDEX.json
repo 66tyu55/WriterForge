@@ -1,0 +1,9 @@
+{
+  "primary_genre": "英文进阶奇幻_ProgressionFantasy",
+  "record_count": 2,
+  "works": {
+    "Millennial Mage": 1,
+    "Mark of the Fool": 1
+  },
+  "rule": "Only comments whose work belongs to this primary genre are stored here. Cross-genre traits are secondary tags only."
+}

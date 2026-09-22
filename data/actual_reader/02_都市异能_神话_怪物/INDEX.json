@@ -1,0 +1,9 @@
+{
+  "primary_genre": "都市异能_神话_怪物",
+  "record_count": 9,
+  "works": {
+    "我在精神病院学斩神": 3,
+    "异兽迷城": 6
+  },
+  "rule": "Only comments whose work belongs to this primary genre are stored here. Cross-genre traits are secondary tags only."
+}

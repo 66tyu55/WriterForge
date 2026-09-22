@@ -1,0 +1,175 @@
+[
+  {
+    "work": "十日终焉",
+    "primary_genre_folder": "01_悬疑_无限流_规则生存",
+    "secondary_genre_tags": [
+      "悬疑",
+      "生存",
+      "群像",
+      "规则",
+      "长期伏笔"
+    ],
+    "records": 5
+  },
+  {
+    "work": "诸神愚戏",
+    "primary_genre_folder": "01_悬疑_无限流_规则生存",
+    "secondary_genre_tags": [
+      "悬疑",
+      "无限流",
+      "副本",
+      "群像",
+      "规则"
+    ],
+    "records": 1
+  },
+  {
+    "work": "我在精神病院学斩神",
+    "primary_genre_folder": "02_都市异能_神话_怪物",
+    "secondary_genre_tags": [
+      "都市异能",
+      "神话",
+      "怪物",
+      "团队",
+      "热血"
+    ],
+    "records": 3
+  },
+  {
+    "work": "异兽迷城",
+    "primary_genre_folder": "02_都市异能_神话_怪物",
+    "secondary_genre_tags": [
+      "都市异能",
+      "异兽",
+      "悬疑",
+      "群像",
+      "悲剧"
+    ],
+    "records": 6
+  },
+  {
+    "work": "游戏入侵：抢男女主机缘会上瘾诶",
+    "primary_genre_folder": "03_游戏入侵_末世_系统生存",
+    "secondary_genre_tags": [
+      "游戏入侵",
+      "末世",
+      "系统",
+      "成长",
+      "团队"
+    ],
+    "records": 3
+  },
+  {
+    "work": "全宗都是舔狗，小师妹是真狗",
+    "primary_genre_folder": "04_仙侠玄幻_宗门修炼",
+    "secondary_genre_tags": [
+      "仙侠",
+      "玄幻",
+      "宗门",
+      "修炼",
+      "轻喜"
+    ],
+    "records": 1
+  },
+  {
+    "work": "满门冤种炮灰，皆由师妹带飞",
+    "primary_genre_folder": "04_仙侠玄幻_宗门修炼",
+    "secondary_genre_tags": [
+      "仙侠",
+      "玄幻",
+      "宗门",
+      "群像",
+      "轻喜"
+    ],
+    "records": 1
+  },
+  {
+    "work": "HP：东方留学生她只想种田",
+    "primary_genre_folder": "05_同人_原作角色延展",
+    "secondary_genre_tags": [
+      "HP同人",
+      "角色保真",
+      "关系",
+      "慢生活"
+    ],
+    "records": 2
+  },
+  {
+    "work": "快穿：男配他提桶跑路了",
+    "primary_genre_folder": "06_快穿_多世界单元",
+    "secondary_genre_tags": [
+      "快穿",
+      "多世界",
+      "单元故事",
+      "成长"
+    ],
+    "records": 1
+  },
+  {
+    "work": "Millennial Mage",
+    "primary_genre_folder": "07_英文进阶奇幻_ProgressionFantasy",
+    "secondary_genre_tags": [
+      "Progression Fantasy",
+      "Slice of Life",
+      "Magic",
+      "成长"
+    ],
+    "records": 1
+  },
+  {
+    "work": "Mark of the Fool",
+    "primary_genre_folder": "07_英文进阶奇幻_ProgressionFantasy",
+    "secondary_genre_tags": [
+      "Progression Fantasy",
+      "Magic School",
+      "Adventure"
+    ],
+    "records": 1
+  },
+  {
+    "work": "The Years of Apocalypse",
+    "primary_genre_folder": "08_英文时间循环_ProgressionFantasy",
+    "secondary_genre_tags": [
+      "Time Loop",
+      "Progression Fantasy",
+      "Magic",
+      "Mystery"
+    ],
+    "records": 1
+  },
+  {
+    "work": "Mother of Learning",
+    "primary_genre_folder": "08_英文时间循环_ProgressionFantasy",
+    "secondary_genre_tags": [
+      "Time Loop",
+      "Progression Fantasy",
+      "Magic School",
+      "Mystery"
+    ],
+    "records": 2
+  },
+  {
+    "work": "Worm",
+    "primary_genre_folder": "09_英文超级英雄_黑暗长篇",
+    "secondary_genre_tags": [
+      "Superhero",
+      "Dark",
+      "Web Serial",
+      "群像",
+      "长期升级"
+    ],
+    "records": 5
+  },
+  {
+    "work": "The Wandering Inn",
+    "primary_genre_folder": "10_英文LitRPG_史诗长篇",
+    "secondary_genre_tags": [
+      "LitRPG",
+      "Fantasy",
+      "Web Serial",
+      "Slice of Life",
+      "Epic"
+    ],
+    "records": 1
+  }
+]

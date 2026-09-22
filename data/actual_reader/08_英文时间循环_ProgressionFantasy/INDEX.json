@@ -1,0 +1,9 @@
+{
+  "primary_genre": "英文时间循环_ProgressionFantasy",
+  "record_count": 3,
+  "works": {
+    "The Years of Apocalypse": 1,
+    "Mother of Learning": 2
+  },
+  "rule": "Only comments whose work belongs to this primary genre are stored here. Cross-genre traits are secondary tags only."
+}

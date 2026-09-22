@@ -1,0 +1,23 @@
+{
+  "character_id": "",
+  "identity": {},
+  "long_term_desire": "",
+  "current_desire": "",
+  "fear": "",
+  "belief": "",
+  "misbelief": "",
+  "secret": "",
+  "current_goal": "",
+  "current_obstacle": "",
+  "physical_state": {},
+  "emotional_state": {},
+  "knowledge": {
+    "knows": [],
+    "suspects": [],
+    "does_not_know": []
+  },
+  "inventory": [],
+  "relationships": {},
+  "promises": [],
+  "recent_change": []
+}

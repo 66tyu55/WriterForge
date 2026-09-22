@@ -1,0 +1,20 @@
+{
+  "instructions": "Randomize A/B labels. Reviewer must not know which system generated each text.",
+  "scale": "1-5",
+  "dimensions": [
+    "continue_reading",
+    "character_alive",
+    "causal_believability",
+    "surprise_without_randomness",
+    "voice_distinctiveness",
+    "emotional_residue",
+    "predictability_inverse",
+    "prose_naturalness"
+  ],
+  "free_response": [
+    "where_attention_dropped",
+    "most_memorable_detail",
+    "felt_artificial_where",
+    "unanswered_question_you_care_about"
+  ]
+}
