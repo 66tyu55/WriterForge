@@ -134,7 +134,7 @@ DEFAULT_EVENT_DIRTY: dict[str, DirtyDomain] = {
     "interiority_risk": DirtyDomain.CRAFT,
     "narrative_restraint_risk": DirtyDomain.CRAFT,
     # Safe fallback: boundary itself does not imply every deep domain is dirty.
-    "scene_boundary": DirtyDomain.CONTINUITY | DirtyDomain.MEMORY | DirtyDomain.PROMISE | DirtyDomain.VOICE,
+    "scene_boundary": DirtyDomain.CONTINUITY | DirtyDomain.CAUSALITY | DirtyDomain.CHARACTER | DirtyDomain.MEMORY | DirtyDomain.PROMISE | DirtyDomain.VOICE,
     "chapter_boundary": DirtyDomain.MEMORY | DirtyDomain.PROMISE | DirtyDomain.READER,
     "reader_critical_scene": DirtyDomain.READER,
     "reader_risk": DirtyDomain.READER,
