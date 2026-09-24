@@ -46,7 +46,7 @@ from .embodied_scene import (
 )
 
 from .story_work_tree import (
-    WorkKind, WorkNode, BeginResult, WorkLoopResult, StoryWorkRoot, StoryWorkLoop,
+    WorkKind, WorkNode, PendingUpdate, BeginResult, WorkLoopResult, StoryWorkRoot, StoryWorkLoop,
     create_work_in_progress, clone_child_chain, mark_update_lane_from_node_to_root,
     begin_work, complete_work, iter_tree, find_node, repair_parent_links,
 )

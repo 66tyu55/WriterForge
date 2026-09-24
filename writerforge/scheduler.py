@@ -308,7 +308,6 @@ class SkillScheduler:
                 priority=int(priority_for_event(event.name)),
             )
         self.event_batcher.push(event)
-        self.task_queue.advance_generation(event.scope, event.generation)
 
     def flush_pending(
         self,
@@ -321,6 +320,7 @@ class SkillScheduler:
         skipped_trigger: list[str] = []
         skipped_dirty: list[str] = []
         for batch in batches:
+            self.task_queue.advance_generation(batch.scope, batch.generation)
             event_names = set(batch.names)
             matches, st, sd = self._matching(
                 event_names=event_names,

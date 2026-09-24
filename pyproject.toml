@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "writerforge"
-version = "17.0.0"
+version = "18.0.0"
 description = "Executable kernel for the WriterForge literary system"
 requires-python = ">=3.10"
 
