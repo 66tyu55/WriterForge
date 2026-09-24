@@ -1,5 +1,16 @@
 # Changelog
 
+## v17.0.0 — 2026-09-24
+
+- Added Story Work Tree with Book/Arc/Chapter/Scene/capability nodes.
+- Added reusable current/workInProgress double buffering.
+- Added leaf-to-root lane propagation through child_lanes.
+- Added begin-work subtree bailout so unrelated story branches are skipped.
+- Added complete-work bubbling of surviving child lanes and subtree activity.
+- Added explicit WIP discard and adopt-after-commit boundary; rendering remains side-effect free.
+- Added V17 regression tests for double-buffer reuse, local invalidation, bailout and zero-side-effect rejection.
+
+
 ## v16.0.0 — 2026-09-24
 
 - Added four-level EventPriority: DISCRETE, CONTINUOUS, DEFAULT, IDLE.

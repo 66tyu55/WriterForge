@@ -1,8 +1,8 @@
 {
   "name": "WriterForge",
-  "version": "16.0",
-  "phase": "event-priority-lane-root-runtime",
-  "principle": "small event API, rich internal scheduler, tiny active literary route",
+  "version": "17.0",
+  "phase": "story-work-tree-reconciler",
+  "principle": "local story change, local work; speculative tree before durable commit",
   "runtime": {
     "lanes": [
       "SYNC",
@@ -36,7 +36,15 @@
       "entangled": true
     },
     "transitive_entanglement": true,
-    "source_priority_tiebreak": true
+    "source_priority_tiebreak": true,
+    "story_work_tree": {
+      "double_buffer": true,
+      "child_lane_bubbling": true,
+      "subtree_bailout": true,
+      "begin_complete_phases": true,
+      "durable_side_effects_in_render": false,
+      "keyed_reorder_reconciliation": false
+    }
   },
   "craft_engine": {
     "groups": [
@@ -60,8 +68,8 @@
   ],
   "test_status": {
     "suite": "python -m unittest discover -s tests -q",
-    "passed": 107,
+    "passed": 116,
     "failed": 0,
-    "status": "verified by GitHub CI on V16 PR"
+    "status": "verified by GitHub CI on V17 PR"
   }
 }

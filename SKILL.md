@@ -1,12 +1,12 @@
 ---
-name: writer-forge-v16
+name: writer-forge-v17
 description: >
   Long-form fiction runtime with Reader-First source learning, reactive lane scheduling,
   dependency-driven context loading, controlled self-evolution, story-sense routing,
   embodied scene causality, and pairwise literary taste. Designed for novels, not generic copywriting.
 ---
 
-# WriterForge V16
+# WriterForge V17
 
 WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutually exclusive.
 
@@ -14,7 +14,7 @@ WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutuall
 
 Capability library size must not determine per-turn cost.
 
-WriterForge V16 schedules work as:
+WriterForge V17 schedules work as:
 
 `App Shell -> Route -> Dirty Feature Chunk -> Background Worker`
 
@@ -75,3 +75,10 @@ Business events expose only four urgency levels: `DISCRETE / CONTINUOUS / DEFAUL
 Each logical root may track `pending / suspended / pinged / warm / expired / entangled` lanes. Missing evidence suspends work instead of forcing retries; arriving evidence pings the lane. Semantically coupled updates may be entangled so Character/Knowledge/Reader state cannot expose a half-updated logical version.
 
 Event priority orders source events; it does not promote expensive Reader/Taste/Offline work into synchronous execution.
+
+
+## Story Work Tree
+
+Book/Arc/Chapter/Scene capability state is organized as a lazy work tree. Each node has own lanes plus aggregated child lanes. A local change bubbles only through its ancestor path; unrelated sibling subtrees can bailout.
+
+Rendering uses a reusable current/workInProgress double buffer. Begin/complete phases are compute-only. The finished computation tree may replace current only after the outer durable Story Commit succeeds. Rejected candidates discard WIP with zero durable side effects.
