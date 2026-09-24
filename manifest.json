@@ -68,6 +68,8 @@
   ],
   "test_status": {
     "suite": "python -m unittest discover -s tests -q",
-    "status": "pending GitHub CI for V17 PR"
+    "passed": 116,
+    "failed": 0,
+    "status": "verified by GitHub CI on V17 PR"
   }
 }

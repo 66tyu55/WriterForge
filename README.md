@@ -86,3 +86,5 @@ Book -> Arc -> Chapter -> Scene -> capability nodes
 A dirty leaf marks its own lane and bubbles child_lanes only through ancestors. Begin work can bailout an unchanged subtree; complete work bubbles surviving lanes upward. The accepted computation tree and speculative work-in-progress tree are double-buffered and the alternate is reused.
 
 This tree remains compute-only. It does not mutate accepted prose or Canon, and swapping current is allowed only after the existing outer Commit succeeds.
+
+V17 GitHub CI regression: **116 / 116 passed**.
