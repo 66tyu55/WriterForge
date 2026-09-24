@@ -1,5 +1,17 @@
 # Changelog
 
+## v16.0.0 — 2026-09-24
+
+- Added four-level EventPriority: DISCRETE, CONTINUOUS, DEFAULT, IDLE.
+- Separated source-event urgency from seven execution lanes so business code no longer chooses scheduler lanes directly.
+- Same-scope batches inherit the highest source event priority; same-lane tasks use source priority only as a tiebreaker.
+- Added LaneRootState with pending, suspended, pinged, warm, expired and entangled lane sets.
+- Added transitive lane entanglement for logically coupled story state.
+- Added root-level starvation expiration for foreground lanes while OFFLINE/IDLE remain non-expiring by default.
+- Added interruption rule that preserves useful work-in-progress unless incoming work is truly more urgent.
+- Added V16 regression coverage for event priority, batching, suspension/ping, entanglement, expiration and scheduler inference.
+
+
 ## v15.0.0 — 2026-09-24
 
 - Added lane-scheduled runtime: SYNC, DRAFT, REACTIVE, BOUNDARY, TRANSITION, OFFLINE, IDLE.

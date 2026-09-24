@@ -1,12 +1,12 @@
 ---
-name: writer-forge-v15
+name: writer-forge-v16
 description: >
   Long-form fiction runtime with Reader-First source learning, reactive lane scheduling,
   dependency-driven context loading, controlled self-evolution, story-sense routing,
   embodied scene causality, and pairwise literary taste. Designed for novels, not generic copywriting.
 ---
 
-# WriterForge V15
+# WriterForge V16
 
 WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutually exclusive.
 
@@ -14,7 +14,7 @@ WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutuall
 
 Capability library size must not determine per-turn cost.
 
-WriterForge V15 schedules work as:
+WriterForge V16 schedules work as:
 
 `App Shell -> Route -> Dirty Feature Chunk -> Background Worker`
 
@@ -66,3 +66,12 @@ Planning, simulation, routing, retrieval, review and candidate generation are di
 Only Commit Boundary mutates accepted prose, Canon, Character State, Promise State, Motif State or long-term project memory.
 
 `Compute twice is okay. Commit twice is a bug.`
+
+
+## Event Priority + Lane Root
+
+Business events expose only four urgency levels: `DISCRETE / CONTINUOUS / DEFAULT / IDLE`. Capability execution still uses the seven WriterForge lanes.
+
+Each logical root may track `pending / suspended / pinged / warm / expired / entangled` lanes. Missing evidence suspends work instead of forcing retries; arriving evidence pings the lane. Semantically coupled updates may be entangled so Character/Knowledge/Reader state cannot expose a half-updated logical version.
+
+Event priority orders source events; it does not promote expensive Reader/Taste/Offline work into synchronous execution.

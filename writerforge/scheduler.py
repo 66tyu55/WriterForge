@@ -7,6 +7,7 @@ from .lane_scheduler import (
     Lane, DirtyDomain, EventEnvelope, EventBatcher,
     LaneTask, LaneTaskQueue,
 )
+from .event_priorities import priority_for_event
 
 
 class Priority(IntEnum):
@@ -295,6 +296,17 @@ class SkillScheduler:
         )
 
     def enqueue_event(self, event: EventEnvelope) -> None:
+        # Business callers may omit priority. Keep the public event API small and
+        # infer urgency here instead of forcing every caller to know lane details.
+        if event.priority is None:
+            event = EventEnvelope(
+                name=event.name,
+                scope=event.scope,
+                dirty=event.dirty,
+                generation=event.generation,
+                transition_id=event.transition_id,
+                priority=int(priority_for_event(event.name)),
+            )
         self.event_batcher.push(event)
         self.task_queue.advance_generation(event.scope, event.generation)
 
@@ -331,6 +343,7 @@ class SkillScheduler:
                     timeout_ticks=c.timeout_ticks,
                     transition_id=transition_id,
                     cancel_if_stale=c.cancel_if_stale,
+                    source_priority=batch.priority,
                 ), now_tick=now_tick)
 
         out = self.task_queue.flush(
