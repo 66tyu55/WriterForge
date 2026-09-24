@@ -197,8 +197,16 @@ class LaneRootState:
                 return Lane.NONE
             candidate_pool = pinged
 
-        next_lanes = highest_priority_lane(candidate_pool)
-        next_lanes = self.get_entangled_lanes(next_lanes)
+        next_lanes = Lane.NONE
+        for concrete in iter_lanes(candidate_pool):
+            expanded = self.get_entangled_lanes(concrete)
+            blocked = expanded & self.suspended & ~self.pinged
+            if blocked != Lane.NONE:
+                continue
+            next_lanes = expanded
+            break
+        if next_lanes == Lane.NONE:
+            return Lane.NONE
 
         # Preserve useful in-progress work unless the incoming lane is truly more urgent.
         if (
@@ -273,62 +281,58 @@ class BatchedEvent:
     priority: int | None = None
 
 
+@dataclass
+class _BatchAccumulator:
+    names: list[str] = field(default_factory=list)
+    seen_names: set[str] = field(default_factory=set)
+    dirty: DirtyDomain = DirtyDomain.NONE
+    generation: int = 0
+    transition_ids: list[str] = field(default_factory=list)
+    seen_transitions: set[str] = field(default_factory=set)
+    priority: int | None = None
+
+
 class EventBatcher:
-    """
-    Coalesces events for the same scope before scheduling.
-
-    This is batching, not object pooling. Multiple deltas in one logical turn become
-    one dirty-domain mask so guards/retrieval/review are scheduled once.
-    """
-
-    def __init__(self) -> None:
-        self._pending: dict[str, list[EventEnvelope]] = {}
-
-    def push(self, event: EventEnvelope) -> None:
-        self._pending.setdefault(event.scope, []).append(event)
+    def __init__(self, *, max_transition_ids_per_scope: int = 16) -> None:
+        self._pending: dict[str, _BatchAccumulator] = {}
+        self.max_transition_ids_per_scope = max(1, max_transition_ids_per_scope)
 
     @staticmethod
     def _merge_priority(a: int | None, b: int | None) -> int | None:
-        if a is None:
-            return b
-        if b is None:
-            return a
-        if a == 0:
-            return b
-        if b == 0:
-            return a
+        if a is None: return b
+        if b is None: return a
+        if a == 0: return b
+        if b == 0: return a
         return min(a, b)
+
+    def push(self, event: EventEnvelope) -> None:
+        acc = self._pending.setdefault(event.scope, _BatchAccumulator())
+        if event.name not in acc.seen_names:
+            acc.seen_names.add(event.name)
+            acc.names.append(event.name)
+        acc.dirty |= event.dirty
+        acc.generation = max(acc.generation, event.generation)
+        acc.priority = self._merge_priority(acc.priority, event.priority)
+        if event.transition_id and event.transition_id not in acc.seen_transitions:
+            acc.seen_transitions.add(event.transition_id)
+            acc.transition_ids.append(event.transition_id)
+            if len(acc.transition_ids) > self.max_transition_ids_per_scope:
+                dropped = acc.transition_ids.pop(0)
+                acc.seen_transitions.discard(dropped)
 
     def flush(self, scope: str | None = None) -> tuple[BatchedEvent, ...]:
         scopes = [scope] if scope is not None else list(self._pending)
-        out: list[BatchedEvent] = []
+        out = []
         for key in scopes:
-            events = self._pending.pop(key, [])
-            if not events:
+            acc = self._pending.pop(key, None)
+            if acc is None:
                 continue
-            names: list[str] = []
-            seen_names: set[str] = set()
-            dirty = DirtyDomain.NONE
-            generation = 0
-            transition_ids: list[str] = []
-            seen_transitions: set[str] = set()
-            priority: int | None = None
-            for event in events:
-                if event.name not in seen_names:
-                    seen_names.add(event.name)
-                    names.append(event.name)
-                dirty |= event.dirty
-                generation = max(generation, event.generation)
-                priority = self._merge_priority(priority, event.priority)
-                if event.transition_id and event.transition_id not in seen_transitions:
-                    seen_transitions.add(event.transition_id)
-                    transition_ids.append(event.transition_id)
-            out.append(BatchedEvent(
-                tuple(names), key, dirty, generation, tuple(transition_ids), priority
-            ))
-        # Process more urgent source events first across independent scopes.
+            out.append(BatchedEvent(tuple(acc.names), key, acc.dirty, acc.generation, tuple(acc.transition_ids), acc.priority))
         out.sort(key=lambda x: (x.priority if x.priority not in (None, 0) else 999, x.scope))
         return tuple(out)
+
+    def pending_scope_count(self) -> int:
+        return len(self._pending)
 
 
 @dataclass(frozen=True)
@@ -380,6 +384,7 @@ class LaneTaskQueue:
         self._sequence = itertools.count()
         self._dedupe: set[tuple[str, str, str, int]] = set()
         self._latest_generation: dict[str, int] = {}
+        self._scope_pending: dict[str, int] = {}
 
     @staticmethod
     def _rank(lane: Lane) -> int:
@@ -408,13 +413,24 @@ class LaneTaskQueue:
         if key in self._dedupe:
             return False
         self._dedupe.add(key)
+        self._scope_pending[task.scope] = self._scope_pending.get(task.scope, 0) + 1
         seq = next(self._sequence)
         item = _HeapItem(self._sort_key(task, now_tick), seq, task, now_tick)
         heapq.heappush(self._heap, item)
         return True
 
     def advance_generation(self, scope: str, generation: int) -> None:
-        self._latest_generation[scope] = max(generation, self._latest_generation.get(scope, generation))
+        if self._scope_pending.get(scope, 0) > 0:
+            self._latest_generation[scope] = max(generation, self._latest_generation.get(scope, generation))
+
+    def _release_task(self, task: LaneTask, key: tuple[str, str, str, int]) -> None:
+        self._dedupe.discard(key)
+        count = self._scope_pending.get(task.scope, 0) - 1
+        if count <= 0:
+            self._scope_pending.pop(task.scope, None)
+            self._latest_generation.pop(task.scope, None)
+        else:
+            self._scope_pending[task.scope] = count
 
     def _is_stale(self, task: LaneTask) -> bool:
         if not task.cancel_if_stale:
@@ -457,7 +473,7 @@ class LaneTaskQueue:
             key = (task.scope, task.name, task.fingerprint, task.generation)
 
             if self._is_stale(task):
-                self._dedupe.discard(key)
+                self._release_task(task, key)
                 dropped.append(task.name)
                 continue
 
@@ -472,7 +488,7 @@ class LaneTaskQueue:
 
             selected.append(task)
             spent += task.cost
-            self._dedupe.discard(key)
+            self._release_task(task, key)
             if spent >= budget:
                 break
 
@@ -493,3 +509,6 @@ class LaneTaskQueue:
 
     def pending_count(self) -> int:
         return len(self._heap)
+
+    def tracked_scope_count(self) -> int:
+        return len(self._latest_generation)

@@ -1,4 +1,4 @@
-# WriterForge V17 — Story Work Tree Reconciler
+# WriterForge V18 — Runtime Closure & Leak Hardening
 
 WriterForge is a long-form fiction system built around strict LEARN / WRITE separation, Reader-First source learning, Canon/Character/Knowledge/Promise memory, lean Craft routing, Literary Taste, Story Sense and controlled Evolution.
 
@@ -88,3 +88,8 @@ A dirty leaf marks its own lane and bubbles child_lanes only through ancestors. 
 This tree remains compute-only. It does not mutate accepted prose or Canon, and swapping current is allowed only after the existing outer Commit succeeds.
 
 V17 GitHub CI regression: **116 / 116 passed**.
+
+
+## V18
+
+Closes compute-side lifecycle leaks: per-lane pending updates, reject cleanup, bounded caches, stale-inflight protection, aggregate event batching, queue scope cleanup, and suspended-entanglement guarding. The remaining closure gap is transactional durable StoryEffect commit.

@@ -4,8 +4,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Iterator
 
-from .lane_scheduler import Lane, LaneRootState
+from .lane_scheduler import Lane, LaneRootState, iter_lanes
 from .reactive_runtime import stable_fingerprint
+
+
+_UNSET = object()
 
 
 class WorkKind(str, Enum):
@@ -22,16 +25,15 @@ class WorkKind(str, Enum):
     GENERIC = "generic"
 
 
+@dataclass(frozen=True)
+class PendingUpdate:
+    state: Any
+    fingerprint: str
+    sequence: int
+
+
 @dataclass
 class WorkNode:
-    """
-    One node in WriterForge's Story Work Tree.
-
-    current and alternate form a two-version buffer. The tree is purely
-    computational: creating/reconciling a work-in-progress tree must never
-    mutate accepted prose, Canon, or durable story state.
-    """
-
     key: str
     kind: WorkKind = WorkKind.GENERIC
     pending_state: Any = None
@@ -40,6 +42,7 @@ class WorkNode:
     memoized_fingerprint: str = ""
     lanes: Lane = Lane.NONE
     child_lanes: Lane = Lane.NONE
+    pending_updates: dict[Lane, PendingUpdate] = field(default_factory=dict)
 
     parent: WorkNode | None = field(default=None, repr=False)
     child: WorkNode | None = field(default=None, repr=False)
@@ -94,19 +97,31 @@ class WorkLoopResult:
 ComputeFn = Callable[[WorkNode | None, WorkNode], tuple[Any, str] | Any]
 
 
+def _latest_update(node: WorkNode, lanes: Lane | None = None) -> PendingUpdate | None:
+    updates = [
+        update
+        for lane, update in node.pending_updates.items()
+        if lanes is None or bool(lane & lanes)
+    ]
+    return max(updates, key=lambda x: x.sequence) if updates else None
+
+
+def _sync_pending_view(node: WorkNode) -> None:
+    update = _latest_update(node)
+    if update is None:
+        node.pending_state = node.memoized_state
+        node.pending_fingerprint = node.memoized_fingerprint
+    else:
+        node.pending_state = update.state
+        node.pending_fingerprint = update.fingerprint
+
+
 def create_work_in_progress(
     current: WorkNode,
     *,
-    pending_state: Any = None,
+    pending_state: Any = _UNSET,
     pending_fingerprint: str | None = None,
 ) -> WorkNode:
-    """
-    Create or reuse the alternate node.
-
-    The alternate is lazily allocated and then reused. Per-render fields are
-    reset while memoized state, lanes, and current child pointers are copied.
-    Children are cloned lazily only when their subtree actually needs work.
-    """
     wip = current.alternate
     if wip is None:
         wip = WorkNode(key=current.key, kind=current.kind)
@@ -118,23 +133,12 @@ def create_work_in_progress(
     wip.parent = None
     wip.sibling = None
     wip.child = current.child
-
     wip.memoized_state = current.memoized_state
     wip.memoized_fingerprint = current.memoized_fingerprint
+    wip.pending_updates = dict(current.pending_updates)
 
-    # Carry an already-scheduled pending input from current into WIP. If the
-    # current node has no explicit pending input, fall back to its memoized
-    # accepted computation state.
-    if pending_state is None:
-        wip.pending_state = (
-            current.pending_state
-            if current.pending_state is not None
-            else current.memoized_state
-        )
-        wip.pending_fingerprint = (
-            current.pending_fingerprint
-            or current.memoized_fingerprint
-        )
+    if pending_state is _UNSET:
+        _sync_pending_view(wip)
     else:
         wip.pending_state = pending_state
         wip.pending_fingerprint = (
@@ -176,10 +180,6 @@ def clone_child_chain(current: WorkNode, wip: WorkNode) -> WorkNode | None:
 
 
 def mark_update_lane_from_node_to_root(node: WorkNode, lane: Lane) -> WorkNode:
-    """
-    Mark one node dirty and bubble only child-lane metadata through its ancestors.
-    Unrelated sibling subtrees remain clean.
-    """
     node.lanes |= lane
     if node.alternate is not None:
         node.alternate.lanes |= lane
@@ -206,24 +206,33 @@ def begin_work(
     *,
     compute: ComputeFn | None = None,
 ) -> BeginResult:
-    """
-    Begin phase: decide whether this node needs work and whether its subtree can
-    be skipped. No durable side effects are allowed here.
-    """
     own_work = _has_lane(wip.lanes, render_lanes)
+    selected_update = _latest_update(wip, render_lanes)
+    selected_fingerprint = (
+        selected_update.fingerprint
+        if selected_update is not None
+        else wip.pending_fingerprint
+    )
     same_input = (
         current is not None
-        and wip.pending_fingerprint == current.memoized_fingerprint
+        and selected_fingerprint == current.memoized_fingerprint
     )
 
     if current is not None and not own_work and same_input:
         if not _has_lane(wip.child_lanes, render_lanes):
             wip.child = current.child
             return BeginResult(None, bailed_out=True, subtree_bailout=True)
-        child = clone_child_chain(current, wip)
-        return BeginResult(child, bailed_out=True, subtree_bailout=False)
+        return BeginResult(
+            clone_child_chain(current, wip),
+            bailed_out=True,
+            subtree_bailout=False,
+        )
 
     if own_work or current is None or not same_input:
+        if selected_update is not None:
+            wip.pending_state = selected_update.state
+            wip.pending_fingerprint = selected_update.fingerprint
+
         if compute is not None:
             computed = compute(current, wip)
             if isinstance(computed, tuple) and len(computed) == 2:
@@ -239,12 +248,13 @@ def begin_work(
                 wip.pending_fingerprint
                 or stable_fingerprint(wip.pending_state)
             )
-        # Once this speculative node has consumed its pending input, keep its
-        # pending/memoized views aligned. A later update will replace pending.
-        wip.pending_state = wip.memoized_state
-        wip.pending_fingerprint = wip.memoized_fingerprint
-        wip.did_work = True
+
+        for concrete in tuple(wip.pending_updates):
+            if concrete & render_lanes:
+                wip.pending_updates.pop(concrete, None)
         wip.lanes &= ~render_lanes
+        _sync_pending_view(wip)
+        wip.did_work = True
 
     if current is None:
         child = wip.child
@@ -260,11 +270,6 @@ def begin_work(
 
 
 def complete_work(wip: WorkNode) -> None:
-    """
-    Complete phase: bubble surviving child lanes and a cheap subtree-work flag.
-    This prepares metadata only; Story/Canon mutation belongs to the later
-    transactional commit phase.
-    """
     child_lanes = Lane.NONE
     subtree_did_work = False
     child = wip.child
@@ -293,7 +298,6 @@ def find_node(root: WorkNode, key: str) -> WorkNode | None:
 
 
 def repair_parent_links(root: WorkNode) -> None:
-    """Repair parent pointers after a finished tree becomes current."""
     root.parent = None
     stack = [root]
     while stack:
@@ -307,37 +311,65 @@ def repair_parent_links(root: WorkNode) -> None:
         stack.extend(reversed(children))
 
 
+def _recompute_child_lanes(root: WorkNode) -> None:
+    nodes = list(iter_tree(root))
+    for node in reversed(nodes):
+        child_lanes = Lane.NONE
+        child = node.child
+        while child is not None:
+            child_lanes |= child.lanes | child.child_lanes
+            child = child.sibling
+        node.child_lanes = child_lanes
+
+
+def _detach_alternates(root: WorkNode) -> None:
+    for node in list(iter_tree(root)):
+        alt = node.alternate
+        node.alternate = None
+        if alt is not None and alt.alternate is node:
+            alt.alternate = None
+
+
 @dataclass
 class StoryWorkRoot:
-    """
-    Owns accepted computation tree current and one speculative WIP tree.
-    adopt_after_commit must only be called after the outer Story Commit succeeds.
-    """
-
     current: WorkNode
     lane_state: LaneRootState = field(default_factory=LaneRootState)
     work_in_progress: WorkNode | None = None
     finished_work: WorkNode | None = None
     render_lanes: Lane = Lane.NONE
+    _update_sequence: int = 0
 
     def schedule_update(
         self,
         node: WorkNode,
         lane: Lane,
         *,
-        pending_state: Any = None,
+        pending_state: Any = _UNSET,
         pending_fingerprint: str | None = None,
         now_tick: int = 0,
     ) -> None:
-        if pending_state is not None:
-            node.pending_state = pending_state
-            node.pending_fingerprint = (
+        self._update_sequence += 1
+
+        if pending_state is _UNSET:
+            update_state = node.memoized_state
+            update_fingerprint = (
+                pending_fingerprint
+                if pending_fingerprint is not None
+                else node.memoized_fingerprint
+            )
+        else:
+            update_state = pending_state
+            update_fingerprint = (
                 pending_fingerprint
                 if pending_fingerprint is not None
                 else stable_fingerprint(pending_state)
             )
-        elif pending_fingerprint is not None:
-            node.pending_fingerprint = pending_fingerprint
+
+        update = PendingUpdate(update_state, update_fingerprint, self._update_sequence)
+        for concrete in iter_lanes(lane):
+            node.pending_updates[concrete] = update
+        _sync_pending_view(node)
+
         tree_root = mark_update_lane_from_node_to_root(node, lane)
         if tree_root is not self.current:
             raise ValueError("scheduled node does not belong to current root")
@@ -356,26 +388,32 @@ class StoryWorkRoot:
     def mark_finished(self, root: WorkNode) -> None:
         self.finished_work = root
 
-    def discard_finished(self) -> None:
+    def discard_finished(self, *, drop_rendered_updates: bool = True) -> None:
+        rendered = self.render_lanes
+        if drop_rendered_updates and rendered != Lane.NONE:
+            for node in iter_tree(self.current):
+                for concrete in tuple(node.pending_updates):
+                    if concrete & rendered:
+                        node.pending_updates.pop(concrete, None)
+                node.lanes &= ~rendered
+                _sync_pending_view(node)
+            _recompute_child_lanes(self.current)
+            remaining = self.current.lanes | self.current.child_lanes
+            self.lane_state.mark_finished(finished=rendered, remaining=remaining)
+
+        _detach_alternates(self.current)
         self.work_in_progress = None
         self.finished_work = None
         self.render_lanes = Lane.NONE
 
     def adopt_after_commit(self) -> WorkNode:
-        """
-        Swap the computation tree only after the caller's durable Commit succeeds.
-        This method does not itself write prose, Canon, DB state, or files.
-        """
         if self.finished_work is None:
             raise ValueError("no finished work to adopt")
         finished = self.finished_work
         remaining = finished.lanes | finished.child_lanes
         self.current = finished
         repair_parent_links(self.current)
-        self.lane_state.mark_finished(
-            finished=self.render_lanes,
-            remaining=remaining,
-        )
+        self.lane_state.mark_finished(finished=self.render_lanes, remaining=remaining)
         self.work_in_progress = None
         self.finished_work = None
         self.render_lanes = Lane.NONE
@@ -383,13 +421,6 @@ class StoryWorkRoot:
 
 
 class StoryWorkLoop:
-    """
-    Deterministic depth-first begin/complete loop.
-
-    V17 intentionally does not implement wall-clock yielding or durable effects.
-    Those belong to later scheduler/commit phases.
-    """
-
     def render(
         self,
         root: StoryWorkRoot,
@@ -420,13 +451,7 @@ class StoryWorkLoop:
             unit = self._complete_unit(unit, completed)
 
         root.mark_finished(work)
-        return WorkLoopResult(
-            render_lanes=lanes,
-            visited=tuple(visited),
-            completed=tuple(completed),
-            bailed_subtrees=tuple(bailed),
-            units=units,
-        )
+        return WorkLoopResult(lanes, tuple(visited), tuple(completed), tuple(bailed), units)
 
     @staticmethod
     def _complete_unit(unit: WorkNode, completed: list[str]) -> WorkNode | None:

@@ -1,5 +1,14 @@
 # Changelog
 
+## v18.0.0 — 2026-09-24
+
+- Hardened WorkTree pending updates, rejection cleanup, cache bounds, event batching and task-scope cleanup.
+- Prevented invalidated in-flight computations from caching stale results.
+- Prevented suspended entangled lanes from partial rendering.
+- Added 100-commit bounded-graph stress coverage.
+- Documented the remaining durable transaction gap.
+
+
 ## v17.0.0 — 2026-09-24
 
 - Added Story Work Tree with Book/Arc/Chapter/Scene/capability nodes.
