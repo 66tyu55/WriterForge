@@ -96,6 +96,19 @@ class V17StoryWorkTreeTests(unittest.TestCase):
         self.assertTrue(root.current.child_lanes & Lane.REACTIVE)
         self.assertTrue(root.lane_state.pending & Lane.REACTIVE)
 
+    def test_bailed_shared_subtree_parent_chain_is_repaired_after_commit(self):
+        current, leaf = build_tree()
+        root = StoryWorkRoot(current)
+        root.schedule_update(leaf, Lane.DRAFT, pending_state={"text": "B2"})
+        StoryWorkLoop().render(root, render_lanes=Lane.DRAFT)
+        root.adopt_after_commit()
+
+        # ch1/s1 was bailed out and may have been structurally shared. Once the
+        # new tree becomes current, future dirty propagation must still reach it.
+        s1 = find_node(root.current, "s1")
+        root.schedule_update(s1, Lane.REACTIVE, pending_state={"text": "A2"})
+        self.assertTrue(root.current.child_lanes & Lane.REACTIVE)
+
     def test_alternate_becomes_reusable_after_commit(self):
         current, leaf = build_tree()
         root = StoryWorkRoot(current)

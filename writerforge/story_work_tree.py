@@ -121,13 +121,27 @@ def create_work_in_progress(
 
     wip.memoized_state = current.memoized_state
     wip.memoized_fingerprint = current.memoized_fingerprint
-    wip.pending_state = current.memoized_state if pending_state is None else pending_state
-    if pending_fingerprint is not None:
-        wip.pending_fingerprint = pending_fingerprint
-    elif pending_state is None:
-        wip.pending_fingerprint = current.memoized_fingerprint
+
+    # Carry an already-scheduled pending input from current into WIP. If the
+    # current node has no explicit pending input, fall back to its memoized
+    # accepted computation state.
+    if pending_state is None:
+        wip.pending_state = (
+            current.pending_state
+            if current.pending_state is not None
+            else current.memoized_state
+        )
+        wip.pending_fingerprint = (
+            current.pending_fingerprint
+            or current.memoized_fingerprint
+        )
     else:
-        wip.pending_fingerprint = stable_fingerprint(pending_state)
+        wip.pending_state = pending_state
+        wip.pending_fingerprint = (
+            pending_fingerprint
+            if pending_fingerprint is not None
+            else stable_fingerprint(pending_state)
+        )
 
     wip.lanes = current.lanes
     wip.child_lanes = current.child_lanes
@@ -225,6 +239,10 @@ def begin_work(
                 wip.pending_fingerprint
                 or stable_fingerprint(wip.pending_state)
             )
+        # Once this speculative node has consumed its pending input, keep its
+        # pending/memoized views aligned. A later update will replace pending.
+        wip.pending_state = wip.memoized_state
+        wip.pending_fingerprint = wip.memoized_fingerprint
         wip.did_work = True
         wip.lanes &= ~render_lanes
 
@@ -253,8 +271,6 @@ def complete_work(wip: WorkNode) -> None:
     while child is not None:
         child_lanes |= child.lanes | child.child_lanes
         subtree_did_work = subtree_did_work or child.did_work or child.subtree_did_work
-        if child.alternate is not None and child.parent is not wip:
-            child.parent = wip
         child = child.sibling
     wip.child_lanes = child_lanes
     wip.subtree_did_work = subtree_did_work
@@ -274,6 +290,21 @@ def find_node(root: WorkNode, key: str) -> WorkNode | None:
         if node.key == key:
             return node
     return None
+
+
+def repair_parent_links(root: WorkNode) -> None:
+    """Repair parent pointers after a finished tree becomes current."""
+    root.parent = None
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        child = node.child
+        children = []
+        while child is not None:
+            child.parent = node
+            children.append(child)
+            child = child.sibling
+        stack.extend(reversed(children))
 
 
 @dataclass
@@ -340,7 +371,7 @@ class StoryWorkRoot:
         finished = self.finished_work
         remaining = finished.lanes | finished.child_lanes
         self.current = finished
-        self.current.parent = None
+        repair_parent_links(self.current)
         self.lane_state.mark_finished(
             finished=self.render_lanes,
             remaining=remaining,
