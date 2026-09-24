@@ -86,6 +86,12 @@ class V18CacheHardeningTests(unittest.TestCase):
             rt.compute(skill_name="craft", scope=f"scene-{i}", dependencies={"state": i}, fn=lambda i=i: i)
         self.assertEqual(rt.cache_size(), 10)
 
+    def test_orphan_dependency_versions_are_pruned(self):
+        rt = ReactiveSkillRuntime()
+        for i in range(1000):
+            rt.invalidate({f"dynamic.{i}"})
+        self.assertEqual(rt.dependency_version_size(), 0)
+
     def test_invalidation_during_compute_marks_result_stale_and_does_not_cache(self):
         rt = ReactiveSkillRuntime()
         started, release = threading.Event(), threading.Event()

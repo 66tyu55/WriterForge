@@ -1,4 +1,4 @@
-# WriterForge V18 — Runtime Closure & Leak Hardening
+# WriterForge V19 — Transactional Story Runtime
 
 WriterForge is a long-form fiction system built around strict LEARN / WRITE separation, Reader-First source learning, Canon/Character/Knowledge/Promise memory, lean Craft routing, Literary Taste, Story Sense and controlled Evolution.
 
@@ -95,3 +95,12 @@ V17 GitHub CI regression: **116 / 116 passed**.
 Closes compute-side lifecycle leaks: per-lane pending updates, reject cleanup, bounded caches, stale-inflight protection, aggregate event batching, queue scope cleanup, and suspended-entanglement guarding. The remaining closure gap is transactional durable StoryEffect commit.
 
 V18 GitHub CI regression: **126 / 126 passed**.
+
+
+## V19: durable commit closure
+
+Accepted prose and its associated Character/Canon/Promise/Reader/Causality changes now have an atomic StoryEffect path. Effect bundle, story events, effect journal and durable commit receipt are committed in one SQLite transaction. WorkTree adoption is bound by finished-work fingerprint and occurs only after the durable commit succeeds.
+
+A failed transaction rolls everything back and preserves current pending work for retry. Replaying the same commit after process interruption is idempotent from the durable receipt.
+
+V19 GitHub CI regression: **135 / 135 passed**.

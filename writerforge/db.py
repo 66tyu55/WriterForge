@@ -317,6 +317,46 @@ ON evolution_failures(scope, skill_name, code);
 
 CREATE INDEX IF NOT EXISTS idx_taste_project_source
 ON taste_observations(project_id, source_type);
+
+
+CREATE TABLE IF NOT EXISTS accepted_prose (
+    project_id TEXT NOT NULL,
+    scope_id TEXT NOT NULL,
+    body TEXT NOT NULL,
+    body_hash TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 1,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(project_id, scope_id)
+);
+
+CREATE TABLE IF NOT EXISTS story_commit_receipts (
+    project_id TEXT NOT NULL,
+    commit_id TEXT NOT NULL,
+    bundle_hash TEXT NOT NULL,
+    effects_json TEXT NOT NULL,
+    work_fingerprint TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(project_id, commit_id)
+);
+
+CREATE TABLE IF NOT EXISTS story_effect_journal (
+    project_id TEXT NOT NULL,
+    commit_id TEXT NOT NULL,
+    ordinal INTEGER NOT NULL,
+    effect_type TEXT NOT NULL,
+    target TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    PRIMARY KEY(project_id, commit_id, ordinal),
+    FOREIGN KEY(project_id, commit_id)
+      REFERENCES story_commit_receipts(project_id, commit_id)
+      DEFERRABLE INITIALLY DEFERRED
+);
+
+CREATE INDEX IF NOT EXISTS idx_story_events_project_created
+ON story_events(project_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_story_effect_journal_commit
+ON story_effect_journal(project_id, commit_id);
 """
 
 class WriterForgeDB:

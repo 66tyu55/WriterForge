@@ -388,6 +388,21 @@ class StoryWorkRoot:
     def mark_finished(self, root: WorkNode) -> None:
         self.finished_work = root
 
+    def finished_fingerprint(self) -> str:
+        if self.finished_work is None:
+            raise ValueError("no finished work")
+        records = [
+            (
+                node.key,
+                node.kind.value,
+                node.memoized_fingerprint,
+                int(node.lanes),
+                int(node.child_lanes),
+            )
+            for node in iter_tree(self.finished_work)
+        ]
+        return stable_fingerprint(records)
+
     def discard_finished(self, *, drop_rendered_updates: bool = True) -> None:
         rendered = self.render_lanes
         if drop_rendered_updates and rendered != Lane.NONE:
