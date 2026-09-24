@@ -102,3 +102,5 @@ V18 GitHub CI regression: **126 / 126 passed**.
 Accepted prose and its associated Character/Canon/Promise/Reader/Causality changes now have an atomic StoryEffect path. Effect bundle, story events, effect journal and durable commit receipt are committed in one SQLite transaction. WorkTree adoption is bound by finished-work fingerprint and occurs only after the durable commit succeeds.
 
 A failed transaction rolls everything back and preserves current pending work for retry. Replaying the same commit after process interruption is idempotent from the durable receipt.
+
+V19 GitHub CI regression: **135 / 135 passed**.

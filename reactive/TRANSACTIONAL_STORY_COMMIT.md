@@ -24,3 +24,11 @@ If the process dies after SQLite COMMIT but before WorkTree adoption, the durabl
 ## Legacy StoryStore
 
 Direct StoryStore setters remain for backward compatibility and focused tests, but production accepted-story mutation should route through StoryCommitCoordinator.
+
+
+## Closure verdict
+
+The production WRITE commit loop is closed for in-process execution:
+speculative compute -> finished WorkTree -> fingerprint-bound StoryEffect bundle -> atomic durable transaction -> durable receipt -> WorkTree adoption.
+
+Remaining operational gap: after a full process restart, the ephemeral WorkTree must be rebuilt from durable project state. The durable story remains correct; automated WorkTree rehydration is not yet implemented.
