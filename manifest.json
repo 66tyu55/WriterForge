@@ -1,8 +1,8 @@
 {
   "name": "WriterForge",
-  "version": "18.0",
-  "phase": "runtime-closure-memory-hardening",
-  "principle": "bounded speculative work; lane-isolated updates; reject means no residue",
+  "version": "19.0",
+  "phase": "transactional-story-runtime",
+  "principle": "compute speculatively; persist atomically; adopt only after durable commit",
   "runtime": {
     "lanes": [
       "SYNC",
@@ -55,7 +55,11 @@
       "queue_scope_cleanup": true,
       "suspended_entanglement_guard": true
     },
-    "durable_transactional_commit": false
+    "durable_transactional_commit": true,
+    "story_effects": true,
+    "durable_commit_receipts": true,
+    "effect_journal": true,
+    "worktree_commit_fingerprint": true
   },
   "craft_engine": {
     "groups": [
@@ -79,8 +83,6 @@
   ],
   "test_status": {
     "suite": "python -m unittest discover -s tests -q",
-    "passed": 126,
-    "failed": 0,
-    "status": "verified by GitHub CI on V18 PR"
+    "status": "pending GitHub CI for V19 PR"
   }
 }

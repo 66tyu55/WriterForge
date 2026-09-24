@@ -1,5 +1,16 @@
 # Changelog
 
+## v19.0.0 — 2026-09-24
+
+- Added StoryEffect and StoryCommitPlan.
+- Added accepted_prose, durable story_commit_receipts, and story_effect_journal tables.
+- Added BEGIN IMMEDIATE all-or-nothing story transactions.
+- Added persistent idempotent commit replay and commit-id collision rejection.
+- Bound WorkTree adoption to finished-work fingerprint and durable commit success.
+- Added rollback/retry behavior and transaction failure regression tests.
+- Marked direct StoryStore mutators as legacy for production accepted-story writes.
+
+
 ## v18.0.0 — 2026-09-24
 
 - Hardened WorkTree pending updates, rejection cleanup, cache bounds, event batching and task-scope cleanup.
