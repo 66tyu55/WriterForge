@@ -93,3 +93,5 @@ V17 GitHub CI regression: **116 / 116 passed**.
 ## V18
 
 Closes compute-side lifecycle leaks: per-lane pending updates, reject cleanup, bounded caches, stale-inflight protection, aggregate event batching, queue scope cleanup, and suspended-entanglement guarding. The remaining closure gap is transactional durable StoryEffect commit.
+
+V18 GitHub CI regression: **126 / 126 passed**.
