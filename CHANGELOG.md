@@ -1,5 +1,15 @@
 # Changelog
 
+## v15.0.0 — 2026-09-24
+
+- Added lane-scheduled runtime: SYNC, DRAFT, REACTIVE, BOUNDARY, TRANSITION, OFFLINE, IDLE.
+- Added dirty-domain routing so character/causality/continuity/reader chunks load only when relevant.
+- Added same-turn event batching by scope; this is semantic batching, not legacy event-object pooling.
+- Added min-heap cooperative task queue, cost slices, transition yielding, stale-generation discard, dedupe, and starvation protection.
+- Changed default chapter boundary routing so Reader/Promise/Memory work is not crowded out by unrelated structural audits.
+- Preserved existing ReactiveSkillRuntime singleflight/cache and CommitLedger idempotence as separate responsibilities.
+- Added V15 lane scheduler regression tests and GitHub CI for the complete suite.
+
 ## v14.0.0 — 2026-09-22
 
 - Added Embodied Scene Resolver: causal perceptual affordances derived from world state, entity properties, action/contact, and character-specific embodiment.
@@ -10,17 +20,13 @@
 
 ## v13.0.0 — 2026-09-22
 
-- Added Ending Backtrace: endings are checked backward against established setups, protagonist choice, the central dramatic question, expansion, over-explanation, and irreversible change.
-- Added Orthogonal Originality: detects default-cluster/cosmetic-swap story elements while protecting required narrative function.
-- Added Observed Story Auditor: reverse-outlines accepted WriterForge prose to compare the story that actually exists against the plan, surfacing persistent emergence and functionless scenes.
-- Added `temporal_reordering` as an internal Scene Turn & Rhythm technique card; no new Craft group or always-on agent.
-- Kept all new mechanisms inside Story Sense, Taste, Evolution, and the existing five Craft groups.
+- Added Ending Backtrace.
+- Added Orthogonal Originality.
+- Added Observed Story Auditor.
+- Added temporal_reordering as an internal Scene Turn & Rhythm technique card.
 - Full regression: 72/72 tests passed.
 
 ## v12.0.0 — 2026-09-22
 
 - Added reactive skill runtime with dependency fingerprints, selective invalidation, single-flight execution, and commit-once semantics.
-- Added Evolution Engine for failure clustering, curriculum generation, held-out/transfer validation, skill birth gates, and promotion gates.
-- Added Literary Taste Engine with pairwise comparison and order-swap stability checks.
-- Added Story Sense routing and capability dependency/revalidation support.
-- Preserved V11 Craft Engine while extending technique cards without multiplying top-level craft domains.
+- Added Evolution Engine, Literary Taste Engine and Story Sense routing.

@@ -1,94 +1,68 @@
 ---
-name: writer-forge-v14
+name: writer-forge-v15
 description: >
-  Long-form fiction runtime with Reader-First source learning, lean scene craft,
-  reactive dependency-driven skill execution, controlled self-evolution, story-sense routing,
-  and pairwise literary taste learning. Designed for novel creation, not generic copywriting.
+  Long-form fiction runtime with Reader-First source learning, reactive lane scheduling,
+  dependency-driven context loading, controlled self-evolution, story-sense routing,
+  embodied scene causality, and pairwise literary taste. Designed for novels, not generic copywriting.
 ---
 
-# WriterForge V14
+# WriterForge V15
 
-WriterForge is a long-form **fiction writer system**. It does not optimize for generic writing, marketing copy, essays, or AI-detector bypass.
+WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutually exclusive.
 
-## Runtime separation
+## Runtime rule
 
-- **LEARN** reads original works sequentially, first as a spoiler-blind reader, then studies craft/effect.
-- **WRITE** writes the project using a pinned Xuehai snapshot and cannot mutate Xuehai.
-- Project experience, taste, reader feedback, and failures remain separate from source evidence.
+Capability library size must not determine per-turn cost.
 
-## Embodied Scene Causality
+WriterForge V15 schedules work as:
 
-Sound, temperature, touch, smell, bodily manifestation, and environmental texture are not separate Skills or sensory quotas. Derive them from `environment + entity + action/contact + established character embodiment`, then let POV attention and Perception & Description select zero or a few cues. Emotion alone must not trigger canned body language.
+`App Shell -> Route -> Dirty Feature Chunk -> Background Worker`
+
+Lanes:
+- `SYNC`: runtime/snapshot/commit correctness
+- `DRAFT`: sentence continuity
+- `REACTIVE`: Xuehai/memory/craft routing caused by real deltas
+- `BOUNDARY`: scene/chapter checks for dirty domains only
+- `TRANSITION`: interruptible Reader/Taste/reviewer work
+- `OFFLINE`: LEARN synthesis, full-book audit, evolution
+
+Several state changes in one logical turn are batched. Newer scene/chapter generations may discard stale transition/offline work. Expired background work receives starvation protection.
+
+Do not use old-style event object pooling. Batch event meaning; do not recycle event objects.
+
+## LEARN / WRITE separation
+
+- LEARN reads sources sequentially, first as a spoiler-blind reader, then studies craft/effect and publishes versioned Xuehai snapshots.
+- WRITE pins one published Xuehai snapshot and never mutates Xuehai.
+- Project experience, taste, reader feedback and failures remain separate from source evidence.
 
 ## Scene-time Craft
 
-Do not call every Craft capability continuously.
-
-At scene planning or on a meaningful dependency change:
-1. diagnose the craft need;
-2. select 0-2 technique cards;
-3. freeze a small Scene Craft Contract;
-4. draft continuously under that contract;
-5. recompute only if relevant dependencies change.
-
-Craft groups remain only five:
+Craft remains five groups only:
 - Dialogue Action
 - Perception & Description
 - Cognitive Motion
 - Narrative Restraint
 - Scene Turn & Rhythm
 
-Technique cards may grow inside those groups, but near-duplicate mechanisms must merge.
+At scene planning or relevant dependency change, select 0-2 technique cards and freeze a Scene Craft Contract. Reuse it until a dependency actually changes.
 
-## Literary Taste
+## Embodied Scene Causality
 
-Taste is for hard choices between valid alternatives, not for every sentence.
+Sound, temperature, touch, smell and bodily manifestation are consequences of environment + entity + action/contact + established embodiment. They are not separate sensory Skills or quotas.
 
-- compare candidates pairwise;
-- explain the literary tradeoff before choosing;
-- run the same comparison with candidate order swapped;
-- if the preference flips, record `JUDGE_UNSTABLE` and do not learn from it;
-- never reduce literary quality to one overall score;
-- Taste promotion requires real-reader/human anchoring.
+## Literary Taste / Story Sense
 
-## Story Sense
+Taste is pairwise and used only for hard choices between valid alternatives. Story Sense selects the dominant literary problem rather than activating every reviewer.
 
-When many reviews are valid, do not activate all of them. Select the dominant literary problem first. Minor line-level defects must not outrank character truth, scene causality, reader pull, or structural failure.
+## Evolution
 
-## Evolution Engine
-
-Evolution is P3/offline. It never silently edits production Skills during ordinary writing.
-
-A Skill may improve only through:
-
-`Failure Cluster -> Diagnosis -> Targeted Curriculum -> Candidate Update -> Held-out -> Transfer -> Regression -> Promotion Gate`
-
-Rules:
-- one-off failure does not create a Skill;
-- new mechanism must pass the Skill Birth Gate or merge into an existing Skill;
-- promotion advances one maturity level only and requires a qualitative Capability Statement;
-- downstream Skills whose contracts depend on the upgraded Skill become `NEEDS_REVALIDATION`;
-- unrelated Skills remain clean;
-- failed candidate versions are archived/shadowed. A gated_auto policy may self-promote only after held-out/transfer/regression gates; subjective literary abilities additionally require real-reader/human anchoring.
-
-## Writer Maturity
-
-Writer maturity is L1-L10, independent of software version. It represents qualitative shifts in fiction ability, not memory points. Overall promotion is blocked by unresolved Capability Lag / Skill Debt.
-
-## Novel-level literary judgment
-
-At chapter/arc/revision boundaries, WriterForge may use three additional mechanisms without creating new always-on agents:
-
-- **Ending Backtrace**: trace climax/payoff backward to established setup, protagonist choice, central question, and irreversible consequence. An ending problem may require upstream revision rather than local polishing.
-- **Orthogonal Originality**: preserve required story function while checking whether form, knowledge, goal, and role all follow the genre default. A cosmetic rename is not an originality upgrade.
-- **Observed Story**: reverse-outline accepted prose and compare observed scene function/character choice/state delta/reader effect with the plan. Persistent divergence can propose emergence; it never silently rewrites Canon.
-
-Nonlinear chronology is a Scene Turn & Rhythm technique, not a new Skill. Use it only when changing order improves reader understanding, anticipation, or emotional pressure while causality remains reconstructable.
+Evolution is OFFLINE. Promotion requires failure evidence, held-out/transfer/regression gates, runtime-cost checks, and human/real-reader anchoring for subjective literary capability.
 
 ## Commit discipline
 
-Planning, simulation, craft routing, taste comparison, reader prediction, and candidate generation are compute-like and discardable.
+Planning, simulation, routing, retrieval, review and candidate generation are discardable compute.
 
-Only the Commit Boundary may change accepted prose, Canon, Character State, Promise State, Motif State, or long-term project memory.
+Only Commit Boundary mutates accepted prose, Canon, Character State, Promise State, Motif State or long-term project memory.
 
 `Compute twice is okay. Commit twice is a bug.`
