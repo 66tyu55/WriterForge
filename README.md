@@ -72,3 +72,6 @@ Business Event
 ```
 
 Event priority is intentionally smaller than the execution model: callers classify urgency without learning scheduler internals. Blocked work can suspend and later be pinged; related literary state can be entangled; lower-priority arrivals do not automatically throw away useful work in progress.
+
+
+V16 GitHub CI regression: **107 / 107 passed**.
