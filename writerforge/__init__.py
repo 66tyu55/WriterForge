@@ -7,6 +7,10 @@ from .validators import ValidatorSuite
 from .feedback import FeedbackStore
 from .eval_lab import EvalLab
 from .scheduler import SkillScheduler, Priority
+from .lane_scheduler import (
+    Lane, DirtyDomain, EventEnvelope, BatchedEvent, EventBatcher,
+    LaneTask, LaneTaskQueue, DispatchSlice, highest_priority_lane,
+)
 from .voice import VoiceFingerprint
 from .memory import MemoryBudget, MemoryTier, MemoryRecord
 from .reader_learning import ReaderLearningSession, ReaderReaction, ReaderLearningError
@@ -30,7 +34,6 @@ from .story_sense import (
     StorySenseRouter, StorySenseDecision, LiterarySignal,
     EndingBacktraceInput, EndingBacktraceResult, EndingBacktraceAnalyzer,
 )
-
 from .embodied_scene import (
     EmbodiedSceneResolver, EmbodiedSceneResult, PerceptualCue, PerceptualChannel,
     SceneEnvironment, SceneEntity, SceneAction, PerceptionContext,
