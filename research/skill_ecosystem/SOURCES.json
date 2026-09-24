@@ -1,0 +1,48 @@
+{
+  "generated_at": "2026-09-24",
+  "policy": "Pin upstream revision; do not vendor whole repositories into runtime.",
+  "repositories": [
+    {
+      "repo": "anthropics/skills",
+      "tree_sha": "60cb5b056141a1b24cfa2e1b1c2540bfb162850a",
+      "skill_count": 20,
+      "license_note": "Per-skill licensing. skill-creator is Apache-2.0; preserve each skill's LICENSE.txt before redistribution.",
+      "status": "indexed"
+    },
+    {
+      "repo": "mattpocock/skills",
+      "tree_sha": "0345ebb740dc47c09176a3b41a49cc11f4900073",
+      "skill_count": 38,
+      "license": "MIT",
+      "status": "indexed"
+    },
+    {
+      "repo": "obra/superpowers",
+      "tree_sha": "3c7f2d3ef243f88d3394158983e6845e313c438b",
+      "skill_count": 15,
+      "license": "MIT",
+      "status": "indexed"
+    },
+    {
+      "repo": "muratcankoylan/agent-skills-for-context-engineering",
+      "tree_sha": "978750566cbd633f6acc788dfb74a965ee867564",
+      "skill_count": 23,
+      "license": "MIT",
+      "status": "indexed"
+    },
+    {
+      "repo": "leonxlnx/taste-skill",
+      "tree_sha": "8456cd69d3d3779c275f0f6c4e1a8b2fd75cf721",
+      "skill_count": 13,
+      "license": "MIT",
+      "status": "indexed"
+    },
+    {
+      "repo": "wordflowlab/novel-writer-skills",
+      "tree_sha": "719e785a6d52c9f249a0ef9ccc87f69eeea8c75b",
+      "skill_count": 13,
+      "license": "MIT",
+      "status": "indexed"
+    }
+  ]
+}
