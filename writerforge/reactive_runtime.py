@@ -41,20 +41,30 @@ class ReactiveSkillRuntime:
         self._key_scope: dict[str, tuple[str, str]] = {}
         self._dependency_versions: dict[str, int] = {}
         self._inflight: dict[str, threading.Event] = {}
+        self._inflight_dependencies: dict[str, set[str]] = {}
         self._lock = threading.RLock()
 
     def _key(self, skill_name: str, scope: str, dependencies: Mapping[str, Any]) -> tuple[str, str]:
         fp = stable_fingerprint({"skill": skill_name, "scope": scope, "dependencies": dict(dependencies)})
         return f"{skill_name}:{scope}:{fp}", fp
 
+    def _dependency_is_inflight(self, dep: str) -> bool:
+        return any(dep in deps for deps in self._inflight_dependencies.values())
+
+    def _prune_dependency_version_if_idle(self, dep: str) -> None:
+        if dep not in self._dependency_index and not self._dependency_is_inflight(dep):
+            self._dependency_versions.pop(dep, None)
+
     def _drop_key(self, key: str) -> None:
         self._cache.pop(key, None)
-        for dep in self._key_dependencies.pop(key, set()):
+        removed_deps = self._key_dependencies.pop(key, set())
+        for dep in removed_deps:
             keys = self._dependency_index.get(dep)
             if keys is not None:
                 keys.discard(key)
                 if not keys:
                     self._dependency_index.pop(dep, None)
+            self._prune_dependency_version_if_idle(dep)
         scope_key = self._key_scope.pop(key, None)
         if scope_key is not None:
             keys = self._scope_keys.get(scope_key)
@@ -100,6 +110,7 @@ class ReactiveSkillRuntime:
             else:
                 event = threading.Event()
                 self._inflight[key] = event
+                self._inflight_dependencies[key] = set(dep_names)
                 owner = True
             observed_versions = {dep: self._dependency_versions.get(dep, 0) for dep in dep_names}
 
@@ -128,6 +139,9 @@ class ReactiveSkillRuntime:
         finally:
             with self._lock:
                 evt = self._inflight.pop(key, None)
+                inflight_deps = self._inflight_dependencies.pop(key, set())
+                for dep in inflight_deps:
+                    self._prune_dependency_version_if_idle(dep)
                 if evt is not None:
                     evt.set()
 
@@ -140,6 +154,8 @@ class ReactiveSkillRuntime:
                 doomed |= self._dependency_index.get(dep, set())
             for key in tuple(doomed):
                 self._drop_key(key)
+            for dep in changed:
+                self._prune_dependency_version_if_idle(dep)
             return InvalidationResult(changed, tuple(sorted(doomed)))
 
     def clear_scope(self, skill_name: str, scope: str) -> int:
@@ -156,6 +172,8 @@ class ReactiveSkillRuntime:
             self._dependency_index.clear()
             self._scope_keys.clear()
             self._key_scope.clear()
+            if not self._inflight_dependencies:
+                self._dependency_versions.clear()
 
     def cache_size(self) -> int:
         with self._lock:
@@ -164,6 +182,10 @@ class ReactiveSkillRuntime:
     def dependency_index_size(self) -> int:
         with self._lock:
             return sum(len(keys) for keys in self._dependency_index.values())
+
+    def dependency_version_size(self) -> int:
+        with self._lock:
+            return len(self._dependency_versions)
 
 
 @dataclass(frozen=True)

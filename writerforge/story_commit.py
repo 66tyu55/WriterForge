@@ -56,11 +56,22 @@ class StoryCommitPlan:
     work_fingerprint: str | None = None
 
     def bundle_hash(self) -> str:
+        # Effect order is not semantic: application order is canonicalized by
+        # the coordinator. Normalize here too so a retry cannot conflict merely
+        # because the caller reconstructed the same bundle in another order.
+        canonical_effects = sorted(
+            (effect.canonical() for effect in self.effects),
+            key=lambda item: (
+                item["type"],
+                item["target"],
+                _json(item["payload"]),
+            ),
+        )
         raw = _json({
             "project_id": self.project_id,
             "commit_id": self.commit_id,
             "work_fingerprint": self.work_fingerprint,
-            "effects": [effect.canonical() for effect in self.effects],
+            "effects": canonical_effects,
         })
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 

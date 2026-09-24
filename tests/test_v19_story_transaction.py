@@ -70,6 +70,20 @@ class V19StoryTransactionTests(unittest.TestCase):
             self.assertEqual(db.conn.execute("SELECT COUNT(*) c FROM story_effect_journal").fetchone()["c"], 1)
             db.close()
 
+    def test_same_commit_same_effects_different_input_order_is_same_bundle(self):
+        with tempfile.NamedTemporaryFile(suffix=".db") as f:
+            db = WriterForgeDB(f.name)
+            c = StoryCommitCoordinator(db, write_runtime())
+            e1 = StoryEffect(EffectType.SET_CHARACTER, "hero", {"state": {"x": 1}})
+            e2 = StoryEffect(EffectType.ACCEPT_PROSE, "s", {"body": "x"})
+            a = StoryCommitPlan("p1", "order", (e1, e2))
+            b = StoryCommitPlan("p1", "order", (e2, e1))
+            self.assertEqual(a.bundle_hash(), b.bundle_hash())
+            c.commit(a)
+            replay = c.commit(b)
+            self.assertTrue(replay.replayed)
+            db.close()
+
     def test_same_commit_id_different_bundle_is_rejected(self):
         with tempfile.NamedTemporaryFile(suffix=".db") as f:
             db = WriterForgeDB(f.name)
