@@ -1,8 +1,8 @@
-# WriterForge V15 — Lane-Scheduled Novelist Runtime
+# WriterForge V16 — Event Priority + Lane Root Runtime
 
 WriterForge is a long-form fiction system built around strict LEARN / WRITE separation, Reader-First source learning, Canon/Character/Knowledge/Promise memory, lean Craft routing, Literary Taste, Story Sense and controlled Evolution.
 
-V15 focuses on **runtime loading speed and scheduling**, not adding more literary Skills.
+V16 continues the runtime optimization phase. It separates source-event urgency from capability execution lanes and adds root-level pending/suspended/pinged/warm/expired/entangled state.
 
 ## V15: SPA-style capability loading
 
@@ -57,3 +57,18 @@ Run:
 `python -m unittest discover -s tests -q`
 
 GitHub CI executes the full repository suite for V15 changes.
+
+
+## V16: Event Priority + Root State
+
+```text
+Business Event
+-> EventPriority (4 levels)
+-> Event Batch
+-> Dirty Domains
+-> Capability Lane (7 lanes)
+-> Lane Root State
+-> Cost-sliced Task Queue
+```
+
+Event priority is intentionally smaller than the execution model: callers classify urgency without learning scheduler internals. Blocked work can suspend and later be pinged; related literary state can be entangled; lower-priority arrivals do not automatically throw away useful work in progress.

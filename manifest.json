@@ -1,10 +1,18 @@
 {
   "name": "WriterForge",
-  "version": "15.0",
-  "phase": "lane-scheduled-reactive-novelist-runtime",
-  "principle": "large capability library, tiny active route",
+  "version": "16.0",
+  "phase": "event-priority-lane-root-runtime",
+  "principle": "small event API, rich internal scheduler, tiny active literary route",
   "runtime": {
-    "lanes": ["SYNC", "DRAFT", "REACTIVE", "BOUNDARY", "TRANSITION", "OFFLINE", "IDLE"],
+    "lanes": [
+      "SYNC",
+      "DRAFT",
+      "REACTIVE",
+      "BOUNDARY",
+      "TRANSITION",
+      "OFFLINE",
+      "IDLE"
+    ],
     "event_batching": true,
     "dirty_domain_routing": true,
     "min_heap_queue": true,
@@ -12,7 +20,23 @@
     "starvation_protection": true,
     "dependency_fingerprint": true,
     "singleflight": true,
-    "idempotent_commit": true
+    "idempotent_commit": true,
+    "event_priority": [
+      "DISCRETE",
+      "CONTINUOUS",
+      "DEFAULT",
+      "IDLE"
+    ],
+    "lane_root_state": {
+      "pending": true,
+      "suspended": true,
+      "pinged": true,
+      "warm": true,
+      "expired": true,
+      "entangled": true
+    },
+    "transitive_entanglement": true,
+    "source_priority_tiebreak": true
   },
   "craft_engine": {
     "groups": [
@@ -36,6 +60,6 @@
   ],
   "test_status": {
     "suite": "python -m unittest discover -s tests -q",
-    "status": "verified by GitHub CI on V15 branch before merge"
+    "status": "pending GitHub CI for V16 branch"
   }
 }

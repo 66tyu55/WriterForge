@@ -10,6 +10,12 @@ from .scheduler import SkillScheduler, Priority
 from .lane_scheduler import (
     Lane, DirtyDomain, EventEnvelope, BatchedEvent, EventBatcher,
     LaneTask, LaneTaskQueue, DispatchSlice, highest_priority_lane,
+    LaneRootState, iter_lanes, merge_lanes, remove_lanes, intersect_lanes,
+)
+from .event_priorities import (
+    EventPriority, higher_event_priority, lower_event_priority,
+    is_higher_event_priority, event_priority_to_lane, lanes_to_event_priority,
+    priority_for_event,
 )
 from .voice import VoiceFingerprint
 from .memory import MemoryBudget, MemoryTier, MemoryRecord
