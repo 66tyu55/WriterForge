@@ -349,6 +349,11 @@ class StoryWorkRoot:
         pending_fingerprint: str | None = None,
         now_tick: int = 0,
     ) -> None:
+        # A finished candidate is immutable until it is committed or discarded.
+        # Updating the old current tree here would silently lose the new event
+        # when the finished tree is adopted. Queue it for the next turn instead.
+        if self.work_in_progress is not None or self.finished_work is not None:
+            raise RuntimeError("WorkTree is awaiting commit/reject; queue updates for the next render")
         self._update_sequence += 1
 
         if pending_state is _UNSET:
