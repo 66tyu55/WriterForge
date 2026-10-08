@@ -1,5 +1,15 @@
 # Changelog
 
+## v22.0.0 — 2026-10-08
+
+- Borrowed externally verified ideas from novel-studio, Author Writing Sheet research and Calliope without copying source or adding redundant skills.
+- Extended the existing author preference store with optional current-prose evidence anchors, four human-curated writing-sheet axes and explicitly named conflict groups.
+- Stale accepted-prose anchors no longer reach future draft prompts; audits are read-only, and explicit author guidance remains compatible.
+- Added atomic evidence checks after prose acceptance, whole-transaction rollback on failed evidence/group collisions and additive V21-to-V22 schema migration.
+- Preserved single-path preference priority, bounded prompts, original WorkTree and LEARN/WRITE isolation.
+- Added regression tests for source revisions, conflict resolution, old databases, project isolation and no-write review.
+
+
 ## v21.0.0 — 2026-10-08
 
 - Added project-local WritingCompanion with bounded accepted rhythm and stronger author-edited voice provenance; new scene revisions replace their old samples.
