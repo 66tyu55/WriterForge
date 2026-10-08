@@ -11,6 +11,7 @@ from .runtime import RuntimeEngine, Mode
 from .story import CanonPatchRequired
 from .story_work_tree import StoryWorkRoot
 from .work_tree_checkpoint import encode_finished_tree
+from .writing_companion import observe_accepted, apply_preference, validate_origin, validate_preference
 
 
 def _json(value: Any) -> str:
