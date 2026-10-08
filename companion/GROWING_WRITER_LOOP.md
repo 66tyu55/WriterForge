@@ -122,3 +122,8 @@ dirty domains and genuine risks.
   while reporting Python/SQLite time separately from actual prose generation.
 - Reader satisfaction, semantic style adaptation and subjective quality remain
   unproven until benchmarked in real writing sessions.
+
+
+## V22: evidence and review, not duplicate memory
+
+An explicit AuthorCorrection can optionally provide evidence_scope and evidence_excerpt from this project's accepted prose, conflict_group for an author-declared mutually exclusive slot, and a four-axis writing-sheet label. These fields persist in the SAME writer_companion_preferences table and SAME StoryCommit transaction. No additional memory or writer priority engine is introduced. Revisions make linked rules stale rather than silently reattaching them. WritingFlow.review_writing_sheet() reports currently verified/stale evidence and the optional author-curated axes without modifying prose. For external precedents and limitations, see research/EXTERNAL_METHODS_V22.md.
