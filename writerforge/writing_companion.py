@@ -16,6 +16,7 @@ from .voice import fingerprint
 
 
 MAX_SAMPLE_CHARS = 8192
+MAX_ACTIVE_SCOPES = 32
 MAX_PREFERENCES = 64
 MAX_GUIDANCE_CHARS = 240
 MAX_KEY_CHARS = 80
@@ -82,49 +83,95 @@ def _update_ema(previous: dict, current: dict, count: int, alpha: float = 0.25) 
 
 
 def observe_accepted(
-    conn, project_id: str, body: str, *, origin: str, changed: bool,
+    conn, project_id: str, scope_id: str, body: str, *, origin: str, changed: bool,
 ) -> None:
-    """Run INSIDE the receipt/story transaction; only genuinely changed text grows."""
+    """Refresh one accepted scene's evidence inside the durable story transaction.
+
+    A scene counts once in the active author-voice profile, however often it
+    gets revised. Replacing or deleting its accepted text replaces/retracts its
+    old evidence. Keep just 32 most recently edited scopes to bound memory and
+    make growth follow recent practice rather than fossilizing old mistakes.
+    """
     validate_origin(origin)
-    if not changed or not body.strip():
+    if not changed:
         return
-    # Reading only the tail avoids full-book style analysis on every tiny edit.
-    sample = body[-MAX_SAMPLE_CHARS:]
-    voice = fingerprint(sample).__dict__
     old = conn.execute(
-        """SELECT version,accepted_revisions,authored_revisions,sampled_chars,
-                  accepted_voice_json,authored_voice_json
+        """SELECT version,accepted_revisions,authored_revisions,sampled_chars
            FROM writer_companion_profiles WHERE project_id=?""",
         (project_id,),
     ).fetchone()
-    if old is None:
-        count = trusted = sampled_chars = version = 0
-        accepted_voice, authored_voice = {}, {}
+    version = old["version"] if old else 0
+    accepted_revisions = old["accepted_revisions"] if old else 0
+    authored_revisions = old["authored_revisions"] if old else 0
+    sampled_chars = old["sampled_chars"] if old else 0
+
+    if body.strip():
+        # Reading only the tail avoids scanning a full chapter on every small
+        # scene edit. Raw prose never enters companion storage.
+        sample = body[-MAX_SAMPLE_CHARS:]
+        sampled_chars += len(sample)
+        voice = fingerprint(sample).__dict__
+        conn.execute(
+            """INSERT INTO writer_companion_samples(
+                    project_id,scope_id,origin,voice_json,sample_seq
+               ) VALUES(?,?,?,?,?)
+               ON CONFLICT(project_id,scope_id) DO UPDATE SET
+                    origin=excluded.origin,voice_json=excluded.voice_json,
+                    sample_seq=excluded.sample_seq""",
+            (project_id, scope_id, origin, _json(voice), version + 1),
+        )
+        if origin in TRUSTED_ORIGINS:
+            authored_revisions += 1
     else:
-        count = old["accepted_revisions"]
-        trusted = old["authored_revisions"]
-        sampled_chars = old["sampled_chars"]
-        version = old["version"]
-        accepted_voice = json.loads(old["accepted_voice_json"])
-        authored_voice = json.loads(old["authored_voice_json"])
-    accepted_voice = _update_ema(accepted_voice, voice, count)
-    count += 1
-    if origin in TRUSTED_ORIGINS:
-        authored_voice = _update_ema(authored_voice, voice, trusted, alpha=0.30)
-        trusted += 1
+        # Deletion must not leave behind voice from prose that is no longer
+        # accepted, even though the historical count of revisions remains.
+        conn.execute(
+            """DELETE FROM writer_companion_samples
+               WHERE project_id=? AND scope_id=?""",
+            (project_id, scope_id),
+        )
+
+    conn.execute(
+        """DELETE FROM writer_companion_samples
+           WHERE project_id=? AND scope_id NOT IN (
+               SELECT scope_id FROM writer_companion_samples WHERE project_id=?
+               ORDER BY sample_seq DESC,scope_id DESC LIMIT ?
+           )""",
+        (project_id, project_id, MAX_ACTIVE_SCOPES),
+    )
+    rows = conn.execute(
+        """SELECT origin,voice_json FROM writer_companion_samples
+           WHERE project_id=? ORDER BY sample_seq,scope_id""",
+        (project_id,),
+    ).fetchall()
+    accepted_voice: dict = {}
+    authored_voice: dict = {}
+    authored_scopes = 0
+    for index, row in enumerate(rows):
+        metrics = json.loads(row["voice_json"])
+        accepted_voice = _update_ema(accepted_voice, metrics, index)
+        if row["origin"] in TRUSTED_ORIGINS:
+            authored_voice = _update_ema(
+                authored_voice, metrics, authored_scopes, alpha=0.30
+            )
+            authored_scopes += 1
     conn.execute(
         """INSERT INTO writer_companion_profiles(
                project_id,version,accepted_revisions,authored_revisions,
-               sampled_chars,accepted_voice_json,authored_voice_json
-           ) VALUES(?,?,?,?,?,?,?)
+               accepted_scopes,authored_scopes,sampled_chars,
+               accepted_voice_json,authored_voice_json
+           ) VALUES(?,?,?,?,?,?,?,?,?)
            ON CONFLICT(project_id) DO UPDATE SET
              version=excluded.version,accepted_revisions=excluded.accepted_revisions,
              authored_revisions=excluded.authored_revisions,
+             accepted_scopes=excluded.accepted_scopes,
+             authored_scopes=excluded.authored_scopes,
              sampled_chars=excluded.sampled_chars,
              accepted_voice_json=excluded.accepted_voice_json,
              authored_voice_json=excluded.authored_voice_json,
              updated_at=CURRENT_TIMESTAMP""",
-        (project_id, version + 1, count, trusted, sampled_chars + len(sample),
+        (project_id, version + 1, accepted_revisions + 1, authored_revisions,
+         len(rows), authored_scopes, sampled_chars,
          _json(accepted_voice), _json(authored_voice)),
     )
 
@@ -266,10 +313,12 @@ class WritingCompanion:
         profile = self._profile or {}
         trusted = profile.get("authored_revisions", 0)
         accepted = profile.get("accepted_revisions", 0)
-        if trusted >= 2:
+        authored_scopes = profile.get("authored_scopes", 0)
+        accepted_scopes = profile.get("accepted_scopes", 0)
+        if authored_scopes >= 2:
             voice_origin = "author"
             voice = profile.get("authored_voice", {})
-        elif accepted >= 3:
+        elif accepted_scopes >= 3:
             voice_origin = "accepted"
             voice = profile.get("accepted_voice", {})
         else:
@@ -311,13 +360,15 @@ class WritingCompanion:
         self.profile_loads += 1
         row = self.db.conn.execute(
             """SELECT version,accepted_revisions,authored_revisions,
-                      accepted_voice_json,authored_voice_json
+                      accepted_scopes,authored_scopes,accepted_voice_json,authored_voice_json
                FROM writer_companion_profiles WHERE project_id=?""",
             (self.project_id,),
         ).fetchone()
         self._profile = None if row is None else {
             "accepted_revisions": row["accepted_revisions"],
             "authored_revisions": row["authored_revisions"],
+            "accepted_scopes": row["accepted_scopes"],
+            "authored_scopes": row["authored_scopes"],
             "accepted_voice": json.loads(row["accepted_voice_json"]),
             "authored_voice": json.loads(row["authored_voice_json"]),
         }
