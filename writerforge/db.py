@@ -364,6 +364,27 @@ CREATE TABLE IF NOT EXISTS story_work_checkpoints (
       REFERENCES story_commit_receipts(project_id, commit_id)
 );
 
+CREATE TABLE IF NOT EXISTS writer_companion_profiles (
+    project_id TEXT PRIMARY KEY,
+    version INTEGER NOT NULL DEFAULT 0,
+    accepted_revisions INTEGER NOT NULL DEFAULT 0,
+    authored_revisions INTEGER NOT NULL DEFAULT 0,
+    accepted_chars INTEGER NOT NULL DEFAULT 0,
+    accepted_voice_json TEXT NOT NULL DEFAULT '{}',
+    authored_voice_json TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS writer_companion_preferences (
+    project_id TEXT NOT NULL,
+    preference_key TEXT NOT NULL,
+    guidance TEXT NOT NULL,
+    direction TEXT NOT NULL CHECK(direction IN ('prefer','avoid')),
+    category TEXT NOT NULL,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(project_id, preference_key)
+);
+
 CREATE INDEX IF NOT EXISTS idx_story_events_project_created
 ON story_events(project_id, created_at);
 
