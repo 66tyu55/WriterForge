@@ -339,6 +339,7 @@ class StoryWorkRoot:
     render_lanes: Lane = Lane.NONE
     _update_sequence: int = 0
     durable_commit_id: str | None = None
+    durable_project_id: str | None = None
 
     def schedule_update(
         self,
