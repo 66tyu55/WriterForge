@@ -279,6 +279,7 @@ class StoryCommitCoordinator:
         try:
             work_root.adopt_after_commit()
             work_root.durable_commit_id = plan.commit_id
+            work_root.durable_project_id = plan.project_id
             return True
         except Exception as exc:
             raise PostCommitAdoptionError(
