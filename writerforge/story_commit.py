@@ -11,6 +11,7 @@ from .runtime import RuntimeEngine, Mode
 from .story import CanonPatchRequired
 from .story_work_tree import StoryWorkRoot
 from .work_tree_checkpoint import encode_finished_tree
+from .writing_companion import observe_accepted, apply_preference, validate_origin, validate_preference
 
 
 def _json(value: Any) -> str:
@@ -33,6 +34,7 @@ class EffectType(str, Enum):
     SET_PROJECT_POSITION = "SET_PROJECT_POSITION"
     ADD_ITEM_CLAIM = "ADD_ITEM_CLAIM"
     SET_WORLD_RULE = "SET_WORLD_RULE"
+    SET_AUTHOR_PREFERENCE = "SET_AUTHOR_PREFERENCE"
 
 
 @dataclass(frozen=True)
@@ -110,6 +112,7 @@ _EFFECT_ORDER = {
     EffectType.SET_WORLD_RULE: 70,
     EffectType.SET_PROJECT_POSITION: 80,
     EffectType.ACCEPT_PROSE: 90,
+    EffectType.SET_AUTHOR_PREFERENCE: 85,
 }
 
 
@@ -318,6 +321,7 @@ class StoryCommitCoordinator:
         if effect.type == EffectType.ACCEPT_PROSE:
             if not effect.target or not isinstance(p.get("body"), str):
                 raise StoryCommitError("ACCEPT_PROSE requires target scope and string body")
+            validate_origin(p.get("origin", "accepted"))
         elif effect.type == EffectType.SET_CHARACTER:
             if not effect.target or not isinstance(p.get("state"), dict):
                 raise StoryCommitError("SET_CHARACTER requires target and state object")
@@ -357,6 +361,8 @@ class StoryCommitCoordinator:
         elif effect.type == EffectType.SET_WORLD_RULE:
             if "expected_value" not in p:
                 raise StoryCommitError("SET_WORLD_RULE requires expected_value")
+        elif effect.type == EffectType.SET_AUTHOR_PREFERENCE:
+            validate_preference(effect.target, p)
 
     @staticmethod
     def _story_event(conn, project_id: str, event_type: str, path: str, old: Any, new: Any) -> None:
@@ -389,6 +395,13 @@ class StoryCommitCoordinator:
                 conn, project_id, "prose_accepted", f"prose.{effect.target}",
                 dict(old) if old else None, {"body_hash": body_hash},
             )
+            # V21 passive companion: only accepted changes enter its bounded
+            # incremental profile, inside the same atomic story transaction.
+            # Origin=accepted is weak evidence; only explicit author_written/
+            # author_edited carries high-trust authorship provenance.
+            observe_accepted(conn, project_id, effect.target, body,
+                             origin=p.get("origin", "accepted"),
+                             changed=(old is None or old["body_hash"] != body_hash))
         elif effect.type == EffectType.SET_CHARACTER:
             row = conn.execute(
                 "SELECT state_json FROM character_state WHERE project_id=? AND character_id=?",
@@ -526,5 +539,10 @@ class StoryCommitCoordinator:
                 (project_id, effect.target, str(p["expected_value"]), p.get("statement", "")),
             )
             self._story_event(conn, project_id, "world_rule_changed", f"world.{effect.target}", dict(old) if old else None, dict(p))
+        elif effect.type == EffectType.SET_AUTHOR_PREFERENCE:
+            apply_preference(conn, project_id, effect.target, p)
+            self._story_event(conn, project_id, "author_preference_changed",
+                              f"companion.preference.{effect.target}", None,
+                              {"action": p.get("action", "set"), "direction": p.get("direction", "prefer")})
         else:
             raise StoryCommitError(f"unsupported effect type: {effect.type}")

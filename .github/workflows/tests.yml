@@ -17,3 +17,5 @@ jobs:
         run: python -m pip install -e .
       - name: Run full suite
         run: python -m unittest discover -s tests -q
+      - name: Benchmark bounded companion
+        run: python eval/companion_benchmark.py

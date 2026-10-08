@@ -1,12 +1,12 @@
 ---
-name: writer-forge-v20
+name: writer-forge-v21
 description: >
   Long-form fiction runtime with Reader-First source learning, reactive lane scheduling,
   dependency-driven context loading, controlled self-evolution, story-sense routing,
   embodied scene causality, and pairwise literary taste. Designed for novels, not generic copywriting.
 ---
 
-# WriterForge V20
+# WriterForge V21
 
 WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutually exclusive.
 
@@ -14,7 +14,7 @@ WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutuall
 
 Capability library size must not determine per-turn cost.
 
-WriterForge V20 schedules work as:
+WriterForge V21 schedules work as:
 
 `App Shell -> Route -> Dirty Feature Chunk -> Background Worker`
 
@@ -99,3 +99,8 @@ Direct StoryStore mutators are legacy/backward-compatible APIs, not the producti
 ## V20 WorkTree Restart Discipline
 
 Only a finished, fingerprint-bound WorkTree may be committed alongside StoryEffects. The coordinator checkpoints that accepted tree atomically with the SQLite receipt. Call `restore_work_root(db, project_id)` on restart; do not treat a previous WIP or stale receipt as accepted state. Rehydration restores pending lanes and topology but intentionally drops speculative alternates and volatile scheduler clocks. Non-JSON-native computation states are rejected before commit. After rendering is finished, hold new events in the batch queue until commit/reject, then schedule them on current. Commits without WorkTree invalidate checkpoints and require project-driven rebuild.
+
+
+## V21 Growing Writing Companion — passive by default
+
+The companion is NOT a separate Skill to invoke when the writer wants a voice check. On every changed accepted prose commit, StoryCommitCoordinator accumulates a small, durable project-local rhythm observation in the same transaction; unchanged and rejected candidates add nothing. Only explicit author_written/author_edited provenance counts as author voice, while default/assistant_generated acceptance counts only as weak story-rhythm evidence. Author corrections are SET_AUTHOR_PREFERENCE StoryEffects, versioned and removable. The writing shell constructs WritingFlow once and automatically supplies companion guidance via begin_draft(scene_id, concerns=...), then calls accept_draft at its ordinary acceptance boundary. Revisions of the same scene replace rather than multiply the active voice sample; deleted scenes retract it. There are at most 32 distinct active-scene samples and 64 explicit preferences. It caps guidance, avoids raw prose re-ingestion, and caches across unchanged revisions. This is a growing, bounded context system, NOT training model weights or self-generating new capabilities. See companion/GROWING_WRITER_LOOP.md.

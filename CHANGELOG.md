@@ -1,5 +1,17 @@
 # Changelog
 
+## v21.0.0 — 2026-10-08
+
+- Added project-local WritingCompanion with bounded accepted rhythm and stronger author-edited voice provenance; new scene revisions replace their old samples.
+- Automatically updates companion evidence in the accepted StoryEffect SQLite transaction; replay and rejection do not learn.
+- Added explicit versioned SET_AUTHOR_PREFERENCE actions to remember, revise, or delete writer corrections.
+- Added bounded 32-scene active sample ledger, 64 per-project preference slots, limited prompt assembly, and version-aware LRU read cache.
+- Added WritingFlow host facade so the companion can ride the normal begin_draft / accept_draft cycle without a user-triggered Skill.
+- Preserved LEARN/WRITE Xuehai separation; no model-weight fine-tuning or speculative prose learning.
+- Added restart/rollback/provenance/cache/isolation tests, safety tests for immutable metrics and whole-rule truncation, and a concise host-wiring protocol.
+- Added a GitHub Actions micro-benchmark for bounded samples, context reuse and SQLite cost.
+
+
 ## v20.0.0 — 2026-10-08
 
 - Added one durable WorkTree checkpoint per project, in the accepted StoryEffect transaction.

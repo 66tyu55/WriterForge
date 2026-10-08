@@ -55,6 +55,14 @@ from .work_tree_checkpoint import (
     WorkTreeCheckpointError, encode_finished_tree, restore_work_root,
 )
 
+from .writing_flow import (
+    WritingFlow, AuthorCorrection, DraftFrame,
+)
+
+from .writing_companion import (
+    WritingCompanion, CompanionDraftContext, CompanionEvidenceError,
+)
+
 from .story_commit import (
     EffectType, StoryEffect, StoryCommitPlan, StoryCommitResult,
     StoryCommitCoordinator, StoryCommitError, PostCommitAdoptionError,
