@@ -27,6 +27,11 @@ class AuthorCorrection:
     category: str = "general"
     direction: str = "prefer"
     action: str = "set"
+    # These refine the EXISTING author-preference record, not a new skill.
+    axis: str | None = None
+    conflict_group: str | None = None
+    evidence_scope: str | None = None
+    evidence_excerpt: str | None = None
 
     def as_effect(self) -> StoryEffect:
         payload = {"action": self.action}
@@ -34,6 +39,10 @@ class AuthorCorrection:
             payload.update(
                 guidance=self.guidance, category=self.category, direction=self.direction
             )
+        for name in ("axis", "conflict_group", "evidence_scope", "evidence_excerpt"):
+            value = getattr(self, name)
+            if value is not None:
+                payload[name] = value
         validate_preference(self.key, payload)
         return StoryEffect(EffectType.SET_AUTHOR_PREFERENCE, self.key, payload)
 
@@ -70,6 +79,18 @@ class WritingFlow:
         self.runtime.require(Mode.WRITE)
         ctx = self.companion.before_draft(scene_id, concerns=concerns)
         return DraftFrame(scene_id, ctx, ctx.compact_context())
+
+    def review_writing_sheet(self) -> dict:
+        """Read-only inspection of verified and stale style evidence.
+
+        Independent editorial review may diagnose preferences but never edit
+        accepted prose. Applying a correction still requires accept_draft().
+        """
+        self.runtime.require(Mode.WRITE)
+        return {
+            "axes": self.companion.writing_sheet(),
+            "evidence": self.companion.evidence_audit(),
+        }
 
     def accept_draft(
         self,
