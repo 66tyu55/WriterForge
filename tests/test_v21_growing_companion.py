@@ -55,6 +55,62 @@ class GrowingCompanionTests(unittest.TestCase):
             "SELECT * FROM writer_companion_profiles WHERE project_id=?", (project,),
         ).fetchone()
 
+    def test_normal_writing_flow_grows_without_explicit_skill_invocation(self):
+        flow = WritingFlow(self.db, runtime(), "novel")
+        first = flow.begin_draft("chapter1.scene1", concerns=("dialogue",))
+        self.assertEqual(first.companion_guidance, "")
+        result = flow.accept_draft(
+            "accepted-1", "chapter1.scene1", "他只抬了抬手。雨声撞在门板上。",
+            origin="author_edited",
+            corrections=(AuthorCorrection(
+                "dialogue_explain", "对白之后不要额外总结人物心理",
+                category="dialogue", direction="avoid",
+            ),),
+        )
+        self.assertTrue(result.committed)
+        next_scene = flow.begin_draft("chapter1.scene2", concerns=("dialogue",))
+        self.assertIn("对白之后不要", next_scene.companion_guidance)
+        self.assertEqual(next_scene.companion.accepted_revisions, 1)
+        self.assertEqual(next_scene.companion.authored_revisions, 1)
+        flow.accept_draft(
+            "accepted-2", "chapter1.scene2",
+            "她擦亮刀。冷风钻进领口，他才想起门没有关。",
+            origin="author_written",
+        )
+        third = flow.begin_draft("chapter1.scene3", concerns=("dialogue",))
+        self.assertEqual(third.companion.voice_origin, "author")
+        self.assertIn("作者写作节奏", third.companion_guidance)
+        self.assertEqual(flow.companion.profile_loads, 3)
+
+    def test_writing_flow_with_worktree_keeps_durable_recovery(self):
+        book = WorkNode("book", WorkKind.BOOK, memoized_state={"title": "长篇"})
+        scene = book.append_child(WorkNode("s1", WorkKind.SCENE, memoized_state={"body": "old"}))
+        work_root = StoryWorkRoot(book)
+        work_root.schedule_update(scene, Lane.DRAFT, pending_state={"body": "accepted"})
+        StoryWorkLoop().render(work_root, render_lanes=Lane.DRAFT)
+        flow = WritingFlow(self.db, runtime(), "novel")
+        result = flow.accept_draft(
+            "with-tree", "s1", "accepted",
+            finished_work_root=work_root, origin="author_written",
+        )
+        self.assertTrue(result.adopted_work_tree)
+        self.assertEqual(self.row()["authored_revisions"], 1)
+        from writerforge import restore_work_root
+        recovered = restore_work_root(self.db, "novel")
+        self.assertEqual(find_node(recovered.current, "s1").memoized_state["body"], "accepted")
+
+    def test_writing_flow_rejects_invalid_correction_before_prose_commit(self):
+        flow = WritingFlow(self.db, runtime(), "novel")
+        with self.assertRaises(CompanionEvidenceError):
+            flow.accept_draft(
+                "bad-feedback", "s1", "body",
+                corrections=(AuthorCorrection("incomplete", ""),),
+            )
+        self.assertIsNone(self.row())
+        self.assertEqual(self.db.conn.execute(
+            "SELECT COUNT(*) AS n FROM story_commit_receipts"
+        ).fetchone()["n"], 0)
+
     def test_passive_growth_only_after_accepted_text(self):
         companion = WritingCompanion(self.db, "novel")
         cold = companion.before_draft("s1")
