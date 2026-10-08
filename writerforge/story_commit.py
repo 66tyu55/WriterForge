@@ -539,5 +539,10 @@ class StoryCommitCoordinator:
                 (project_id, effect.target, str(p["expected_value"]), p.get("statement", "")),
             )
             self._story_event(conn, project_id, "world_rule_changed", f"world.{effect.target}", dict(old) if old else None, dict(p))
+        elif effect.type == EffectType.SET_AUTHOR_PREFERENCE:
+            apply_preference(conn, project_id, effect.target, p)
+            self._story_event(conn, project_id, "author_preference_changed",
+                              f"companion.preference.{effect.target}", None,
+                              {"action": p.get("action", "set"), "direction": p.get("direction", "prefer")})
         else:
             raise StoryCommitError(f"unsupported effect type: {effect.type}")
