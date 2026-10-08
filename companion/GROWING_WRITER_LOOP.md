@@ -117,5 +117,8 @@ dirty domains and genuine risks.
   kernel, not an always-on chat agent or full prose-generation service.
 - Speed benefit at this stage is bounded memory/prompt and avoiding repeated
   corpus searches, **not** a measured model-token/s writing speedup.
+- eval/companion_benchmark.py measures 256 accepted scenes and 5,000 repeated
+  draft-context reads. It checks the active sample cap (32) and cache reuse,
+  while reporting Python/SQLite time separately from actual prose generation.
 - Reader satisfaction, semantic style adaptation and subjective quality remain
   unproven until benchmarked in real writing sessions.
