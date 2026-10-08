@@ -43,7 +43,7 @@ checkpoint because it changes accepted story state independently.
   current root; otherwise a later event could be lost on adoption.
 - Replaying an older receipt is still a durable no-op, but cannot adopt an old
   WorkTree over a newer commit.
-- Restored roots track the commit ID from which they were loaded. Committing a
+- Restored roots track the project ID and commit ID from which they were loaded. Committing a
   root based on a superseded head is rejected.
 - A failure before COMMIT rolls back effects, journal, receipt, and checkpoint.
 - An adoption exception **after** COMMIT requires restore_work_root rather than
