@@ -395,6 +395,11 @@ CREATE TABLE IF NOT EXISTS writer_companion_preferences (
     guidance TEXT NOT NULL,
     direction TEXT NOT NULL CHECK(direction IN ('prefer','avoid')),
     category TEXT NOT NULL,
+    axis TEXT,
+    conflict_group TEXT,
+    evidence_scope TEXT,
+    evidence_body_hash TEXT,
+    evidence_excerpt_hash TEXT,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY(project_id, preference_key)
 );
@@ -412,6 +417,26 @@ class WriterForgeDB:
         self.conn = sqlite3.connect(self.path)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(BASE_SCHEMA)
+        # V22 additive migration: V21 databases already contain this table.
+        # Never create a parallel preference store or drop author corrections.
+        present = {
+            row["name"] for row in self.conn.execute(
+                "PRAGMA table_info(writer_companion_preferences)"
+            )
+        }
+        for column in (
+            "axis", "conflict_group", "evidence_scope",
+            "evidence_body_hash", "evidence_excerpt_hash",
+        ):
+            if column not in present:
+                self.conn.execute(
+                    f"ALTER TABLE writer_companion_preferences ADD COLUMN {column} TEXT"
+                )
+        self.conn.execute(
+            """CREATE UNIQUE INDEX IF NOT EXISTS idx_companion_pref_conflict
+               ON writer_companion_preferences(project_id, category, conflict_group)
+               WHERE conflict_group IS NOT NULL"""
+        )
         self.fts_enabled = False
         try:
             self.conn.execute("""
