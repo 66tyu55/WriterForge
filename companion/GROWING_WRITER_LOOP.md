@@ -32,12 +32,15 @@ ACCEPT_PROSE origin field is:
 - author_edited: high-trust evidence of the author's final revision
 
 The editor/host MUST supply origin from actual edit provenance, not from
-guessing whether text "sounds human." Two authored observations permit the
-companion to show a tentative author rhythm fingerprint; otherwise three
-accepted changes permit only an explicitly weak accepted-prose signal.
+guessing whether text "sounds human." Two **distinct currently accepted authored scenes** permit the companion to show
+a tentative author rhythm fingerprint; otherwise three distinct currently
+accepted scenes permit only an explicitly weak accepted-prose signal. Repeated
+revisions of one scene never masquerade as independent authorship evidence.
 
-The profile is an EMA of six deterministic VoiceFingerprint fields on the
-last 8,192 characters of each changed accepted scope (not model fine-tuning).
+The profile is recomputed from an EMA of six deterministic VoiceFingerprint
+fields across up to 32 most recently changed **distinct scopes**, using at most
+the last 8,192 characters per changed scope (not model fine-tuning). A new
+revision replaces its older sample; deleting a scene retracts its sample.
 It is capped-size, and *does not attempt to learn tone, intentions, literary
 quality, or emotional effect from style metrics*. Those require explicit
 feedback and real reader / revision evidence.
@@ -62,8 +65,11 @@ weak inference from accepted prose.
 
 ## No Skill ceremony during drafting
 
-Construct one WritingCompanion(db, project_id) in the host's writing shell.
-The writing route automatically calls before_draft(scene_id, concerns=...)
+Construct one WritingFlow(db, runtime, project_id) in the host's writing shell.
+Its begin_draft(scene_id, concerns=...) method automatically supplies a bounded
+companion frame, and accept_draft(...) uses the real StoryCommitCoordinator.
+The lower-level WritingCompanion is also available to hosts that already own a
+writing session. The writing route calls before_draft(scene_id, concerns=...)
 when it assembles the next scene/paragraph context, not in response to an
 author command such as "run the voice skill." The returned
 CompanionDraftContext.compact_context() is at most 768 characters by default,
@@ -81,20 +87,21 @@ dirty domains and genuine risks.
 ## Example
 
     db = WriterForgeDB("novel.sqlite3")
-    companion = WritingCompanion(db, "novel")
+    runtime = RuntimeEngine()
+    runtime.enter_write(1)  # normally a real published Xuehai snapshot ID
+    flow = WritingFlow(db, runtime, "novel")
 
-    # Automatically inside the host's before-draft path:
-    ctx = companion.before_draft("chapter-3.scene-2", concerns=("dialogue",))
-    guidance = ctx.compact_context()  # small, project-specific, stable
+    # The app's usual begin-writing action (not a user-invoked Skill):
+    frame = flow.begin_draft("chapter-3.scene-2", concerns=("dialogue",))
+    guidance = frame.companion_guidance  # small, project-specific, stable
 
-    # On an accepted author-edited scene:
-    coordinator.commit(StoryCommitPlan(
-        "novel", "commit-42",
-        (StoryEffect(EffectType.ACCEPT_PROSE, "chapter-3.scene-2",
-            {"body": "她没有答话。窗纸被风吹得微微鼓起。",
-             "origin": "author_edited"}),),
-    ))
-    # Next before_draft sees profile_version+1 with no manual learning command.
+    # After the author accepts/edits the scene, one ordinary write boundary:
+    flow.accept_draft(
+        "commit-42", "chapter-3.scene-2",
+        "她没有答话。窗纸被风吹得微微鼓起。",
+        origin="author_edited",
+    )
+    # Next begin_draft observes the new profile version automatically.
 
 ## Acceptance guarantees / known limits
 
@@ -102,8 +109,9 @@ dirty domains and genuine risks.
   no automatic skill creation, and no quality claim without blind reader checks.
 - SQL writes share the same rollback/replay boundary as story acceptance.
 - Project isolation is strict. No per-project profile is shared by default.
-- Only the latest aggregate and <=64 explicit preferences persist in these new
-  tables; unbounded raw text is not copied into companion memory.
+- Only the latest aggregate, up to 32 distinct active-scope metrics, and up to
+  64 explicit preferences persist in these new tables; no raw draft is copied
+  into companion memory. Revision counts can increase without increasing RAM.
 - The host must mark provenance accurately and call before_draft as part of
   its normal writing route. WriterForge's repository remains a Python
   kernel, not an always-on chat agent or full prose-generation service.
