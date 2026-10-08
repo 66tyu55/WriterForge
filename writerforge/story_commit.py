@@ -137,6 +137,8 @@ class StoryCommitCoordinator:
         if not plan.effects:
             raise StoryCommitError("commit plan requires at least one effect")
         if work_root is not None:
+            if work_root.durable_project_id is not None and work_root.durable_project_id != plan.project_id:
+                raise StoryCommitError("WorkTree belongs to a different project")
             if work_root.finished_work is None:
                 raise StoryCommitError("work_root has no finished work")
             actual_fp = work_root.finished_fingerprint()
