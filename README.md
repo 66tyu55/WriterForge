@@ -1,4 +1,4 @@
-# WriterForge V19 — Transactional Story Runtime
+# WriterForge V20 — Recoverable Story Runtime
 
 WriterForge is a long-form fiction system built around strict LEARN / WRITE separation, Reader-First source learning, Canon/Character/Knowledge/Promise memory, lean Craft routing, Literary Taste, Story Sense and controlled Evolution.
 
@@ -104,3 +104,12 @@ Accepted prose and its associated Character/Canon/Promise/Reader/Causality chang
 A failed transaction rolls everything back and preserves current pending work for retry. Replaying the same commit after process interruption is idempotent from the durable receipt.
 
 V19 GitHub CI regression: **135 / 135 passed**.
+
+
+## V20: Crash-safe WorkTree Recovery
+
+V20 writes a JSON-native accepted WorkTree checkpoint inside the same SQLite transaction as its StoryEffect receipt. After restart, `restore_work_root(db, project_id)` verifies the latest receipt, checksum, topology and finished fingerprint before restoring the tree and pending lanes. No speculative alternates survive restart.
+
+A rootless story commit invalidates the previous checkpoint; an older receipt cannot adopt a stale tree. To avoid losing late events, the WorkTree refuses `schedule_update` between finished render and commit/reject (batch late events and schedule them on the next current root). A stale recovered root is rejected at commit time.
+
+See `reactive/WORKTREE_CRASH_RECOVERY.md` for guarantees and limitations. Run `python -m unittest discover -s tests -q` for V20 coverage.
