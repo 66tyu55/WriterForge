@@ -369,7 +369,7 @@ CREATE TABLE IF NOT EXISTS writer_companion_profiles (
     version INTEGER NOT NULL DEFAULT 0,
     accepted_revisions INTEGER NOT NULL DEFAULT 0,
     authored_revisions INTEGER NOT NULL DEFAULT 0,
-    accepted_chars INTEGER NOT NULL DEFAULT 0,
+    sampled_chars INTEGER NOT NULL DEFAULT 0,
     accepted_voice_json TEXT NOT NULL DEFAULT '{}',
     authored_voice_json TEXT NOT NULL DEFAULT '{}',
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
