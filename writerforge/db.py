@@ -352,6 +352,18 @@ CREATE TABLE IF NOT EXISTS story_effect_journal (
       DEFERRABLE INITIALLY DEFERRED
 );
 
+CREATE TABLE IF NOT EXISTS story_work_checkpoints (
+    project_id TEXT PRIMARY KEY,
+    commit_id TEXT NOT NULL,
+    bundle_hash TEXT NOT NULL,
+    work_fingerprint TEXT NOT NULL,
+    tree_hash TEXT NOT NULL,
+    tree_json TEXT NOT NULL,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(project_id, commit_id)
+      REFERENCES story_commit_receipts(project_id, commit_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_story_events_project_created
 ON story_events(project_id, created_at);
 
