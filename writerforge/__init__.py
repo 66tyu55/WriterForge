@@ -51,6 +51,10 @@ from .story_work_tree import (
     begin_work, complete_work, iter_tree, find_node, repair_parent_links,
 )
 
+from .work_tree_checkpoint import (
+    WorkTreeCheckpointError, encode_finished_tree, restore_work_root,
+)
+
 from .story_commit import (
     EffectType, StoryEffect, StoryCommitPlan, StoryCommitResult,
     StoryCommitCoordinator, StoryCommitError, PostCommitAdoptionError,

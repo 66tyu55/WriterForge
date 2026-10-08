@@ -10,6 +10,7 @@ from .db import WriterForgeDB
 from .runtime import RuntimeEngine, Mode
 from .story import CanonPatchRequired
 from .story_work_tree import StoryWorkRoot
+from .work_tree_checkpoint import encode_finished_tree
 
 
 def _json(value: Any) -> str:
@@ -136,12 +137,17 @@ class StoryCommitCoordinator:
         if not plan.effects:
             raise StoryCommitError("commit plan requires at least one effect")
         if work_root is not None:
+            if work_root.durable_project_id is not None and work_root.durable_project_id != plan.project_id:
+                raise StoryCommitError("WorkTree belongs to a different project")
             if work_root.finished_work is None:
                 raise StoryCommitError("work_root has no finished work")
             actual_fp = work_root.finished_fingerprint()
             if plan.work_fingerprint != actual_fp:
                 raise StoryCommitError("commit plan work_fingerprint does not match finished WorkTree")
 
+        # Validate/serialize before opening the write lock. A non-JSON WorkTree
+        # cannot produce a partial story commit followed by an unusable snapshot.
+        checkpoint = encode_finished_tree(work_root) if work_root is not None else None
         bundle_hash = plan.bundle_hash()
         conn = self.db.conn
         if conn.in_transaction:
@@ -161,6 +167,14 @@ class StoryCommitCoordinator:
                     raise StoryCommitError(
                         f"commit_id {plan.commit_id!r} already used for a different effect bundle"
                     )
+                if work_root is not None:
+                    head = conn.execute(
+                        """SELECT commit_id FROM story_commit_receipts
+                           WHERE project_id=? ORDER BY rowid DESC LIMIT 1""",
+                        (plan.project_id,),
+                    ).fetchone()
+                    if head["commit_id"] != plan.commit_id:
+                        raise StoryCommitError("cannot adopt replay of a non-head commit")
                 conn.commit()
                 adopted = self._adopt_after_durable_commit(work_root, plan, bundle_hash)
                 return StoryCommitResult(
@@ -168,6 +182,15 @@ class StoryCommitCoordinator:
                     committed=False, replayed=True,
                     effects_applied=0, adopted_work_tree=adopted,
                 )
+
+            if work_root is not None and work_root.durable_commit_id is not None:
+                head = conn.execute(
+                    """SELECT commit_id FROM story_commit_receipts
+                       WHERE project_id=? ORDER BY rowid DESC LIMIT 1""",
+                    (plan.project_id,),
+                ).fetchone()
+                if head is None or head["commit_id"] != work_root.durable_commit_id:
+                    raise StoryCommitError("stale WorkTree: durable story head has advanced")
 
             ordered = self._validate_and_order(conn, plan)
             effects_json = _json([effect.canonical() for effect in ordered])
@@ -203,6 +226,29 @@ class StoryCommitCoordinator:
                     ),
                 )
 
+            if checkpoint is not None:
+                tree_json, tree_hash = checkpoint
+                conn.execute(
+                    """INSERT INTO story_work_checkpoints(
+                         project_id,commit_id,bundle_hash,work_fingerprint,tree_hash,tree_json
+                       ) VALUES(?,?,?,?,?,?)
+                       ON CONFLICT(project_id) DO UPDATE SET
+                         commit_id=excluded.commit_id,
+                         bundle_hash=excluded.bundle_hash,
+                         work_fingerprint=excluded.work_fingerprint,
+                         tree_hash=excluded.tree_hash,
+                         tree_json=excluded.tree_json,
+                         updated_at=CURRENT_TIMESTAMP""",
+                    (plan.project_id, plan.commit_id, bundle_hash,
+                     plan.work_fingerprint, tree_hash, tree_json),
+                )
+            else:
+                # Bare effects may change canonical story independently of a
+                # restored tree. Never expose an older snapshot as current.
+                conn.execute(
+                    "DELETE FROM story_work_checkpoints WHERE project_id=?",
+                    (plan.project_id,),
+                )
             conn.commit()
         except Exception:
             if conn.in_transaction:
@@ -232,6 +278,8 @@ class StoryCommitCoordinator:
             return False
         try:
             work_root.adopt_after_commit()
+            work_root.durable_commit_id = plan.commit_id
+            work_root.durable_project_id = plan.project_id
             return True
         except Exception as exc:
             raise PostCommitAdoptionError(

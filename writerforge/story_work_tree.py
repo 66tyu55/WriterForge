@@ -338,6 +338,8 @@ class StoryWorkRoot:
     finished_work: WorkNode | None = None
     render_lanes: Lane = Lane.NONE
     _update_sequence: int = 0
+    durable_commit_id: str | None = None
+    durable_project_id: str | None = None
 
     def schedule_update(
         self,
@@ -348,6 +350,25 @@ class StoryWorkRoot:
         pending_fingerprint: str | None = None,
         now_tick: int = 0,
     ) -> None:
+        # A finished candidate is immutable until it is committed or discarded.
+        # Updating the old current tree here would silently lose the new event
+        # when the finished tree is adopted. Queue it for the next turn instead.
+        if self.work_in_progress is not None or self.finished_work is not None:
+            raise RuntimeError("WorkTree is awaiting commit/reject; queue updates for the next render")
+        if lane == Lane.NONE:
+            raise ValueError("cannot schedule a zero-lane update")
+        # Check ownership before modifying either root. Previously, scheduling a
+        # foreign node marked the foreign tree dirty before raising, leaving its
+        # LaneRootState unsynchronized with its nodes.
+        owner = node
+        ancestry: set[int] = set()
+        while owner.parent is not None:
+            if id(owner) in ancestry:
+                raise ValueError("cycle in WorkTree parent chain")
+            ancestry.add(id(owner))
+            owner = owner.parent
+        if owner is not self.current:
+            raise ValueError("scheduled node does not belong to current root")
         self._update_sequence += 1
 
         if pending_state is _UNSET:
@@ -451,22 +472,28 @@ class StoryWorkLoop:
         bailed: list[str] = []
         units = 0
 
-        while unit is not None:
-            units += 1
-            visited.append(unit.key)
-            current = unit.alternate
-            result = begin_work(current, unit, lanes, compute=compute)
-            if result.subtree_bailout:
-                bailed.append(unit.key)
+        try:
+            while unit is not None:
+                units += 1
+                visited.append(unit.key)
+                current = unit.alternate
+                result = begin_work(current, unit, lanes, compute=compute)
+                if result.subtree_bailout:
+                    bailed.append(unit.key)
 
-            if result.next_child is not None:
-                unit = result.next_child
-                continue
+                if result.next_child is not None:
+                    unit = result.next_child
+                    continue
 
-            unit = self._complete_unit(unit, completed)
+                unit = self._complete_unit(unit, completed)
 
-        root.mark_finished(work)
-        return WorkLoopResult(lanes, tuple(visited), tuple(completed), tuple(bailed), units)
+            root.mark_finished(work)
+            return WorkLoopResult(lanes, tuple(visited), tuple(completed), tuple(bailed), units)
+        except BaseException:
+            # Aborted renders must not pin WIP buffers or block future events.
+            # Keep pending current updates so the same work can be retried.
+            root.discard_finished(drop_rendered_updates=False)
+            raise
 
     @staticmethod
     def _complete_unit(unit: WorkNode, completed: list[str]) -> WorkNode | None:
