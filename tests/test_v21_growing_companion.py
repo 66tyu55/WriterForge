@@ -352,6 +352,23 @@ class GrowingCompanionTests(unittest.TestCase):
         self.assertEqual(self.row()["accepted_revisions"], 0)
         self.assertEqual(self.row()["version"], 1)
 
+    def test_prompt_budget_drops_incomplete_rule_instead_of_cutting_meaning(self):
+        long_guidance = "绝不可在对白后进行解释，但当视角人物误解对方时应保留误解的伏笔。" * 3
+        self.commit("long", rule("nuance", long_guidance, category="general"))
+        ctx = WritingCompanion(self.db, "novel").before_draft("s2")
+        self.assertEqual(ctx.compact_context(max_chars=80), "")
+        self.assertIn("当视角人物误解", ctx.compact_context(max_chars=768))
+        self.assertLessEqual(len(ctx.compact_context()), 768)
+
+    def test_cached_metrics_are_immutable_to_host_callers(self):
+        self.commit("a1", prose("s1", "第一场的正文。", "author_written"))
+        self.commit("a2", prose("s2", "第二场的正文。", "author_written"))
+        companion = WritingCompanion(self.db, "novel")
+        context = companion.before_draft("s3")
+        with self.assertRaises(TypeError):
+            context.voice_metrics["avg_sentence_chars"] = -200.0
+        self.assertEqual(companion.before_draft("s3").voice_origin, "author")
+
     def test_mode_guard_prevents_learn_mutating_companion(self):
         rt = RuntimeEngine()
         rt.enter_learn()
