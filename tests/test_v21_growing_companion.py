@@ -213,6 +213,60 @@ class GrowingCompanionTests(unittest.TestCase):
         self.assertNotEqual(updated.fingerprint, first.fingerprint)
         self.assertLessEqual(companion.cached_context_count, 3)
 
+    def test_rewriting_same_scene_cannot_fake_two_independent_voice_samples(self):
+        for n in range(25):
+            self.commit(f"rev-{n}", prose("same-scene", f"第{n}次作者修改这一场景。", "author_edited"))
+        context = WritingCompanion(self.db, "novel").before_draft("next")
+        self.assertEqual(context.authored_revisions, 25)
+        self.assertEqual(self.row()["authored_scopes"], 1)
+        self.assertEqual(context.voice_origin, "insufficient")
+        self.assertEqual(self.db.conn.execute(
+            "SELECT COUNT(*) AS n FROM writer_companion_samples"
+        ).fetchone()["n"], 1)
+        self.commit("next-scene", prose("another-scene", "另一段作者亲自写的段落。", "author_written"))
+        context = WritingCompanion(self.db, "novel").before_draft("next")
+        self.assertEqual(context.voice_origin, "author")
+        self.assertEqual(self.row()["authored_scopes"], 2)
+
+    def test_deleting_a_scene_retracts_its_voice_sample(self):
+        self.commit("one", prose("scene-a", "作者曾经在这里写过一句。", "author_written"))
+        self.commit("two", prose("scene-b", "作者还写过一段另外的内容。", "author_edited"))
+        self.assertEqual(WritingCompanion(self.db, "novel").before_draft("s3").voice_origin, "author")
+        self.commit("delete", prose("scene-a", "", "author_edited"))
+        context = WritingCompanion(self.db, "novel").before_draft("s3")
+        self.assertEqual(self.row()["authored_scopes"], 1)
+        self.assertEqual(context.voice_origin, "insufficient")
+        self.assertEqual(self.db.conn.execute(
+            "SELECT COUNT(*) AS n FROM writer_companion_samples"
+        ).fetchone()["n"], 1)
+
+    def test_assistant_replaces_authored_scene_without_claiming_it_is_author_style(self):
+        self.commit("one", prose("scene-a", "作者原来的句子。", "author_written"))
+        self.commit("two", prose("scene-b", "作者第二个句子。", "author_edited"))
+        self.assertEqual(self.row()["authored_scopes"], 2)
+        self.commit("replace", prose("scene-b", "AI生成的替换稿。", "assistant_generated"))
+        self.assertEqual(self.row()["authored_scopes"], 1)
+        self.assertEqual(
+            WritingCompanion(self.db, "novel").before_draft("s3").voice_origin,
+            "insufficient",
+        )
+
+    def test_active_scene_samples_stay_bounded_for_long_novels(self):
+        for n in range(105):
+            self.commit(f"scene-{n}", prose(f"scope-{n}", f"第{n}场的句子。", "author_written"))
+        row = self.db.conn.execute(
+            "SELECT COUNT(*) AS n FROM writer_companion_samples WHERE project_id='novel'"
+        ).fetchone()
+        self.assertEqual(row["n"], 32)
+        self.assertEqual(self.row()["accepted_revisions"], 105)
+        self.assertEqual(self.row()["authored_scopes"], 32)
+        old = self.db.conn.execute(
+            "SELECT 1 FROM writer_companion_samples WHERE scope_id='scope-0'"
+        ).fetchone()
+        self.assertIsNone(old)
+        context = WritingCompanion(self.db, "novel").before_draft("new")
+        self.assertEqual(context.voice_origin, "author")
+
     def test_project_isolation_and_restart(self):
         self.commit("a1", prose("s1", "他缓缓举起灯笼。", "author_edited"))
         self.commit("r1", rule("dialogue", "对白不做说明书", category="dialogue"))
