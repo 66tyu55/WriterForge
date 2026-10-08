@@ -230,7 +230,7 @@ class GrowingCompanionTests(unittest.TestCase):
         big_text = "他沿长街而行。" * 5000
         self.commit("large", prose("scene", big_text, "author_written"))
         row = self.row()
-        self.assertLessEqual(row["accepted_chars"], 8192)
+        self.assertLessEqual(row["sampled_chars"], 8192)
         self.assertEqual(row["accepted_revisions"], 1)
         self.assertNotIn("他沿长街", json.dumps(dict(row)))
         context = WritingCompanion(self.db, "novel").before_draft("next")
