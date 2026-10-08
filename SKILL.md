@@ -1,12 +1,12 @@
 ---
-name: writer-forge-v21
+name: writer-forge-v22
 description: >
   Long-form fiction runtime with Reader-First source learning, reactive lane scheduling,
   dependency-driven context loading, controlled self-evolution, story-sense routing,
   embodied scene causality, and pairwise literary taste. Designed for novels, not generic copywriting.
 ---
 
-# WriterForge V21
+# WriterForge V22
 
 WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutually exclusive.
 
@@ -14,7 +14,7 @@ WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutuall
 
 Capability library size must not determine per-turn cost.
 
-WriterForge V21 schedules work as:
+WriterForge V22 schedules work as:
 
 `App Shell -> Route -> Dirty Feature Chunk -> Background Worker`
 
@@ -104,3 +104,8 @@ Only a finished, fingerprint-bound WorkTree may be committed alongside StoryEffe
 ## V21 Growing Writing Companion — passive by default
 
 The companion is NOT a separate Skill to invoke when the writer wants a voice check. On every changed accepted prose commit, StoryCommitCoordinator accumulates a small, durable project-local rhythm observation in the same transaction; unchanged and rejected candidates add nothing. Only explicit author_written/author_edited provenance counts as author voice, while default/assistant_generated acceptance counts only as weak story-rhythm evidence. Author corrections are SET_AUTHOR_PREFERENCE StoryEffects, versioned and removable. The writing shell constructs WritingFlow once and automatically supplies companion guidance via begin_draft(scene_id, concerns=...), then calls accept_draft at its ordinary acceptance boundary. Revisions of the same scene replace rather than multiply the active voice sample; deleted scenes retract it. There are at most 32 distinct active-scene samples and 64 explicit preferences. It caps guidance, avoids raw prose re-ingestion, and caches across unchanged revisions. This is a growing, bounded context system, NOT training model weights or self-generating new capabilities. See companion/GROWING_WRITER_LOOP.md.
+
+
+## V22 evidence and preference conflict discipline
+
+A single SET_AUTHOR_PREFERENCE table remains the sole authority for explicit writer preferences. AuthorCorrection optionally carries evidence_scope + evidence_excerpt (verified against same-project accepted prose, stored only as hashes), axis (plot / creativity / character_emotion / language), and conflict_group (unique per project+category). Supported guidance is suppressed if its source is rewritten; stale rules are **reviewed, not automatically repaired**. Explicit same-slot conflicts reject the whole transaction, never silently choose a winner. WritingFlow.review_writing_sheet() is read-only diagnosis; the original StoryCommitCoordinator is still the only persistence route. Do not confuse stylistic suggestions with canon/plot mutations, and do not infer a writing sheet axis from statistics without explicit author confirmation. See research/EXTERNAL_METHODS_V22.md.
