@@ -1,4 +1,4 @@
-# WriterForge V19 Transactional Story Commit
+# WriterForge V19–V20 Transactional Story Commit
 
 Production WRITE commit path:
 
@@ -31,4 +31,4 @@ Direct StoryStore setters remain for backward compatibility and focused tests, b
 The production WRITE commit loop is closed for in-process execution:
 speculative compute -> finished WorkTree -> fingerprint-bound StoryEffect bundle -> atomic durable transaction -> durable receipt -> WorkTree adoption.
 
-Remaining operational gap: after a full process restart, the ephemeral WorkTree must be rebuilt from durable project state. The durable story remains correct; automated WorkTree rehydration is not yet implemented.
+V20 closes the restart gap for commits carrying finished WorkTree: a checksum-protected, head-bound WorkTree checkpoint is persisted in the same transaction as the receipt. `restore_work_root` rehydrates the latest accepted computation tree with its pending lane updates. Rootless commits and older V19 receipts have no eligible checkpoint and require application-level reconstruction. See `reactive/WORKTREE_CRASH_RECOVERY.md`.
