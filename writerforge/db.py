@@ -369,11 +369,25 @@ CREATE TABLE IF NOT EXISTS writer_companion_profiles (
     version INTEGER NOT NULL DEFAULT 0,
     accepted_revisions INTEGER NOT NULL DEFAULT 0,
     authored_revisions INTEGER NOT NULL DEFAULT 0,
+    accepted_scopes INTEGER NOT NULL DEFAULT 0,
+    authored_scopes INTEGER NOT NULL DEFAULT 0,
     sampled_chars INTEGER NOT NULL DEFAULT 0,
     accepted_voice_json TEXT NOT NULL DEFAULT '{}',
     authored_voice_json TEXT NOT NULL DEFAULT '{}',
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS writer_companion_samples (
+    project_id TEXT NOT NULL,
+    scope_id TEXT NOT NULL,
+    origin TEXT NOT NULL,
+    voice_json TEXT NOT NULL,
+    sample_seq INTEGER NOT NULL,
+    PRIMARY KEY(project_id,scope_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_companion_samples_order
+ON writer_companion_samples(project_id, sample_seq DESC);
 
 CREATE TABLE IF NOT EXISTS writer_companion_preferences (
     project_id TEXT NOT NULL,
