@@ -321,6 +321,7 @@ class StoryCommitCoordinator:
         if effect.type == EffectType.ACCEPT_PROSE:
             if not effect.target or not isinstance(p.get("body"), str):
                 raise StoryCommitError("ACCEPT_PROSE requires target scope and string body")
+            validate_origin(p.get("origin", "accepted"))
         elif effect.type == EffectType.SET_CHARACTER:
             if not effect.target or not isinstance(p.get("state"), dict):
                 raise StoryCommitError("SET_CHARACTER requires target and state object")
