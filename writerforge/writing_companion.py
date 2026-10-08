@@ -92,18 +92,18 @@ def observe_accepted(
     sample = body[-MAX_SAMPLE_CHARS:]
     voice = fingerprint(sample).__dict__
     old = conn.execute(
-        """SELECT version,accepted_revisions,authored_revisions,accepted_chars,
+        """SELECT version,accepted_revisions,authored_revisions,sampled_chars,
                   accepted_voice_json,authored_voice_json
            FROM writer_companion_profiles WHERE project_id=?""",
         (project_id,),
     ).fetchone()
     if old is None:
-        count = trusted = accepted_chars = version = 0
+        count = trusted = sampled_chars = version = 0
         accepted_voice, authored_voice = {}, {}
     else:
         count = old["accepted_revisions"]
         trusted = old["authored_revisions"]
-        accepted_chars = old["accepted_chars"]
+        sampled_chars = old["sampled_chars"]
         version = old["version"]
         accepted_voice = json.loads(old["accepted_voice_json"])
         authored_voice = json.loads(old["authored_voice_json"])
@@ -115,16 +115,16 @@ def observe_accepted(
     conn.execute(
         """INSERT INTO writer_companion_profiles(
                project_id,version,accepted_revisions,authored_revisions,
-               accepted_chars,accepted_voice_json,authored_voice_json
+               sampled_chars,accepted_voice_json,authored_voice_json
            ) VALUES(?,?,?,?,?,?,?)
            ON CONFLICT(project_id) DO UPDATE SET
              version=excluded.version,accepted_revisions=excluded.accepted_revisions,
              authored_revisions=excluded.authored_revisions,
-             accepted_chars=excluded.accepted_chars,
+             sampled_chars=excluded.sampled_chars,
              accepted_voice_json=excluded.accepted_voice_json,
              authored_voice_json=excluded.authored_voice_json,
              updated_at=CURRENT_TIMESTAMP""",
-        (project_id, version + 1, count, trusted, accepted_chars + len(sample),
+        (project_id, version + 1, count, trusted, sampled_chars + len(sample),
          _json(accepted_voice), _json(authored_voice)),
     )
 
