@@ -32,6 +32,8 @@ VOICE_FIELDS = (
 TRUSTED_ORIGINS = frozenset({"author_written", "author_edited"})
 ORIGINS = TRUSTED_ORIGINS | {"accepted", "assistant_generated"}
 DIRECTIONS = frozenset({"prefer", "avoid"})
+# Explicit author-curated axes, never guessed from the prose or category.
+WRITING_SHEET_AXES = ("plot", "creativity", "character_emotion", "language")
 # Category is descriptive, not a new skill/plugin.
 CATEGORIES = frozenset({
     "general", "dialogue", "description", "action", "pacing", "character",
@@ -57,8 +59,11 @@ def validate_preference(key: str, payload: Mapping[str, Any]) -> None:
         raise CompanionEvidenceError("preference action must be set or remove")
     if action == "remove":
         # A removal must not carry a replacement value accidentally.
-        if any(field in payload for field in ("guidance", "direction", "category")):
-            raise CompanionEvidenceError("remove preference cannot carry guidance")
+        if any(field in payload for field in (
+            "guidance", "direction", "category", "axis", "conflict_group",
+            "evidence_scope", "evidence_excerpt",
+        )):
+            raise CompanionEvidenceError("remove preference cannot carry replacement fields")
         return
     guidance = payload.get("guidance")
     if type(guidance) is not str or not guidance.strip() or len(guidance) > MAX_GUIDANCE_CHARS:
@@ -67,6 +72,22 @@ def validate_preference(key: str, payload: Mapping[str, Any]) -> None:
         raise CompanionEvidenceError("invalid preference direction")
     if payload.get("category", "general") not in CATEGORIES:
         raise CompanionEvidenceError("invalid preference category")
+    axis = payload.get("axis")
+    if axis is not None and (type(axis) is not str or axis not in WRITING_SHEET_AXES):
+        raise CompanionEvidenceError("invalid writing-sheet axis")
+    group = payload.get("conflict_group")
+    if group is not None and (
+        type(group) is not str or not group.strip() or len(group) > MAX_KEY_CHARS
+    ):
+        raise CompanionEvidenceError("invalid conflict group")
+    scope, excerpt = payload.get("evidence_scope"), payload.get("evidence_excerpt")
+    if (scope is None) != (excerpt is None):
+        raise CompanionEvidenceError("evidence_scope and evidence_excerpt must be supplied together")
+    if scope is not None and (
+        type(scope) is not str or not scope.strip() or len(scope) > 128
+        or type(excerpt) is not str or not excerpt.strip() or len(excerpt) > 128
+    ):
+        raise CompanionEvidenceError("invalid evidence anchor (max 128 characters)")
 
 
 def _json(value: Any) -> str:
@@ -178,7 +199,12 @@ def observe_accepted(
 
 
 def apply_preference(conn, project_id: str, key: str, payload: Mapping[str, Any]) -> None:
-    """Only caller-explicit feedback; NEVER derived semantically from AI drafts."""
+    """One authoritative explicit preference store; no parallel rule engines.
+
+    Source anchoring and group conflict checks run in the SAME transaction as
+    accepted story mutations. The source body is never copied into preference
+    storage: only the accepted revision hash and a short excerpt hash.
+    """
     validate_preference(key, payload)
     action = payload.get("action", "set")
     if action == "remove":
@@ -189,16 +215,55 @@ def apply_preference(conn, project_id: str, key: str, payload: Mapping[str, Any]
         if not deleted:
             return
     else:
-        current = conn.execute(
-            """SELECT guidance,direction,category FROM writer_companion_preferences
-               WHERE project_id=? AND preference_key=?""", (project_id, key),
-        ).fetchone()
         guidance = " ".join(payload["guidance"].split())
         direction = payload.get("direction", "prefer")
         category = payload.get("category", "general")
-        if current and (current["guidance"], current["direction"], current["category"]) == (
-            guidance, direction, category,
-        ):
+        axis = payload.get("axis")
+        group = payload.get("conflict_group")
+        group = group.strip() if group is not None else None
+        evidence_scope = payload.get("evidence_scope")
+        evidence_body_hash = evidence_excerpt_hash = None
+
+        if evidence_scope is not None:
+            source = conn.execute(
+                """SELECT body,body_hash FROM accepted_prose
+                   WHERE project_id=? AND scope_id=?""",
+                (project_id, evidence_scope),
+            ).fetchone()
+            excerpt = payload["evidence_excerpt"]
+            if source is None or excerpt not in source["body"]:
+                raise CompanionEvidenceError(
+                    "evidence excerpt is not in the current accepted project prose"
+                )
+            evidence_body_hash = source["body_hash"]
+            evidence_excerpt_hash = hashlib.sha256(
+                excerpt.encode("utf-8")
+            ).hexdigest()
+
+        if group is not None:
+            collision = conn.execute(
+                """SELECT preference_key FROM writer_companion_preferences
+                   WHERE project_id=? AND category=? AND conflict_group=?
+                         AND preference_key<>? LIMIT 1""",
+                (project_id, category, group, key),
+            ).fetchone()
+            if collision is not None:
+                raise CompanionEvidenceError(
+                    "preference group conflict with "
+                    f"{collision['preference_key']!r}; update/remove the existing rule explicitly"
+                )
+        current = conn.execute(
+            """SELECT guidance,direction,category,axis,conflict_group,
+                      evidence_scope,evidence_body_hash,evidence_excerpt_hash
+               FROM writer_companion_preferences
+               WHERE project_id=? AND preference_key=?""",
+            (project_id, key),
+        ).fetchone()
+        proposed = (
+            guidance, direction, category, axis, group,
+            evidence_scope, evidence_body_hash, evidence_excerpt_hash,
+        )
+        if current and tuple(current) == proposed:
             return
         if current is None:
             row = conn.execute(
@@ -211,14 +276,20 @@ def apply_preference(conn, project_id: str, key: str, payload: Mapping[str, Any]
                 )
         conn.execute(
             """INSERT INTO writer_companion_preferences(
-                 project_id,preference_key,guidance,direction,category
-               ) VALUES(?,?,?,?,?)
+                 project_id,preference_key,guidance,direction,category,
+                 axis,conflict_group,evidence_scope,evidence_body_hash,evidence_excerpt_hash
+               ) VALUES(?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(project_id,preference_key) DO UPDATE SET
                  guidance=excluded.guidance,direction=excluded.direction,
-                 category=excluded.category,updated_at=CURRENT_TIMESTAMP""",
-            (project_id, key, guidance, direction, category),
+                 category=excluded.category,axis=excluded.axis,
+                 conflict_group=excluded.conflict_group,
+                 evidence_scope=excluded.evidence_scope,
+                 evidence_body_hash=excluded.evidence_body_hash,
+                 evidence_excerpt_hash=excluded.evidence_excerpt_hash,
+                 updated_at=CURRENT_TIMESTAMP""",
+            (project_id, key, *proposed),
         )
-    # Preference-only commits should still create a versioned project profile.
+    # Existing V21 profile version remains the sole invalidation clock.
     conn.execute(
         """INSERT INTO writer_companion_profiles(project_id,version)
            VALUES(?,1)
@@ -290,6 +361,7 @@ class WritingCompanion:
         self._version = -1
         self._profile: dict | None = None
         self._preferences: tuple[dict, ...] = ()
+        self._stale_preferences: tuple[dict, ...] = ()
         self.cache_hits = 0
         self.profile_loads = 0
 
@@ -339,7 +411,9 @@ class WritingCompanion:
             item for item in self._preferences
             if item["category"] == "general" or item["category"] in concerns
         ]
-        applicable.sort(key=lambda p: (p["category"] != "general", p["preference_key"]))
+        # Current-scene specificity precedes generic preferences, within one
+        # canonical priority list. Neither creates a second memory system.
+        applicable.sort(key=lambda p: (p["category"] == "general", p["preference_key"]))
         instructions = tuple(
             ("遵守：" if item["direction"] == "prefer" else "避免：") + item["guidance"]
             for item in applicable[:max_guidance]
@@ -383,11 +457,58 @@ class WritingCompanion:
             "authored_voice": json.loads(row["authored_voice_json"]),
         }
         prefs = self.db.conn.execute(
-            """SELECT preference_key,guidance,direction,category
-               FROM writer_companion_preferences WHERE project_id=?
-               ORDER BY preference_key LIMIT ?""", (self.project_id, MAX_PREFERENCES),
+            """SELECT p.preference_key,p.guidance,p.direction,p.category,
+                      p.axis,p.conflict_group,p.evidence_scope,p.evidence_body_hash,
+                      a.body_hash AS current_evidence_hash
+               FROM writer_companion_preferences AS p
+               LEFT JOIN accepted_prose AS a
+                 ON p.evidence_scope=a.scope_id AND a.project_id=p.project_id
+               WHERE p.project_id=?
+               ORDER BY p.preference_key LIMIT ?""",
+            (self.project_id, MAX_PREFERENCES),
         ).fetchall()
-        self._preferences = tuple(dict(p) for p in prefs)
+        # Evidence-linked insights become inert after source revision/deletion.
+        # Bare author corrections remain valid and may be explicitly removed.
+        self._preferences = tuple(dict(p) for p in prefs
+            if p["evidence_scope"] is None
+            or p["evidence_body_hash"] == p["current_evidence_hash"])
+        self._stale_preferences = tuple(dict(p) for p in prefs
+            if p["evidence_scope"] is not None
+            and p["evidence_body_hash"] != p["current_evidence_hash"])
+
+    def writing_sheet(self) -> dict[str, tuple[dict, ...]]:
+        """Read-only, author-curated four-axis view over EXISTING rules.
+
+        No model-generated personality inference and no duplicate persistence.
+        Only currently supported evidence is included; edits retract stale
+        source-dependent guidance on the next version check.
+        """
+        self.before_draft("__writing_sheet__", max_guidance=0)
+        groups: dict[str, list[dict]] = {axis: [] for axis in WRITING_SHEET_AXES}
+        for pref in self._preferences:
+            axis = pref["axis"]
+            if axis in groups:
+                groups[axis].append({
+                    "key": pref["preference_key"],
+                    "guidance": pref["guidance"],
+                    "direction": pref["direction"],
+                    "evidence_scope": pref["evidence_scope"],
+                })
+        return {axis: tuple(items) for axis, items in groups.items()}
+
+    def evidence_audit(self) -> tuple[dict, ...]:
+        """Diagnosis only; never rewrites prose or silently repairs rules."""
+        self.before_draft("__evidence_audit__", max_guidance=0)
+        current = tuple({
+            "key": p["preference_key"],
+            "status": "explicit" if p["evidence_scope"] is None else "verified",
+            "scope": p["evidence_scope"],
+        } for p in self._preferences)
+        stale = tuple({
+            "key": p["preference_key"], "status": "stale",
+            "scope": p["evidence_scope"],
+        } for p in self._stale_preferences)
+        return tuple(sorted(current + stale, key=lambda row: row["key"]))
 
     @property
     def cached_context_count(self) -> int:
