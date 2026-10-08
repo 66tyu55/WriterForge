@@ -361,6 +361,8 @@ class StoryCommitCoordinator:
         elif effect.type == EffectType.SET_WORLD_RULE:
             if "expected_value" not in p:
                 raise StoryCommitError("SET_WORLD_RULE requires expected_value")
+        elif effect.type == EffectType.SET_AUTHOR_PREFERENCE:
+            validate_preference(effect.target, p)
 
     @staticmethod
     def _story_event(conn, project_id: str, event_type: str, path: str, old: Any, new: Any) -> None:
