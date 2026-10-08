@@ -45,6 +45,7 @@ checkpoint because it changes accepted story state independently.
   WorkTree over a newer commit.
 - Restored roots track the project ID and commit ID from which they were loaded. Committing a
   root based on a superseded head is rejected.
+- A render/compute exception discards speculative buffers without dropping current pending updates; scheduling nodes from another tree is rejected before mutation.
 - A failure before COMMIT rolls back effects, journal, receipt, and checkpoint.
 - An adoption exception **after** COMMIT requires restore_work_root rather than
   reverting SQLite. Recovery starts from the persisted checkpoint.
