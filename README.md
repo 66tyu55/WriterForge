@@ -1,4 +1,4 @@
-# WriterForge V21 — Growing Writing Companion
+# WriterForge V22 — Evidence-Guarded Writing Companion
 
 WriterForge is a long-form fiction system built around strict LEARN / WRITE separation, Reader-First source learning, Canon/Character/Knowledge/Promise memory, lean Craft routing, Literary Taste, Story Sense and controlled Evolution.
 
@@ -120,3 +120,10 @@ See `reactive/WORKTREE_CRASH_RECOVERY.md` for guarantees and limitations. Run `p
 WriterForge now has a bounded, project-local companion profile that updates **inside the normal StoryCommitCoordinator transaction** when accepted prose changes. It records deduplicated weak accepted-prose rhythm from up to 32 distinct active scenes separately from high-trust author-written/edited samples; a merely AI-generated draft never becomes evidence of the author's own voice. Explicit author corrections use SET_AUTHOR_PREFERENCE StoryEffects and can be changed or forgotten. The host uses WritingFlow.begin_draft / accept_draft on its usual writing path (or WritingCompanion.before_draft in an existing shell), so there is no extra user-facing Skill invocation. Only a compact set of relevant instructions and (when supported) a tentative voice rhythm enters the next scene.
 
 No raw prose is copied into companion memory; replaced/deleted scenes retract their old style samples, profiles are project isolated, cache/instruction counts are bounded, and failed/duplicate commits do not grow the profile. This is deterministic evolving context, not continual model training; claims about creative quality or faster prose generation require separate user/reader evaluation. CI also executes eval/companion_benchmark.py to track SQLite/context overhead and bounded active samples; it is not an LLM speed benchmark. See companion/GROWING_WRITER_LOOP.md.
+
+
+## V22 — Learn externally, keep one authority
+
+Inspired by real novel-studio routing conflicts, the IJCNLP-AACL evidence-oriented Author Writing Sheet, and Calliope's read-only editorial practice, V22 adds **optional evidence anchors, explicit category conflict slots and a four-axis author-curated writing-sheet view** to the existing SET_AUTHOR_PREFERENCE store. A source excerpt must exist in accepted prose for the same project, and a changed/deleted source makes its anchored guidance stale; review reports this without rewriting the story. Specific scene rules rank ahead of generic guidance inside the existing budget. V21 databases are migrated additively; no duplicate memory store, lane scheduler or third-party plug-in is added.
+
+See research/EXTERNAL_METHODS_V22.md for original sources, rejected ideas, and precise limitations. Real creativity/reader quality remains a separate evaluation question.
