@@ -395,6 +395,13 @@ class StoryCommitCoordinator:
                 conn, project_id, "prose_accepted", f"prose.{effect.target}",
                 dict(old) if old else None, {"body_hash": body_hash},
             )
+            # V21 passive companion: only accepted changes enter its bounded
+            # incremental profile, inside the same atomic story transaction.
+            # Origin=accepted is weak evidence; only explicit author_written/
+            # author_edited carries high-trust authorship provenance.
+            observe_accepted(conn, project_id, body,
+                             origin=p.get("origin", "accepted"),
+                             changed=(old is None or old["body_hash"] != body_hash))
         elif effect.type == EffectType.SET_CHARACTER:
             row = conn.execute(
                 "SELECT state_json FROM character_state WHERE project_id=? AND character_id=?",
