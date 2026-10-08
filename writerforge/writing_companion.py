@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import dataclass
+from types import MappingProxyType
 import hashlib
 import json
 from typing import Any, Mapping
@@ -192,7 +193,7 @@ def apply_preference(conn, project_id: str, key: str, payload: Mapping[str, Any]
             """SELECT guidance,direction,category FROM writer_companion_preferences
                WHERE project_id=? AND preference_key=?""", (project_id, key),
         ).fetchone()
-        guidance = payload["guidance"].strip()
+        guidance = " ".join(payload["guidance"].split())
         direction = payload.get("direction", "prefer")
         category = payload.get("category", "general")
         if current and (current["guidance"], current["direction"], current["category"]) == (
@@ -259,7 +260,16 @@ class CompanionDraftContext:
             )
         if self.guidance:
             lines.extend(self.guidance)
-        return "\n".join(lines)[:max_chars]
+        # Never truncate a rule mid-sentence: it may invert an exception,
+        # negation or conditional in the author's explicit correction.
+        selected: list[str] = []
+        used = 0
+        for line in lines:
+            extra = len(line) + (1 if selected else 0)
+            if used + extra <= max_chars:
+                selected.append(line)
+                used += extra
+        return "\n".join(selected)
 
 
 class WritingCompanion:
@@ -347,7 +357,7 @@ class WritingCompanion:
             accepted_revisions=accepted,
             authored_revisions=trusted,
             voice_origin=voice_origin,
-            voice_metrics=voice,
+            voice_metrics=MappingProxyType(dict(voice)),
             guidance=instructions,
             fingerprint=checksum,
         )
