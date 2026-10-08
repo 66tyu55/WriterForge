@@ -6,6 +6,7 @@ import unittest
 
 from writerforge import (
     WriterForgeDB, RuntimeEngine, WritingCompanion, CompanionEvidenceError,
+    WritingFlow, AuthorCorrection,
     EffectType, StoryEffect, StoryCommitPlan, StoryCommitCoordinator,
     WorkNode, WorkKind, StoryWorkRoot, StoryWorkLoop, Lane, find_node,
 )
