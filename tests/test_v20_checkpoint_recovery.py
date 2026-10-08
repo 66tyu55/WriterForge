@@ -232,6 +232,29 @@ class V20WorkTreeRecoveryTests(unittest.TestCase):
         render_scene(root, "scene-1", "second")
         self.assertNotEqual(root.finished_fingerprint(), before)
 
+    def test_recovered_root_cannot_commit_to_another_project(self):
+        with tempfile.TemporaryDirectory() as folder:
+            db = WriterForgeDB(Path(folder) / "book.sqlite3")
+            root = new_tree()
+            render_scene(root, "scene-1", "A")
+            coordinator = StoryCommitCoordinator(db, runtime())
+            coordinator.commit(plan_for(root, "c1", "A"), work_root=root)
+            restored = restore_work_root(db, "novel")
+            render_scene(restored, "scene-1", "B")
+            wrong = StoryCommitPlan(
+                "another-novel", "c2",
+                (StoryEffect(EffectType.ACCEPT_PROSE, "scene-1", {"body": "B"}),),
+                restored.finished_fingerprint(),
+            )
+            with self.assertRaisesRegex(StoryCommitError, "different project"):
+                coordinator.commit(wrong, work_root=restored)
+            self.assertEqual(
+                db.conn.execute(
+                    "SELECT COUNT(*) c FROM story_commit_receipts WHERE project_id='another-novel'"
+                ).fetchone()["c"], 0,
+            )
+            db.close()
+
     def test_non_json_state_fails_before_any_durable_write(self):
         with tempfile.TemporaryDirectory() as folder:
             db = WriterForgeDB(Path(folder) / "book.sqlite3")
