@@ -255,6 +255,42 @@ class V20WorkTreeRecoveryTests(unittest.TestCase):
             )
             db.close()
 
+    def test_foreign_node_schedule_does_not_mutate_other_tree(self):
+        first = new_tree()
+        second = new_tree()
+        foreign_scene = find_node(second.current, "scene-1")
+        with self.assertRaisesRegex(ValueError, "does not belong"):
+            first.schedule_update(foreign_scene, Lane.DRAFT, pending_state={"body": "wrong"})
+        self.assertEqual(foreign_scene.lanes, Lane.NONE)
+        self.assertEqual(foreign_scene.pending_updates, {})
+        self.assertEqual(second.current.child_lanes, Lane.NONE)
+        self.assertEqual(first._update_sequence, 0)
+        self.assertEqual(first.lane_state.pending, Lane.NONE)
+
+    def test_render_exception_discards_wip_without_consuming_pending_update(self):
+        root = new_tree()
+        root.schedule_update(
+            find_node(root.current, "scene-1"), Lane.DRAFT,
+            pending_state={"body": "retry"},
+        )
+
+        def failing_compute(old, wip):
+            raise RuntimeError("injected compute error")
+
+        with self.assertRaisesRegex(RuntimeError, "compute error"):
+            StoryWorkLoop().render(root, render_lanes=Lane.DRAFT, compute=failing_compute)
+        self.assertIsNone(root.work_in_progress)
+        self.assertIsNone(root.finished_work)
+        self.assertIsNone(root.current.alternate)
+        self.assertTrue(find_node(root.current, "scene-1").lanes & Lane.DRAFT)
+        self.assertTrue(root.lane_state.pending & Lane.DRAFT)
+
+        # A fresh render succeeds without rescheduling or leaking a stale alternate.
+        StoryWorkLoop().render(root, render_lanes=Lane.DRAFT)
+        root.adopt_after_commit()
+        self.assertEqual(find_node(root.current, "scene-1").memoized_state,
+                         {"body": "retry"})
+
     def test_non_json_state_fails_before_any_durable_write(self):
         with tempfile.TemporaryDirectory() as folder:
             db = WriterForgeDB(Path(folder) / "book.sqlite3")
