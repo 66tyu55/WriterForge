@@ -112,7 +112,8 @@ _EFFECT_ORDER = {
     EffectType.SET_WORLD_RULE: 70,
     EffectType.SET_PROJECT_POSITION: 80,
     EffectType.ACCEPT_PROSE: 90,
-    EffectType.SET_AUTHOR_PREFERENCE: 85,
+    # Support may refer to prose accepted in this same atomic bundle.
+    EffectType.SET_AUTHOR_PREFERENCE: 95,
 }
 
 
