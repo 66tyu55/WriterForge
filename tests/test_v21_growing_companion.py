@@ -130,7 +130,7 @@ class GrowingCompanionTests(unittest.TestCase):
         self.assertEqual(context.accepted_revisions, 5)
         self.assertEqual(context.authored_revisions, 0)
         self.assertEqual(context.voice_origin, "accepted")
-        self.assertIn("弱观察", context.compact_context())
+        self.assertIn("弱信号", context.compact_context())
         self.assertNotIn("已验证作者", context.compact_context())
 
     def test_author_edited_text_has_stronger_evidence_after_multiple_edits(self):
