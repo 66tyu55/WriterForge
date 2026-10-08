@@ -1,5 +1,15 @@
 # Changelog
 
+## v21.0.0 — 2026-10-08
+
+- Added project-local WritingCompanion with constant-size accepted rhythm and stronger author-edited voice provenance.
+- Automatically updates companion evidence in the accepted StoryEffect SQLite transaction; replay and rejection do not learn.
+- Added explicit versioned SET_AUTHOR_PREFERENCE actions to remember, revise, or delete writer corrections.
+- Added bounded per-project preference capacity, limited prompt assembly, and version-aware LRU read cache.
+- Preserved LEARN/WRITE Xuehai separation; no model-weight fine-tuning or speculative prose learning.
+- Added restart/rollback/provenance/cache/isolation tests and a concise host-wiring protocol.
+
+
 ## v20.0.0 — 2026-10-08
 
 - Added one durable WorkTree checkpoint per project, in the accepted StoryEffect transaction.
