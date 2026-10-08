@@ -7,6 +7,7 @@
 - Preserved Book/Chapter/Scene topology, accepted memoized state, and outstanding per-lane pending work.
 - Rejected non-JSON-safe tree state before a durable transaction and stale checkpoint restoration.
 - Blocked post-render updates from being silently lost during WorkTree adoption.
+- Prevented foreign-node scheduling from dirtying another tree and cleaned up speculative buffers on render exceptions.
 - Prevented stale WorkTree replay and stale restored-head commits.
 - Added V20 restart, replay, rollback, corruption and lifecycle regression tests.
 
