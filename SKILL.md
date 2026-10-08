@@ -1,12 +1,12 @@
 ---
-name: writer-forge-v19
+name: writer-forge-v20
 description: >
   Long-form fiction runtime with Reader-First source learning, reactive lane scheduling,
   dependency-driven context loading, controlled self-evolution, story-sense routing,
   embodied scene causality, and pairwise literary taste. Designed for novels, not generic copywriting.
 ---
 
-# WriterForge V19
+# WriterForge V20
 
 WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutually exclusive.
 
@@ -14,7 +14,7 @@ WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutuall
 
 Capability library size must not determine per-turn cost.
 
-WriterForge V19 schedules work as:
+WriterForge V20 schedules work as:
 
 `App Shell -> Route -> Dirty Feature Chunk -> Background Worker`
 
@@ -94,3 +94,8 @@ Pending story updates are lane-specific. Reject removes rendered pending state a
 Production WRITE mutations must be represented as StoryEffect values and committed through StoryCommitCoordinator. The coordinator validates the whole bundle, opens one SQLite transaction, writes all story state + audit events + durable commit receipt, commits, and only then adopts the matching finished WorkTree.
 
 Direct StoryStore mutators are legacy/backward-compatible APIs, not the production accepted-story commit path.
+
+
+## V20 WorkTree Restart Discipline
+
+Only a finished, fingerprint-bound WorkTree may be committed alongside StoryEffects. The coordinator checkpoints that accepted tree atomically with the SQLite receipt. Call `restore_work_root(db, project_id)` on restart; do not treat a previous WIP or stale receipt as accepted state. Rehydration restores pending lanes and topology but intentionally drops speculative alternates and volatile scheduler clocks. Non-JSON-native computation states are rejected before commit. After rendering is finished, hold new events in the batch queue until commit/reject, then schedule them on current. Commits without WorkTree invalidate checkpoints and require project-driven rebuild.
