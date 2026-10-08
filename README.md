@@ -1,4 +1,4 @@
-# WriterForge V20 — Recoverable Story Runtime
+# WriterForge V21 — Growing Writing Companion
 
 WriterForge is a long-form fiction system built around strict LEARN / WRITE separation, Reader-First source learning, Canon/Character/Knowledge/Promise memory, lean Craft routing, Literary Taste, Story Sense and controlled Evolution.
 
@@ -113,3 +113,10 @@ V20 writes a JSON-native accepted WorkTree checkpoint inside the same SQLite tra
 A rootless story commit invalidates the previous checkpoint; an older receipt cannot adopt a stale tree. A failed computation discards its speculative buffer without losing pending updates, and a node from another tree is rejected before any mutation. To avoid losing late events, the WorkTree refuses `schedule_update` between finished render and commit/reject (batch late events and schedule them on the next current root). A stale recovered root is rejected at commit time.
 
 See `reactive/WORKTREE_CRASH_RECOVERY.md` for guarantees and limitations. Run `python -m unittest discover -s tests -q` for V20 coverage.
+
+
+## V21: passive growth as you write
+
+WriterForge now has a bounded, project-local companion profile that updates **inside the normal StoryCommitCoordinator transaction** when accepted prose changes. It records weak accepted-prose rhythm separately from high-trust author-written/edited samples; a merely AI-generated draft never becomes evidence of the author's own voice. Explicit author corrections use SET_AUTHOR_PREFERENCE StoryEffects and can be changed or forgotten. The host's normal writing route reads WritingCompanion.before_draft(scene_id, concerns=...) so there is no extra user-facing Skill invocation. Only a compact set of relevant instructions and (when supported) a tentative voice rhythm enters the next scene.
+
+No raw prose is copied into companion memory, profiles are project isolated, cache/instruction counts are bounded, and failed/duplicate commits do not grow the profile. This is deterministic evolving context, not continual model training; claims about creative quality or faster prose generation require separate user/reader evaluation. See companion/GROWING_WRITER_LOOP.md.
