@@ -8,7 +8,8 @@
 - Added bounded 32-scene active sample ledger, 64 per-project preference slots, limited prompt assembly, and version-aware LRU read cache.
 - Added WritingFlow host facade so the companion can ride the normal begin_draft / accept_draft cycle without a user-triggered Skill.
 - Preserved LEARN/WRITE Xuehai separation; no model-weight fine-tuning or speculative prose learning.
-- Added restart/rollback/provenance/cache/isolation tests and a concise host-wiring protocol.
+- Added restart/rollback/provenance/cache/isolation tests, safety tests for immutable metrics and whole-rule truncation, and a concise host-wiring protocol.
+- Added a GitHub Actions micro-benchmark for bounded samples, context reuse and SQLite cost.
 
 
 ## v20.0.0 — 2026-10-08
