@@ -399,7 +399,7 @@ class StoryCommitCoordinator:
             # incremental profile, inside the same atomic story transaction.
             # Origin=accepted is weak evidence; only explicit author_written/
             # author_edited carries high-trust authorship provenance.
-            observe_accepted(conn, project_id, body,
+            observe_accepted(conn, project_id, effect.target, body,
                              origin=p.get("origin", "accepted"),
                              changed=(old is None or old["body_hash"] != body_hash))
         elif effect.type == EffectType.SET_CHARACTER:
