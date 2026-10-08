@@ -110,6 +110,6 @@ V19 GitHub CI regression: **135 / 135 passed**.
 
 V20 writes a JSON-native accepted WorkTree checkpoint inside the same SQLite transaction as its StoryEffect receipt. After restart, `restore_work_root(db, project_id)` verifies the latest receipt, checksum, topology and finished fingerprint before restoring the tree and pending lanes. No speculative alternates survive restart.
 
-A rootless story commit invalidates the previous checkpoint; an older receipt cannot adopt a stale tree. To avoid losing late events, the WorkTree refuses `schedule_update` between finished render and commit/reject (batch late events and schedule them on the next current root). A stale recovered root is rejected at commit time.
+A rootless story commit invalidates the previous checkpoint; an older receipt cannot adopt a stale tree. A failed computation discards its speculative buffer without losing pending updates, and a node from another tree is rejected before any mutation. To avoid losing late events, the WorkTree refuses `schedule_update` between finished render and commit/reject (batch late events and schedule them on the next current root). A stale recovered root is rejected at commit time.
 
 See `reactive/WORKTREE_CRASH_RECOVERY.md` for guarantees and limitations. Run `python -m unittest discover -s tests -q` for V20 coverage.
