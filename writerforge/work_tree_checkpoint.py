@@ -213,4 +213,5 @@ def restore_work_root(db: WriterForgeDB, project_id: str) -> StoryWorkRoot:
         raise WorkTreeCheckpointError("WorkTree checkpoint checksum mismatch")
     root = _decode_tree(row["tree_json"], row["work_fingerprint"])
     root.durable_commit_id = row["commit_id"]
+    root.durable_project_id = project_id
     return root
