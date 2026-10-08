@@ -204,7 +204,12 @@ class CompanionDraftContext:
                 f"，每句逗号约{self.voice_metrics['comma_per_sentence']:.1f}个。"
             )
         elif self.voice_origin == "accepted":
-            lines.append("已接受稿件的节奏仅是弱观察，不等同于作者个人风格。")
+            lines.append(
+                "已接受稿件的节奏（弱信号，并非作者本人风格）："
+                f"平均句长约{self.voice_metrics['avg_sentence_chars']:.1f}字"
+                f"，每句逗号约{self.voice_metrics['comma_per_sentence']:.1f}个；"
+                "仅用于保持作品连续性，不可机械模仿。"
+            )
         if self.guidance:
             lines.extend(self.guidance)
         return "\n".join(lines)[:max_chars]
