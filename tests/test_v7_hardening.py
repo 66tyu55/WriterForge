@@ -34,9 +34,14 @@ class V7HardeningTests(unittest.TestCase):
         sid1 = self.published()
         self.runtime.enter_learn()
         sid2 = self.x.create_staging_snapshot(parent_id=sid1)
+        # V23 child snapshots are logical overlays, not physical copies.
         count = self.db.conn.execute("SELECT COUNT(*) c FROM xuehai_entries WHERE snapshot_id=?", (sid2,)).fetchone()["c"]
-        self.assertEqual(count, 4)
+        self.assertEqual(count, 0)
+        self.x.publish(sid2)
         self.runtime.exit()
+        self.runtime.enter_write(sid2)
+        inherited = self.x.query(Query(genre="玄幻", limit=8, max_per_work=8, max_per_cluster=8))
+        self.assertEqual(len(inherited), 4)
 
     def test_retrieval_diversity_and_usage_penalty(self):
         sid = self.published()
