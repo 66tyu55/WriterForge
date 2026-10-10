@@ -142,6 +142,27 @@ def main():
         )
         if not packet.evidence or any(r["work_id"]!=book.work_id for r in packet.evidence):
             raise AssertionError("source evidence was not used in verifiable writing context")
+        # REAL source-readiness audit. Without author-reviewed facet proofs,
+        # it MUST block two-/multi-category study rather than fabricate it.
+        from writerforge.literary_ladder import LiteraryLadder
+        ladder=LiteraryLadder(db,rt,"audit-only-original-study").tasks(
+            work_id=book.work_id,
+            goal="以人物选择带动具体动作、环境和情绪变化，保持原创新场景",
+        )
+        gates={"work_id":book.work_id,
+               "stages":[step.trace() for step in ladder],
+               "model_called":False,"critic_called":False,
+               "literary_quality_certified":False,
+               "cross_work_assessment_performed":False}
+        (output/"literary_ladder_readiness.json").write_text(
+            json.dumps(gates,ensure_ascii=False,indent=2),encoding="utf-8",
+        )
+        audit["literary_training_gate"]={
+            "stage_1_ready":ladder[0].readiness=="ready",
+            "ready_stages":sum(x.readiness=="ready" for x in ladder),
+            "needs_human_reviewed_categories":sum(x.readiness!="ready" for x in ladder),
+            "no_model_call_performed":True,
+        }
         audit["stages"]["retrieval_in_draft_context"]="executed"
         audit["evidence_count_for_draft"]=len(packet.evidence)
         audit["craft_active_ids_in_context"]=list(packet.craft_ids)

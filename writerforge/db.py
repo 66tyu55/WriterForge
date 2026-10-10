@@ -167,6 +167,23 @@ CREATE TABLE IF NOT EXISTS encyclopedia_relations (
 CREATE INDEX IF NOT EXISTS idx_encyclopedia_relation_source
 ON encyclopedia_relations(source_entity_id,relation);
 
+CREATE TABLE IF NOT EXISTS literary_training_attempts (
+    run_id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    work_id TEXT NOT NULL,
+    stage INTEGER NOT NULL CHECK(stage BETWEEN 1 AND 6),
+    prompt_sha256 TEXT NOT NULL,
+    body_sha256 TEXT NOT NULL,
+    status TEXT NOT NULL,
+    model TEXT NOT NULL,
+    body TEXT NOT NULL,
+    receipt_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(work_id) REFERENCES studied_works(work_id)
+);
+CREATE INDEX IF NOT EXISTS idx_literary_training_history
+ON literary_training_attempts(project_id,stage,created_at);
+
 CREATE TABLE IF NOT EXISTS retrieval_usage (
     project_id TEXT NOT NULL,
     entry_id INTEGER NOT NULL,

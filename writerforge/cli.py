@@ -168,6 +168,21 @@ def main(argv: list[str] | None = None):
     studio.add_argument("--api-base",default="http://127.0.0.1:1234/v1")
     studio.add_argument("--port",default=8765,type=int)
     studio.add_argument("--output-dir",default="writing_runs/studio")
+    ladder_status=sub.add_parser("literary-readiness",help="inspect stage gates; NOT a literary quality score")
+    ladder_status.add_argument("--project",required=True)
+    ladder_status.add_argument("--work-id",required=True)
+    ladder_status.add_argument("--goal",required=True)
+    ladder_run=sub.add_parser("literary-practice",help="run source-grounded increasing-complexity model practice")
+    ladder_run.add_argument("--project",required=True)
+    ladder_run.add_argument("--work-id",required=True)
+    ladder_run.add_argument("--goal",required=True)
+    ladder_run.add_argument("--model",required=True,help="currently loaded real local model ID")
+    ladder_run.add_argument("--api-base",default="http://127.0.0.1:1234/v1")
+    ladder_run.add_argument("--source-genre",default="古代白话")
+    ladder_run.add_argument("--through-stage",type=int,default=1,choices=range(1,7))
+    ladder_run.add_argument("--critic-project",help="existing lit-critic project with CANON.md / STYLE.md")
+    ladder_run.add_argument("--output-dir",default="writing_runs/literary_ladder")
+    ladder_run.add_argument("--backup-r2",action="store_true",help="back up completed trials to existing private R2")
     args=p.parse_args(argv)
     if args.cmd=="catalog":
         from .classics_catalog import CATALOG, MIN_WORKS_FOR_CROSS_CORPUS_REVIEW
@@ -335,6 +350,34 @@ def main(argv: list[str] | None = None):
             _emit(enc.entity_overview(
                 kind=args.kind,work_id=args.work_id,limit=args.limit,offset=args.offset,
             ))
+        elif args.cmd in ("literary-readiness","literary-practice"):
+            from .literary_ladder import LiteraryLadder
+            row=db.conn.execute(
+                "SELECT id FROM snapshots WHERE status='published' ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            if row is None:
+                raise ValueError("no published original source snapshot")
+            rt=RuntimeEngine()
+            rt.enter_write(int(row["id"]))
+            ladder=LiteraryLadder(db,rt,args.project)
+            if args.cmd=="literary-readiness":
+                stages=ladder.tasks(work_id=args.work_id,goal=args.goal)
+                _emit({"work_id":args.work_id,"stages":[x.trace() for x in stages],
+                       "literary_training_mastered":False,
+                       "global_50_work_assessment_performed":False})
+            else:
+                result=ladder.run(
+                    work_id=args.work_id,goal=args.goal,model=args.model,
+                    api_base=args.api_base,source_genre=args.source_genre,
+                    through_stage=args.through_stage,
+                    critic_project=args.critic_project,output_dir=args.output_dir,
+                )
+                if args.backup_r2 or os.environ.get("WRITERFORGE_R2_AUTO_BACKUP")=="1":
+                    if any(item.get("run_id") for item in result["attempts"]):
+                        result["private_r2_backup"]=R2StudyVault(R2Config.from_environment()).backup(
+                            database=args.db,library=os.environ.get("WRITERFORGE_R2_LIBRARY","writerforge-personal"),
+                        )
+                _emit(result)
         elif args.cmd=="status":
             snap=db.conn.execute(
                 "SELECT id FROM snapshots WHERE status='published' ORDER BY id DESC LIMIT 1"

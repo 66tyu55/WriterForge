@@ -170,6 +170,7 @@ def _logical_study_digest(path: Path) -> str:
         "encyclopedia_aliases": "entity_id,alias",
         "encyclopedia_evidence": "id,entity_id,work_id,chapter,paragraph,sentence,category_path,attribute,quotation,source_unit_sha256,explanation,assertion,origin,status,reviewer_reason",
         "encyclopedia_relations": "id,source_entity_id,target_entity_id,relation,evidence_id",
+        "literary_training_attempts": "run_id,project_id,work_id,stage,prompt_sha256,body_sha256,status,model,body,receipt_json",
     }
     digest = sha256()
     try:

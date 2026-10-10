@@ -235,6 +235,7 @@ jobs:
             --source "$RUNNER_TEMP/learned/xiyouji_23962_original.txt" \
             --extra report.json="$RUNNER_TEMP/learned/training_report.json" \
             --extra context.json="$RUNNER_TEMP/learned/verified_draft_context.json" \
+            --extra ladder.json="$RUNNER_TEMP/learned/literary_ladder_readiness.json" \
             --extra license.txt="$RUNNER_TEMP/learned/PROJECT_GUTENBERG_LICENSE.txt" \
             --extra status.md="$RUNNER_TEMP/learned/TRAINING_STATUS.md"
       - name: Independently restore from R2 and verify 100 published chapters

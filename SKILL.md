@@ -1,12 +1,12 @@
 ---
-name: writer-forge-v26
+name: writer-forge-v27
 description: >
   Long-form fiction runtime with Reader-First source learning, reactive lane scheduling,
   dependency-driven context loading, controlled self-evolution, story-sense routing,
   embodied scene causality, and pairwise literary taste. Designed for novels, not generic copywriting.
 ---
 
-# WriterForge V26
+# WriterForge V27
 
 WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutually exclusive.
 
@@ -139,3 +139,8 @@ Actual purpose: from an original source, preserve entities, typed characteristic
 ## V26 runtime contract: invisible assistance, not manual retrieval
 
 When user is composing in our WriterForge Studio, browser input/debounce is the REAL trigger; do not pretend this Python Skill can monitor arbitrary third-party editors. New InvisibleWritingAssist infers tentative writing direction internally from author prose, obtains published Xuehai scene context and V25 strictly human-verified encyclopedic facts, routes to CraftEngine with existing trigger names, invokes a locally configured model, and returns exactly two different original prose options. Suggestions must never mutate the manuscript until the author explicitly chooses one; an author's choice is only a bounded weak signal, not a verified style upgrade. AutonomousWriting receives a real outline and per-chapter objectives, plans goals/conflict/decision/outcomes, invokes the same source-grounded writer and local model, saves each actual draft with provenance and never auto-accepts AI prose. No 50-work global literary assessment or unapproved copyrighted source upload is authorized. See docs/V26_INVISIBLE_WRITING_STUDIO.md.
+
+
+## V27 trained-source literary curriculum: fail closed before creativity claims
+
+For autonomous writing capability refinement use the existing Xuehai + V25 Human-Verified category evidence and the literary ladder rather than expecting source chunk statistics to imply literary mastery. Work from exact source spans -> 12-65-character original short units -> one verified category -> two distinct semantic roots -> three+ distinct roots -> paragraph -> causal scene, increasing complexity only when the source gates are satisfied. Model category annotations remain UNVERIFIED proposed hypotheses until independently checked. The real local LLM produces candidate text; optionally the existing lit-critic produces an independent editorial report on paragraphs/scenes, followed by no more than ONE logged revision. Critics and author feedback are NOT automatically treated as permanent Skill promotions or proof of artistic gain. Store every accepted and rejected practice attempt in the EXISTING SQLite and private R2 backups, not a competing learning store. Stop after 400 trials/project until archived. No 50-book global literary evaluation yet. Details in docs/V27_STAGED_LITERARY_PRACTICE.md.

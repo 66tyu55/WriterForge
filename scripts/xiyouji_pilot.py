@@ -62,6 +62,18 @@ def main():
         )
         if not first.evidence:
             raise AssertionError("source learning did not enter the writing context")
+        from writerforge.literary_ladder import LiteraryLadder
+        ladder=LiteraryLadder(db,rt,"xiyouji-training-proof").tasks(
+            work_id=WORK_ID,goal="塑造一次忠诚、行动和场景相互影响的原创冲突",
+        )
+        (out/"literary_ladder_readiness.json").write_text(
+            json.dumps({"work_id":WORK_ID,
+                        "stages":[step.trace() for step in ladder],
+                        "model_called":False,"critic_called":False,
+                        "literary_quality_certified":False,
+                        "cross_work_assessment_performed":False},
+                       ensure_ascii=False,indent=2),encoding="utf-8",
+        )
         (out/"verified_draft_context.json").write_text(
             json.dumps({**first.manifest(),"prompt":first.prompt},
                        ensure_ascii=False,indent=2),encoding="utf-8"
