@@ -1,4 +1,4 @@
-# WriterForge V26 — Source-grounded Faceted Literary Encyclopedia
+# WriterForge V27 — Source-grounded Faceted Literary Encyclopedia
 
 WriterForge is a long-form fiction system built around strict LEARN / WRITE separation, Reader-First source learning, Canon/Character/Knowledge/Promise memory, lean Craft routing, Literary Taste, Story Sense and controlled Evolution.
 
@@ -174,3 +174,8 @@ Start after restoring a published source-learning SQLite and loading a local LM 
     writerforge --db corpus/library/your-studied.sqlite3 studio --project novel --scene c1.s1 --goal "An honest character must make a hard choice" --model "your-local-model-id"
 
 Open http://127.0.0.1:8765/ . This observes **typing inside its own editor**, not in arbitrary Word/ChatGPT/Google Docs forms. The 900ms debounce is not a model-generation time guarantee. The old source indexing is still structural rather than deep literary training. See [V26 writer studio](docs/V26_INVISIBLE_WRITING_STUDIO.md).
+
+
+## V27 pilot — graded literary practice before claims of writer-level ability
+
+The real autonomous-draft pipeline remains available, but a genuine author cannot be obtained by merely indexing tens of thousands of novel sentences. The new developer-only literary ladder starts with original-source short-unit analysis (exact quote verification, label as unverified), then requests one human-reviewed category, two categories, three-plus categories, complete paragraphs and causal scenes. **Unreviewed lexical tags cannot unlock complex composition.** Outputs, rejected analyses, source evidence, model ID, hashes and optional independent lit-critic report / one revision are persisted in the existing local SQLite. No fake literary scores, model-weight fine-tuning or automatic skill advancement. Original Chinese source CI now records which stages are really ready and uploads the blockers to private R2. Run the internal readiness inspection before any live local model practice; the author-facing UI is not forced to select shelves. Details: [V27 graded literary practice](docs/V27_STAGED_LITERARY_PRACTICE.md).
