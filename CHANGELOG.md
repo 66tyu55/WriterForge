@@ -1,5 +1,14 @@
 # Changelog
 
+## v26.0.0 — 2026-10-10
+
+- Added real local writing editor that receives keystrokes: autosaves typed prose, intelligently waits for a relevant pause, routes context to verified source/facet and existing CraftEngine, and produces two distinct optional continuations from a real local model.
+- Added bounded outline-to-chapter autonomous writing with per-chapter plan (objective/conflict/decision/outcome/POV), actual local model prose, proven source/craft context, saved candidates and manifests; no implicit StoryCommit/author-style training.
+- No manual facet lookup or Skill buttons required in the reader-facing editor. V25 source/author review gates remain authoritative; unverified keyword tags never become verified novel facts.
+- Added localhost-only browser HTTP interface, size limits, revision-safe automatic local draft persistence, bounded weak choice feedback, at-most-one model job and no background unbounded generation.
+- Added tests for actual editor HTTP interactions, intent routing, verified-only material, local LLM call boundaries and saved outline plans. Real prose quality still requires a locally running model and independent author/reader review.
+
+
 ## v25.0.0 — 2026-10-10
 
 - Added first practical **literary encyclopedia** rather than merely labeling lines: per-work entity identity, exact original-source-backed evidence occurrences, multi-level `外貌/性格/地点/设定/...` facets, genre and subtype metadata.
