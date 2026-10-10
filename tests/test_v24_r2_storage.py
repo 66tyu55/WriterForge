@@ -171,6 +171,45 @@ class R2StudyTests(unittest.TestCase):
         self.assertEqual(len(self.fake.objects),count)
         self.assertEqual(result["deduplicated"],1)
 
+    def test_reproducible_training_edition_does_not_grow_on_ci_reruns(self):
+        first=self.store.backup(
+            database=self.db_path,library="xiyouji-23962",
+            source=self.source,edition="gutenberg23962-parser-v1"
+        )
+        amount=len(self.fake.objects)
+        with closing(sqlite3.connect(self.db_path)) as con:
+            # SQLite time metadata changes on repeated imports, but the
+            # semantically identical source study remains one stored edition.
+            con.execute(
+                "UPDATE studied_chapters SET created_at='2027-02-02 03:04:05'"
+            )
+            con.commit()
+        second=self.store.backup(
+            database=self.db_path,library="xiyouji-23962",
+            source=self.source,edition="gutenberg23962-parser-v1"
+        )
+        self.assertTrue(second["edition_reused"])
+        self.assertEqual(first["snapshot"],second["snapshot"])
+        self.assertEqual(len(self.fake.objects),amount)
+        self.assertEqual(self.fake.upload_count,2)
+
+    def test_reproducible_edition_does_not_hide_actual_study_changes(self):
+        old=self.store.backup(
+            database=self.db_path,library="xiyouji-23962",
+            source=self.source,edition="gutenberg23962-parser-v1"
+        )
+        with closing(sqlite3.connect(self.db_path)) as con:
+            con.execute(
+                "UPDATE xuehai_entries SET function='dialogue' WHERE chapter=1"
+            )
+            con.commit()
+        fresh=self.store.backup(
+            database=self.db_path,library="xiyouji-23962",
+            source=self.source,edition="gutenberg23962-parser-v1"
+        )
+        self.assertNotEqual(old["snapshot"],fresh["snapshot"])
+        self.assertFalse(fresh["edition_reused"])
+
     def test_older_version_restore_after_newer_study(self):
         first=self.store.backup(database=self.db_path,library="classics")
         with closing(sqlite3.connect(self.db_path)) as con:
