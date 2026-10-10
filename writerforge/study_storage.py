@@ -14,6 +14,7 @@ This module uses the Python standard library; local restore needs no gh CLI.
 from __future__ import annotations
 
 from hashlib import sha256
+from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import quote
@@ -68,7 +69,7 @@ def _validate_database(path: Path, expected_work: str, source_sha: str,
         # sqlite3.connect(mode=ro) ensures verify never mutates the stored DB.
         from urllib.parse import quote as url_quote
         uri = "file:" + url_quote(str(path.resolve()).replace("\\", "/"), safe="/:") + "?mode=ro"
-        with sqlite3.connect(uri, uri=True, timeout=15) as conn:
+        with closing(sqlite3.connect(uri, uri=True, timeout=15)) as conn:
             integrity = conn.execute("PRAGMA quick_check").fetchone()
             if not integrity or integrity[0] != "ok":
                 raise StudyStorageError("SQLite integrity check failed")
