@@ -60,6 +60,17 @@ class FakeR2:
             raise S3Missing()
         Path(path).write_bytes(self.objects[(bucket,key)][0])
 
+    def list_objects_v2(self, *, Bucket, Prefix, Delimiter, MaxKeys):
+        keys=sorted(k for b,k in self.objects if b==Bucket and k.startswith(Prefix))
+        prefixes=sorted({
+            Prefix+k[len(Prefix):].split(Delimiter,1)[0]+Delimiter
+            for k in keys if Delimiter in k[len(Prefix):]
+        })
+        return {
+            "CommonPrefixes":[{"Prefix":k} for k in prefixes[:MaxKeys]],
+            "IsTruncated":len(prefixes)>MaxKeys,
+        }
+
 
 def _database(path: Path):
     db = WriterForgeDB(path)
@@ -161,6 +172,18 @@ class R2StudyTests(unittest.TestCase):
                                  destination=self.folder/"library")
         self.assertTrue(again["from_local_cache"])
         self.assertEqual(self.fake.download_count,3)
+
+    def test_incomplete_single_chapter_never_counts_as_one_completed_book(self):
+        self.store.backup(
+            database=self.db_path,library="xiyouji-23962",
+            source=self.source,edition="gutenberg23962-parser-v1",
+        )
+        result=self.store.corpus_readiness(threshold=50)
+        self.assertEqual(result["complete_distinct_works"],0)
+        self.assertEqual(result["remaining"],50)
+        self.assertFalse(result["cross_corpus_review_eligible"])
+        self.assertFalse(result["cross_corpus_assessment_performed"])
+        self.assertEqual(result["catalog_candidates_seen"],1)
 
     def test_same_content_deduplicated_and_no_growth(self):
         first=self.store.backup(database=self.db_path,library="classics")

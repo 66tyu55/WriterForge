@@ -118,7 +118,7 @@ class VerifiedWritingFlow(WritingFlow):
         )
         prompt = (
             f"你正在创作一部原创{language}小说，不能续写、改写或拼接已有原著。\n"
-            "下列《西游记》资料仅帮助分析古代白话中的叙事功能、动作安排、"
+            "下列中国古代小说结构化证据仅供分析叙事功能、动作安排、"
             "对白与场景结构；绝不可复制来源表达或其中人物、地名。\n"
             f"写作场景：{scene_id}\n具体目标：{goal.strip()}\n"
             f"场景关注点：{', '.join(concerns)}\n"

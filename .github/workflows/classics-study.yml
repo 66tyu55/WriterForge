@@ -1,0 +1,165 @@
+name: Chinese original classics training and R2 step audit
+
+on:
+  pull_request:
+    paths:
+      - "writerforge/**"
+      - "scripts/classics_pilot.py"
+      - "tests/test_v24_chinese_original_catalog.py"
+      - ".github/workflows/classics-study.yml"
+  push:
+    branches: [main]
+    paths:
+      - "writerforge/**"
+      - "scripts/classics_pilot.py"
+      - "tests/test_v24_chinese_original_catalog.py"
+      - ".github/workflows/classics-study.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  train-and-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        work: [honglou, shuihu]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Install real executable study runtime and optional R2 client
+        run: python -m pip install -e '.[r2]'
+      - name: Download and hash-check approved original Chinese Gutenberg edition
+        run: |
+          set -euo pipefail
+          python -m writerforge.cli fetch-classic \
+            --work ${{ matrix.work }} \
+            --output "$RUNNER_TEMP/source.txt"
+          curl --fail --silent --show-error --location \
+            "https://raw.githubusercontent.com/GITenberg/---_${{ matrix.work == 'honglou' && '24264' || '23863' }}/master/LICENSE" \
+            -o "$RUNNER_TEMP/license.txt"
+      - name: Full sequential chapter study, SQLite restart and inactive-skill audit
+        run: |
+          set -euo pipefail
+          python scripts/classics_pilot.py ${{ matrix.work }} \
+            "$RUNNER_TEMP/source.txt" \
+            "$RUNNER_TEMP/study.sqlite3" \
+            "$RUNNER_TEMP/work-audit"
+          python -m writerforge.cli \
+            --db "$RUNNER_TEMP/study.sqlite3" corpus-progress
+      - name: Verify audit labels and source chapter count are truthful
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          meta=json.loads((Path(os.environ["RUNNER_TEMP"])/"work-audit"/"stage_audit.json").read_text())
+          assert meta["structurally_complete"] is True
+          assert meta["literary_learning_verified"] is False
+          assert meta["stages"]["reader_first_reactions"]=="not_invoked"
+          assert meta["cross_work_consolidation_performed"] is False
+          assert meta["evidence_count_for_draft"]>0
+          print("Per-work audit verified; no subjective literary scores fabricated.")
+          PY
+      - name: Check user-owned private R2 connection on trusted main
+        if: github.event_name != 'pull_request'
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+        run: |
+          python - <<'PY'
+          import os
+          names=("WRITERFORGE_R2_ACCOUNT_ID","WRITERFORGE_R2_BUCKET",
+                 "WRITERFORGE_R2_ACCESS_KEY_ID","WRITERFORGE_R2_SECRET_ACCESS_KEY")
+          if not all(os.getenv(name) for name in names):
+              raise SystemExit("Private R2 is NOT configured; refusing to claim a successful backup.")
+          print("Private R2 configured. Values intentionally not displayed.")
+          PY
+      - name: Persist distinct original-book database and execution audit in private R2
+        if: github.event_name != 'pull_request'
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+        run: |
+          set -euo pipefail
+          python -m writerforge.cli \
+            --db "$RUNNER_TEMP/study.sqlite3" backup-r2 \
+            --library ${{ matrix.work == 'honglou' && 'honglou-24264' || 'shuihu-23863' }} \
+            --edition ${{ matrix.work == 'honglou' && 'honglou-gutenberg-24264-structural-v1' || 'shuihu-gutenberg-23863-structural-v1' }} \
+            --source "$RUNNER_TEMP/source.txt" \
+            --extra report.json="$RUNNER_TEMP/work-audit/work_report.json" \
+            --extra audit.json="$RUNNER_TEMP/work-audit/stage_audit.json" \
+            --extra context.json="$RUNNER_TEMP/work-audit/draft_context.json" \
+            --extra status.md="$RUNNER_TEMP/work-audit/STAGE_AUDIT.md" \
+            --extra license.txt="$RUNNER_TEMP/license.txt"
+      - name: Read R2 back, verify source and full chapters of original edition
+        if: github.event_name != 'pull_request'
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+        run: |
+          set -euo pipefail
+          python -m writerforge.cli \
+            --db "$RUNNER_TEMP/restored-from-r2.sqlite3" restore-r2 \
+            --library ${{ matrix.work == 'honglou' && 'honglou-24264' || 'shuihu-23863' }} --storage-dir "$RUNNER_TEMP/verified-library"
+          python - <<'PY'
+          import json,os,sqlite3
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])
+          audit=json.loads((root/"work-audit"/"stage_audit.json").read_text())
+          with sqlite3.connect(root/"restored-from-r2.sqlite3") as con:
+              n=con.execute("SELECT COUNT(*) FROM studied_chapters").fetchone()[0]
+              source_rows=con.execute("SELECT COUNT(*) FROM source_spans").fetchone()[0]
+              assert n==audit["full_chapters"]+int(audit["prologue_included"])
+              assert source_rows==audit["source_units"]
+              assert con.execute("PRAGMA quick_check").fetchone()[0]=="ok"
+          print("PRIVATE R2 upload + independent download + provenance + SQLite validation SUCCESS")
+          PY
+
+  # Metadata-only progress; do not run premature literary cross-work review.
+  count-complete-originals:
+    if: github.event_name != 'pull_request'
+    needs: train-and-audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e '.[r2]'
+      - name: Count unique verified book editions in private R2
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+        run: |
+          python -m writerforge.cli \
+            --db "$RUNNER_TEMP/progress-only.sqlite3" \
+            corpus-progress --remote-r2 | tee "$RUNNER_TEMP/50-work-readiness.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          value=json.loads((Path(os.environ["RUNNER_TEMP"])/"50-work-readiness.json").read_text())
+          assert value["complete_distinct_works"]>=3, value
+          assert value["threshold"]==50
+          assert not value["cross_corpus_assessment_performed"]
+          if value["complete_distinct_works"]<50:
+              assert value["cross_corpus_review_eligible"] is False
+          print("Distinct works:",value["complete_distinct_works"],"/ 50. Deferred literary consolidation.")
+          PY

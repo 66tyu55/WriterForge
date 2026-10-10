@@ -501,6 +501,73 @@ class R2StudyVault:
             os.replace(staging,target)
         return self._result(library,snapshot,target,manifest,cached=False)
 
+    def corpus_readiness(self, *, threshold: int = 50, max_libraries: int = 512) -> dict:
+        """Read-only count of distinct FULL original books across separate R2 DBs.
+
+        Never run a global literary evaluation here. Each complete source has
+        its own isolated R2 library; SQLite source-unit counts are NOT books.
+        Unknown library IDs are not counted until catalog admission.
+        """
+        from .classics_catalog import CATALOG
+        if threshold < 1 or max_libraries < 1 or max_libraries > 512:
+            raise R2StorageError("invalid corpus progress limits")
+        base = self.config.prefix + "/libraries/"
+        response = self.client.list_objects_v2(
+            Bucket=self.config.bucket, Prefix=base, Delimiter="/",
+            MaxKeys=max_libraries,
+        )
+        if response.get("IsTruncated"):
+            raise R2StorageError("corpus listing truncated; cannot safely count completed works")
+        expected = {
+            "xiyouji-23962":100,
+            **{b.library: b.expected_chapters+(1 if b.include_prologue else 0)
+               for b in CATALOG.values()},
+        }
+        completed=[]
+        candidates=[]
+        for item in response.get("CommonPrefixes",[]):
+            prefix=item.get("Prefix","")
+            if not prefix.startswith(base) or not prefix.endswith("/"):
+                continue
+            library=prefix[len(base):-1]
+            if library not in expected:
+                continue
+            candidates.append(library)
+            try:
+                pointer=json.loads(self._get_small(prefix+"latest.json",MAX_LATEST_BYTES))
+                snap=pointer.get("snapshot")
+                if (pointer.get("format")!=R2_FORMAT or pointer.get("library")!=library
+                    or not isinstance(snap,str) or not SHA_RE.fullmatch(snap)
+                    or pointer.get("manifest_sha256")!=snap):
+                    continue
+                raw=self._get_small(prefix+"snapshots/"+snap+".json",MAX_MANIFEST_BYTES)
+                if sha256(raw).hexdigest()!=snap:
+                    continue
+                manifest=json.loads(raw)
+                stats=manifest.get("stats",{})
+                if (manifest.get("library")!=library or manifest.get("format")!=R2_FORMAT
+                    or not manifest.get("edition")
+                    or "source.txt" not in manifest.get("files",{})
+                    or int(stats.get("studied_chapters",0))!=expected[library]):
+                    continue
+                completed.append({
+                    "library":library,"chapters":stats["studied_chapters"],
+                    "snapshot":snap[:16],
+                })
+            except (ValueError,TypeError,KeyError,R2StorageError):
+                continue
+        count=len(completed)
+        return {
+            "complete_distinct_works":count,
+            "threshold":threshold,
+            "remaining":max(0,threshold-count),
+            "cross_corpus_review_eligible":count>=threshold,
+            "cross_corpus_assessment_performed":False,
+            "catalog_candidates_seen":len(candidates),
+            "verified_complete_works":sorted(completed,key=lambda r:r["library"]),
+            "counting_rule":"distinct admitted original-book libraries, full chapters and source manifests; no chapter/line inflation",
+        }
+
     @staticmethod
     def _verify_existing(target: Path, files: dict, manifest: dict) -> None:
         for name, metadata in files.items():

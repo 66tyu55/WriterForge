@@ -1,4 +1,4 @@
-# WriterForge V23.2 — Real Original-Chinese Study & Private R2 Backup
+# WriterForge V24 — Real Chinese Classical Corpus Study and Stage Audit
 
 WriterForge is a long-form fiction system built around strict LEARN / WRITE separation, Reader-First source learning, Canon/Character/Knowledge/Promise memory, lean Craft routing, Literary Taste, Story Sense and controlled Evolution.
 
@@ -150,3 +150,10 @@ The original Chinese 西遊記 training job now produces a **durable versioned G
 A real Cloudflare R2 S3-compatible storage backend is now implemented behind optional boto3 support (`python -m pip install -e '.[r2]'`). It takes an **online, WAL-safe SQLite snapshot**, streams its content and optionally an original source/report into a **private, content-addressed bucket**, validates SHA-256 metadata, stores an immutable manifest, and updates a latest-pointer only after verification. The restore command verifies every object and SQLite integrity before creating an isolated version folder. Existing author databases are never overwritten. Reproducible CI learning editions use a streamed logical-study hash to avoid growing 65 MiB with every identical run. The existing public Gutenberg Release remains a separate allowed-source mirror; **private manuscripts must never go to that public location**.
 
 Commands: `writerforge --db writerforge.sqlite3 backup-r2 --library writerforge-personal` and `writerforge --db writerforge.sqlite3 restore-r2 --library writerforge-personal`. On local learning, opt in once with `WRITERFORGE_R2_AUTO_BACKUP=1`; no-op learning will not reupload, and accepted-scene frequent backups require separate explicit opt-in. A GitHub Actions job automatically mirrors validated 100-chapter source learning to private R2 on trusted `main` builds **only after Cloudflare R2 credentials are provisioned as GitHub Secrets**. Without those account permissions this remains tested code, not a claim of a live cloud connection. Setup: [Private Cloudflare R2 storage](docs/CLOUDFLARE_R2_PRIVATE_STORAGE.md).
+
+
+## V24: continue learning original Chinese works with measurable execution
+
+The verified source catalog adds Project Gutenberg original-language **紅樓夢 (120 chapters)** and **水滸傳 (70 chapters + genuine prologue 楔子)** to earlier 西遊記 (100 chapters). Public-domain source editions are pinned to precise GITenberg Git blob checksums, and each runs a full chapter-ordered training CI job with separate SQLite and private R2 backup + restore on trusted main. Fixed bugs discovered only with real source text: CRLF headings, narrative phrases such as 第四回中 misrecognized as headings, duplicate ch45 printed header, and hard-wrapped lines mistaken for paragraphs.
+
+Every book now emits structured stage auditing: which reading/storage/retrieval functions truly ran and which subjective skills *did not* run. **These are source indexing traces, not model parameter training or literary-quality scores.** Use `writerforge catalog`, `writerforge fetch-classic --work honglou`, `writerforge learn-classic --work honglou --source ...`, and `writerforge corpus-progress --remote-r2` (with local R2 credentials) to view verified *distinct* works toward the 50-source threshold. Neither premature global literature synthesis nor skill promotion is performed in V24. Details: [Chinese corpus and stage audit](docs/V24_CHINESE_CORPUS_AND_STAGE_AUDIT.md).
