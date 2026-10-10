@@ -180,8 +180,8 @@ class XuehaiStore:
         if not self.db.fts_enabled or not terms:
             return {}
         clean = []
-        for t in terms:
-            t = (t or "").strip().replace('"', ' ')
+        for t in terms[:6]:
+            t = (t or "").strip()[:48].replace('"', ' ')
             if t:
                 clean.append(f'"{t}"')
         if not clean:
