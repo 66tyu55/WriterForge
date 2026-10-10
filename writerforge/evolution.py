@@ -45,8 +45,21 @@ class SkillRegistry:
         self._skills: dict[str, CapabilityContract] = {}
         self.db = db
         self.scope = scope
+        if self.db is not None:
+            for r in self.db.conn.execute(
+                """SELECT skill_name,level,statement,dependencies_json,status,revision
+                   FROM skill_capabilities WHERE scope=? ORDER BY skill_name LIMIT 256""",
+                (self.scope,),
+            ):
+                self._skills[r["skill_name"]] = CapabilityContract(
+                    r["skill_name"], int(r["level"]), r["statement"],
+                    json.loads(r["dependencies_json"]),
+                    SkillStatus(r["status"]), int(r["revision"]),
+                )
 
     def register(self, contract: CapabilityContract) -> None:
+        if contract.name not in self._skills and len(self._skills) >= 256:
+            raise ValueError("capability registry is capped at 256 entries")
         self._skills[contract.name] = contract
         self._persist(contract)
 
@@ -321,7 +334,9 @@ class EvolutionEngine:
         self.promotion_gate = PromotionGate()
 
     def record_failure(self, event: FailureEvent) -> None:
-        self.failures.append(event)
+        if self.db is None:
+            self.failures.append(event)
+            del self.failures[:-256]
         if self.db is not None:
             self.db.conn.execute(
                 """INSERT INTO evolution_failures(scope, skill_name, code, context, severity, genre, evidence_ref)
@@ -331,7 +346,19 @@ class EvolutionEngine:
             self.db.conn.commit()
 
     def failure_clusters(self, *, min_count: int = 3) -> list[FailureCluster]:
-        return self.clusterer.cluster(self.failures, min_count=min_count)
+        if self.db is not None:
+            rows = self.db.conn.execute(
+                """SELECT skill_name,code,context,severity,genre,evidence_ref
+                   FROM evolution_failures WHERE scope=?
+                   ORDER BY id DESC LIMIT 2000""", (self.scope,),
+            ).fetchall()
+            events = [FailureEvent(
+                r["skill_name"], r["code"], r["context"],
+                int(r["severity"]), r["genre"] or "", r["evidence_ref"] or "",
+            ) for r in rows]
+        else:
+            events = self.failures
+        return self.clusterer.cluster(events, min_count=min_count)
 
     def design_curriculum_for(self, *, skill: str, code: str, count: int = 8, min_count: int = 3) -> list[TrainingScenario]:
         for cluster in self.failure_clusters(min_count=min_count):
