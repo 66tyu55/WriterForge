@@ -98,6 +98,9 @@ CREATE TABLE IF NOT EXISTS encyclopedia_entities (
     name TEXT NOT NULL,
     kind TEXT NOT NULL,
     genre TEXT NOT NULL,
+    subtype TEXT NOT NULL DEFAULT '',
+    gender TEXT NOT NULL DEFAULT 'unknown'
+        CHECK(gender IN ('unknown','female','male','other')),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(work_id,kind,name),
     FOREIGN KEY(work_id) REFERENCES studied_works(work_id)
