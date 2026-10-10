@@ -202,6 +202,69 @@ class LadderStageTests(unittest.TestCase):
         self.assertEqual(receipt["status"],"independent_critic_not_configured")
         self.assertNotIn("critique_report_path",receipt)
 
+    def test_independent_litcritic_review_causes_bounded_revision_without_fake_promotion(self):
+        self.approved_categories()
+        project=self.root/"real-critic-project"
+        project.mkdir()
+        (project/"CANON.md").write_text("# 人物与世界事实\n",encoding="utf-8")
+        (project/"STYLE.md").write_text("# 克制，不照抄原文\n",encoding="utf-8")
+        def actual_report(**kwargs):
+            path=self.root/"critic-output.json"
+            path.write_text(json.dumps({
+                "provider":"lit-critic","verified_with_live_provider":True,
+                "findings":[{"impact":"这里人物选择的后果过于轻描淡写，风险没有兑现。"}],
+                "scene_sha256":"external-report-fixture",
+            },ensure_ascii=False),encoding="utf-8")
+            return {"json":str(path),"markdown":str(path.with_suffix(".md")),"count":1}
+
+        with patch("writerforge.literary_ladder.local_chat_completion",
+                   side_effect=(ANALYSIS,SINGLE,PAIR,MANY,PARA,PARA)) as model, \
+             patch("writerforge.literary_ladder.LitCriticAdapter.review",
+                   side_effect=actual_report) as reviewer:
+            result=self.engine.run(
+                work_id="original-book",
+                goal="少女在守约与照顾同伴之间作出选择并承担责任",
+                model="local-fixture",
+                through_stage=5,critic_project=project,
+                output_dir=self.root/"independent",
+            )
+        self.assertEqual(reviewer.call_count,1)
+        self.assertEqual(model.call_count,6)
+        last=result["attempts"][-1]
+        self.assertEqual(last["critic_status"],"independent_review_then_revision_unverified")
+        receipt=json.loads(Path(last["receipt"]).read_text(encoding="utf-8"))
+        self.assertIn("critique_report_path",receipt)
+        self.assertIn("revision_candidate_sha256",receipt)
+        self.assertFalse(receipt["skill_promoted"])
+        self.assertEqual(self.db.conn.execute(
+            "SELECT COUNT(*) FROM literary_training_attempts WHERE status='independent_review_then_revision_unverified'"
+        ).fetchone()[0],1)
+
+    def test_litcritic_failure_still_persists_the_unevaluated_original(self):
+        self.approved_categories()
+        project=self.root/"unavailable-critic"
+        project.mkdir()
+        (project/"CANON.md").write_text("# 人物事实\n",encoding="utf-8")
+        (project/"STYLE.md").write_text("# 文体\n",encoding="utf-8")
+        with patch("writerforge.literary_ladder.local_chat_completion",
+                   side_effect=(ANALYSIS,SINGLE,PAIR,MANY,PARA)), \
+             patch("writerforge.literary_ladder.LitCriticAdapter.review",
+                   side_effect=ConnectionError("private critic endpoint unavailable")):
+            with self.assertRaises(ConnectionError):
+                self.engine.run(
+                    work_id="original-book",goal="主人公为了不失信必须承担救人的后果",
+                    model="local-fixture",through_stage=5,
+                    critic_project=project,output_dir=self.root/"unavailable",
+                )
+        failed=self.db.conn.execute(
+            "SELECT status,receipt_json FROM literary_training_attempts WHERE stage=5"
+        ).fetchone()
+        self.assertEqual(failed["status"],"critic_failed")
+        self.assertEqual(json.loads(failed["receipt_json"])["failure_type"],"ConnectionError")
+        self.assertEqual(self.db.conn.execute(
+            "SELECT COUNT(*) FROM literary_training_attempts"
+        ).fetchone()[0],5)
+
     def test_restart_can_query_durable_trial_and_strict_quota(self):
         with patch("writerforge.literary_ladder.local_chat_completion",return_value=ANALYSIS):
             result=self.engine.run(
