@@ -1,5 +1,16 @@
 # Changelog
 
+## v25.0.0 — 2026-10-10
+
+- Added first practical **literary encyclopedia** rather than merely labeling lines: per-work entity identity, exact original-source-backed evidence occurrences, multi-level `外貌/性格/地点/设定/...` facets, genre and subtype metadata.
+- Preserves ALL source appearances of the same 妖兽, person, location or setting; duplicate exact import is idempotent, but no cross-work merge or per-entity diversity truncation. Bounded, paginated category/name/kind/genre browsing.
+- Prevents obvious category collisions: a beast explicitly classified 野兽 cannot be silently shelved under 妖兽; 女性 facets require a female character, and locations must actually be places.
+- Every classifier/model output begins as **proposed**. Verbatim quotation, source span and its original hash are checked. Only individually human-confirmed entries can be shown to source-grounded real draft generation; rejected/stale samples cannot poison writing.
+- Added author-facing CLI for registering subjects, aliases, evidence, review and retrieval. Actual draft-context/draft supports `--reference-category`, `--reference-name`, `--genre` and records verified source evidence IDs in manifests.
+- R2 reproducible-study logical digest now includes the encyclopedia, classifications, reviewer status and relations; extra labels no longer disappear by premature unchanged-edition deduplication.
+- This does NOT automatically deeply understand a copyright-protected Google Drive novel, perform real external editorial scoring, or run premature 50-work global optimization. Public tests use entirely synthetic source snippets.
+
+
 ## v24.0.0 — 2026-10-10
 
 - Verified source catalog for full traditional Chinese 紅樓夢 (PG 24264, 120 chapters) and 水滸傳 (PG 23863, 70 chapters + 楔子), pinned to GITenberg Git blob SHA1. No translations or arbitrary website scraping.

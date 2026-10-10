@@ -23,6 +23,7 @@ from .db import WriterForgeDB
 from .runtime import RuntimeEngine, Mode
 from .writing_flow import WritingFlow
 from .xuehai import XuehaiStore, Query
+from .encyclopedia import FictionEncyclopedia, FacetQuery
 
 
 MAX_PROMPT_CHARS = 10_000
@@ -43,6 +44,7 @@ class GroundedDraftPacket:
     craft_ids: tuple[str, ...]
     prompt: str
     prompt_sha256: str
+    encyclopedia_refs: tuple[dict,...] = ()
 
     def manifest(self) -> dict:
         return {
@@ -58,6 +60,12 @@ class GroundedDraftPacket:
                 for x in self.evidence
             ],
             "craft_ids": list(self.craft_ids),
+            "encyclopedia_refs": [
+                {"entity_id":e["entity_id"],"evidence_id":e["id"],
+                 "work_id":e["work_id"],"category_path":e["category_path"],
+                 "location":[e["chapter"],e["paragraph"],e["sentence"]]}
+                for e in self.encyclopedia_refs
+            ],
             "study_level": "deterministic_structural_unverified",
             "review_status": "pending_external_review",
             "accepted": False,
@@ -82,6 +90,8 @@ class VerifiedWritingFlow(WritingFlow):
     def prepare(
         self, scene_id: str, goal: str, *, concerns: tuple[str, ...] = (),
         language: str = "简体中文", genre: str = "古代白话",
+        reference_category: str | None = None,
+        reference_name: str | None = None,
     ) -> GroundedDraftPacket:
         self.runtime.require(Mode.WRITE)
         if not goal.strip() or len(goal) > 2000 or not scene_id or len(scene_id)>128:
@@ -100,6 +110,17 @@ class VerifiedWritingFlow(WritingFlow):
             evidence = get(None)
         if not evidence:
             raise WritingExecutionError("no source-learning evidence matches this snapshot")
+        # Explicit optional encyclopedia reference request. Only reviewed
+        # ORIGINAL evidence reaches the generation prompt; proposed keyword
+        # candidates never become genre/classified writing instructions.
+        facet_refs=[]
+        if reference_category or reference_name:
+            facet_result=FictionEncyclopedia(self.db).query(FacetQuery(
+                category_path=reference_category,
+                entity_name=reference_name,
+                genre=genre, status="verified",limit=5,
+            ))
+            facet_refs=facet_result["items"]
         craft = CraftEngine().plan(CraftRequest(needs=concerns))
         craft_ids = tuple(t.id for t in craft.techniques)
         # Bound previous-accepted body INSIDE SQLite, not after fetching a
@@ -116,6 +137,12 @@ class VerifiedWritingFlow(WritingFlow):
             f"观察片段={e['evidence_excerpt'][:48]}"
             for e in evidence
         )
+        facet_cards = "\n".join(
+            f"- {e['category_path']}: {e['name']} / {e['attribute']}; "
+            f"写作机制参考={e['explanation'][:130]}; "
+            f"出处={e['work_id']} 第{e['chapter']}章"
+            for e in facet_refs
+        )
         prompt = (
             f"你正在创作一部原创{language}小说，不能续写、改写或拼接已有原著。\n"
             "下列中国古代小说结构化证据仅供分析叙事功能、动作安排、"
@@ -126,6 +153,7 @@ class VerifiedWritingFlow(WritingFlow):
             f"作者明确偏好：\n{frame.companion_guidance}\n"
             f"本场景最多两个技法：{', '.join(craft_ids)}\n"
             f"原著顺序学习中检索到的证据（非质量评判）：\n{method_cards}\n"
+            f"按类别检索到的已人工复核素材（仅借鉴机制，不复述原文）：\n{facet_cards}\n"
             "要求：人物的选择推动故事；细节由环境和动作自然产生；"
             "不要自评、解释你的写作技巧或附上原文引用；直接输出原创正文。"
         )
@@ -135,6 +163,7 @@ class VerifiedWritingFlow(WritingFlow):
             scene_id, self.project_id, int(self.runtime.pinned_snapshot_id),
             tuple(evidence), craft_ids, prompt,
             sha256(prompt.encode("utf-8")).hexdigest(),
+            tuple(facet_refs),
         )
 
 

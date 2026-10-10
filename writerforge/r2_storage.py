@@ -162,13 +162,29 @@ def _logical_study_digest(path: Path) -> str:
         "studied_chapters": "work_id,chapter,chapter_sha256,heading,source_spans,retrieval_entries,snapshot_id",
         "source_spans": "work_id,chapter,paragraph,sentence,excerpt,source_sha256,tracks_json,craft_json",
         "xuehai_entries": "id,snapshot_id,work_id,chapter,paragraph,sentence,text,library_class,culture,genre,source_role,function,effect,method_cluster,quality_weight,novelty_weight,reuse_policy,source_hash",
+        # These rows contain reviewed source-grounded *facets*. Without them,
+        # R2's reproducible-edition shortcut could silently reuse an earlier
+        # snapshot even when hundreds of new creature/place/setting cards were
+        # added or revised. Stream rather than loading catalogues into RAM.
+        "encyclopedia_entities": "id,work_id,name,kind,genre,subtype,gender",
+        "encyclopedia_aliases": "entity_id,alias",
+        "encyclopedia_evidence": "id,entity_id,work_id,chapter,paragraph,sentence,category_path,attribute,quotation,source_unit_sha256,explanation,assertion,origin,status,reviewer_reason",
+        "encyclopedia_relations": "id,source_entity_id,target_entity_id,relation,evidence_id",
     }
     digest = sha256()
     try:
         with closing(sqlite3.connect(path)) as con:
             if con.execute("SELECT COUNT(*) FROM accepted_prose").fetchone()[0]:
                 raise R2StorageError("reproducible edition mode is only for source-only training, not authored novels")
+            available={row[0] for row in con.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )}
             for table, fields in columns.items():
+                # Old v24 backups do not yet have the new category tables.
+                # Presence/absence forms part of the deterministic digest.
+                if table not in available:
+                    digest.update((table + ":absent").encode("ascii"))
+                    continue
                 digest.update(table.encode("ascii"))
                 cur = con.execute(f"SELECT {fields} FROM {table} ORDER BY rowid")
                 for record in cur:

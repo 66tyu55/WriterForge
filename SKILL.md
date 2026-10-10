@@ -1,12 +1,12 @@
 ---
-name: writer-forge-v24
+name: writer-forge-v25
 description: >
   Long-form fiction runtime with Reader-First source learning, reactive lane scheduling,
   dependency-driven context loading, controlled self-evolution, story-sense routing,
   embodied scene causality, and pairwise literary taste. Designed for novels, not generic copywriting.
 ---
 
-# WriterForge V24
+# WriterForge V25
 
 WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutually exclusive.
 
@@ -129,3 +129,8 @@ Do not treat ZIP chat attachments or short-lived GitHub Actions artifacts as dur
 ## V24 — Chinese original source admission + execution evidence
 
 Approved Chinese historical literary originals (not translations) can be downloaded via fetch-classic, verified against their exact GITenberg Git blob source, and studied in isolated SQLite with learn-classic. For Honglou, strict 120 chapters; Shuihu uses original 70 chapters plus real 楔子. Never mark partial or ambiguous chapter boundaries as completed. Track and audit which craft/Reader-First/evaluation skills ACTUALLY executed, and label pure keyword eight-track evidence as deterministic and unverified. Only post-verified GitHub main CI backs up each work to the private R2 bucket and restores to test provenance. Corpus progress counts 50 *distinct completed works*, NOT 50 chapters or many source spans. No global literary assessment/automatic evolution promotion until the 50-source gate has been met. See docs/V24_CHINESE_CORPUS_AND_STAGE_AUDIT.md.
+
+
+## V25 — Faceted original-novel encyclopedia
+
+Actual purpose: from an original source, preserve entities, typed characteristics, and ALL their source-backed occurrences under hierarchical shelves (`外貌/妖兽/虎形`, `性格/人物/...`, `地点/独特地点/...`, `设定/玄幻/榜单`, `设定/玄幻/雷劫`), NOT replace thousands of observations with one general paragraph. A work-specific subject card has kind, genre, subtype and where relevant verified gender; every evidence row retains exact source chapter/paragraph/sentence and its unmodified original quote/hash. Raw keywords are PROPOSALS and **cannot** be used as verified semantic categories or rewriting prompts. A human confirms each specific annotation; no misfiled beast into place, ordinary 野兽 as 妖兽, or unknown-gender person as 女性. Use `encyclopedia-*` CLI; new `--reference-category` and `--reference-name` can enter actual verified draft context and manifests. Modern copyrighted private Drive files must never be put in public repo or GitHub Releases. The 50-distinct-works global analysis remains deferred. See docs/V25_FACETED_ENCYCLOPEDIA.md.

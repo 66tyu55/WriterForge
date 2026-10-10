@@ -15,6 +15,7 @@ from .verified_flow import VerifiedWritingFlow, local_chat_completion, save_cand
 from .litcritic_adapter import LitCriticAdapter
 from .study_storage import restore_from_github, REPO_DEFAULT
 from .r2_storage import R2Config, R2StudyVault
+from .encyclopedia import FictionEncyclopedia, FacetQuery, KINDS
 
 
 def _load_text(path: Path) -> str:
@@ -75,12 +76,18 @@ def main(argv: list[str] | None = None):
     context.add_argument("--scene",required=True)
     context.add_argument("--goal",required=True)
     context.add_argument("--concerns",default="",help="comma-separated dialogue,description,action,...")
+    context.add_argument("--genre",default="古代白话")
+    context.add_argument("--reference-category",help="e.g. 外貌/妖兽 or 设定/玄幻/榜单")
+    context.add_argument("--reference-name",help="optional named beast/person/place")
     context.add_argument("--output",default="draft_context.json")
     draft=sub.add_parser("draft")
     draft.add_argument("--project",required=True)
     draft.add_argument("--scene",required=True)
     draft.add_argument("--goal",required=True)
     draft.add_argument("--concerns",default="")
+    draft.add_argument("--genre",default="古代白话")
+    draft.add_argument("--reference-category")
+    draft.add_argument("--reference-name")
     draft.add_argument("--model",required=True,help="model currently loaded in LM Studio")
     draft.add_argument("--api-base",default="http://127.0.0.1:1234/v1")
     draft.add_argument("--output-dir",default="writing_runs")
@@ -110,6 +117,49 @@ def main(argv: list[str] | None = None):
     restore_r2.add_argument("--library",default="writerforge-personal")
     restore_r2.add_argument("--snapshot",help="specific 64-char SHA256 version; defaults to latest")
     restore_r2.add_argument("--storage-dir",default="corpus/r2-library")
+    enc_entity=sub.add_parser("encyclopedia-entity",help="register a source-specific literary subject")
+    enc_entity.add_argument("--work-id",required=True)
+    enc_entity.add_argument("--name",required=True)
+    enc_entity.add_argument("--kind",choices=sorted(KINDS),required=True)
+    enc_entity.add_argument("--genre",required=True)
+    enc_entity.add_argument("--subtype",default="",help="e.g. 妖兽 vs 野兽")
+    enc_entity.add_argument("--gender",choices=("unknown","female","male","other"),
+                            default="unknown")
+    enc_alias=sub.add_parser("encyclopedia-alias",help="record an entity's actual alternate name")
+    enc_alias.add_argument("--entity-id",required=True,type=int)
+    enc_alias.add_argument("--alias",required=True)
+    enc_observe=sub.add_parser("encyclopedia-observe",help="attach a proposed source-backed category occurrence")
+    enc_observe.add_argument("--entity-id",required=True,type=int)
+    enc_observe.add_argument("--chapter",required=True,type=int)
+    enc_observe.add_argument("--paragraph",required=True,type=int)
+    enc_observe.add_argument("--sentence",required=True,type=int)
+    enc_observe.add_argument("--category",required=True,help="e.g. 外貌/妖兽/虎形")
+    enc_observe.add_argument("--attribute",required=True,help="e.g. 毛发、性格、战斗")
+    enc_observe.add_argument("--quote",required=True,help="verbatim fragment appearing in existing source span")
+    enc_observe.add_argument("--explanation",default="")
+    enc_observe.add_argument("--origin",choices=("manual","model_candidate","rule_candidate"),default="manual")
+    enc_observe.add_argument("--assertion",choices=("observed","rumored","character_belief","inferred"),default="observed")
+    enc_review=sub.add_parser("encyclopedia-review",help="explicitly approve or reject ONE literary evidence entry")
+    enc_review.add_argument("--evidence-id",type=int,required=True)
+    enc_review.add_argument("--approve",action="store_true")
+    enc_review.add_argument("--reject",action="store_true")
+    enc_review.add_argument("--reason",required=True)
+    enc_review.add_argument("--confirm-reviewed",action="store_true",
+                            help="requires the human reviewer to actually read the source")
+    enc_find=sub.add_parser("encyclopedia-find",help="browse every recorded occurrence with bounded pagination")
+    enc_find.add_argument("--category")
+    enc_find.add_argument("--name")
+    enc_find.add_argument("--kind",choices=sorted(KINDS))
+    enc_find.add_argument("--genre")
+    enc_find.add_argument("--work-id")
+    enc_find.add_argument("--status",choices=("verified","proposed","rejected","all"),default="verified")
+    enc_find.add_argument("--limit",type=int,default=25)
+    enc_find.add_argument("--offset",type=int,default=0)
+    enc_subjects=sub.add_parser("encyclopedia-subjects",help="list unique subjects and their actual evidence counts")
+    enc_subjects.add_argument("--kind",choices=sorted(KINDS))
+    enc_subjects.add_argument("--work-id")
+    enc_subjects.add_argument("--limit",type=int,default=25)
+    enc_subjects.add_argument("--offset",type=int,default=0)
     args=p.parse_args(argv)
     if args.cmd=="catalog":
         from .classics_catalog import CATALOG, MIN_WORKS_FOR_CROSS_CORPUS_REVIEW
@@ -231,6 +281,46 @@ def main(argv: list[str] | None = None):
                 _emit(R2StudyVault(R2Config.from_environment()).corpus_readiness())
             else:
                 _emit(catalog_progress_local(db))
+        elif args.cmd in ("encyclopedia-entity","encyclopedia-alias",
+                          "encyclopedia-observe","encyclopedia-review"):
+            rt=RuntimeEngine()
+            rt.enter_learn()
+            enc=FictionEncyclopedia(db,rt)
+            if args.cmd=="encyclopedia-entity":
+                _emit({"entity_id":enc.entity(
+                    work_id=args.work_id,name=args.name,kind=args.kind,genre=args.genre,
+                    subtype=args.subtype,gender=args.gender,
+                ),"evidence_verified":False})
+            elif args.cmd=="encyclopedia-alias":
+                enc.alias(args.entity_id,args.alias)
+                _emit({"entity_id":args.entity_id,"alias":args.alias,"added":True})
+            elif args.cmd=="encyclopedia-observe":
+                _emit({"evidence_id":enc.observe(
+                    entity_id=args.entity_id,chapter=args.chapter,
+                    paragraph=args.paragraph,sentence=args.sentence,
+                    category_path=args.category,attribute=args.attribute,
+                    quotation=args.quote,explanation=args.explanation,
+                    origin=args.origin,assertion=args.assertion,
+                ),"status":"proposed","verified":False})
+            else:
+                if args.approve==args.reject:
+                    raise ValueError("choose exactly one of --approve or --reject")
+                _emit({"evidence_id":args.evidence_id,"status":enc.review(
+                    args.evidence_id,approved=args.approve,
+                    reason=args.reason,reviewer_confirmed=args.confirm_reviewed,
+                )})
+        elif args.cmd=="encyclopedia-find":
+            enc=FictionEncyclopedia(db)
+            _emit(enc.query(FacetQuery(
+                category_path=args.category,entity_name=args.name,
+                kind=args.kind,work_id=args.work_id,genre=args.genre,
+                status=args.status,limit=args.limit,offset=args.offset,
+            )))
+        elif args.cmd=="encyclopedia-subjects":
+            enc=FictionEncyclopedia(db)
+            _emit(enc.entity_overview(
+                kind=args.kind,work_id=args.work_id,limit=args.limit,offset=args.offset,
+            ))
         elif args.cmd=="status":
             snap=db.conn.execute(
                 "SELECT id FROM snapshots WHERE status='published' ORDER BY id DESC LIMIT 1"
@@ -247,7 +337,11 @@ def main(argv: list[str] | None = None):
             rt.enter_write(int(row["id"]))
             flow=VerifiedWritingFlow(db,rt,args.project)
             concerns=tuple(x.strip() for x in args.concerns.split(",") if x.strip())
-            packet=flow.prepare(args.scene,args.goal,concerns=concerns)
+            packet=flow.prepare(
+                args.scene,args.goal,concerns=concerns,genre=args.genre,
+                reference_category=args.reference_category,
+                reference_name=args.reference_name,
+            )
             if args.cmd=="draft-context":
                 # Preview only: does NOT claim a model was called or produce prose.
                 dest=Path(args.output)
