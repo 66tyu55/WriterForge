@@ -108,7 +108,7 @@ def parse_original(text: str, *, require_hundred: bool = True,
             if (chapter_number(previous.group(1)) == chapter_number(match.group(1))
                 and (previous.group(2) or "").strip() == (match.group(2) or "").strip()
                 and len(between) <= 400
-                and re.fullmatch(r"[-—─_\\s]*", between)):
+                and re.fullmatch(r"[-—─_\s]*", between)):
                 matches[-1] = match
                 continue
         matches.append(match)
