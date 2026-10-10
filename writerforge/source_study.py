@@ -95,7 +95,23 @@ def parse_original(text: str, *, require_hundred: bool = True,
     marker = re.search(r"(?mi)^\*{3}\s*END OF (?:THE )?PROJECT GUTENBERG", text)
     if marker:
         text = text[:marker.start()]
-    matches = [m for m in HEAD.finditer(text) if 1 <= chapter_number(m.group(1)) <= 200]
+    raw_matches = [m for m in HEAD.finditer(text) if 1 <= chapter_number(m.group(1)) <= 200]
+    # Some Gutenberg editions repeat the IDENTICAL printed chapter title
+    # twice with only dashed separators between them (紅樓夢 ch.45).
+    # Collapse ONLY such a verified, content-free duplication; never hide
+    # a repeated number if there is actual prose between the headings.
+    matches = []
+    for match in raw_matches:
+        if matches:
+            previous = matches[-1]
+            between = text[previous.end():match.start()]
+            if (chapter_number(previous.group(1)) == chapter_number(match.group(1))
+                and (previous.group(2) or "").strip() == (match.group(2) or "").strip()
+                and len(between) <= 400
+                and re.fullmatch(r"[-—─_\\s]*", between)):
+                matches[-1] = match
+                continue
+        matches.append(match)
     if not matches:
         raise StudyError("no original Chinese chapter headings; refused to ingest")
     # Reject duplicate or nonsequential headings; no silent skipped chapters.
