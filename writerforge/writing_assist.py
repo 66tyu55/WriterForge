@@ -31,6 +31,7 @@ MAX_CHAPTERS = 6
 MAX_CHAPTER_GOAL = 450
 MAX_PROSE_CHARS = 16000
 FACET_COUNT = 4
+MAX_STORED_AUTONOMOUS_RUNS = 32  # Do not silently grow candidate history forever.
 
 
 @dataclass(frozen=True)
@@ -162,7 +163,11 @@ def _two_options(raw: str, source_excerpts: tuple[str,...]) -> tuple[dict,dict]:
             or not isinstance(title,str) or not 1<=len(title.strip())<=22):
             raise WritingExecutionError("invalid prose length or title")
         prose=prose.strip()
-        if any(len(fragment)>=25 and fragment[:25] in prose for fragment in source_excerpts):
+        if any(
+            fragment and len(fragment)>=25 and any(
+                fragment[i:i+25] in prose for i in range(0,len(fragment)-24,5)
+            ) for fragment in source_excerpts
+        ):
             raise WritingExecutionError("model copied an original literary excerpt")
         result.append({"title":title.strip(),"text":prose})
     if (result[0]["text"]==result[1]["text"]
@@ -263,6 +268,12 @@ class AutonomousWriting:
             raise WritingExecutionError("provide 1..6 chapter goals of 8..450 characters each")
         root=Path(output_dir)
         root.mkdir(parents=True,exist_ok=True)
+        # Reject instead of silently deleting an author's older drafts. This
+        # is a storage quota, not an unbounded new memory or project database.
+        saved_runs=sum(1 for d in root.iterdir()
+                       if d.is_dir() and d.name.startswith("auto-"))
+        if saved_runs>=MAX_STORED_AUTONOMOUS_RUNS:
+            raise WritingExecutionError("autonomous draft history is full (32 runs); archive prior runs before continuing")
         stamp=datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         job=root/("auto-"+stamp)
         job.mkdir(exist_ok=False)
