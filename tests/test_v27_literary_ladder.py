@@ -199,7 +199,7 @@ class LadderStageTests(unittest.TestCase):
         self.assertTrue(result["global_50_book_review_performed"] is False)
         self.assertFalse(result["literary_skill_promoted"])
         receipt=json.loads(Path(result["attempts"][4]["receipt"]).read_text())
-        self.assertEqual(receipt["status"],"not_run_short_stage")
+        self.assertEqual(receipt["status"],"independent_critic_not_configured")
         self.assertNotIn("critique_report_path",receipt)
 
     def test_restart_can_query_durable_trial_and_strict_quota(self):
