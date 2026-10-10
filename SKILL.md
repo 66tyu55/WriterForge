@@ -1,12 +1,12 @@
 ---
-name: writer-forge-v23-1
+name: writer-forge-v23-2
 description: >
   Long-form fiction runtime with Reader-First source learning, reactive lane scheduling,
   dependency-driven context loading, controlled self-evolution, story-sense routing,
   embodied scene causality, and pairwise literary taste. Designed for novels, not generic copywriting.
 ---
 
-# WriterForge V23.1
+# WriterForge V23.2
 
 WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutually exclusive.
 
@@ -119,3 +119,8 @@ Production novel research must go through the V23 executable CLI and real publis
 ## V23.1 Xuehai remote persistence
 
 Persistent corpus training is NOT a chat attachment workflow. Approved public-domain source studies are published automatically on verified main CI to source-hash + schema-versioned GitHub Releases with SHA256 manifests; automatic restore verifies all files, SQLite integrity and chapter/source metadata. Existing local novels and DBs are NEVER overwritten, and ephemeral Actions Artifacts are not long-term storage. No private/third-party copyrighted manuscripts may be published to the public release route. Use the new restore-xiyouji CLI to load the checked library. Details in docs/AUTOMATED_STUDY_STORAGE.md.
+
+
+## V23.2 private R2 study persistence
+
+Do not treat ZIP chat attachments or short-lived GitHub Actions artifacts as durable personal study storage. After explicit private R2 authorization, `backup-r2` uses a consistent SQLite online backup, versioned SHA256 objects, immutable manifests, and a verified latest pointer; `restore-r2` refuses corrupt/oversized data and never overwrites local author DBs. Local training can opt into automatic R2 backup with WRITERFORGE_R2_AUTO_BACKUP=1. Repeated unchanged original-learning editions are deduplicated using a streamed semantic checksum, while changed excerpts produce a new snapshot. The R2 publish job is enabled only on trusted main builds with complete configured credentials. Never upload private manuscripts to the existing public GitHub Releases channel. See docs/CLOUDFLARE_R2_PRIVATE_STORAGE.md.
