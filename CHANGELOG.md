@@ -1,5 +1,15 @@
 # Changelog
 
+## v23.1.0 — 2026-10-10
+
+- Replaced manual/expiring GitHub Actions-only corpus delivery with automated, versioned GitHub Releases for the approved original-Chinese 西遊記 dataset.
+- Main-branch-only publishing job gets minimum needed release-write token; PR source code has no release publishing rights.
+- Added content-addressed source tag, compressed study archive, independent per-file SHA256 manifest and independent remote-download/SQLite integrity validation.
+- Added Python standard-library restore-xiyouji command that automatically retrieves the latest matching verified Release, with no CLI token required for a public repository and no overwriting existing author databases.
+- Added bounded archive extraction and path traversal protection, idempotent verified local cache, synthetic 100-chapter packaging/corruption tests and human-readable operating guide.
+- Reserved private R2/S3 style object storage for future licensed/private multi-novel corpora rather than unintentionally publishing author data.
+
+
 ## v23.0.0 — 2026-10-10
 
 - Added a real and resumable source-learning CLI for original Chinese 西遊記 (Gutenberg #23962), with sequential 100-chapter study and independently verified SHA256 provenance; no fabricated real-reader reactions.
