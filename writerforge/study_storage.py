@@ -92,7 +92,12 @@ def _validate_database(path: Path, expected_work: str, source_sha: str,
             ).fetchone()[0]
             if chapters != 100 or work[0][2] != 100:
                 raise StudyStorageError("stored work is not the complete 100 chapters")
-            if units != report["studied_units"] or entries != report["retrieval_entries"]:
+            actual_spans = conn.execute(
+                "SELECT COUNT(*) FROM source_spans WHERE work_id=?",
+                (expected_work,),
+            ).fetchone()[0]
+            if (units != report["studied_units"] or actual_spans != units
+                or entries != report["retrieval_entries"]):
                 raise StudyStorageError("study statistics mismatch stored data")
     except sqlite3.Error as exc:
         raise StudyStorageError("cannot validate study SQLite database") from exc
@@ -110,8 +115,14 @@ def _check_sources(files: Mapping[str, Path]) -> dict:
         or report.get("model_generation_performed")
         or report.get("independent_litcritic_performed")):
         raise StudyStorageError("study report cannot be published as verified structural learning")
-    if report.get("source_raw_sha256") != _hash_file(files["xiyouji_23962_original.txt"]):
+    original_file = files["xiyouji_23962_original.txt"]
+    if report.get("source_raw_sha256") != _hash_file(original_file):
         raise StudyStorageError("downloaded original source hash differs from report")
+    if original_file.stat().st_size > 8 * 1024 * 1024:
+        raise StudyStorageError("original Chinese text unexpectedly exceeds 8 MiB")
+    decoded_sha = sha256(original_file.read_text(encoding="utf-8-sig").encode("utf-8")).hexdigest()
+    if decoded_sha != report.get("source_sha256"):
+        raise StudyStorageError("UTF-8 original source content hash differs from study")
     _validate_database(files["xiyouji_studied.sqlite3"], WORK_ID, report["source_sha256"], report)
     trace = json.loads(files["verified_draft_context.json"].read_text(encoding="utf-8"))
     if (trace.get("study_level") != "deterministic_structural_unverified"
