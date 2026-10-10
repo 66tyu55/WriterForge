@@ -1,7 +1,7 @@
 {
   "name": "WriterForge",
-  "version": "23.1.0",
-  "phase": "verified-original-study-durable-xuehai",
+  "version": "23.2.0",
+  "phase": "private-r2-content-addressed-backups",
   "principle": "actual source -> ordered study -> durable snapshot -> source-grounded local model generation -> explicit author acceptance; external critique read-only",
   "runtime": {
     "lanes": [
@@ -134,5 +134,15 @@
     "local_restore_command": "writerforge --db writerforge.sqlite3 restore-xiyouji",
     "true_model_fine_tune": false,
     "independent_litcritic_live_review": false
+  },
+  "r2_storage": {
+    "provider": "Cloudflare R2",
+    "privacy": "private_bucket",
+    "implementation": "s3_api_boto3_optional",
+    "credentials": "user-owned; not configured by repository",
+    "db_snapshot": "SQLite online WAL-safe backup",
+    "restore": "hash-verified, no-overwrite",
+    "remote_live_status": "pending owner Cloudflare account authorization",
+    "public_release_legacy": "allowed Gutenberg source only"
   }
 }
