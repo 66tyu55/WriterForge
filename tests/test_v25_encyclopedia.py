@@ -233,6 +233,62 @@ class FacetedLibraryTests(unittest.TestCase):
         self.assertNotIn("护幼行为",packet.prompt)
         self.assertEqual(len(packet.manifest()["encyclopedia_refs"]),1)
 
+    def test_hundreds_of_same_subject_occurrences_are_kept_and_pageable(self):
+        beast=self._creature()
+        for number in range(8,133):
+            body=f"火蟒虎在山中第{number}次出现，毛色与之前略有差异。"
+            self.db.conn.execute(
+                """INSERT INTO source_spans(
+                   work_id,chapter,paragraph,sentence,excerpt,
+                   source_sha256,tracks_json,craft_json
+                   ) VALUES('modern-test',1,?,1,?,?,'{}','{}')""",
+                (number,body,"spanhash-"+str(number)),
+            )
+        self.db.conn.commit()
+        for number in range(8,133):
+            body=f"火蟒虎在山中第{number}次出现，毛色与之前略有差异。"
+            self.enc.observe(
+                entity_id=beast,chapter=1,paragraph=number,sentence=1,
+                category_path="外貌/妖兽/毛色",attribute="毛色变化",quotation=body,
+                origin="rule_candidate",
+            )
+        first=self.enc.query(FacetQuery(entity_name="火蟒虎",status="proposed",limit=100))
+        self.assertEqual(first["total_matches"],125)
+        self.assertEqual(first["returned"],100)
+        self.assertTrue(first["has_more"])
+        second=self.enc.query(FacetQuery(entity_name="火蟒虎",status="proposed",
+                                         offset=100,limit=100))
+        self.assertEqual(second["returned"],25)
+        self.assertFalse(second["has_more"])
+        ids={x["id"] for x in first["items"]+second["items"]}
+        self.assertEqual(len(ids),125)
+        self.assertEqual(self.enc.entity_overview()["entities"][0]["occurrences"],125)
+        self.assertEqual(self.enc.query(FacetQuery(entity_name="火蟒虎"))["total_matches"],0)
+
+    def test_duplicate_alias_of_other_subject_is_rejected(self):
+        first=self._creature()
+        other=self.enc.entity(work_id="modern-test",name="蝎虎",kind="creature",
+                              genre="玄幻",subtype="野兽")
+        self.enc.alias(first,"火尾")
+        with self.assertRaisesRegex(EncyclopediaError,"ambiguous alias"):
+            self.enc.alias(other,"火尾")
+
+    def test_r2_semantic_digest_changes_for_new_category_and_review(self):
+        from writerforge.r2_storage import _logical_study_digest
+        first=_logical_study_digest(self.path)
+        beast=self._creature()
+        second=_logical_study_digest(self.path)
+        self.assertNotEqual(first,second)
+        entry=self._beast_entry(beast)
+        third=_logical_study_digest(self.path)
+        self.assertNotEqual(second,third)
+        self.enc.review(entry,approved=True,
+                        reason="人工复核来源片段与妖兽外貌对应",
+                        reviewer_confirmed=True)
+        fourth=_logical_study_digest(self.path)
+        self.assertNotEqual(third,fourth)
+        self.assertEqual(_logical_study_digest(self.path),fourth)
+
     def test_reopen_persistence_and_allow_all_categories_at_any_depth(self):
         tiger=self._creature()
         ev=self._beast_entry(tiger)
