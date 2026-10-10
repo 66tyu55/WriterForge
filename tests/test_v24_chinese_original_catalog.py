@@ -59,6 +59,22 @@ class CatalogAndStageTests(unittest.TestCase):
         with self.assertRaisesRegex(StudyError,"expected 119"):
             parse_original(a,require_hundred=False,expected_count=119)
 
+    def test_chapter_title_needs_word_boundary_after_hui(self):
+        # 紅樓夢第五回 begins with a standalone heading; its prose later
+        # discusses "第四回中既將..." at the start of a physical line.
+        # That sentence is NOT another fourth chapter.
+        book=(
+            "第一回\n----------------------------\n"
+            "序幕題目 第一回事\n開卷情節內容也。\n"
+            "第二回　第二卷題目\n原來故事已經開始。\n"
+            "第四回中既將前因交待清楚，此處不應重新斷章。\n"
+            "第三回　第三卷題目\n人物繼續說話。"
+        )
+        chapters=parse_original(book,require_hundred=False,expected_count=3)
+        self.assertEqual([c.number for c in chapters],[1,2,3])
+        self.assertTrue(chapters[0].heading=="")
+        self.assertIn("第四回中",chapters[1].text)
+
     def test_prologue_preserved_and_not_counted_as_a_separate_book(self):
         text=synthetic_book(chapter_count=70,prologue=True)
         chapters=parse_original(text,require_hundred=False,expected_count=70,include_prologue=True)
