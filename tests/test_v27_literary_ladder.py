@@ -173,8 +173,8 @@ class LadderStageTests(unittest.TestCase):
                                 goal="塑造一个善于隐藏忧虑的女子",
                                 model="dummy",output_dir=self.root/"invalid")
         self.assertEqual(self.db.conn.execute(
-            "SELECT COUNT(*) FROM literary_training_attempts"
-        ).fetchone()[0],0)
+            "SELECT COUNT(*) FROM literary_training_attempts WHERE status='generation_failed'"
+        ).fetchone()[0],1)
 
     def test_stale_source_proof_cannot_be_used_for_composition(self):
         self.approved_categories()
