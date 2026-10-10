@@ -58,6 +58,10 @@ class StudyError(ValueError):
 def chapter_number(raw: str) -> int:
     if raw.isdecimal():
         return int(raw)
+    # Gutenberg #23962 uses old Chinese chapter counters such as 第六一回
+    # for chapter 61, not necessarily the modern 第六十一回 spelling.
+    if len(raw) > 1 and all(ch in FIGURES for ch in raw):
+        return int("".join(str(FIGURES[ch]) for ch in raw))
     result = current = 0
     for char in raw:
         if char in FIGURES:
