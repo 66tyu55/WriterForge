@@ -12,3 +12,10 @@ Thumbs.db
 build/
 dist/
 *.egg-info/
+
+# Original novels, derived indexes and human/AI review output stay local.
+corpus/
+writing_runs/
+reviews/
+*.db
+*.partial
