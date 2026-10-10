@@ -185,6 +185,24 @@ jobs:
           print("Cloudflare R2 configured:",ready,
                 "(account credentials are never printed)")
           PY
+      - name: Show private R2 connection state
+        if: steps.r2.outputs.configured != 'true'
+        run: |
+          {
+            echo "### Cloudflare R2: NOT CONNECTED"
+            echo ""
+            echo "No private R2 upload or restore was performed in this run."
+            echo "Check the four Repository Secrets in:"
+            echo "Settings > Secrets and variables > Actions > Repository secrets."
+            echo "Expected exact names:"
+            echo "- WRITERFORGE_R2_ACCOUNT_ID"
+            echo "- WRITERFORGE_R2_BUCKET"
+            echo "- WRITERFORGE_R2_ACCESS_KEY_ID"
+            echo "- WRITERFORGE_R2_SECRET_ACCESS_KEY"
+            echo ""
+            echo "Secrets in an Environment are not available unless the job binds that Environment."
+            echo "Never paste the secret values into an Issue, PR, log, or chat."
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v7
         if: steps.r2.outputs.configured == 'true'
       - uses: actions/setup-python@v7
@@ -245,3 +263,12 @@ jobs:
               assert con.execute("PRAGMA quick_check").fetchone()[0] == "ok"
           print("Private R2 remote round-trip: verified 100/100 original chapters.")
           PY
+      - name: Summarize successful private R2 connection
+        if: steps.r2.outputs.configured == 'true' && success()
+        run: |
+          {
+            echo "### Cloudflare R2: CONNECTED"
+            echo "Verified private upload and remote restore of all 100 original Chinese chapters."
+            echo "SQLite quick_check: OK."
+            echo "No credentials or secret contents were printed."
+          } >> "$GITHUB_STEP_SUMMARY"
