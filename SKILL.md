@@ -1,12 +1,12 @@
 ---
-name: writer-forge-v25
+name: writer-forge-v26
 description: >
   Long-form fiction runtime with Reader-First source learning, reactive lane scheduling,
   dependency-driven context loading, controlled self-evolution, story-sense routing,
   embodied scene causality, and pairwise literary taste. Designed for novels, not generic copywriting.
 ---
 
-# WriterForge V25
+# WriterForge V26
 
 WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutually exclusive.
 
@@ -134,3 +134,8 @@ Approved Chinese historical literary originals (not translations) can be downloa
 ## V25 — Faceted original-novel encyclopedia
 
 Actual purpose: from an original source, preserve entities, typed characteristics, and ALL their source-backed occurrences under hierarchical shelves (`外貌/妖兽/虎形`, `性格/人物/...`, `地点/独特地点/...`, `设定/玄幻/榜单`, `设定/玄幻/雷劫`), NOT replace thousands of observations with one general paragraph. A work-specific subject card has kind, genre, subtype and where relevant verified gender; every evidence row retains exact source chapter/paragraph/sentence and its unmodified original quote/hash. Raw keywords are PROPOSALS and **cannot** be used as verified semantic categories or rewriting prompts. A human confirms each specific annotation; no misfiled beast into place, ordinary 野兽 as 妖兽, or unknown-gender person as 女性. Use `encyclopedia-*` CLI; new `--reference-category` and `--reference-name` can enter actual verified draft context and manifests. Modern copyrighted private Drive files must never be put in public repo or GitHub Releases. The 50-distinct-works global analysis remains deferred. See docs/V25_FACETED_ENCYCLOPEDIA.md.
+
+
+## V26 runtime contract: invisible assistance, not manual retrieval
+
+When user is composing in our WriterForge Studio, browser input/debounce is the REAL trigger; do not pretend this Python Skill can monitor arbitrary third-party editors. New InvisibleWritingAssist infers tentative writing direction internally from author prose, obtains published Xuehai scene context and V25 strictly human-verified encyclopedic facts, routes to CraftEngine with existing trigger names, invokes a locally configured model, and returns exactly two different original prose options. Suggestions must never mutate the manuscript until the author explicitly chooses one; an author's choice is only a bounded weak signal, not a verified style upgrade. AutonomousWriting receives a real outline and per-chapter objectives, plans goals/conflict/decision/outcomes, invokes the same source-grounded writer and local model, saves each actual draft with provenance and never auto-accepts AI prose. No 50-work global literary assessment or unapproved copyrighted source upload is authorized. See docs/V26_INVISIBLE_WRITING_STUDIO.md.
