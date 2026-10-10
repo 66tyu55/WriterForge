@@ -70,6 +70,7 @@ def main():
         tracemalloc.stop()
         result.update(
             source_filename=source.name,
+            source_raw_sha256=sha256(source.read_bytes()).hexdigest(),
             corpus_bytes=source.stat().st_size,
             sqlite_bytes=db_path.stat().st_size,
             elapsed_seconds=round(seconds,3),
@@ -86,7 +87,8 @@ def main():
         (out/"TRAINING_STATUS.md").write_text(
             "# 《西遊記》100回真实原文学习存储报告\n\n"
             f"- 学习来源：GITenberg / Project Gutenberg #23962\n"
-            f"- 原文 SHA256：{result['source_sha256']}\n"
+            f"- 原文读取后 SHA256：{result['source_sha256']}\n"
+            f"- 原始文件 SHA256：{result['source_raw_sha256']}\n"
             f"- 原文章节：{result['studied_chapters']}/100\n"
             f"- 逐句八轨结构化源单位：{result['studied_units']}\n"
             f"- 可查询原文功能条目：{result['retrieval_entries']}\n"
