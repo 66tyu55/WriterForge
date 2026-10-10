@@ -1,7 +1,7 @@
 {
   "name": "WriterForge",
-  "version": "23.2.0",
-  "phase": "private-r2-content-addressed-backups",
+  "version": "24.0.0",
+  "phase": "verified-multi-original-chinese-corpus-stage-audit",
   "principle": "actual source -> ordered study -> durable snapshot -> source-grounded local model generation -> explicit author acceptance; external critique read-only",
   "runtime": {
     "lanes": [
@@ -144,5 +144,24 @@
     "restore": "hash-verified, no-overwrite",
     "remote_live_status": "pending owner Cloudflare account authorization",
     "public_release_legacy": "allowed Gutenberg source only"
+  },
+  "chinese_corpus_v24": {
+    "new_originals": [
+      {
+        "work_id": "honglou-gutenberg-24264",
+        "chapters": 120
+      },
+      {
+        "work_id": "shuihu-gutenberg-23863",
+        "chapters": 70,
+        "prologue": true
+      }
+    ],
+    "source_verification": "pinned Git blob checksum",
+    "learn_level": "deterministic_structural_unverified",
+    "new_work_storage": "private R2 per work",
+    "literary_reader_first_deep_train": false,
+    "global_assessment_threshold_distinct_works": 50,
+    "global_assessment_performed": false
   }
 }
