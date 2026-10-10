@@ -1,12 +1,12 @@
 ---
-name: writer-forge-v23-2
+name: writer-forge-v24
 description: >
   Long-form fiction runtime with Reader-First source learning, reactive lane scheduling,
   dependency-driven context loading, controlled self-evolution, story-sense routing,
   embodied scene causality, and pairwise literary taste. Designed for novels, not generic copywriting.
 ---
 
-# WriterForge V23.2
+# WriterForge V24
 
 WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutually exclusive.
 
@@ -124,3 +124,8 @@ Persistent corpus training is NOT a chat attachment workflow. Approved public-do
 ## V23.2 private R2 study persistence
 
 Do not treat ZIP chat attachments or short-lived GitHub Actions artifacts as durable personal study storage. After explicit private R2 authorization, `backup-r2` uses a consistent SQLite online backup, versioned SHA256 objects, immutable manifests, and a verified latest pointer; `restore-r2` refuses corrupt/oversized data and never overwrites local author DBs. Local training can opt into automatic R2 backup with WRITERFORGE_R2_AUTO_BACKUP=1. Repeated unchanged original-learning editions are deduplicated using a streamed semantic checksum, while changed excerpts produce a new snapshot. The R2 publish job is enabled only on trusted main builds with complete configured credentials. Never upload private manuscripts to the existing public GitHub Releases channel. See docs/CLOUDFLARE_R2_PRIVATE_STORAGE.md.
+
+
+## V24 — Chinese original source admission + execution evidence
+
+Approved Chinese historical literary originals (not translations) can be downloaded via fetch-classic, verified against their exact GITenberg Git blob source, and studied in isolated SQLite with learn-classic. For Honglou, strict 120 chapters; Shuihu uses original 70 chapters plus real 楔子. Never mark partial or ambiguous chapter boundaries as completed. Track and audit which craft/Reader-First/evaluation skills ACTUALLY executed, and label pure keyword eight-track evidence as deterministic and unverified. Only post-verified GitHub main CI backs up each work to the private R2 bucket and restores to test provenance. Corpus progress counts 50 *distinct completed works*, NOT 50 chapters or many source spans. No global literary assessment/automatic evolution promotion until the 50-source gate has been met. See docs/V24_CHINESE_CORPUS_AND_STAGE_AUDIT.md.
