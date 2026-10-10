@@ -242,6 +242,38 @@ class LiteraryLadder:
         return replace(base,prompt=prompt,
                        prompt_sha256=sha256(prompt.encode("utf-8")).hexdigest())
 
+    def _record_failed_generation(self,task:LadderTask,model:str,
+                                  prompt_sha:str,error:Exception,
+                                  model_output:str|None) -> None:
+        """Persist a rejected practice attempt, not a fake successful lesson.
+
+        Only error TYPE and model output fingerprint are kept, avoiding huge
+        rejected generations, credentials and unverified prose in the DB.
+        """
+        run_id=uuid4().hex
+        empty_hash=sha256(b"").hexdigest()
+        receipt={
+            "run_id":run_id,"project_id":self.project_id,"task":task.trace(),
+            "stage":task.stage,"status":"generation_failed",
+            "model":model,"prompt_sha256":prompt_sha,
+            "output_sha256":sha256(model_output.encode("utf-8")).hexdigest()
+                            if isinstance(model_output,str) else None,
+            "failure_type":type(error).__name__,
+            "classification_or_generation_validated":False,
+            "literary_skill_promoted":False,
+            "global_50_book_review_performed":False,
+        }
+        self.db.conn.execute(
+            """INSERT INTO literary_training_attempts(
+               run_id,project_id,work_id,stage,prompt_sha256,body_sha256,
+               status,model,body,receipt_json
+               ) VALUES(?,?,?,?,?,?,?,?,?,?)""",
+            (run_id,self.project_id,task.work_id,task.stage,prompt_sha,
+             empty_hash,"generation_failed",model,"",
+             json.dumps(receipt,ensure_ascii=False)),
+        )
+        self.db.conn.commit()
+
     def run(self,*,work_id:str,goal:str,model:str,
             api_base:str="http://127.0.0.1:1234/v1",
             source_genre:str="古代白话",through_stage:int=1,
@@ -274,21 +306,28 @@ class LiteraryLadder:
             if attempts>=MAX_SAVED_TRAINING_RUNS_PER_PROJECT:
                 raise LadderError("project has reached 400 training trials; archive and review before more")
             packet=self._prompt(task,model,source_genre)
-            output=local_chat_completion(
-                packet,model=model,api_base=api_base,
-                max_tokens=1500 if task.stage<=4 else 3500,
-            )
-            note={}
-            if task.stage==1:
-                analyzed=self._analysis(output,task.source_excerpt)
-                body=analyzed["text"]
-                note["source_analysis"]=analyzed
-            else:
-                body=output.strip()
-                low,high=STAGES[task.stage-1][2:]
-                if not low<=len(body)<=high:
-                    raise LadderError("generated stage length outside bound")
-            self._copy_guard(body,task.source_excerpt,task.facet_cards)
+            output=None
+            try:
+                output=local_chat_completion(
+                    packet,model=model,api_base=api_base,
+                    max_tokens=1500 if task.stage<=4 else 3500,
+                )
+                note={}
+                if task.stage==1:
+                    analyzed=self._analysis(output,task.source_excerpt)
+                    body=analyzed["text"]
+                    note["source_analysis"]=analyzed
+                else:
+                    body=output.strip()
+                    low,high=STAGES[task.stage-1][2:]
+                    if not low<=len(body)<=high:
+                        raise LadderError("generated stage length outside bound")
+                self._copy_guard(body,task.source_excerpt,task.facet_cards)
+            except Exception as exc:
+                self._record_failed_generation(
+                    task,model,packet.prompt_sha256,exc,output,
+                )
+                raise
             run_id=uuid4().hex
             receipt={
                 "run_id":run_id,"project_id":self.project_id,
