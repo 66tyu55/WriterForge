@@ -26,7 +26,7 @@ def synthetic_book(key="unit", chapter_count=70, prologue=False) -> str:
                      "　　" + "洪太尉走入古殿，有人苦勸他不可開門。" * 12)
     for n in range(1,chapter_count+1):
         # The real editions use mixed Chinese numerals: 第七十回 vs 第一二零回.
-        numeral = str(n) if n <= 100 else "一"+str(n)[1:]
+        numeral = str(n)
         parts.append(
             f"第{numeral}回　古典小说测试第{n}回\n\n"
             "　　石猴聽到山外聲響，道：「這裏到底藏著甚麼？」\n"
