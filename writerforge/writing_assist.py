@@ -89,6 +89,23 @@ def _verified_facets(db: WriterForgeDB, intent: WritingIntent | None) -> tuple[d
     return tuple(result)
 
 
+def _craft_needs(needs: tuple[str, ...]) -> tuple[str, ...]:
+    """Map writing intentions into the ALREADY EXISTING CraftEngine triggers."""
+    meanings = {
+        "character": ("character_entrance", "relationship_pressure"),
+        "world": ("scene", "setup_payoff"),
+        "decision": ("interiority", "decision"),
+        "action": ("scene", "detail_utility"),
+        "scene": ("scene",),
+    }
+    values=[]
+    for key in needs:
+        for name in meanings.get(key,(key,)):
+            if name not in values:
+                values.append(name)
+    return tuple(values[:4])
+
+
 def _enrich(packet: GroundedDraftPacket, addition: str,
             facets: tuple[dict,...] = ()) -> GroundedDraftPacket:
     context=packet.prompt
@@ -173,7 +190,7 @@ class InvisibleWritingAssist:
         if intent is None:
             return {"triggered":False,"choices":[],"reason":"没有需要中断写作的明确时机"}
         packet=self.flow.prepare(
-            self.scene_id,self.goal,concerns=(intent.need,),
+            self.scene_id,self.goal,concerns=_craft_needs((intent.need,)),
             genre=self.source_genre,
         )
         facets=_verified_facets(self.db,intent)
@@ -277,7 +294,7 @@ class AutonomousWriting:
             if progress:
                 progress(index,len(chapter_goals),"drafting")
             body_base=self.assist.flow.prepare(
-                scene,goal,concerns=plan["needs"],
+                scene,goal,concerns=_craft_needs(plan["needs"]),
                 genre=self.assist.source_genre,
             )
             inferred=infer_intent(goal+"\n"+plan["objective"]+"\n"+plan["conflict"])
@@ -314,7 +331,7 @@ class AutonomousWriting:
                 "source_refs":saved["source_refs"],
                 "verified_facets":len(facets),"accepted":False,
             })
-            previous=body
+            previous=body[-750:]  # Bound retained cross-chapter context memory.
             if progress:
                 progress(index,len(chapter_goals),"saved")
         receipt={
