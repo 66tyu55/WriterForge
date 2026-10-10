@@ -24,6 +24,7 @@ from .runtime import RuntimeEngine, Mode
 from .writing_flow import WritingFlow
 from .xuehai import XuehaiStore, Query
 from .encyclopedia import FictionEncyclopedia, FacetQuery
+from .writing_companion import CATEGORIES as COMPANION_CATEGORIES
 
 
 MAX_PROMPT_CHARS = 10_000
@@ -96,7 +97,21 @@ class VerifiedWritingFlow(WritingFlow):
         self.runtime.require(Mode.WRITE)
         if not goal.strip() or len(goal) > 2000 or not scene_id or len(scene_id)>128:
             raise WritingExecutionError("scene_id and bounded specific writing goal required")
-        frame = self.begin_draft(scene_id, concerns=concerns)
+        # CraftEngine accepts fine-grained scene signals, but Companion
+        # accepts author preference categories only. Never send Craft signal
+        # identifiers into Companion's strict validation API.
+        companion_aliases = {
+            "character_entrance":"character", "relationship_pressure":"character",
+            "decision":"character", "interiority":"character",
+            "free_indirect":"voice", "scene":"plot",
+            "reversal":"plot", "setup_payoff":"plot",
+            "detail_utility":"description", "white_room":"description",
+        }
+        companion_concerns = tuple(dict.fromkeys(
+            companion_aliases.get(key,key) for key in concerns
+            if companion_aliases.get(key,key) in COMPANION_CATEGORIES
+        ))
+        frame = self.begin_draft(scene_id, concerns=companion_concerns)
         mapped = ("environment" if "description" in concerns else
                   "dialogue" if "dialogue" in concerns else None)
         def get(function):

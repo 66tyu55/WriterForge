@@ -1,4 +1,4 @@
-# WriterForge V25 — Source-grounded Faceted Literary Encyclopedia
+# WriterForge V26 — Source-grounded Faceted Literary Encyclopedia
 
 WriterForge is a long-form fiction system built around strict LEARN / WRITE separation, Reader-First source learning, Canon/Character/Knowledge/Promise memory, lean Craft routing, Literary Taste, Story Sense and controlled Evolution.
 
@@ -162,3 +162,15 @@ Every book now emits structured stage auditing: which reading/storage/retrieval 
 ## V25 — What the author can now ask the corpus for
 
 A learned work is not merely 50,000 disjoint sentences. V25 adds a durable, hierarchical **source-evidence encyclopedia**: `genre -> 外貌/性格/地点/设定/行为/声音/... -> specific beast/person/place/setting -> each original cited description`. The same original 妖兽 appearing dozens of times retains every separately evidenced trait or event, not one overwritten summary. Subject identity is scoped to work; category mismatches (a 野兽 claimed 妖兽, a character claimed a place, unknown-gender treated as 女性) are refused. All annotations start `proposed` and must pass explicit item-by-item human review before the actual authoring flow can retrieve them. R2 snapshots include categorized content and review status in their semantic versioning digest, and browsing is paginated (max 100 per page) rather than loading all occurrences into RAM. Use `writerforge encyclopedia-entity`, `encyclopedia-observe`, `encyclopedia-review`, `encyclopedia-find`, `encyclopedia-subjects` and `draft-context --reference-category ...` (see full commands and limitations in [V25 docs](docs/V25_FACETED_ENCYCLOPEDIA.md)). Modern copyrighted Drive novels are NOT included in the public code or Releases. Deep semantic classification is still a verified editorial step rather than magic keyword inference; the 50-distinct-book overall quality gate is unchanged.
+
+
+## V26 — WriterForge now assists while the author types (no manual library search)
+
+A real local writing studio captures editor input, pauses for 900ms, routes intent through existing CraftEngine / published Xuehai / **human-verified V25 encyclopedic evidence only**, and asks your explicitly configured local model to produce TWO distinct, optional original prose continuations. The author inserts one with a click or ignores both; the original text is never rewritten automatically. Draft autosaves locally on each change. A second mode accepts an outline and 1–6 chapter goals, plans each chapter's objective, conflict, decision, consequence and POV, then saves genuine model-generated chapter drafts plus their original-source/craft trace. Nothing is silently promoted to author style or accepted StoryCommit. There is NO separate corpus-search panel for ordinary writers.
+
+Start after restoring a published source-learning SQLite and loading a local LM Studio model:
+
+    python -m pip install -e .
+    writerforge --db corpus/library/your-studied.sqlite3 studio --project novel --scene c1.s1 --goal "An honest character must make a hard choice" --model "your-local-model-id"
+
+Open http://127.0.0.1:8765/ . This observes **typing inside its own editor**, not in arbitrary Word/ChatGPT/Google Docs forms. The 900ms debounce is not a model-generation time guarantee. The old source indexing is still structural rather than deep literary training. See [V26 writer studio](docs/V26_INVISIBLE_WRITING_STUDIO.md).

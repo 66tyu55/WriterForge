@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>WriterForge · 沉浸式写作</title>
+<style>
+:root{font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;color:#25352f;background:#f7f5ef;color-scheme:light}
+*{box-sizing:border-box}body{margin:0}
+header{background:#143b35;color:#f9f6e8;padding:18px max(24px,calc((100vw - 1220px)/2));display:flex;justify-content:space-between;align-items:center;gap:16px}
+.brand{font-size:17px;font-weight:700;letter-spacing:1px}.sub{font-size:12px;color:#c1d8cb;margin-top:4px}
+#indicator{font-size:12px;color:#cee2d9}
+main{max-width:1220px;margin:20px auto;padding:0 18px;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(310px,.85fr);gap:18px}
+.sheet,.pane{background:#fff;border:1px solid #e7e6df;border-radius:13px;box-shadow:0 9px 28px rgba(24,49,43,.04)}
+.sheet{padding:22px 24px}.pane{padding:20px;align-self:start}
+.muted{color:#7d8882;font-size:12px}.smalltitle{font-weight:650;letter-spacing:.2px;margin:0 0 9px;font-size:15px}
+#manuscript{font-family:"Songti SC","SimSun",serif;font-size:17px;line-height:2;letter-spacing:.4px;color:#262b27;min-height:70vh;width:100%;border:0;resize:vertical;outline:0;background:transparent;padding:16px 1px}
+.tabs{display:flex;gap:5px;margin-bottom:17px;background:#f2f3ed;padding:4px;border-radius:9px}
+.tab{flex:1;border:0;border-radius:6px;background:transparent;padding:10px 12px;color:#506159;cursor:pointer;font-size:13px}
+.tab.active{background:white;color:#1c5746;font-weight:650;box-shadow:0 1px 4px #dfe4da}
+button{font-family:inherit;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}
+.option{border:1px solid #d6e4dc;border-radius:10px;padding:14px;margin-top:11px;background:#fcfdfb}
+.option:hover{border-color:#87ab94}.option-head{font-size:13px;font-weight:700;color:#23523e}
+.option-text{white-space:pre-wrap;line-height:1.85;font:15px/1.85 "Songti SC","SimSun",serif;margin:9px 0 12px;color:#3c4940}
+.primary{background:#174d3a;color:white;border:1px solid #174d3a;border-radius:8px;padding:9px 13px;font-size:13px}
+.secondary{color:#3f6656;border:1px solid #c9dbd2;border-radius:8px;background:white;padding:8px 12px;font-size:12px}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.tag{font-size:11px;border:1px solid #dddccf;background:#f9f8f1;padding:3px 7px;border-radius:999px;color:#718075}
+.note{font-size:12px;line-height:1.7;color:#718179}
+textarea.detail{width:100%;background:#fffdf8;border:1px solid #dedfd6;border-radius:8px;min-height:95px;padding:12px;font-size:13px;line-height:1.75;color:#30433a;resize:vertical;margin-top:7px}
+label{font-size:13px;font-weight:600;display:block;margin-top:13px}
+.status{font-size:12px;color:#75877b;margin-top:10px;line-height:1.7;overflow-wrap:anywhere}
+.err{color:#a5443c}.ok{color:#24674d}.divider{height:1px;background:#ecede8;margin:16px 0}
+#preview{white-space:pre-wrap;max-height:300px;overflow:auto;font:14px/1.8 "Songti SC","SimSun",serif;background:#f9f8f2;padding:14px;border-radius:9px}
+@media(max-width:830px){main{display:block}.pane{margin-top:14px}#manuscript{min-height:46vh}header{padding:15px 20px}}
+</style>
+</head>
+<body>
+<header>
+  <div><div class="brand">WriterForge · 沉浸式写作</div><div class="sub" id="scene-info">连接本地学海中…</div></div>
+  <div id="indicator">启动中</div>
+</header>
+<main>
+<section class="sheet">
+  <div class="row"><div><div class="smalltitle">正文</div><div class="muted">你只管写，素材选择和技法在内部完成</div></div><span class="tag" id="save-state">自动保存中</span></div>
+  <textarea id="manuscript" spellcheck="false" placeholder="写下你想写的人、性格、场景或故事；写到合适的时机，右侧会出现两种原创续写建议。"></textarea>
+</section>
+<aside class="pane">
+  <div class="tabs">
+    <button class="tab active" id="tab-help" type="button">我写 · 适时辅助</button>
+    <button class="tab" id="tab-auto" type="button">你写 · 自动规划</button>
+  </div>
+  <section id="help-panel">
+    <div class="row"><div class="smalltitle">灵感不过界</div><span class="tag">两个选择</span></div>
+    <p class="note">无需检索、无需选类别。写到明确的人物性格、妖兽、地点、天劫等情境并短暂停笔时，WriterForge 会调用本地模型和学海，提供两段不同的文字。忽略即可继续写，不会擅自改稿。</p>
+    <div id="help-status" class="status">等待写作情境…</div>
+    <div id="options"></div>
+    <div class="row" id="option-actions" style="display:none;margin-top:12px">
+      <button class="secondary" id="dismiss" type="button">先不采用</button>
+      <span class="muted">采用后自动保存 · Ctrl+1 / Ctrl+2</span>
+    </div>
+    <div class="divider"></div>
+    <p class="note">只有已复核素材能够作为确定的实体依据；初步拆句线索只用于辅助联想。建议质量仍由作者判断。</p>
+  </section>
+  <section id="auto-panel" hidden>
+    <div class="smalltitle">按照故事大纲自行工作</div>
+    <p class="note">只需提供全书/故事大纲和每章要达成的目标。系统自动规划人物选择、冲突、后果与技法，再逐章生成草稿。每章保留自己的计划、来源与模型记录，不会自动接受成正式正文。</p>
+    <label for="outline">故事大纲</label>
+    <textarea class="detail" id="outline" placeholder="例如：一个被逐出山门的年轻镖师，需要护送一个隐瞒身份的人跨越三座关隘；他的承诺不断与求生本能冲突。"></textarea>
+    <label for="chapter-goals">每行一个章节目标（最多六章）</label>
+    <textarea class="detail" id="chapter-goals" placeholder="第一章：接受押送，发现客人隐瞒了真正目的&#10;第二章：遭遇伏击，必须在镖规与救人之间作决定"></textarea>
+    <button class="primary" type="button" id="run-auto" style="margin-top:14px;width:100%">按大纲生成章节</button>
+    <div id="auto-status" class="status">尚未开始。生成需要本地模型在运行。</div>
+    <div id="auto-results"></div>
+    <div id="preview-area" hidden>
+      <div class="divider"></div>
+      <div class="smalltitle">章节预览</div>
+      <div id="preview"></div>
+      <button class="secondary" type="button" id="copy-preview" style="margin-top:10px">复制本章</button>
+    </div>
+  </section>
+</aside>
+</main>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const manuscript=$("manuscript");
+let token="",revision=0,lastSavedText="",saveTimer=null,assistTimer=null;
+let saveRunning=false,assistRunning=false,editEpoch=0,lastSuggestion=null;
+let dismissedHash="",currentPreview="";
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+function message(id,text,error=false){
+  const target=$(id);target.textContent=text;
+  if(error)target.classList.add("err");else target.classList.remove("err");
+}
+async function get(path,protectedRequest=false){
+  const res=await fetch(path,{headers:protectedRequest?{"X-WriterForge-Token":token}:{},cache:"no-store"});
+  if(!res.ok)throw Error((await res.json()).error||"连接失败");
+  return res.json();
+}
+async function send(path,payload){
+  const response=await fetch(path,{
+    method:"POST",
+    headers:{"Content-Type":"application/json","X-WriterForge-Token":token},
+    body:JSON.stringify(payload),cache:"no-store"
+  });
+  const data=await response.json();
+  if(!response.ok)throw Error(data.error||"请求失败");
+  return data;
+}
+function looksRelevant(text){
+  const tail=text.slice(-260);
+  return /(性格|脾气|生性|性情|温柔|冷清|暴躁|刚烈|倔强|妖兽|凶兽|灵兽|异兽|天劫|雷劫|渡劫|秘境|洞府|遗迹|地宫|榜单|天骄榜)/.test(tail)||
+    (text.length>110&&/[。！？\n]$/.test(text.trimEnd()));
+}
+async function persist(){
+  if(!token||saveRunning)return;
+  saveRunning=true;
+  try{
+    while(manuscript.value!==lastSavedText){
+      const text=manuscript.value;
+      const data=await send("/api/autosave",{text,expected_revision:revision});
+      revision=data.revision;
+      lastSavedText=text;
+      message("save-state","已自动保存");
+    }
+  }catch(err){
+    message("save-state","保存失败："+err.message,true);
+  }finally{saveRunning=false}
+}
+function onTextChange(){
+  editEpoch++;
+  lastSuggestion=null;
+  $("options").replaceChildren();
+  $("option-actions").style.display="none";
+  message("save-state","待保存");
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(persist,550);
+  clearTimeout(assistTimer);
+  const context=manuscript.value;
+  if(!looksRelevant(context)){message("help-status","继续写作；当前无需打扰");return}
+  assistTimer=setTimeout(()=>suggest(context,editEpoch),900);
+}
+async function suggest(context,epoch){
+  if(context!==manuscript.value||epoch!==editEpoch)return;
+  if(assistRunning){
+    assistTimer=setTimeout(()=>suggest(manuscript.value,editEpoch),1150);
+    return;
+  }
+  assistRunning=true;
+  message("help-status","正在内部匹配素材与技法，生成两种文字…");
+  try{
+    const data=await send("/api/suggest",{text:context});
+    if(epoch!==editEpoch||context!==manuscript.value)return;
+    if(!data.triggered){message("help-status",data.reason||"暂无建议");return}
+    lastSuggestion=data;
+    const panel=$("options");
+    panel.replaceChildren();
+    data.choices.forEach((choice,index)=>{
+      const card=document.createElement("div");card.className="option";
+      const title=document.createElement("div");title.className="option-head";title.textContent=choice.title;
+      const prose=document.createElement("div");prose.className="option-text";prose.textContent=choice.text;
+      const btn=document.createElement("button");btn.type="button";btn.className="primary";
+      btn.textContent="采用第 "+(index+1)+" 种";
+      btn.addEventListener("click",()=>take(index));
+      card.append(title,prose,btn);panel.appendChild(card);
+    });
+    $("option-actions").style.display="flex";
+    message("help-status","已为当前文字准备两种写法。类别、素材和技法已自动处理；不满意直接忽略。");
+  }catch(err){
+    if(epoch===editEpoch)message("help-status","辅助暂时不可用："+err.message,true);
+  }finally{assistRunning=false}
+}
+function take(index){
+  if(!lastSuggestion||!lastSuggestion.choices[index])return;
+  const text=lastSuggestion.choices[index].text;
+  const pos=manuscript.selectionStart;
+  const before=manuscript.value.slice(0,pos);
+  const after=manuscript.value.slice(manuscript.selectionEnd);
+  const spacer=before.endsWith("\n")||!before?"":/[。！？]$/.test(before)?"\n":"";
+  manuscript.value=before+spacer+text+after;
+  manuscript.focus();
+  const caret=before.length+spacer.length+text.length;
+  manuscript.setSelectionRange(caret,caret);
+  const old=lastSuggestion;
+  onTextChange();
+  send("/api/choice",{choice_index:index,prompt_sha256:old.prompt_sha256}).catch(()=>{});
+}
+$("dismiss").addEventListener("click",()=>{
+  lastSuggestion=null;$("options").replaceChildren();
+  $("option-actions").style.display="none";
+  message("help-status","已收起建议，继续自由写作");
+});
+manuscript.addEventListener("input",onTextChange);
+manuscript.addEventListener("keydown",event=>{
+  if(event.ctrlKey&&(event.key==="1"||event.key==="2")&&lastSuggestion){
+    event.preventDefault();take(Number(event.key)-1);
+  }
+});
+function tab(mode){
+  $("tab-help").classList.toggle("active",mode==="help");
+  $("tab-auto").classList.toggle("active",mode==="auto");
+  $("help-panel").hidden=mode!=="help";
+  $("auto-panel").hidden=mode!=="auto";
+}
+$("tab-help").onclick=()=>tab("help");
+$("tab-auto").onclick=()=>tab("auto");
+let autoPolling=false;
+async function startAuto(){
+  const outline=$("outline").value.trim();
+  const chapters=$("chapter-goals").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  $("run-auto").disabled=true;
+  message("auto-status","正在创建分章计划…");
+  try{
+    const job=await send("/api/autodraft",{outline,chapters});
+    message("auto-status","已开始自动规划与写作。");
+    await watchJob(job.job_id);
+  }catch(err){
+    message("auto-status",err.message,true);
+  }finally{
+    $("run-auto").disabled=false;
+  }
+}
+async function watchJob(jobId){
+  if(autoPolling)return;
+  autoPolling=true;
+  try{
+    while(true){
+      await sleep(1100);
+      const job=await get("/api/job",true);
+      if(job.id!==jobId)throw Error("当前作业已替换");
+      if(job.status==="queued"||job.status==="running"){
+        message("auto-status","正在处理第 "+job.chapter+"/"+job.total+" 章 · "+(job.stage||"等待模型"));
+        continue;
+      }
+      if(job.status==="failed")throw Error(job.error||"生成失败；已完成章节仍保存于本地");
+      if(job.status==="completed"){
+        message("auto-status","已写完 "+job.result.chapter_count+" 章候选稿并保存计划和来源。尚未自动接受。");
+        showChapters(job.result.chapters);
+      }
+      break;
+    }
+  }finally{autoPolling=false}
+}
+function showChapters(chapters){
+  const box=$("auto-results");box.replaceChildren();
+  chapters.forEach(item=>{
+    const row=document.createElement("div");row.className="option";
+    const label=document.createElement("div");label.className="option-head";
+    label.textContent="第 "+item.chapter+" 章 · "+item.goal;
+    const btn=document.createElement("button");btn.className="secondary";btn.textContent="预览正文";
+    btn.onclick=async()=>{
+      try{
+        const data=await get("/api/chapter/"+item.chapter,true);
+        currentPreview=data.text;
+        $("preview").textContent=data.text;
+        $("preview-area").hidden=false;
+      }catch(err){message("auto-status",err.message,true)}
+    };
+    row.append(label,btn);box.appendChild(row);
+  });
+}
+$("run-auto").onclick=startAuto;
+$("copy-preview").onclick=async()=>{
+  try{await navigator.clipboard.writeText(currentPreview);message("auto-status","已复制本章正文")}
+  catch(err){message("auto-status","复制失败，请选中文字复制",true)}
+};
+(async()=>{
+  try{
+    const bootstrap=await get("/api/bootstrap");
+    token=bootstrap.token;
+    revision=bootstrap.draft.revision;
+    manuscript.value=bootstrap.draft.text;
+    lastSavedText=manuscript.value;
+    $("scene-info").textContent=bootstrap.project+" / "+bootstrap.scene+" · "+bootstrap.goal;
+    message("indicator","本地模型："+bootstrap.model);
+    message("save-state","已自动恢复" );
+    message("help-status","开始写作；适当停笔时会有两种文字建议");
+    if(bootstrap.auto_job&&bootstrap.auto_job.status==="completed"&&bootstrap.auto_job.result){
+      showChapters(bootstrap.auto_job.result.chapters);
+    }
+  }catch(err){message("indicator","连接失败："+err.message,true);manuscript.disabled=true}
+})();
+</script>
+</body>
+</html>

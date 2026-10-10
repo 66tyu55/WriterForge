@@ -1,7 +1,7 @@
 {
   "name": "WriterForge",
-  "version": "24.0.0",
-  "phase": "verified-multi-original-chinese-corpus-stage-audit",
+  "version": "26.0.0",
+  "phase": "invisible-live-writing-and-autonomous-chapters",
   "principle": "actual source -> ordered study -> durable snapshot -> source-grounded local model generation -> explicit author acceptance; external critique read-only",
   "runtime": {
     "lanes": [
@@ -163,5 +163,23 @@
     "literary_reader_first_deep_train": false,
     "global_assessment_threshold_distinct_works": 50,
     "global_assessment_performed": false
+  },
+  "live_editor": {
+    "event_source": "local browser textarea input",
+    "idle_delay_ms": 900,
+    "options": 2,
+    "manual_material_search": false,
+    "model_runtime": "real explicitly running local chat completion",
+    "automatic_mutation": false,
+    "source_validation": "only verified encyclopedic evidence; structural cues unverified",
+    "third_party_editor_support": false
+  },
+  "autonomous_writing": {
+    "input": "outline + 1..6 chapter goals",
+    "model_generated_scene_plans": true,
+    "actual_chapter_prose_saved": true,
+    "automatic_author_acceptance": false,
+    "real_literary_quality_proven": false,
+    "global_50_work_assessment_performed": false
   }
 }
