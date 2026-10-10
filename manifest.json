@@ -1,7 +1,7 @@
 {
   "name": "WriterForge",
-  "version": "26.0.0",
-  "phase": "invisible-live-writing-and-autonomous-chapters",
+  "version": "27.0.0",
+  "phase": "graded-literary-training-pilot",
   "principle": "actual source -> ordered study -> durable snapshot -> source-grounded local model generation -> explicit author acceptance; external critique read-only",
   "runtime": {
     "lanes": [
@@ -181,5 +181,24 @@
     "automatic_author_acceptance": false,
     "real_literary_quality_proven": false,
     "global_50_work_assessment_performed": false
+  },
+  "literary_curriculum": {
+    "status": "pilot",
+    "stages": [
+      "source_short_unit_comprehension",
+      "single_verified_category",
+      "two_distinct_categories",
+      "three_plus_verified_categories",
+      "paragraph",
+      "causal_scene"
+    ],
+    "category_accuracy": "model labels only proposed; deeper work strictly requires human-reviewed V25 facets",
+    "model_training": "local model practice; NOT model-weight fine-tuning",
+    "literary_quality": "not established",
+    "external_review": "existing lit-critic optional; revision remains unverified without independent retest",
+    "record_storage": "existing SQLite literary_training_attempts + optional private R2",
+    "per_project_trial_cap": 400,
+    "cross_work_assessment_threshold": 50,
+    "cross_work_assessment_performed": false
   }
 }
