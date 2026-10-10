@@ -101,7 +101,11 @@ def parse_original(text: str, *, require_hundred: bool = True,
     # Reject duplicate or nonsequential headings; no silent skipped chapters.
     nums = [chapter_number(m.group(1)) for m in matches]
     if nums != list(range(1, len(nums) + 1)):
-        raise StudyError(f"chapter order malformed: {nums[:12]}")
+        pos = next((i for i,n in enumerate(nums) if n!=i+1), 0)
+        excerpt=[(nums[i],(matches[i].group(2) or "")[:50])
+                 for i in range(max(0,pos-3),min(len(nums),pos+5))]
+        raise StudyError(f"chapter order malformed at index {pos}, "
+                         f"expected {pos+1}, got {nums[pos]}; neighborhood={excerpt}")
     if require_hundred and len(matches) != 100:
         raise StudyError(f"expected all 100 original chapters, found {len(matches)}")
     if expected_count is not None and len(matches) != expected_count:
