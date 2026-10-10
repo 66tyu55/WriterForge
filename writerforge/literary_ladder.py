@@ -303,52 +303,11 @@ class LiteraryLadder:
             folder=root/run_id
             folder.mkdir(exist_ok=False)
             (folder/"draft.md").write_text(body,encoding="utf-8")
-            critic_status="not_run_short_stage"
-            review_file=None
-            if task.stage>=5 and critic_project is not None:
-                critic_status="not_run"
-                project=Path(critic_project).resolve()
-                # The supplied project must already contain CANON.md and
-                # STYLE.md. We DO NOT manufacture a critic's literary context.
-                if not all((project/name).is_file() for name in ("CANON.md","STYLE.md")):
-                    raise LadderError("real critic project requires CANON.md and STYLE.md")
-                trial_dir=project/"writerforge-training-trials"
-                trial_dir.mkdir(exist_ok=True)
-                scene=trial_dir/(run_id+".txt")
-                scene.write_text(body,encoding="utf-8")
-                result=LitCriticAdapter().review(
-                    project_path=project,scene_path=scene,
-                    output_dir=folder/"reviews",mode="quick",
-                )
-                review_file=result["json"]
-                critic_status="real_litcritic_report_received_not_validated_by_reader"
-                report=json.loads(Path(review_file).read_text(encoding="utf-8"))
-                issues=report.get("findings",[])
-                if issues:
-                    problems="\n".join(
-                        "- "+str(e.get("impact",""))[:140] for e in issues[:8]
-                    )
-                    revised_prompt=replace(
-                        packet,prompt=(packet.prompt+"\n当前原创稿：\n"+body[:2500]
-                                       +"\n独立编辑指出的问题（不是绝对真理）：\n"
-                                       +problems+
-                                       "\n只修改确实有证据的问题，保留人物因果，返回修订后的原创正文。"),
-                    )
-                    revised=local_chat_completion(
-                        revised_prompt,model=model,api_base=api_base,max_tokens=3500,
-                    ).strip()
-                    low,high=STAGES[task.stage-1][2:]
-                    if not low<=len(revised)<=high:
-                        raise LadderError("critic-guided revision was invalid length")
-                    self._copy_guard(revised,task.source_excerpt,task.facet_cards)
-                    (folder/"revision_candidate.md").write_text(revised,encoding="utf-8")
-                    receipt["revision_candidate_sha256"]=sha256(revised.encode("utf-8")).hexdigest()
-                    critic_status="independent_review_then_revision_unverified"
-                receipt["critique_report_path"]=str(review_file)
+            critic_status=("not_run_short_stage" if task.stage<5
+                           else "independent_critic_not_configured")
             receipt["status"]=critic_status
-            (folder/"receipt.json").write_text(
-                json.dumps(receipt,ensure_ascii=False,indent=2),encoding="utf-8",
-            )
+            # Save the provisional result BEFORE a third-party evaluator is
+            # called, so timeout/HTTP failures cannot erase an actual trial.
             self.db.conn.execute(
                 """INSERT INTO literary_training_attempts(
                    run_id,project_id,work_id,stage,prompt_sha256,body_sha256,
@@ -359,6 +318,76 @@ class LiteraryLadder:
                  json.dumps(receipt,ensure_ascii=False)),
             )
             self.db.conn.commit()
+            try:
+                if task.stage>=5 and critic_project is not None:
+                    critic_status="review_requested"
+                    project=Path(critic_project).resolve()
+                    # No invented CANON/STYLE for a supposedly real critic.
+                    if not all((project/name).is_file() for name in ("CANON.md","STYLE.md")):
+                        raise LadderError("real critic project requires CANON.md and STYLE.md")
+                    trial_dir=project/"writerforge-training-trials"
+                    trial_dir.mkdir(exist_ok=True)
+                    scene=trial_dir/(run_id+".txt")
+                    scene.write_text(body,encoding="utf-8")
+                    result=LitCriticAdapter().review(
+                        project_path=project,scene_path=scene,
+                        output_dir=folder/"reviews",mode="quick",
+                    )
+                    critic_status="real_litcritic_report_received_not_validated_by_reader"
+                    receipt["critique_report_path"]=str(result["json"])
+                    report=json.loads(Path(result["json"]).read_text(encoding="utf-8"))
+                    issues=report.get("findings",[])
+                    if not isinstance(issues,list):
+                        raise LadderError("independent report lacked a list of findings")
+                    if issues:
+                        problems="\n".join(
+                            "- "+str(e.get("impact",""))[:140]
+                            for e in issues[:8] if isinstance(e,dict)
+                        )
+                        revised_text=(
+                            packet.prompt+"\n当前原创稿：\n"+body[:2500]
+                            +"\n独立编辑指出的问题（不是绝对真理）：\n"
+                            +problems
+                            +"\n只修准确且可验证的问题，保留人物因果，返回修订后的原创正文。"
+                        )
+                        if len(revised_text)>MAX_PROMPT_CHARS:
+                            raise LadderError("review-guided revision prompt exceeds model context cap")
+                        revised_prompt=replace(
+                            packet,prompt=revised_text,
+                            prompt_sha256=sha256(revised_text.encode("utf-8")).hexdigest(),
+                        )
+                        revised=local_chat_completion(
+                            revised_prompt,model=model,api_base=api_base,max_tokens=3500,
+                        ).strip()
+                        low,high=STAGES[task.stage-1][2:]
+                        if not low<=len(revised)<=high:
+                            raise LadderError("critic-guided revision was invalid length")
+                        self._copy_guard(revised,task.source_excerpt,task.facet_cards)
+                        (folder/"revision_candidate.md").write_text(
+                            revised,encoding="utf-8",
+                        )
+                        receipt["revision_candidate_sha256"]=sha256(
+                            revised.encode("utf-8")
+                        ).hexdigest()
+                        critic_status="independent_review_then_revision_unverified"
+            except Exception as exc:
+                # Do not misrepresent an unavailable reviewer as a successful
+                # judgment. A failed call is durable but cannot advance mastery.
+                critic_status="critic_failed"
+                receipt["failure_type"]=type(exc).__name__
+                raise
+            finally:
+                receipt["status"]=critic_status
+                (folder/"receipt.json").write_text(
+                    json.dumps(receipt,ensure_ascii=False,indent=2),
+                    encoding="utf-8",
+                )
+                self.db.conn.execute(
+                    """UPDATE literary_training_attempts
+                       SET status=?,receipt_json=? WHERE run_id=?""",
+                    (critic_status,json.dumps(receipt,ensure_ascii=False),run_id),
+                )
+                self.db.conn.commit()
             records.append({"stage":task.stage,"status":"practiced_not_mastered",
                             "critic_status":critic_status,
                             "run_id":run_id,"receipt":str(folder/"receipt.json"),
