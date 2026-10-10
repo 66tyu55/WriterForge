@@ -1,4 +1,4 @@
-# WriterForge V22 — Evidence-Guarded Writing Companion
+# WriterForge V23 — Real Original-Chinese Study & Verified Writing
 
 WriterForge is a long-form fiction system built around strict LEARN / WRITE separation, Reader-First source learning, Canon/Character/Knowledge/Promise memory, lean Craft routing, Literary Taste, Story Sense and controlled Evolution.
 
@@ -127,3 +127,14 @@ No raw prose is copied into companion memory; replaced/deleted scenes retract th
 Inspired by real novel-studio routing conflicts, the IJCNLP-AACL evidence-oriented Author Writing Sheet, and Calliope's read-only editorial practice, V22 adds **optional evidence anchors, explicit category conflict slots and a four-axis author-curated writing-sheet view** to the existing SET_AUTHOR_PREFERENCE store. A source excerpt must exist in accepted prose for the same project, and a changed/deleted source makes its anchored guidance stale; review reports this without rewriting the story. Specific scene rules rank ahead of generic guidance inside the existing budget. V21 databases are migrated additively; no duplicate memory store, lane scheduler or third-party plug-in is added.
 
 See research/EXTERNAL_METHODS_V22.md for original sources, rejected ideas, and precise limitations. Real creativity/reader quality remains a separate evaluation question.
+ 
+
+## V23 — Executable original Chinese literary study, not just an architecture
+
+WriterForge now ingests the complete original traditional-Chinese 100-chapter 西遊記 from Project Gutenberg #23962, preserving source hashes and sequential chapter/paragraph/sentence provenance. Each original sentence receives eight separate **deterministic, UNVERIFIED** structural tracks. 100 published chapters use one full snapshot and 99 ancestry-resolved deltas, avoiding per-chapter full database copies. Original source, durable SQLite data, license, structural study report and a verifiable draft context are packaged by GitHub Actions; the underlying repo deliberately excludes the licensed release text and SQLite.
+
+An executable command-line path is now available: fetch-xiyouji -> learn -> status -> draft-context -> draft using an explicitly running **local** OpenAI-compatible LM Studio model -> accept with explicit author confirmation. The drafted artifact records snapshot, source citations, model and checksums; a new draft is never silently accepted or mislabeled as author-written. The only external evaluator integration is the **local lit-critic REST API**. It emits a separate read-only Markdown + JSON review report with the verified current text hash. No AI review automatically modifies canon or promotes writing skills.
+
+Memory fixes bound SQL retrieval, SQLite cache, reader/evolution/taste histories, queued events, task queue, and WorkTree snapshot sizes. CI runs real full-100-chapter downloads/ingestion, restart retrieval, a resource report and legacy regressions. Reader-first deep literature analysis, fine-tuning, real local model runs and genuine live lit-critic ratings **are not claimed yet**.
+
+**Detailed Windows commands and setup:** [V23 real Chinese-original study, writing and review](docs/V23_REAL_ORIGINAL_STUDY_AND_REVIEW.md).
