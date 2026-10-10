@@ -105,7 +105,7 @@ class FictionEncyclopedia:
             self.runtime.require(Mode.LEARN)
 
     def entity(self, *, work_id: str, name: str, kind: str,
-               genre: str) -> int:
+               genre: str, subtype: str = "", gender: str = "unknown") -> int:
         """Idempotent entity identity, scoped to one actual studied work."""
         self._require_learn()
         work_id=_bounded_name(work_id,"work_id",maximum=128)
@@ -113,20 +113,24 @@ class FictionEncyclopedia:
         genre=_bounded_name(genre,"genre",maximum=48)
         if kind not in KINDS:
             raise EncyclopediaError("unknown subject type")
+        if subtype:
+            subtype=_bounded_name(subtype,"subtype",maximum=48)
+        if gender not in {"unknown","female","male","other"} or (gender!="unknown" and kind!="character"):
+            raise EncyclopediaError("invalid entity gender; only characters have gender facets")
         if not self.db.conn.execute(
             "SELECT 1 FROM studied_works WHERE work_id=?", (work_id,)
         ).fetchone():
             raise EncyclopediaError("no studied source for work_id")
         self.db.conn.execute(
-            """INSERT OR IGNORE INTO encyclopedia_entities(work_id,name,kind,genre)
-               VALUES(?,?,?,?)""", (work_id,name,kind,genre),
+            """INSERT OR IGNORE INTO encyclopedia_entities(work_id,name,kind,genre,subtype,gender)
+               VALUES(?,?,?,?,?,?)""", (work_id,name,kind,genre,subtype,gender),
         )
         row=self.db.conn.execute(
-            "SELECT id,genre FROM encyclopedia_entities WHERE work_id=? AND kind=? AND name=?",
+            "SELECT id,genre,subtype,gender FROM encyclopedia_entities WHERE work_id=? AND kind=? AND name=?",
             (work_id,kind,name),
         ).fetchone()
-        if row["genre"]!=genre:
-            raise EncyclopediaError("entity genre conflicts with registered book taxonomy")
+        if (row["genre"]!=genre or row["subtype"]!=subtype or row["gender"]!=gender):
+            raise EncyclopediaError("entity metadata differs; never silently overwrite subtype or gender")
         self.db.conn.commit()
         return int(row["id"])
 
@@ -172,11 +176,21 @@ class FictionEncyclopedia:
         ).fetchone()
         if not entity:
             raise EncyclopediaError("unknown entity")
-        permitted=ALLOWED_KINDS_BY_ROOT.get(path.split("/",1)[0])
+        parts=path.split("/")
+        permitted=ALLOWED_KINDS_BY_ROOT.get(parts[0])
         if permitted is not None and entity["kind"] not in permitted:
             raise EncyclopediaError(
                 "category/entity mismatch: this kind cannot be stored under that top-level shelf"
             )
+        # Do NOT shelve an ordinary beast as a 妖兽, or a male/unknown
+        # character under 女性. A single wrong fact can poison many future
+        # generated scenes; require explicit subject metadata first.
+        if "妖兽" in parts and not (entity["kind"]=="creature" and entity["subtype"]=="妖兽"):
+            raise EncyclopediaError("cannot classify a creature as 妖兽 without its confirmed 妖兽 subtype")
+        if any(p in ("女性","女子","女人") for p in parts) and not (
+            entity["kind"]=="character" and entity["gender"]=="female"
+        ):
+            raise EncyclopediaError("female-character shelf requires explicit female entity metadata")
         source=self.db.conn.execute(
             """SELECT excerpt,source_sha256 FROM source_spans
                WHERE work_id=? AND chapter=? AND paragraph=? AND sentence=?""",
@@ -312,7 +326,7 @@ class FictionEncyclopedia:
             f"SELECT COUNT(*) AS n {joins} WHERE {where}",args,
         ).fetchone()["n"]
         rows=self.db.conn.execute(
-            f"""SELECT e.id,e.entity_id,e.work_id,v.name,v.kind,v.genre,
+            f"""SELECT e.id,e.entity_id,e.work_id,v.name,v.kind,v.genre,v.subtype,v.gender,
                        w.title,w.source_uri,e.chapter,e.paragraph,e.sentence,
                        e.category_path,e.attribute,e.quotation,e.explanation,
                        e.assertion,e.origin,e.status,e.reviewer_reason,
@@ -349,7 +363,7 @@ class FictionEncyclopedia:
             f"SELECT COUNT(*) FROM encyclopedia_entities v {where}", args,
         ).fetchone()[0]
         rows=self.db.conn.execute(
-            f"""SELECT v.id,v.work_id,v.name,v.kind,v.genre,
+            f"""SELECT v.id,v.work_id,v.name,v.kind,v.genre,v.subtype,v.gender,
                        COUNT(e.id) AS occurrences,
                        COALESCE(SUM(CASE WHEN e.status='verified' THEN 1 ELSE 0 END),0)
                        AS verified_occurrences
