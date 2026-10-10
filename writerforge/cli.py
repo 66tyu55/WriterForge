@@ -160,6 +160,14 @@ def main(argv: list[str] | None = None):
     enc_subjects.add_argument("--work-id")
     enc_subjects.add_argument("--limit",type=int,default=25)
     enc_subjects.add_argument("--offset",type=int,default=0)
+    studio=sub.add_parser("studio",help="open local WriterForge editor; automatic two choices and outline-driven drafts")
+    studio.add_argument("--project",required=True)
+    studio.add_argument("--scene",default="chapter-01.scene-01")
+    studio.add_argument("--goal",required=True)
+    studio.add_argument("--model",required=True,help="model ID loaded in a local LM Studio API")
+    studio.add_argument("--api-base",default="http://127.0.0.1:1234/v1")
+    studio.add_argument("--port",default=8765,type=int)
+    studio.add_argument("--output-dir",default="writing_runs/studio")
     args=p.parse_args(argv)
     if args.cmd=="catalog":
         from .classics_catalog import CATALOG, MIN_WORKS_FOR_CROSS_CORPUS_REVIEW
@@ -239,6 +247,12 @@ def main(argv: list[str] | None = None):
             result["working_db_created"]=False
         result["working_db"]=str(target)
         _emit(result)
+        return
+    if args.cmd=="studio":
+        from .studio_server import serve
+        serve(db_path=args.db,project=args.project,scene=args.scene,
+              goal=args.goal,model=args.model,api_base=args.api_base,
+              port=args.port,output_dir=args.output_dir)
         return
     if args.cmd=="review":
         _emit(LitCriticAdapter(base_url=args.api_base).review(
