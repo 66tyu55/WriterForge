@@ -5,12 +5,14 @@ on:
     paths:
       - "writerforge/**"
       - "scripts/xiyouji_pilot.py"
+      - "scripts/study_release.py"
       - ".github/workflows/xiyouji-study.yml"
   push:
     branches: [main]
     paths:
       - "writerforge/**"
       - "scripts/xiyouji_pilot.py"
+      - "scripts/study_release.py"
       - ".github/workflows/xiyouji-study.yml"
   workflow_dispatch:
 
@@ -49,9 +51,95 @@ jobs:
           cp "$RUNNER_TEMP/xiyouji_studied.sqlite3" "$RUNNER_TEMP/xiyouji_bundle/"
           cp "$RUNNER_TEMP/PROJECT_GUTENBERG_LICENSE.txt" "$RUNNER_TEMP/xiyouji_bundle/"
           cp "$RUNNER_TEMP/xiyouji_results/"* "$RUNNER_TEMP/xiyouji_bundle/"
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
+        if: github.event_name != 'pull_request'
         with:
           name: xiyouji-original-100-chapters-trained-structural
           path: ${{ runner.temp }}/xiyouji_bundle/
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 3
+
+  publish-verified-study:
+    # PRs NEVER get a write token. Only verified main branch builds may publish.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: full-original-study
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: writerforge-xiyouji-study-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Install WriterForge
+        run: python -m pip install -e .
+      - name: Retrieve verified temporary study output
+        uses: actions/download-artifact@v8
+        with:
+          name: xiyouji-original-100-chapters-trained-structural
+          path: ${{ runner.temp }}/learned/
+      - name: Build versioned and checksummed study package
+        id: pack
+        run: |
+          python scripts/study_release.py pack \
+            "$RUNNER_TEMP/learned" "$RUNNER_TEMP/release" \
+            > "$RUNNER_TEMP/package-result.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          data=json.loads((Path(os.environ["RUNNER_TEMP"])/"package-result.json").read_text())
+          with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf-8") as out:
+              out.write("tag="+data["tag"]+"\n")
+          print("Storage release tag:",data["tag"],"archive bytes:",data["compressed_bytes"])
+          PY
+      - name: Publish content-addressed corpus in GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STUDY_TAG: ${{ steps.pack.outputs.tag }}
+        run: |
+          set -euo pipefail
+          BUNDLE="$RUNNER_TEMP/release/xuehai-xiyouji-23962-s1.bundle.zip"
+          MANIFEST="$RUNNER_TEMP/release/xuehai-xiyouji-23962-s1.manifest.json"
+          if gh release view "$STUDY_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "This study edition already exists. Keep original assets, never duplicate."
+          else
+            gh release create "$STUDY_TAG" "$BUNDLE" "$MANIFEST" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --latest=false \
+              --title "学海原著：西遊記 100回 · 结构化学习 v1" \
+              --notes "Project Gutenberg #23962 ORIGINAL Chinese, full license included. Verified 100-chapter structural study only; no language model fine-tuning, no verified literary critique. NEVER publish private manuscripts in this public data release."
+          fi
+          gh release view "$STUDY_TAG" --repo "$GITHUB_REPOSITORY" --json url,assets \
+            --jq '{url: .url, asset_names: [.assets[].name]}'
+      - name: Restore files from published Release and verify SQLite
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STUDY_TAG: ${{ steps.pack.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/recovered-release"
+          gh release download "$STUDY_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir "$RUNNER_TEMP/recovered-release" \
+            --pattern "xuehai-xiyouji-23962-s1.bundle.zip" \
+            --pattern "xuehai-xiyouji-23962-s1.manifest.json"
+          python scripts/study_release.py verify \
+            "$RUNNER_TEMP/recovered-release/xuehai-xiyouji-23962-s1.bundle.zip" \
+            "$RUNNER_TEMP/recovered-release/xuehai-xiyouji-23962-s1.manifest.json" \
+            "$RUNNER_TEMP/restored-study"
+          python -m writerforge.cli \
+            --db "$RUNNER_TEMP/restored-study/xiyouji_studied.sqlite3" status
+          # Test the exact one-command Python restore used on the author's PC,
+          # not just the GitHub CLI artifact download.
+          python -m writerforge.cli \
+            --db "$RUNNER_TEMP/working-from-release.sqlite3" \
+            restore-xiyouji \
+            --repo "$GITHUB_REPOSITORY" --tag "$STUDY_TAG" \
+            --storage-dir "$RUNNER_TEMP/python-library"
+          python -m writerforge.cli \
+            --db "$RUNNER_TEMP/working-from-release.sqlite3" status

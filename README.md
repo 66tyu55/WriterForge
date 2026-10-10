@@ -1,4 +1,4 @@
-# WriterForge V23 — Real Original-Chinese Study & Verified Writing
+# WriterForge V23.1 — Real Original-Chinese Study, Verified Writing & Durable Storage
 
 WriterForge is a long-form fiction system built around strict LEARN / WRITE separation, Reader-First source learning, Canon/Character/Knowledge/Promise memory, lean Craft routing, Literary Taste, Story Sense and controlled Evolution.
 
@@ -138,3 +138,8 @@ An executable command-line path is now available: fetch-xiyouji -> learn -> stat
 Memory fixes bound SQL retrieval, SQLite cache, reader/evolution/taste histories, queued events, task queue, and WorkTree snapshot sizes. CI runs real full-100-chapter downloads/ingestion, restart retrieval, a resource report and legacy regressions. Reader-first deep literature analysis, fine-tuning, real local model runs and genuine live lit-critic ratings **are not claimed yet**.
 
 **Detailed Windows commands and setup:** [V23 real Chinese-original study, writing and review](docs/V23_REAL_ORIGINAL_STUDY_AND_REVIEW.md).
+
+
+## V23.1 — Training resources are preserved automatically, not manually
+
+The original Chinese 西遊記 training job now produces a **durable versioned GitHub Release** after successful main-branch validation, with a compact ZIP **inside GitHub**, a separate SHA256 manifest and a second CI job that downloads and validates the published database and sources. GitHub Actions Artifacts are only short-lived job-to-job transport. Run `writerforge --db writerforge.sqlite3 restore-xiyouji` on a new computer to fetch, verify and restore the learning database without saving/uploading a ZIP by hand. An existing local database is never overwritten. Publishing remains restricted to the known Gutenberg public-domain edition; private manuscripts must not be uploaded publicly. Details: [Auto-persist Xuehai studies](docs/AUTOMATED_STUDY_STORAGE.md).
