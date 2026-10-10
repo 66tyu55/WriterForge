@@ -149,6 +149,36 @@ def _sqlite_audit(path: Path, *, require_study: bool = True) -> dict:
         raise R2StorageError("not a compatible WriterForge SQLite database") from exc
 
 
+def _logical_study_digest(path: Path) -> str:
+    """Deterministic corpus fingerprint excluding nondeterministic SQL timestamps.
+
+    Repeated automated Gutenberg runs may get different created_at values, but
+    only IDENTICAL study data and source editions can reuse a remote snapshot.
+    Rows are streamed, never materialized into Python.
+    """
+    columns = {
+        "snapshots": "id,parent_id,status,layout,note",
+        "studied_works": "work_id,title,source_uri,source_sha256,chapter_count,language,script,study_level",
+        "studied_chapters": "work_id,chapter,chapter_sha256,heading,source_spans,retrieval_entries,snapshot_id",
+        "source_spans": "work_id,chapter,paragraph,sentence,excerpt,source_sha256,tracks_json,craft_json",
+        "xuehai_entries": "id,snapshot_id,work_id,chapter,paragraph,sentence,text,library_class,culture,genre,source_role,function,effect,method_cluster,quality_weight,novelty_weight,reuse_policy,source_hash",
+    }
+    digest = sha256()
+    try:
+        with closing(sqlite3.connect(path)) as con:
+            if con.execute("SELECT COUNT(*) FROM accepted_prose").fetchone()[0]:
+                raise R2StorageError("reproducible edition mode is only for source-only training, not authored novels")
+            for table, fields in columns.items():
+                digest.update(table.encode("ascii"))
+                cur = con.execute(f"SELECT {fields} FROM {table} ORDER BY rowid")
+                for record in cur:
+                    digest.update(_canonical(record))
+                    digest.update(b"\n")
+    except sqlite3.Error as exc:
+        raise R2StorageError("failed to verify reproducible source study") from exc
+    return digest.hexdigest()
+
+
 def _snapshot_database(source: Path, dest: Path) -> dict:
     if not source.is_file() or source.stat().st_size > MAX_DB_BYTES:
         raise R2StorageError("source database missing or beyond 1 GiB safety limit")
@@ -335,6 +365,7 @@ class R2StudyVault:
                     raise R2StorageError("study resource exceeds safety cap: " + name)
                 digest, size = _digest(path)
                 files[name] = {"sha256":digest, "size":size}
+            logical_digest = _logical_study_digest(db_snapshot) if edition is not None else None
             manifest = {
                 "format":R2_FORMAT,
                 "library":library,
@@ -342,6 +373,7 @@ class R2StudyVault:
                 "stats":stats,
                 "files":files,
                 "edition":edition,
+                "logical_study_sha256":logical_digest,
             }
             encoded = _canonical(manifest)
             snapshot = sha256(encoded).hexdigest()
@@ -362,7 +394,8 @@ class R2StudyVault:
                     previous=json.loads(original)
                     if (previous.get("edition")==edition
                         and previous.get("files",{}).get("source.txt",{}).get("sha256")==files["source.txt"]["sha256"]
-                        and previous.get("stats")==stats):
+                        and previous.get("stats")==stats
+                        and previous.get("logical_study_sha256")==logical_digest):
                         for old in previous.get("files",{}).values():
                             remote=self._head(self._blob_key(library,old["sha256"]))
                             if (remote is None or int(remote.get("ContentLength",-1)) != old["size"]
