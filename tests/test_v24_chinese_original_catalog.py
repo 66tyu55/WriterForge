@@ -75,6 +75,24 @@ class CatalogAndStageTests(unittest.TestCase):
         self.assertTrue(chapters[0].heading=="")
         self.assertIn("第四回中",chapters[1].text)
 
+    def test_exact_duplicate_print_heading_is_collapsed_not_dropped_prose(self):
+        fixture = (
+            "第一回　测试第一卷\n开场正文。人物相遇。\n"
+            "第二回　重复回目\n----------------------------\n"
+            "第二回　重复回目\n----------------------------\n"
+            "后面的真正正文必须保留。\n"
+            "第三回　最后一卷\n人物归来。"
+        )
+        chapters=parse_original(fixture,require_hundred=False,expected_count=3)
+        self.assertEqual([ch.number for ch in chapters],[1,2,3])
+        self.assertIn("真正正文",chapters[1].text)
+        tampered=fixture.replace(
+            "第二回　重复回目\n----------------------------\n",
+            "第二回　重复回目\n不能被跳过的真实情节。\n",1
+        )
+        with self.assertRaisesRegex(StudyError,"order malformed"):
+            parse_original(tampered,require_hundred=False)
+
     def test_prologue_preserved_and_not_counted_as_a_separate_book(self):
         text=synthetic_book(chapter_count=70,prologue=True)
         chapters=parse_original(text,require_hundred=False,expected_count=70,include_prologue=True)
