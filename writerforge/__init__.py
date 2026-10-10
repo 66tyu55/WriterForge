@@ -81,3 +81,8 @@ from .litcritic_adapter import LitCriticAdapter, CriticIntegrationError
 from .r2_storage import (
     R2Config, R2StudyVault, R2StorageError, r2_configured,
 )
+
+from .encyclopedia import (
+    FictionEncyclopedia, FacetQuery, EncyclopediaError,
+    validate_category_path,
+)
