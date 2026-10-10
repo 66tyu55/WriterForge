@@ -231,7 +231,7 @@ def main(argv: list[str] | None = None):
                 db,rt,project_id=args.project,manifest_path=args.manifest,
                 commit_id=args.commit_id,explicitly_approved=args.confirm_accept,
             )
-            if out["accepted"] and not out.get("replayed") and os.environ.get("WRITERFORGE_R2_AUTO_BACKUP")=="1":
+            if out["accepted"] and not out.get("replayed") and os.environ.get("WRITERFORGE_R2_BACKUP_ON_ACCEPT")=="1":
                 library=os.environ.get("WRITERFORGE_R2_LIBRARY","writerforge-personal")
                 out["private_r2_backup"]=R2StudyVault(R2Config.from_environment()).backup(
                     database=args.db,library=library,
