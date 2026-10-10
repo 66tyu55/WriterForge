@@ -130,26 +130,26 @@ class XuehaiStore:
             raise ValueError("diversity limits must be 1..32")
         sid = self.runtime.pinned_snapshot_id
         filters = ["e.quality_weight>=?"]
-        args = [sid, q.min_quality]
+        where_args = [q.min_quality]
         for field, value in [
             ("genre", q.genre), ("culture", q.culture), ("function", q.function),
             ("effect", q.effect), ("source_role", q.source_role),
         ]:
             if value:
                 filters.append(f"e.{field}=?")
-                args.append(value)
+                where_args.append(value)
         use = "0 AS use_count"
         join = ""
         if q.project_id:
             join = "LEFT JOIN retrieval_usage u ON u.entry_id=e.id AND u.project_id=?"
             use = "COALESCE(u.use_count,0) AS use_count"
-            args.append(q.project_id)
+            # Bound separately: JOIN placeholders precede WHERE placeholders.
         rank_parts = []
         for t in q.text_terms[:6]:
             if t and t.strip():
                 rank_parts.append("CASE WHEN e.text LIKE ? THEN 4.0 ELSE 0 END")
-        args.extend("%" + t.strip()[:48].replace("%", r"\%").replace("_", r"\_") + "%"
-                    for t in q.text_terms[:6] if t and t.strip())
+        rank_args = ["%" + t.strip()[:48].replace("%", r"\%").replace("_", r"\_") + "%"
+                     for t in q.text_terms[:6] if t and t.strip()]
         lexical = "+".join(rank_parts) if rank_parts else "0"
         # SELECT only a bounded shortlist. Query index and result memory stays
         # O(limit), rather than O(total entries across the learned novels).
@@ -172,7 +172,7 @@ class XuehaiStore:
           LIMIT ?
         """
         # The project usage join parameter precedes WHERE parameters in SQL.
-        bind = [sid] + ([q.project_id] if q.project_id else []) + args[1:]
+        bind = [sid] + ([q.project_id] if q.project_id else []) + where_args + rank_args
         bind.append(min(512, max(64, q.limit * 24)))
         return [dict(r) for r in self.db.conn.execute(sql, bind).fetchall()]
 
