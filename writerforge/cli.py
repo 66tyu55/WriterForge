@@ -93,6 +93,7 @@ def main(argv: list[str] | None = None):
     backup=sub.add_parser("backup-r2",help="back up live WriterForge SQLite with an online consistent R2 snapshot")
     backup.add_argument("--library",default="writerforge-personal")
     backup.add_argument("--source",help="optional owned/licensed original text to include privately")
+    backup.add_argument("--edition",help="optional reproducible public-domain training edition ID (CI only)")
     backup.add_argument("--extra",action="append",default=[],metavar="NAME=PATH",
                         help="optional training report, source license or evidence file")
     restore_r2=sub.add_parser("restore-r2",help="restore a verified private R2 study snapshot")
@@ -142,7 +143,7 @@ def main(argv: list[str] | None = None):
             extras[name]=filename
         vault=R2StudyVault(R2Config.from_environment())
         _emit(vault.backup(database=args.db,library=args.library,
-                           source=args.source,extras=extras))
+                           source=args.source,extras=extras,edition=args.edition))
         return
     if args.cmd=="restore-r2":
         vault=R2StudyVault(R2Config.from_environment())
@@ -183,7 +184,7 @@ def main(argv: list[str] | None = None):
                 source_uri=args.source_uri,max_chapters=args.limit_chapters,
                 require_hundred=not args.allow_partial,
             )
-            if args.backup_r2 or os.environ.get("WRITERFORGE_R2_AUTO_BACKUP")=="1":
+            if args.backup_r2 or (out.get("newly_studied",0)>0 and os.environ.get("WRITERFORGE_R2_AUTO_BACKUP")=="1"):
                 library=os.environ.get("WRITERFORGE_R2_LIBRARY","writerforge-personal")
                 source_file=args.source if Path(args.source).is_file() else None
                 out["private_r2_backup"]=R2StudyVault(R2Config.from_environment()).backup(
@@ -230,7 +231,7 @@ def main(argv: list[str] | None = None):
                 db,rt,project_id=args.project,manifest_path=args.manifest,
                 commit_id=args.commit_id,explicitly_approved=args.confirm_accept,
             )
-            if out["accepted"] and os.environ.get("WRITERFORGE_R2_AUTO_BACKUP")=="1":
+            if out["accepted"] and not out.get("replayed") and os.environ.get("WRITERFORGE_R2_AUTO_BACKUP")=="1":
                 library=os.environ.get("WRITERFORGE_R2_LIBRARY","writerforge-personal")
                 out["private_r2_backup"]=R2StudyVault(R2Config.from_environment()).backup(
                     database=args.db,library=library,
