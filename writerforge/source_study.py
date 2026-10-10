@@ -86,14 +86,16 @@ class Chapter:
         return sha256(self.text.encode("utf-8")).hexdigest()
 
 
-def parse_original(text: str, *, require_hundred: bool = True) -> tuple[Chapter, ...]:
+def parse_original(text: str, *, require_hundred: bool = True,
+                   expected_count: int | None = None,
+                   include_prologue: bool = False) -> tuple[Chapter, ...]:
     if not isinstance(text, str) or len(text) > MAX_DOWNLOAD_BYTES:
         raise StudyError("source too large or not UTF-8 text")
     # Strip Gutenberg licence/postface; its English prose must not be learned.
     marker = re.search(r"(?mi)^\*{3}\s*END OF (?:THE )?PROJECT GUTENBERG", text)
     if marker:
         text = text[:marker.start()]
-    matches = [m for m in HEAD.finditer(text) if 1 <= chapter_number(m.group(1)) <= 100]
+    matches = [m for m in HEAD.finditer(text) if 1 <= chapter_number(m.group(1)) <= 200]
     if not matches:
         raise StudyError("no original Chinese chapter headings; refused to ingest")
     # Reject duplicate or nonsequential headings; no silent skipped chapters.
@@ -102,7 +104,18 @@ def parse_original(text: str, *, require_hundred: bool = True) -> tuple[Chapter,
         raise StudyError(f"chapter order malformed: {nums[:12]}")
     if require_hundred and len(matches) != 100:
         raise StudyError(f"expected all 100 original chapters, found {len(matches)}")
+    if expected_count is not None and len(matches) != expected_count:
+        raise StudyError(f"expected {expected_count} chapter headings, found {len(matches)}")
     chapters = []
+    if include_prologue:
+        # Water Margin has a real 楔子 before chapter 1; do NOT silently drop it.
+        intro = re.search(r"(?m)^[ \\t\\u3000]*楔子[ \\t\\u3000]+([^\\r\\n]{1,90})$", text[:matches[0].start()])
+        if not intro:
+            raise StudyError("original source requires a 楔子 prologue, but none was found")
+        body = text[intro.end():matches[0].start()].strip()
+        if not 100 <= len(body) <= MAX_CHAPTER_CHARS:
+            raise StudyError("source prologue is missing or truncated")
+        chapters.append(Chapter(0, "楔子 " + intro.group(1).strip(), body))
     for i, m in enumerate(matches):
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
         body = text[m.end():end].strip()
@@ -139,28 +152,54 @@ def download_original(path: str | Path, *, url: str = SOURCE_URL) -> Path:
         part.unlink(missing_ok=True)
 
 
-def _unitize(chapter: Chapter):
-    # Preserve chapter->paragraph->sentence ordering; never start with a
-    # global keyword retrieval. Split punctuation within each original line.
-    paragraphs = [line.strip() for line in chapter.text.splitlines() if line.strip()]
-    if len(paragraphs) > 4_000:
+def _unitize(chapter: Chapter, *, wrapped_lines: bool = False):
+    """Sequential chapter->paragraph->sentence. No global keyword shortcuts.
+
+    Gutenberg texts differ: 西遊記 stores naturally separated lines, while
+    紅樓夢 / 水滸傳 hard-wrap each paragraph into narrow printed lines.
+    For those editions, reconstruct wrapped paragraphs before punctuation
+    segmentation; keep the source content and ordered offsets intact.
+    """
+    if not wrapped_lines:
+        paragraphs = [line.strip() for line in chapter.text.splitlines() if line.strip()]
+        stops = r"[^。！？!?；;\r\n]+[。！？!?；;]?"
+    else:
+        paragraphs = []
+        current: list[str] = []
+        def flush():
+            if current:
+                paragraphs.append("".join(current))
+                current.clear()
+        for raw in chapter.text.splitlines():
+            line = raw.rstrip()
+            if not line.strip() or re.fullmatch(r"[-—─]{8,}", line.strip()):
+                flush()
+                continue
+            # The Gutenberg editions use leading indentation to signal a
+            # genuine paragraph. A hard-wrapped continuation has no indent.
+            if current and (line.startswith("\u3000") or len(line)-len(line.lstrip(" "))>=2):
+                flush()
+            current.append(line.strip())
+            if len(current)>500:
+                raise StudyError("malformed wrapped paragraph exceeds 500 physical lines")
+        flush()
+        stops = r"[^。！？!?；;．\r\n]+[。！？!?；;．]?"
+    if len(paragraphs)>4_000:
         raise StudyError("chapter exceeds 4000 paragraphs")
     counter = 0
     for p, paragraph in enumerate(paragraphs, 1):
-        chunks = re.findall(r"[^。！？!?；;\r\n]+[。！？!?；;]?", paragraph)
+        chunks = re.findall(stops, paragraph)
         s_index = 0
         for chunk in chunks:
             chunk = chunk.strip()
-            # Prevent a malformed, unpunctuated chapter from retaining one
-            # arbitrarily huge line in RAM or the SQLite database.
             for start in range(0, len(chunk), 240):
                 piece = chunk[start:start + 240].strip()
                 if not piece:
                     continue
                 s_index += 1
                 counter += 1
-                if counter > MAX_CHAPTER_UNITS:
-                    raise StudyError("chapter exceeds 8000 study units")
+                if counter>MAX_CHAPTER_UNITS:
+                    raise StudyError("chapter exceeds 8000 source units")
                 yield p, s_index, piece
 
 
@@ -203,11 +242,16 @@ class OriginalStudy:
         self, text: str, *, work_id: str = WORK_ID, title: str = "西遊記",
         source_uri: str = SOURCE_PAGE, max_chapters: int | None = None,
         require_hundred: bool = True,
+        expected_count: int | None = None,
+        include_prologue: bool = False,
+        wrapped_lines: bool = False,
     ) -> dict:
         self.runtime.require(Mode.LEARN)
         if not work_id or len(work_id) > 128:
             raise StudyError("invalid work ID")
-        chapters = parse_original(text, require_hundred=require_hundred)
+        chapters = parse_original(text, require_hundred=require_hundred,
+                                  expected_count=expected_count,
+                                  include_prologue=include_prologue)
         if max_chapters is not None and not 1 <= max_chapters <= len(chapters):
             raise StudyError("max_chapters outside the source")
         content_hash = sha256(text.encode("utf-8")).hexdigest()
@@ -254,7 +298,7 @@ class OriginalStudy:
                 sid = int(cur.lastrowid)
                 count, inserted = 0, 0
                 hashes: set[str] = set()
-                for paragraph, sentence, piece in _unitize(chapter):
+                for paragraph, sentence, piece in _unitize(chapter, wrapped_lines=wrapped_lines):
                     count += 1
                     tracks, craft = _structural_analysis(piece)
                     excerpt = piece[:MAX_EXCERPT]
