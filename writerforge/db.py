@@ -88,6 +88,82 @@ CREATE INDEX IF NOT EXISTS idx_xuehai_hash ON xuehai_entries(source_hash);
 CREATE INDEX IF NOT EXISTS idx_xuehai_work ON xuehai_entries(work_id);
 CREATE INDEX IF NOT EXISTS idx_xuehai_cluster ON xuehai_entries(method_cluster);
 
+-- Faceted literary encyclopedia (V25). This is a separate INDEX over the
+-- existing source spans, NOT a second copy of the full novel. Each source
+-- occurrence has its own evidence row, so the same beast/character can have
+-- 10, 100 or 1000 independently locatable descriptions.
+CREATE TABLE IF NOT EXISTS encyclopedia_entities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    work_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    genre TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(work_id,kind,name),
+    FOREIGN KEY(work_id) REFERENCES studied_works(work_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_encyclopedia_entity_kind_name
+ON encyclopedia_entities(kind,name,genre);
+
+CREATE TABLE IF NOT EXISTS encyclopedia_aliases (
+    entity_id INTEGER NOT NULL,
+    alias TEXT NOT NULL,
+    PRIMARY KEY(entity_id,alias),
+    FOREIGN KEY(entity_id) REFERENCES encyclopedia_entities(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_encyclopedia_alias
+ON encyclopedia_aliases(alias);
+
+CREATE TABLE IF NOT EXISTS encyclopedia_evidence (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_id INTEGER NOT NULL,
+    work_id TEXT NOT NULL,
+    chapter INTEGER NOT NULL,
+    paragraph INTEGER NOT NULL,
+    sentence INTEGER NOT NULL,
+    category_path TEXT NOT NULL,
+    attribute TEXT NOT NULL,
+    quotation TEXT NOT NULL,
+    source_unit_sha256 TEXT NOT NULL,
+    explanation TEXT NOT NULL DEFAULT '',
+    assertion TEXT NOT NULL DEFAULT 'observed'
+        CHECK(assertion IN ('observed','rumored','character_belief','inferred')),
+    origin TEXT NOT NULL CHECK(origin IN ('manual','model_candidate','rule_candidate')),
+    status TEXT NOT NULL DEFAULT 'proposed'
+        CHECK(status IN ('proposed','verified','rejected')),
+    reviewer_reason TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TEXT,
+    UNIQUE(entity_id,chapter,paragraph,sentence,category_path,attribute,quotation),
+    FOREIGN KEY(entity_id) REFERENCES encyclopedia_entities(id) ON DELETE CASCADE,
+    FOREIGN KEY(work_id,chapter,paragraph,sentence)
+        REFERENCES source_spans(work_id,chapter,paragraph,sentence)
+);
+
+CREATE INDEX IF NOT EXISTS idx_encyclopedia_evidence_path
+ON encyclopedia_evidence(category_path,status,entity_id);
+CREATE INDEX IF NOT EXISTS idx_encyclopedia_evidence_entity
+ON encyclopedia_evidence(entity_id,status,id);
+CREATE INDEX IF NOT EXISTS idx_encyclopedia_evidence_source
+ON encyclopedia_evidence(work_id,chapter,paragraph,sentence);
+
+CREATE TABLE IF NOT EXISTS encyclopedia_relations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_entity_id INTEGER NOT NULL,
+    target_entity_id INTEGER NOT NULL,
+    relation TEXT NOT NULL,
+    evidence_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(source_entity_id,target_entity_id,relation,evidence_id),
+    FOREIGN KEY(source_entity_id) REFERENCES encyclopedia_entities(id),
+    FOREIGN KEY(target_entity_id) REFERENCES encyclopedia_entities(id),
+    FOREIGN KEY(evidence_id) REFERENCES encyclopedia_evidence(id)
+);
+CREATE INDEX IF NOT EXISTS idx_encyclopedia_relation_source
+ON encyclopedia_relations(source_entity_id,relation);
+
 CREATE TABLE IF NOT EXISTS retrieval_usage (
     project_id TEXT NOT NULL,
     entry_id INTEGER NOT NULL,
