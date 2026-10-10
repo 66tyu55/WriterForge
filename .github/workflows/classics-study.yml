@@ -99,6 +99,7 @@ jobs:
             --extra report.json="$RUNNER_TEMP/work-audit/work_report.json" \
             --extra audit.json="$RUNNER_TEMP/work-audit/stage_audit.json" \
             --extra context.json="$RUNNER_TEMP/work-audit/draft_context.json" \
+            --extra ladder.json="$RUNNER_TEMP/work-audit/literary_ladder_readiness.json" \
             --extra status.md="$RUNNER_TEMP/work-audit/STAGE_AUDIT.md" \
             --extra license.txt="$RUNNER_TEMP/license.txt"
       - name: Read R2 back, verify source and full chapters of original edition
