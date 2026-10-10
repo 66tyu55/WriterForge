@@ -1,5 +1,14 @@
 # Changelog
 
+## v24.0.0 — 2026-10-10
+
+- Verified source catalog for full traditional Chinese 紅樓夢 (PG 24264, 120 chapters) and 水滸傳 (PG 23863, 70 chapters + 楔子), pinned to GITenberg Git blob SHA1. No translations or arbitrary website scraping.
+- Fixed real original-edition parser errors: legacy 100-chapter cap, CRLF headings, embedded references to prior chapters mistaken for titles, repeated identical ch45 print heading, and hard-wrapped text as false paragraphs.
+- Added authentic complete-work CI and per-book activation audit for imported source tracks, SQLite persistence/restart, verifiable draft context; permanently mark ReaderFirst, deep literary criticism and model fine-tuning as **not executed** rather than inventing scores.
+- Each new complete book is backed up into its own **private** Cloudflare R2 versioned library on main; remote restore tests its chapter/paragraph source evidence and SQLite integrity.
+- Introduced 50-*distinct-complete-works* cross-corpus readiness gate with read-only R2 progress; no global creative evaluation, skill rewrite or quality claim before that threshold.
+
+
 ## v23.2.0 — 2026-10-10
 
 - Cloudflare R2 private object storage support (optional boto3 dependency), with S3-compatible endpoint, bucket-scoped keys and explicit environment-only credentials.
