@@ -1,8 +1,8 @@
 {
   "name": "WriterForge",
-  "version": "19.0",
-  "phase": "transactional-story-runtime",
-  "principle": "compute speculatively; persist atomically; adopt only after durable commit",
+  "version": "23.0",
+  "phase": "original-chinese-source-study-and-verified-writing",
+  "principle": "actual source -> ordered study -> durable snapshot -> source-grounded local model generation -> explicit author acceptance; external critique read-only",
   "runtime": {
     "lanes": [
       "SYNC",
@@ -61,7 +61,20 @@
     "effect_journal": true,
     "worktree_commit_fingerprint": true,
     "main_write_commit_loop_closed": true,
-    "restart_worktree_rehydration": "not yet automated; durable SQLite state remains source of truth"
+    "restart_worktree_rehydration": "available via restore_work_root for WorkTree-bound transactional commits",
+    "memory_safeguards": {
+      "sqlite_page_cache_kib": 8192,
+      "xuehai_candidate_cap": 512,
+      "xuehai_return_cap": 32,
+      "source_download_max_mib": 8,
+      "max_study_units_per_chapter": 8000,
+      "worktree_checkpoint_max_chars": 8000000,
+      "worktree_checkpoint_max_nodes": 20000,
+      "worktree_render_unit_cap": 20000,
+      "event_batch_pending_scopes_cap": 4096,
+      "lane_task_pending_cap": 4096,
+      "history_queries_paginated": true
+    }
   },
   "craft_engine": {
     "groups": [
@@ -85,8 +98,30 @@
   ],
   "test_status": {
     "suite": "python -m unittest discover -s tests -q",
-    "passed": 135,
+    "passed": 201,
     "failed": 0,
-    "status": "verified by GitHub CI on V19 PR"
+    "status": "V23 PR branch CI verified: 201/201, 100/100 original-Chinese study; main merge pending"
+  },
+  "literary_study": {
+    "first_book": "西遊記 (Project Gutenberg #23962), 100 original Chinese chapters",
+    "source_trust": "original Chinese not translation",
+    "mode": "sequential deterministic structural indexing",
+    "deep_reader_first_training": false,
+    "model_weight_finetuning": false,
+    "reader_rating_performed": false,
+    "source_artifact": "GitHub Actions 西遊記原著100回学习验收"
+  },
+  "reviewer": {
+    "integration": "lit-critic localhost REST API",
+    "report": "immutable per-session Markdown and JSON",
+    "live_judgment_performed": false,
+    "autonomous_story_rewrites": false
+  },
+  "writing": {
+    "cli": true,
+    "grounded_retrieval_required": true,
+    "local_model_endpoint": "localhost",
+    "actual_model_generation_in_ci": false,
+    "author_approval_before_acceptance": true
   }
 }

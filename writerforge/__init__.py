@@ -67,3 +67,13 @@ from .story_commit import (
     EffectType, StoryEffect, StoryCommitPlan, StoryCommitResult,
     StoryCommitCoordinator, StoryCommitError, PostCommitAdoptionError,
 )
+
+from .source_study import (
+    OriginalStudy, StudyError, Chapter, parse_original, download_original,
+    WORK_ID as XIYOUJI_WORK_ID,
+)
+from .verified_flow import (
+    VerifiedWritingFlow, GroundedDraftPacket, WritingExecutionError,
+    local_chat_completion, save_candidate, accept_candidate,
+)
+from .litcritic_adapter import LitCriticAdapter, CriticIntegrationError

@@ -14,25 +14,25 @@ class FeedbackStore:
         )
         self.db.conn.commit()
 
-    def triage(self):
-        rows = self.db.conn.execute(
-            "SELECT reader_id,chapter_ref,category,severity,comment FROM reader_feedback WHERE project_id=?",
+    def triage(self, *, limit: int = 200):
+        """SQL-level aggregate across all history; bounded sample in memory."""
+        if not 1 <= limit <= 500:
+            raise ValueError("feedback window must be 1..500")
+        counts = list(self.db.conn.execute(
+            """SELECT category,COUNT(*) AS n,COUNT(DISTINCT reader_id) AS readers
+               FROM reader_feedback WHERE project_id=? GROUP BY category""",
             (self.project_id,),
+        ))
+        rows = self.db.conn.execute(
+            """SELECT reader_id,chapter_ref,category,severity,comment
+               FROM reader_feedback WHERE project_id=?
+               ORDER BY id DESC LIMIT ?""",
+            (self.project_id,limit),
         ).fetchall()
-        by_cat = defaultdict(list)
-        for r in rows:
-            by_cat[r["category"]].append(dict(r))
-        convergent = []
-        divergent = []
-        for cat, items in by_cat.items():
-            readers = {i["reader_id"] for i in items}
-            if len(readers) >= 2:
-                convergent.append(cat)
-            else:
-                divergent.append(cat)
         return {
-            "counts": {k:len(v) for k,v in by_cat.items()},
-            "convergent_signals": sorted(convergent),
-            "single_reader_signals": sorted(divergent),
-            "items": [dict(r) for r in rows],
+            "counts":{r["category"]:int(r["n"]) for r in counts},
+            "convergent_signals":sorted(r["category"] for r in counts if r["readers"]>=2),
+            "single_reader_signals":sorted(r["category"] for r in counts if r["readers"]<2),
+            "items":[dict(r) for r in rows],
+            "items_truncated":sum(r["n"] for r in counts)>len(rows),
         }

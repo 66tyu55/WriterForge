@@ -10,6 +10,8 @@ class ReaderEffectLibrary:
         self.db = db
 
     def query(self, *, effect: str, min_continue: float=0.0, limit: int=8):
+        if not 1 <= limit <= 64:
+            raise ValueError("reader effect query limit must be 1..64")
         rows = self.db.conn.execute(
             """SELECT
                  t.session_id,t.unit_index,t.unit_ref,

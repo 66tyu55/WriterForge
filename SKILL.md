@@ -1,12 +1,12 @@
 ---
-name: writer-forge-v22
+name: writer-forge-v23
 description: >
   Long-form fiction runtime with Reader-First source learning, reactive lane scheduling,
   dependency-driven context loading, controlled self-evolution, story-sense routing,
   embodied scene causality, and pairwise literary taste. Designed for novels, not generic copywriting.
 ---
 
-# WriterForge V22
+# WriterForge V23
 
 WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutually exclusive.
 
@@ -14,7 +14,7 @@ WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutuall
 
 Capability library size must not determine per-turn cost.
 
-WriterForge V22 schedules work as:
+WriterForge V23 schedules work as:
 
 `App Shell -> Route -> Dirty Feature Chunk -> Background Worker`
 
@@ -109,3 +109,8 @@ The companion is NOT a separate Skill to invoke when the writer wants a voice ch
 ## V22 evidence and preference conflict discipline
 
 A single SET_AUTHOR_PREFERENCE table remains the sole authority for explicit writer preferences. AuthorCorrection optionally carries evidence_scope + evidence_excerpt (verified against same-project accepted prose, stored only as hashes), axis (plot / creativity / character_emotion / language), and conflict_group (unique per project+category). Supported guidance is suppressed if its source is rewritten; stale rules are **reviewed, not automatically repaired**. Explicit same-slot conflicts reject the whole transaction, never silently choose a winner. WritingFlow.review_writing_sheet() is read-only diagnosis; the original StoryCommitCoordinator is still the only persistence route. Do not confuse stylistic suggestions with canon/plot mutations, and do not infer a writing sheet axis from statistics without explicit author confirmation. See research/EXTERNAL_METHODS_V22.md.
+
+
+## V23 Original Chinese Study + Verifiable Writing (operational route)
+
+Production novel research must go through the V23 executable CLI and real published Xuehai snapshots: fetch-xiyouji -> learn -> status -> draft-context / draft via a real local model -> author-accepted StoryCommit. A mere ChatGPT-authored prose sample is NEVER labeled a WriterForge generated test. Source study includes 100 original Chinese 西遊記 chapters, sequentially ingested with SHA256 and eight deterministic structural tracks; it does NOT invent first-read emotional responses or fine-tune model weights. Each snapshot after root is delta-only, with bounded SQL candidate retrieval. The sole independent reviewer is local lit-critic REST; require its real running local endpoint, export read-only Markdown/JSON with source hashes, and never auto-modify canon or train on unverified criticism. Enforce the queue, checkpoint, source-unit, response, and cache caps documented in docs/V23_REAL_ORIGINAL_STUDY_AND_REVIEW.md.

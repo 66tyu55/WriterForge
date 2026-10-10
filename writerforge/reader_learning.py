@@ -136,15 +136,19 @@ class ReaderLearningSession:
         )
         self.db.conn.commit()
 
-    def trajectory(self):
+    def trajectory(self, *, limit: int = 500, offset: int = 0):
+        # Large first-read studies must paginate; never fetch the full novel's
+        # trace history into Python in one call.
+        if not 1 <= limit <= 500 or offset < 0:
+            raise ReaderLearningError("invalid bounded trace window")
         rows = self.db.conn.execute(
             """SELECT unit_index,unit_ref,attention,curiosity,urge_to_continue,confusion,
                       cognitive_load,fear,humor,anger,awe,sadness,warmth,disgust,
                       excitement,tension,first_impression,what_changed,continue_reason,stop_risk
                FROM reader_traces
                WHERE session_id=?
-               ORDER BY unit_index""",
-            (self.session_id,)
+               ORDER BY unit_index LIMIT ? OFFSET ?""",
+            (self.session_id,limit,offset)
         ).fetchall()
         return [dict(r) for r in rows]
 

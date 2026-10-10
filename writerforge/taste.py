@@ -49,7 +49,10 @@ class TasteMemory:
         self.project_id = project_id
 
     def add(self, obs: TasteObservation) -> None:
-        self._items.append(obs)
+        if self.db is None:
+            self._items.append(obs)
+            # The process-local fallback is bounded too; no silent infinite heap.
+            del self._items[:-256]
         if self.db is not None:
             self.db.conn.execute(
                 """INSERT INTO taste_observations(
@@ -66,16 +69,47 @@ class TasteMemory:
             )
             self.db.conn.commit()
 
-    def query(self, *, tags: Iterable[str] = (), sources: Iterable[TasteSource] = ()) -> list[TasteObservation]:
+    def query(self, *, tags: Iterable[str] = (), sources: Iterable[TasteSource] = (),
+              limit: int = 64) -> list[TasteObservation]:
+        """Rehydrate from SQLite on every DB-backed query; bounded across restarts."""
+        if not 1 <= limit <= 256:
+            raise ValueError("taste query limit must be 1..256")
         tagset = set(tags)
         source_set = set(sources)
-        out = []
-        for item in self._items:
+        if self.db is not None:
+            # Each call is a bounded read; don't grow an unbounded in-memory
+            # duplicate of an already durable project preference store.
+            rows = self.db.conn.execute(
+                """SELECT source_type,context,preferred_id,alternative_id,
+                          reasons_json,tradeoffs_json,conditions_json,confidence,tags_json
+                   FROM taste_observations WHERE project_id=?
+                   ORDER BY id DESC LIMIT ?""",
+                (self.project_id, min(256, limit*4)),
+            ).fetchall()
+            candidates = [
+                TasteObservation(
+                    context=r["context"],preferred_id=r["preferred_id"],
+                    alternative_id=r["alternative_id"],
+                    reasons=tuple(json.loads(r["reasons_json"])),
+                    tradeoffs=tuple(json.loads(r["tradeoffs_json"])),
+                    conditions=tuple(json.loads(r["conditions_json"])),
+                    source=TasteSource(r["source_type"]),
+                    confidence=float(r["confidence"]),
+                    tags=tuple(json.loads(r["tags_json"])),
+                )
+                for r in rows
+            ]
+        else:
+            candidates = reversed(self._items)
+        out: list[TasteObservation] = []
+        for item in candidates:
             if source_set and item.source not in source_set:
                 continue
             if tagset and not (tagset & set(item.tags)):
                 continue
             out.append(item)
+            if len(out) >= limit:
+                break
         return out
 
 

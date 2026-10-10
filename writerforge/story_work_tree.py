@@ -456,6 +456,9 @@ class StoryWorkRoot:
         return self.current
 
 
+MAX_RENDER_UNITS = 20_000
+
+
 class StoryWorkLoop:
     def render(
         self,
@@ -475,6 +478,8 @@ class StoryWorkLoop:
         try:
             while unit is not None:
                 units += 1
+                if units > MAX_RENDER_UNITS:
+                    raise RuntimeError("Story WorkTree render cap exceeded; split work into bounded chapters")
                 visited.append(unit.key)
                 current = unit.alternate
                 result = begin_work(current, unit, lanes, compute=compute)

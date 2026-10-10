@@ -11,9 +11,52 @@ CREATE TABLE IF NOT EXISTS snapshots (
     parent_id INTEGER,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     status TEXT NOT NULL CHECK(status IN ('staging','published')),
+    layout TEXT NOT NULL DEFAULT 'full' CHECK(layout IN ('full','delta')),
     note TEXT,
     FOREIGN KEY(parent_id) REFERENCES snapshots(id)
 );
+
+CREATE TABLE IF NOT EXISTS studied_works (
+    work_id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    source_uri TEXT NOT NULL,
+    source_sha256 TEXT NOT NULL,
+    chapter_count INTEGER NOT NULL CHECK(chapter_count>0),
+    language TEXT NOT NULL DEFAULT 'zh',
+    script TEXT NOT NULL DEFAULT 'original_chinese',
+    study_level TEXT NOT NULL DEFAULT 'deterministic_structural',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS studied_chapters (
+    work_id TEXT NOT NULL,
+    chapter INTEGER NOT NULL,
+    chapter_sha256 TEXT NOT NULL,
+    heading TEXT NOT NULL,
+    source_spans INTEGER NOT NULL,
+    retrieval_entries INTEGER NOT NULL,
+    snapshot_id INTEGER NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(work_id,chapter),
+    FOREIGN KEY(work_id) REFERENCES studied_works(work_id),
+    FOREIGN KEY(snapshot_id) REFERENCES snapshots(id)
+);
+
+CREATE TABLE IF NOT EXISTS source_spans (
+    work_id TEXT NOT NULL,
+    chapter INTEGER NOT NULL,
+    paragraph INTEGER NOT NULL,
+    sentence INTEGER NOT NULL,
+    excerpt TEXT NOT NULL,
+    source_sha256 TEXT NOT NULL,
+    tracks_json TEXT NOT NULL,
+    craft_json TEXT NOT NULL,
+    PRIMARY KEY(work_id,chapter,paragraph,sentence),
+    FOREIGN KEY(work_id) REFERENCES studied_works(work_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_studied_chapters_snapshot ON studied_chapters(snapshot_id);
+CREATE INDEX IF NOT EXISTS idx_source_spans_chapter ON source_spans(work_id,chapter);
 
 CREATE TABLE IF NOT EXISTS xuehai_entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -414,9 +457,21 @@ ON story_effect_journal(project_id, commit_id);
 class WriterForgeDB:
     def __init__(self, path: str | Path):
         self.path = str(path)
-        self.conn = sqlite3.connect(self.path)
+        self.conn = sqlite3.connect(self.path, cached_statements=64)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(BASE_SCHEMA)
+        self.conn.execute("PRAGMA cache_size=-8192")  # SQLite page cache: ~8 MiB
+        self.conn.execute("PRAGMA temp_store=FILE")
+        self.conn.execute("PRAGMA busy_timeout=5000")
+        # All existing V22 snapshots are materialized full views. Preserve
+        # their semantics; only newly created V23 child snapshots are deltas.
+        snapshot_columns = {
+            r["name"] for r in self.conn.execute("PRAGMA table_info(snapshots)")
+        }
+        if "layout" not in snapshot_columns:
+            self.conn.execute(
+                "ALTER TABLE snapshots ADD COLUMN layout TEXT NOT NULL DEFAULT 'full'"
+            )
         # V22 additive migration: V21 databases already contain this table.
         # Never create a parallel preference store or drop author corrections.
         present = {

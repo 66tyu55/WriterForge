@@ -1,5 +1,16 @@
 # Changelog
 
+## v23.0.0 — 2026-10-10
+
+- Added a real and resumable source-learning CLI for original Chinese 西遊記 (Gutenberg #23962), with sequential 100-chapter study and independently verified SHA256 provenance; no fabricated real-reader reactions.
+- Added eight separate source-span structural tracks, literature-unverified labels, and a downloadable GitHub Actions original-corpus + SQLite + grounded-context artifact.
+- Replaced quadratic child snapshot copying with legacy-safe delta ancestry and bounded SQL candidate retrieval; reduced SQLite page cache and kept temporary query data on disk.
+- Added verified source-grounded writing context and actual loopback LM Studio / OpenAI-compatible generation, plus candidate manifests and explicitly confirmed author commits.
+- Integrated exactly one external reviewer: lit-critic local REST, creating read-only Markdown/JSON reports only for verified new sessions; live provider credentials remain external.
+- Restored project TasteMemory/SkillRegistry/EvolutionEngine data from durable SQLite and bounded fallback state, reader trajectories, review feedback, event batches, task queue, and WorkTree JSON.
+- Added 100-chapter full source CI job, Windows operation instructions and safety regressions. Model fine-tuning, expert literary understanding and human review have NOT been performed.
+
+
 ## v22.0.0 — 2026-10-08
 
 - Borrowed externally verified ideas from novel-studio, Author Writing Sheet research and Calliope without copying source or adding redundant skills.
