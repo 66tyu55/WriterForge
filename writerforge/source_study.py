@@ -109,7 +109,7 @@ def parse_original(text: str, *, require_hundred: bool = True,
     chapters = []
     if include_prologue:
         # Water Margin has a real 楔子 before chapter 1; do NOT silently drop it.
-        intro = re.search(r"(?m)^[ \\t\\u3000]*楔子[ \\t\\u3000]+([^\\r\\n]{1,90})$", text[:matches[0].start()])
+        intro = re.search(r"(?m)^[ \t\u3000]*楔子[ \t\u3000]+([^\r\n]{1,90})$", text[:matches[0].start()])
         if not intro:
             raise StudyError("original source requires a 楔子 prologue, but none was found")
         body = text[intro.end():matches[0].start()].strip()
