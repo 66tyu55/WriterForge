@@ -86,3 +86,6 @@ from .encyclopedia import (
     FictionEncyclopedia, FacetQuery, EncyclopediaError,
     validate_category_path,
 )
+
+from .writing_assist import InvisibleWritingAssist, AutonomousWriting, WritingIntent, infer_intent
+from .studio_server import StudioStore, StudioService, StudioHTTPServer
