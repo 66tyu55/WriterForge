@@ -6,6 +6,7 @@ on:
       - "writerforge/**"
       - "scripts/xiyouji_pilot.py"
       - "scripts/study_release.py"
+      - "tests/test_v24_r2_storage.py"
       - ".github/workflows/xiyouji-study.yml"
   push:
     branches: [main]
@@ -13,6 +14,7 @@ on:
       - "writerforge/**"
       - "scripts/xiyouji_pilot.py"
       - "scripts/study_release.py"
+      - "tests/test_v24_r2_storage.py"
       - ".github/workflows/xiyouji-study.yml"
   workflow_dispatch:
 
@@ -143,3 +145,103 @@ jobs:
             --storage-dir "$RUNNER_TEMP/python-library"
           python -m writerforge.cli \
             --db "$RUNNER_TEMP/working-from-release.sqlite3" status
+
+
+  # Private backup is IN ADDITION to the existing, allowlisted public-domain
+  # Gutenberg Release. Future private manuscripts are never sent to Releases.
+  # Secrets are available only on trusted main, NEVER a PR or fork.
+  private-r2-study-backup:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: full-original-study
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    concurrency:
+      group: writerforge-private-r2-study
+      cancel-in-progress: false
+    steps:
+      - name: Check optional Cloudflare R2 connection
+        id: r2
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+        run: |
+          python - <<'PY'
+          import os,sys
+          names=(
+              "WRITERFORGE_R2_ACCOUNT_ID","WRITERFORGE_R2_BUCKET",
+              "WRITERFORGE_R2_ACCESS_KEY_ID","WRITERFORGE_R2_SECRET_ACCESS_KEY"
+          )
+          configured=[bool(os.getenv(name)) for name in names]
+          if any(configured) and not all(configured):
+              print("R2 environment is partially configured; please complete all four GitHub Secrets.")
+              sys.exit(1)
+          ready="true" if all(configured) else "false"
+          with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf-8") as out:
+              out.write("configured="+ready+"\n")
+          print("Cloudflare R2 configured:",ready,
+                "(account credentials are never printed)")
+          PY
+      - uses: actions/checkout@v7
+        if: steps.r2.outputs.configured == 'true'
+      - uses: actions/setup-python@v7
+        if: steps.r2.outputs.configured == 'true'
+        with:
+          python-version: "3.11"
+      - name: Install private R2 SDK
+        if: steps.r2.outputs.configured == 'true'
+        run: python -m pip install -e '.[r2]'
+      - name: Retrieve validated 100-chapter original-text results
+        if: steps.r2.outputs.configured == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: xiyouji-original-100-chapters-trained-structural
+          path: ${{ runner.temp }}/learned/
+      - name: Back up verified original study to private Cloudflare R2
+        if: steps.r2.outputs.configured == 'true'
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+        run: |
+          set -euo pipefail
+          python -m writerforge.cli \
+            --db "$RUNNER_TEMP/learned/xiyouji_studied.sqlite3" \
+            backup-r2 --library xiyouji-23962 \
+            --edition gutenberg23962-parser-v1 \
+            --source "$RUNNER_TEMP/learned/xiyouji_23962_original.txt" \
+            --extra report.json="$RUNNER_TEMP/learned/training_report.json" \
+            --extra context.json="$RUNNER_TEMP/learned/verified_draft_context.json" \
+            --extra license.txt="$RUNNER_TEMP/learned/PROJECT_GUTENBERG_LICENSE.txt" \
+            --extra status.md="$RUNNER_TEMP/learned/TRAINING_STATUS.md"
+      - name: Independently restore from R2 and verify 100 published chapters
+        if: steps.r2.outputs.configured == 'true'
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+        run: |
+          set -euo pipefail
+          python -m writerforge.cli \
+            --db "$RUNNER_TEMP/new-working-from-r2.sqlite3" \
+            restore-r2 --library xiyouji-23962 \
+            --storage-dir "$RUNNER_TEMP/r2-library"
+          python -m writerforge.cli \
+            --db "$RUNNER_TEMP/new-working-from-r2.sqlite3" status
+          python - <<'PY'
+          import os,sqlite3
+          from pathlib import Path
+          path=Path(os.environ["RUNNER_TEMP"])/"new-working-from-r2.sqlite3"
+          with sqlite3.connect(path) as con:
+              count=con.execute("SELECT COUNT(*) FROM studied_chapters").fetchone()[0]
+              assert count == 100, f"R2 restore lost original chapters: {count}"
+              assert con.execute("PRAGMA quick_check").fetchone()[0] == "ok"
+          print("Private R2 remote round-trip: verified 100/100 original chapters.")
+          PY
