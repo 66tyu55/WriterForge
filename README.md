@@ -1,4 +1,4 @@
-# WriterForge V23.1 — Real Original-Chinese Study, Verified Writing & Durable Storage
+# WriterForge V23.2 — Real Original-Chinese Study & Private R2 Backup
 
 WriterForge is a long-form fiction system built around strict LEARN / WRITE separation, Reader-First source learning, Canon/Character/Knowledge/Promise memory, lean Craft routing, Literary Taste, Story Sense and controlled Evolution.
 
@@ -143,3 +143,10 @@ Memory fixes bound SQL retrieval, SQLite cache, reader/evolution/taste histories
 ## V23.1 — Training resources are preserved automatically, not manually
 
 The original Chinese 西遊記 training job now produces a **durable versioned GitHub Release** after successful main-branch validation, with a compact ZIP **inside GitHub**, a separate SHA256 manifest and a second CI job that downloads and validates the published database and sources. GitHub Actions Artifacts are only short-lived job-to-job transport. Run `writerforge --db writerforge.sqlite3 restore-xiyouji` on a new computer to fetch, verify and restore the learning database without saving/uploading a ZIP by hand. An existing local database is never overwritten. Publishing remains restricted to the known Gutenberg public-domain edition; private manuscripts must not be uploaded publicly. Details: [Auto-persist Xuehai studies](docs/AUTOMATED_STUDY_STORAGE.md).
+
+
+## V23.2 Cloudflare R2 private corpus vault
+
+A real Cloudflare R2 S3-compatible storage backend is now implemented behind optional boto3 support (`python -m pip install -e '.[r2]'`). It takes an **online, WAL-safe SQLite snapshot**, streams its content and optionally an original source/report into a **private, content-addressed bucket**, validates SHA-256 metadata, stores an immutable manifest, and updates a latest-pointer only after verification. The restore command verifies every object and SQLite integrity before creating an isolated version folder. Existing author databases are never overwritten. Reproducible CI learning editions use a streamed logical-study hash to avoid growing 65 MiB with every identical run. The existing public Gutenberg Release remains a separate allowed-source mirror; **private manuscripts must never go to that public location**.
+
+Commands: `writerforge --db writerforge.sqlite3 backup-r2 --library writerforge-personal` and `writerforge --db writerforge.sqlite3 restore-r2 --library writerforge-personal`. On local learning, opt in once with `WRITERFORGE_R2_AUTO_BACKUP=1`; no-op learning will not reupload, and accepted-scene frequent backups require separate explicit opt-in. A GitHub Actions job automatically mirrors validated 100-chapter source learning to private R2 on trusted `main` builds **only after Cloudflare R2 credentials are provisioned as GitHub Secrets**. Without those account permissions this remains tested code, not a claim of a live cloud connection. Setup: [Private Cloudflare R2 storage](docs/CLOUDFLARE_R2_PRIVATE_STORAGE.md).

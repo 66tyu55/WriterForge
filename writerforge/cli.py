@@ -13,6 +13,7 @@ from .source_study import OriginalStudy, download_original, WORK_ID, SOURCE_PAGE
 from .verified_flow import VerifiedWritingFlow, local_chat_completion, save_candidate, accept_candidate
 from .litcritic_adapter import LitCriticAdapter
 from .study_storage import restore_from_github, REPO_DEFAULT
+from .r2_storage import R2Config, R2StudyVault
 
 
 def _load_text(path: Path) -> str:
@@ -55,6 +56,8 @@ def main(argv: list[str] | None = None):
     learn.add_argument("--limit-chapters",type=int)
     learn.add_argument("--allow-partial",action="store_true",
                        help="for an authenticated sample, not a complete original book")
+    learn.add_argument("--backup-r2",action="store_true",
+                       help="back up after completed learning to your private R2 bucket")
     status=sub.add_parser("status")
     status.add_argument("--work-id",default=WORK_ID)
     context=sub.add_parser("draft-context")
@@ -87,6 +90,16 @@ def main(argv: list[str] | None = None):
     restore.add_argument("--repo",default=REPO_DEFAULT)
     restore.add_argument("--tag",help="optional versioned study Release tag; defaults to latest study")
     restore.add_argument("--storage-dir",default="corpus/library",help="verified, content-addressed local study directory")
+    backup=sub.add_parser("backup-r2",help="back up live WriterForge SQLite with an online consistent R2 snapshot")
+    backup.add_argument("--library",default="writerforge-personal")
+    backup.add_argument("--source",help="optional owned/licensed original text to include privately")
+    backup.add_argument("--edition",help="optional reproducible public-domain training edition ID (CI only)")
+    backup.add_argument("--extra",action="append",default=[],metavar="NAME=PATH",
+                        help="optional training report, source license or evidence file")
+    restore_r2=sub.add_parser("restore-r2",help="restore a verified private R2 study snapshot")
+    restore_r2.add_argument("--library",default="writerforge-personal")
+    restore_r2.add_argument("--snapshot",help="specific 64-char SHA256 version; defaults to latest")
+    restore_r2.add_argument("--storage-dir",default="corpus/r2-library")
     args=p.parse_args(argv)
     if args.cmd=="fetch-xiyouji":
         dest=download_original(args.output)
@@ -119,6 +132,40 @@ def main(argv: list[str] | None = None):
             result["note"]="existing project DB preserved; use --db with restored path if desired"
         _emit(result)
         return
+    if args.cmd=="backup-r2":
+        extras={}
+        for value in args.extra:
+            if "=" not in value:
+                raise ValueError("--extra must be NAME=PATH")
+            name,filename=value.split("=",1)
+            if name in extras:
+                raise ValueError("duplicate --extra name")
+            extras[name]=filename
+        vault=R2StudyVault(R2Config.from_environment())
+        _emit(vault.backup(database=args.db,library=args.library,
+                           source=args.source,extras=extras,edition=args.edition))
+        return
+    if args.cmd=="restore-r2":
+        vault=R2StudyVault(R2Config.from_environment())
+        result=vault.restore(library=args.library,destination=args.storage_dir,
+                             snapshot=args.snapshot)
+        # No clobber: only initialize the caller's working DB if it is absent.
+        target=Path(args.db)
+        if not target.exists():
+            target.parent.mkdir(parents=True,exist_ok=True)
+            partial=target.with_name(target.name+".restore-partial")
+            try:
+                with Path(result["db"]).open("rb") as src,partial.open("xb") as dst:
+                    shutil.copyfileobj(src,dst,length=1024*1024)
+                os.replace(partial,target)
+            finally:
+                partial.unlink(missing_ok=True)
+            result["working_db_created"]=True
+        else:
+            result["working_db_created"]=False
+        result["working_db"]=str(target)
+        _emit(result)
+        return
     if args.cmd=="review":
         _emit(LitCriticAdapter(base_url=args.api_base).review(
             project_path=args.project_path,scene_path=args.scene,
@@ -137,6 +184,12 @@ def main(argv: list[str] | None = None):
                 source_uri=args.source_uri,max_chapters=args.limit_chapters,
                 require_hundred=not args.allow_partial,
             )
+            if args.backup_r2 or (out.get("newly_studied",0)>0 and os.environ.get("WRITERFORGE_R2_AUTO_BACKUP")=="1"):
+                library=os.environ.get("WRITERFORGE_R2_LIBRARY","writerforge-personal")
+                source_file=args.source if Path(args.source).is_file() else None
+                out["private_r2_backup"]=R2StudyVault(R2Config.from_environment()).backup(
+                    database=args.db, library=library,source=source_file,
+                )
             _emit(out)
         elif args.cmd=="status":
             snap=db.conn.execute(
@@ -174,10 +227,16 @@ def main(argv: list[str] | None = None):
             if not isinstance(sid,int) or sid<=0:
                 raise ValueError("missing real source snapshot ID")
             rt.enter_write(sid)
-            _emit(accept_candidate(
+            out=accept_candidate(
                 db,rt,project_id=args.project,manifest_path=args.manifest,
                 commit_id=args.commit_id,explicitly_approved=args.confirm_accept,
-            ))
+            )
+            if out["accepted"] and not out.get("replayed") and os.environ.get("WRITERFORGE_R2_BACKUP_ON_ACCEPT")=="1":
+                library=os.environ.get("WRITERFORGE_R2_LIBRARY","writerforge-personal")
+                out["private_r2_backup"]=R2StudyVault(R2Config.from_environment()).backup(
+                    database=args.db,library=library,
+                )
+            _emit(out)
     finally:
         db.close()
 

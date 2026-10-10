@@ -19,3 +19,9 @@ writing_runs/
 reviews/
 *.db
 *.partial
+
+# User/cloud backup credentials and temporary R2 snapshots (never commit)
+.r2/
+r2-cache/
+*.restore-partial
+*.r2-partial
