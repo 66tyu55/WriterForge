@@ -33,7 +33,7 @@ MAX_EXCERPT = 160
 TRACKS = ("plot", "object", "character", "environment", "time", "location", "sense", "emotion")
 HEAD = re.compile(
     r"(?m)^[ \t\u3000]*第([0-9零〇○一二三四五六七八九十百千兩两"
-    r"壹貳參肆伍陸柒捌玖拾佰]+)回[ \t\u3000]*([^\r\n]{0,90})[ \t\u3000]*$"
+    r"壹貳參肆伍陸柒捌玖拾佰]+)回[ \t\u3000]*([^\r\n]{0,90})[ \t\u3000]*\r?$"
 )
 FIGURES = {"零":0, "〇":0, "○":0, "一":1,"二":2,"兩":2,"两":2,"三":3,"四":4,"五":5,
            "六":6,"七":7,"八":8,"九":9,
@@ -109,7 +109,7 @@ def parse_original(text: str, *, require_hundred: bool = True,
     chapters = []
     if include_prologue:
         # Water Margin has a real 楔子 before chapter 1; do NOT silently drop it.
-        intro = re.search(r"(?m)^[ \t\u3000]*楔子[ \t\u3000]+([^\r\n]{1,90})$", text[:matches[0].start()])
+        intro = re.search(r"(?m)^[ \t\u3000]*楔子[ \t\u3000]+([^\r\n]{1,90})\r?$", text[:matches[0].start()])
         if not intro:
             raise StudyError("original source requires a 楔子 prologue, but none was found")
         body = text[intro.end():matches[0].start()].strip()
