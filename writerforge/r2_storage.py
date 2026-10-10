@@ -295,6 +295,7 @@ class R2StudyVault:
     def backup(
         self, *, database: str | Path, library: str, source: str | Path | None = None,
         extras: Mapping[str, str | Path] | None = None,
+        edition: str | None = None,
     ) -> dict:
         """Create one immutable, deduplicated snapshot and advance latest.
 
@@ -302,6 +303,11 @@ class R2StudyVault:
         Failure leaves previous latest intact; partial new blobs are harmless.
         """
         library = _safe_library(library)
+        if edition is not None and (
+            not isinstance(edition,str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,96}",edition)
+            or source is None
+        ):
+            raise R2StorageError("a reproducible edition requires a safe ID and a source file")
         extras = dict(extras or {})
         if len(extras) > 12:
             raise R2StorageError("too many extra study artifacts")
@@ -335,9 +341,41 @@ class R2StudyVault:
                 "study_level":"structural_evidence_not_model_finetuning",
                 "stats":stats,
                 "files":files,
+                "edition":edition,
             }
             encoded = _canonical(manifest)
             snapshot = sha256(encoded).hexdigest()
+            # GitHub's reproducible original-text study re-runs on code
+            # changes. SQLite CURRENT_TIMESTAMP fields make byte-for-byte
+            # files vary even if the original source and learning schema do
+            # not change. Reuse the previously verified study edition, so
+            # CI does NOT create a new 65 MB snapshot on every push.
+            if edition is not None and self._head(self._latest_key(library)) is not None:
+                pointer = json.loads(self._get_small(self._latest_key(library),MAX_LATEST_BYTES))
+                old_id = pointer.get("snapshot")
+                if (pointer.get("format")==R2_FORMAT and pointer.get("library")==library
+                    and isinstance(old_id,str) and SHA_RE.fullmatch(old_id)
+                    and pointer.get("manifest_sha256")==old_id):
+                    original = self._get_small(self._manifest_key(library,old_id),MAX_MANIFEST_BYTES)
+                    if sha256(original).hexdigest() != old_id:
+                        raise R2StorageError("existing reproducible study manifest was tampered")
+                    previous=json.loads(original)
+                    if (previous.get("edition")==edition
+                        and previous.get("files",{}).get("source.txt",{}).get("sha256")==files["source.txt"]["sha256"]
+                        and previous.get("stats")==stats):
+                        for old in previous.get("files",{}).values():
+                            remote=self._head(self._blob_key(library,old["sha256"]))
+                            if (remote is None or int(remote.get("ContentLength",-1)) != old["size"]
+                                or remote.get("Metadata",{}).get("sha256") != old["sha256"]):
+                                raise R2StorageError("existing edition missing verified remote blob")
+                        return {
+                            "provider":"Cloudflare R2","bucket":self.config.bucket,
+                            "library":library,"snapshot":old_id,
+                            "uri":f"r2://{self.config.bucket}/{self._manifest_key(library,old_id)}",
+                            "uploaded_files":[], "deduplicated":len(files),
+                            "file_count":len(files),"stats":stats,
+                            "verified":True,"edition_reused":True,
+                        }
             uploaded = []
             for name, path in sorted(inputs.items()):
                 if self._upload_blob(library, path, files[name]["sha256"], files[name]["size"]):
@@ -362,7 +400,7 @@ class R2StudyVault:
                 "uri":f"r2://{self.config.bucket}/{self._root(library)}/snapshots/{snapshot}.json",
                 "uploaded_files":uploaded, "deduplicated":len(inputs)-len(uploaded),
                 "file_count":len(files), "stats":stats,
-                "verified":True,
+                "verified":True, "edition_reused":False,
             }
 
     def restore(self, *, library: str, destination: str | Path,
