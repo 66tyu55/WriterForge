@@ -25,3 +25,6 @@ reviews/
 r2-cache/
 *.restore-partial
 *.r2-partial
+
+# Local browser writing studio state and writing runs are not code
+writing_runs/studio/
