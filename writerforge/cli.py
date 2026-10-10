@@ -10,6 +10,7 @@ from pathlib import Path
 from .db import WriterForgeDB
 from .runtime import RuntimeEngine
 from .source_study import OriginalStudy, download_original, WORK_ID, SOURCE_PAGE, MAX_DOWNLOAD_BYTES
+from .classics_catalog import get_book, download_book, study_book, catalog_progress_local
 from .verified_flow import VerifiedWritingFlow, local_chat_completion, save_candidate, accept_candidate
 from .litcritic_adapter import LitCriticAdapter
 from .study_storage import restore_from_github, REPO_DEFAULT
@@ -47,6 +48,14 @@ def main(argv: list[str] | None = None):
                    help="local SQLite store; not committed to Git")
     sub=p.add_subparsers(dest="cmd",required=True)
     sub.add_parser("init")
+    catalog=sub.add_parser("catalog",help="list verified historical Chinese originals")
+    fetch_classic=sub.add_parser("fetch-classic",help="download and validate one pinned Chinese original")
+    fetch_classic.add_argument("--work",required=True,choices=("honglou","shuihu"))
+    fetch_classic.add_argument("--output",help="local corpus file path")
+    study_classic=sub.add_parser("learn-classic",help="full original structural study from pinned catalog")
+    study_classic.add_argument("--work",required=True,choices=("honglou","shuihu"))
+    study_classic.add_argument("--source",required=True)
+    progress=sub.add_parser("corpus-progress",help="count full distinct original works; never run premature 50-book assessment")
     f=sub.add_parser("fetch-xiyouji",help="download original Chinese Project Gutenberg #23962")
     f.add_argument("--output",default="corpus/xiyouji_23962_original.txt")
     learn=sub.add_parser("learn",help="transactional sequential original-text study")
@@ -101,6 +110,20 @@ def main(argv: list[str] | None = None):
     restore_r2.add_argument("--snapshot",help="specific 64-char SHA256 version; defaults to latest")
     restore_r2.add_argument("--storage-dir",default="corpus/r2-library")
     args=p.parse_args(argv)
+    if args.cmd=="catalog":
+        from .classics_catalog import CATALOG, MIN_WORKS_FOR_CROSS_CORPUS_REVIEW
+        _emit({"verified_sources":{k:{"title":v.title,"gutenberg":v.gutenberg_id,
+                                     "expected_chapters":v.expected_chapters,
+                                     "prologue":v.include_prologue,"focus":v.literary_focus}
+                                     for k,v in CATALOG.items()},
+               "existing_first_work":"xiyouji-gutenberg-23962",
+               "cross_corpus_review_threshold":MIN_WORKS_FOR_CROSS_CORPUS_REVIEW})
+        return
+    if args.cmd=="fetch-classic":
+        book=get_book(args.work)
+        out=args.output or ("corpus/"+book.library+".txt")
+        _emit(download_book(book,out))
+        return
     if args.cmd=="fetch-xiyouji":
         dest=download_original(args.output)
         _emit({"fetched":str(dest),"bytes":dest.stat().st_size,
@@ -191,6 +214,19 @@ def main(argv: list[str] | None = None):
                     database=args.db, library=library,source=source_file,
                 )
             _emit(out)
+        elif args.cmd=="learn-classic":
+            book=get_book(args.work)
+            rt=RuntimeEngine()
+            rt.enter_learn()
+            result=study_book(book,args.source,db,rt)
+            if result.get("newly_studied",0)>0 and os.environ.get("WRITERFORGE_R2_AUTO_BACKUP")=="1":
+                result["private_r2_backup"]=R2StudyVault(R2Config.from_environment()).backup(
+                    database=args.db,library=book.library,source=args.source,
+                    edition=book.work_id+"-original-structural-v1",
+                )
+            _emit(result)
+        elif args.cmd=="corpus-progress":
+            _emit(catalog_progress_local(db))
         elif args.cmd=="status":
             snap=db.conn.execute(
                 "SELECT id FROM snapshots WHERE status='published' ORDER BY id DESC LIMIT 1"
