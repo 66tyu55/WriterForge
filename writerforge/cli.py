@@ -76,12 +76,18 @@ def main(argv: list[str] | None = None):
     context.add_argument("--scene",required=True)
     context.add_argument("--goal",required=True)
     context.add_argument("--concerns",default="",help="comma-separated dialogue,description,action,...")
+    context.add_argument("--genre",default="古代白话")
+    context.add_argument("--reference-category",help="e.g. 外貌/妖兽 or 设定/玄幻/榜单")
+    context.add_argument("--reference-name",help="optional named beast/person/place")
     context.add_argument("--output",default="draft_context.json")
     draft=sub.add_parser("draft")
     draft.add_argument("--project",required=True)
     draft.add_argument("--scene",required=True)
     draft.add_argument("--goal",required=True)
     draft.add_argument("--concerns",default="")
+    draft.add_argument("--genre",default="古代白话")
+    draft.add_argument("--reference-category")
+    draft.add_argument("--reference-name")
     draft.add_argument("--model",required=True,help="model currently loaded in LM Studio")
     draft.add_argument("--api-base",default="http://127.0.0.1:1234/v1")
     draft.add_argument("--output-dir",default="writing_runs")
@@ -331,7 +337,11 @@ def main(argv: list[str] | None = None):
             rt.enter_write(int(row["id"]))
             flow=VerifiedWritingFlow(db,rt,args.project)
             concerns=tuple(x.strip() for x in args.concerns.split(",") if x.strip())
-            packet=flow.prepare(args.scene,args.goal,concerns=concerns)
+            packet=flow.prepare(
+                args.scene,args.goal,concerns=concerns,genre=args.genre,
+                reference_category=args.reference_category,
+                reference_name=args.reference_name,
+            )
             if args.cmd=="draft-context":
                 # Preview only: does NOT claim a model was called or produce prose.
                 dest=Path(args.output)
