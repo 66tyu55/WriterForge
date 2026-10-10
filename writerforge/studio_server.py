@@ -291,6 +291,32 @@ class StudioHandler(BaseHTTPRequestHandler):
                 return
             self._json(200,self.server.service.job())
             return
+        if self.path.startswith("/api/chapter/"):
+            if not self._authorized():
+                self._json(403,{"error":"invalid local request token"})
+                return
+            number=self.path[len("/api/chapter/"):]
+            if not number.isdecimal() or not 1<=int(number)<=6:
+                self._json(400,{"error":"invalid chapter index"})
+                return
+            job=self.server.service.job()
+            if job.get("status")!="completed" or not job.get("result"):
+                self._json(409,{"error":"autonomous writing has not completed"})
+                return
+            index=int(number)-1
+            chapters=job["result"].get("chapters",[])
+            if index>=len(chapters):
+                self._json(404,{"error":"requested chapter does not exist"})
+                return
+            try:
+                draft=Path(chapters[index]["candidate"]).read_text(encoding="utf-8")
+                if len(draft)>16000:
+                    raise StudioError("chapter exceeds safe preview size")
+                self._json(200,{"chapter":index+1,"text":draft,
+                                "accepted":False,"source":"actual_local_model_candidate"})
+            except (OSError,StudioError):
+                self._json(503,{"error":"saved candidate cannot be read"})
+            return
         if self.path=="/":
             html=resources.files("writerforge").joinpath("ui/studio.html").read_bytes()
             self.send_response(200)
