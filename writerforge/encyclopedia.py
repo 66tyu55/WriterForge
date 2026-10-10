@@ -137,10 +137,19 @@ class FictionEncyclopedia:
     def alias(self, entity_id: int, alias: str) -> None:
         self._require_learn()
         alias=_bounded_name(alias,"alias",maximum=100)
-        if not self.db.conn.execute(
-            "SELECT 1 FROM encyclopedia_entities WHERE id=?", (entity_id,)
-        ).fetchone():
+        target=self.db.conn.execute(
+            "SELECT work_id FROM encyclopedia_entities WHERE id=?", (entity_id,)
+        ).fetchone()
+        if target is None:
             raise EncyclopediaError("unknown entity for alias")
+        ambiguous=self.db.conn.execute(
+            """SELECT a.entity_id FROM encyclopedia_aliases a
+               JOIN encyclopedia_entities v ON v.id=a.entity_id
+               WHERE v.work_id=? AND a.alias=? AND a.entity_id<>? LIMIT 1""",
+            (target["work_id"],alias,entity_id),
+        ).fetchone()
+        if ambiguous:
+            raise EncyclopediaError("ambiguous alias already belongs to another entity in the same book")
         self.db.conn.execute(
             "INSERT OR IGNORE INTO encyclopedia_aliases(entity_id,alias) VALUES(?,?)",
             (entity_id,alias),
