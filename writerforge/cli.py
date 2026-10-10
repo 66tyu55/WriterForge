@@ -56,6 +56,7 @@ def main(argv: list[str] | None = None):
     study_classic.add_argument("--work",required=True,choices=("honglou","shuihu"))
     study_classic.add_argument("--source",required=True)
     progress=sub.add_parser("corpus-progress",help="count full distinct original works; never run premature 50-book assessment")
+    progress.add_argument("--remote-r2",action="store_true",help="count separate verified original books across private R2 libraries")
     f=sub.add_parser("fetch-xiyouji",help="download original Chinese Project Gutenberg #23962")
     f.add_argument("--output",default="corpus/xiyouji_23962_original.txt")
     learn=sub.add_parser("learn",help="transactional sequential original-text study")
@@ -226,7 +227,10 @@ def main(argv: list[str] | None = None):
                 )
             _emit(result)
         elif args.cmd=="corpus-progress":
-            _emit(catalog_progress_local(db))
+            if args.remote_r2:
+                _emit(R2StudyVault(R2Config.from_environment()).corpus_readiness())
+            else:
+                _emit(catalog_progress_local(db))
         elif args.cmd=="status":
             snap=db.conn.execute(
                 "SELECT id FROM snapshots WHERE status='published' ORDER BY id DESC LIMIT 1"
