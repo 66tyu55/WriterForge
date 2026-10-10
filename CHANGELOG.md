@@ -1,5 +1,14 @@
 # Changelog
 
+## v23.2.0 — 2026-10-10
+
+- Cloudflare R2 private object storage support (optional boto3 dependency), with S3-compatible endpoint, bucket-scoped keys and explicit environment-only credentials.
+- WAL-safe online SQLite backup, immutable content-addressed blobs, SHA256-verified manifests, small latest pointer and integrity-checked restoration without overwriting any existing database.
+- Added `backup-r2` and `restore-r2` CLI commands, plus opt-in R2 sync after successful `learn` / accepted drafts (`WRITERFORGE_R2_AUTO_BACKUP=1`).
+- Added network-independent mocked-S3 regression coverage for repeated backups, remote tampering, WAL commits, old version restore, unsafe paths and no-clobber safety.
+- R2 actual bucket and credentials require account-owner authorization; no secret or personal corpus is stored in GitHub source or Releases.
+
+
 ## v23.1.0 — 2026-10-10
 
 - Replaced manual/expiring GitHub Actions-only corpus delivery with automated, versioned GitHub Releases for the approved original-Chinese 西遊記 dataset.
