@@ -1,5 +1,14 @@
 # Changelog
 
+## v27.0.0 — 2026-10-10
+
+- Began small-scale graded literary-model practice instead of mistaking large sentence inventories for literary comprehension. Ordered levels: source-backed concise-unit understanding; one verified semantic category; two categories; three-plus; paragraph; causal scene.
+- Added fail-closed gates: source quotation must match actual source units, no auto-certified model category label, no moving into multi-category composition without actual human-reviewed V25 facet evidence. Missing evidence is reported as blocked, not fabricated.
+- Recorded exact original-source refs, category provenance, model, model prompt/output hashes, draft text and feedback status in the existing SQLite study DB. Quota: 400 trials/project, generated lengths bounded; R2 semantic fingerprint recognizes genuinely new trials.
+- Optional read-only independent lit-critic on paragraphs/scenes with at most one reviewer-guided revision. It is not treated as authoritative literary improvement without author validation; no Skill upgrades or 50-work global evaluation are performed.
+- The writing editor remains unchanged; these commands are an internal training/diagnostic pilot for the autonomous writer, not a new manual library-search workflow.
+
+
 ## v26.0.0 — 2026-10-10
 
 - Added real local writing editor that receives keystrokes: autosaves typed prose, intelligently waits for a relevant pause, routes context to verified source/facet and existing CraftEngine, and produces two distinct optional continuations from a real local model.
