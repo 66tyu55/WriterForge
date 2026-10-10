@@ -1,7 +1,7 @@
 {
   "name": "WriterForge",
-  "version": "23.0",
-  "phase": "original-chinese-source-study-and-verified-writing",
+  "version": "23.1.0",
+  "phase": "verified-original-study-durable-xuehai",
   "principle": "actual source -> ordered study -> durable snapshot -> source-grounded local model generation -> explicit author acceptance; external critique read-only",
   "runtime": {
     "lanes": [
@@ -61,7 +61,7 @@
     "effect_journal": true,
     "worktree_commit_fingerprint": true,
     "main_write_commit_loop_closed": true,
-    "restart_worktree_rehydration": "available via restore_work_root for WorkTree-bound transactional commits",
+    "restart_worktree_rehydration": "verified receipt-matched restore_work_root, no speculative state",
     "memory_safeguards": {
       "sqlite_page_cache_kib": 8192,
       "xuehai_candidate_cap": 512,
@@ -98,9 +98,8 @@
   ],
   "test_status": {
     "suite": "python -m unittest discover -s tests -q",
-    "passed": 201,
-    "failed": 0,
-    "status": "V23 PR branch CI verified: 201/201, 100/100 original-Chinese study; main merge pending"
+    "status": "verified CI on V23.1 PR",
+    "note": "regressions test software behavior, not subjective literary quality"
   },
   "literary_study": {
     "first_book": "西遊記 (Project Gutenberg #23962), 100 original Chinese chapters",
@@ -123,5 +122,17 @@
     "local_model_endpoint": "localhost",
     "actual_model_generation_in_ci": false,
     "author_approval_before_acceptance": true
+  },
+  "original_chinese_study": {
+    "work_id": "xiyouji-gutenberg-23962",
+    "source": "https://www.gutenberg.org/ebooks/23962",
+    "chapters": 100,
+    "analysis_depth": "deterministic_structural_unverified",
+    "remote_store": "GitHub Release public-domain allowlist only",
+    "release_tag_prefix": "xuehai-xiyouji-23962-s1-",
+    "storage_schema": 1,
+    "local_restore_command": "writerforge --db writerforge.sqlite3 restore-xiyouji",
+    "true_model_fine_tune": false,
+    "independent_litcritic_live_review": false
   }
 }
