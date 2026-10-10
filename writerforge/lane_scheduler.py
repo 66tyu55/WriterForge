@@ -293,9 +293,14 @@ class _BatchAccumulator:
 
 
 class EventBatcher:
-    def __init__(self, *, max_transition_ids_per_scope: int = 16) -> None:
+    def __init__(self, *, max_transition_ids_per_scope: int = 16,
+                 max_pending_scopes: int = 4096, max_event_names_per_scope: int = 64) -> None:
+        if max_pending_scopes < 1 or max_event_names_per_scope < 1:
+            raise ValueError("event batch bounds must be positive")
         self._pending: dict[str, _BatchAccumulator] = {}
         self.max_transition_ids_per_scope = max(1, max_transition_ids_per_scope)
+        self.max_pending_scopes = max_pending_scopes
+        self.max_event_names_per_scope = max_event_names_per_scope
 
     @staticmethod
     def _merge_priority(a: int | None, b: int | None) -> int | None:
@@ -306,8 +311,12 @@ class EventBatcher:
         return min(a, b)
 
     def push(self, event: EventEnvelope) -> None:
+        if event.scope not in self._pending and len(self._pending) >= self.max_pending_scopes:
+            raise OverflowError("event batch scope cap reached; flush pending events")
         acc = self._pending.setdefault(event.scope, _BatchAccumulator())
         if event.name not in acc.seen_names:
+            if len(acc.names) >= self.max_event_names_per_scope:
+                raise OverflowError("event name cap reached for scope; flush pending events")
             acc.seen_names.add(event.name)
             acc.names.append(event.name)
         acc.dirty |= event.dirty
@@ -379,7 +388,10 @@ class LaneTaskQueue:
     - duplicate scope/name/fingerprint work is enqueued once.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, max_pending_tasks: int = 4096) -> None:
+        if max_pending_tasks < 1:
+            raise ValueError("pending task cap must be positive")
+        self.max_pending_tasks = max_pending_tasks
         self._heap: list[_HeapItem] = []
         self._sequence = itertools.count()
         self._dedupe: set[tuple[str, str, str, int]] = set()
@@ -406,12 +418,14 @@ class LaneTaskQueue:
         )
 
     def enqueue(self, task: LaneTask, *, now_tick: int = 0) -> bool:
-        self._latest_generation[task.scope] = max(
-            task.generation, self._latest_generation.get(task.scope, task.generation)
-        )
         key = (task.scope, task.name, task.fingerprint, task.generation)
         if key in self._dedupe:
             return False
+        if len(self._heap) >= self.max_pending_tasks:
+            raise OverflowError("lane queue cap reached; drain pending tasks")
+        self._latest_generation[task.scope] = max(
+            task.generation, self._latest_generation.get(task.scope, task.generation)
+        )
         self._dedupe.add(key)
         self._scope_pending[task.scope] = self._scope_pending.get(task.scope, 0) + 1
         seq = next(self._sequence)
