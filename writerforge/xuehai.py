@@ -31,19 +31,13 @@ class XuehaiStore:
             ).fetchone()
             if not p or p["status"] != "published":
                 raise ValueError("Parent snapshot must be published")
+        # New children store ONLY their own entries; ancestor lookup resolves
+        # a logical view. Existing V22 'full' snapshots remain valid roots.
         cur = self.db.conn.execute(
-            "INSERT INTO snapshots(parent_id,status,note) VALUES(?,?,?)",
-            (parent_id, "staging", note),
+            "INSERT INTO snapshots(parent_id,status,layout,note) VALUES(?,?,?,?)",
+            (parent_id,"staging","delta" if parent_id is not None else "full",note),
         )
         sid = int(cur.lastrowid)
-
-        # Version snapshots are complete views, not deltas.
-        if parent_id is not None:
-            old_rows = self.db.conn.execute(
-                "SELECT * FROM xuehai_entries WHERE snapshot_id=?", (parent_id,)
-            ).fetchall()
-            for r in old_rows:
-                self._insert_row_copy(sid, dict(r))
         self.db.conn.commit()
         return sid
 
@@ -125,32 +119,62 @@ class XuehaiStore:
         self.db.conn.commit()
 
     def _candidate_rows(self, q: Query):
+        """Bounded SQL-side candidate selection over the logical snapshot.
+
+        Legacy full snapshots are terminal ancestors. New delta descendants do
+        not materialize/copy prior rows. No full-corpus .fetchall() ever runs.
+        """
+        if not 1 <= q.limit <= 32:
+            raise ValueError("query limit must be 1..32")
+        if not 1 <= q.max_per_work <= 32 or not 1 <= q.max_per_cluster <= 32:
+            raise ValueError("diversity limits must be 1..32")
         sid = self.runtime.pinned_snapshot_id
-        where = ["e.snapshot_id=?", "e.quality_weight>=?"]
+        filters = ["e.quality_weight>=?"]
         args = [sid, q.min_quality]
         for field, value in [
             ("genre", q.genre), ("culture", q.culture), ("function", q.function),
-            ("effect", q.effect), ("source_role", q.source_role)
+            ("effect", q.effect), ("source_role", q.source_role),
         ]:
             if value:
-                where.append(f"e.{field}=?")
+                filters.append(f"e.{field}=?")
                 args.append(value)
-
-        usage_join = ""
-        select_usage = "0 AS use_count"
+        use = "0 AS use_count"
+        join = ""
         if q.project_id:
-            usage_join = "LEFT JOIN retrieval_usage u ON u.entry_id=e.id AND u.project_id=?"
-            args = [q.project_id] + args
-            select_usage = "COALESCE(u.use_count,0) AS use_count"
-
+            join = "LEFT JOIN retrieval_usage u ON u.entry_id=e.id AND u.project_id=?"
+            use = "COALESCE(u.use_count,0) AS use_count"
+            args.append(q.project_id)
+        rank_parts = []
+        for t in q.text_terms[:6]:
+            if t and t.strip():
+                rank_parts.append("CASE WHEN e.text LIKE ? THEN 4.0 ELSE 0 END")
+        args.extend("%" + t.strip()[:48].replace("%", r"\%").replace("_", r"\_") + "%"
+                    for t in q.text_terms[:6] if t and t.strip())
+        lexical = "+".join(rank_parts) if rank_parts else "0"
+        # SELECT only a bounded shortlist. Query index and result memory stays
+        # O(limit), rather than O(total entries across the learned novels).
         sql = f"""
-            SELECT e.*, {select_usage}
-            FROM xuehai_entries e
-            {usage_join}
-            WHERE {' AND '.join(where)}
+          WITH RECURSIVE lineage(id,parent_id,layout) AS (
+            SELECT id,parent_id,layout FROM snapshots
+             WHERE id=? AND status='published'
+            UNION ALL
+            SELECT parent.id,parent.parent_id,parent.layout
+              FROM snapshots parent JOIN lineage child ON parent.id=child.parent_id
+             WHERE child.layout='delta' AND parent.status='published'
+          )
+          SELECT e.*, {use} FROM xuehai_entries e
+          JOIN lineage l ON l.id=e.snapshot_id
+          {join}
+          WHERE {' AND '.join(filters)}
+          ORDER BY ({lexical}) + 0.65*COALESCE(e.quality_weight,1)
+                 + 0.55*COALESCE(e.novelty_weight,1) DESC,
+                 e.id DESC
+          LIMIT ?
         """
-        rows = [dict(r) for r in self.db.conn.execute(sql, args).fetchall()]
-        return rows
+        # The project usage join parameter precedes WHERE parameters in SQL.
+        bind = [sid] + ([q.project_id] if q.project_id else []) + args[1:]
+        bind.append(min(512, max(64, q.limit * 24)))
+        return [dict(r) for r in self.db.conn.execute(sql, bind).fetchall()]
 
     def _fts_scores(self, terms: tuple[str,...]) -> dict[int, float]:
         if not self.db.fts_enabled or not terms:
