@@ -18,31 +18,51 @@ from .story_work_tree import PendingUpdate, StoryWorkRoot, WorkKind, WorkNode, _
 
 
 SCHEMA_VERSION = 1
+MAX_CHECKPOINT_CHARS = 8_000_000
+MAX_CHECKPOINT_NODES = 20_000
+MAX_PENDING_PER_NODE = 16
+MAX_JSON_DEPTH = 64
 
 
 class WorkTreeCheckpointError(ValueError):
     """The durable checkpoint is missing, stale, invalid or unrepresentable."""
 
 
-def _check_json_native(value: Any) -> None:
-    """Reject lossy JSON conversions (tuples, integer mapping keys, NaN, etc.)."""
-    if value is None or type(value) in (str, int, bool):
-        return
-    if type(value) is float and math.isfinite(value):
-        return
-    if type(value) is list:
+def _check_json_native(value: Any, budget: list[int] | None = None, depth: int = 0) -> None:
+    """Reject lossy/unbounded JSON before a huge string or collection is copied."""
+    if budget is None:
+        budget = [MAX_CHECKPOINT_CHARS]
+    if depth > MAX_JSON_DEPTH:
+        raise WorkTreeCheckpointError("WorkTree JSON exceeds maximum nesting depth")
+    if value is None or type(value) in (int, bool):
+        budget[0] -= 20
+    elif type(value) is str:
+        if len(value) > 250_000:
+            raise WorkTreeCheckpointError("WorkTree JSON string is too long")
+        budget[0] -= 2 * len(value) + 4
+    elif type(value) is float and math.isfinite(value):
+        budget[0] -= 40
+    elif type(value) is list:
+        if len(value) > 5000:
+            raise WorkTreeCheckpointError("WorkTree JSON list is too long")
+        budget[0] -= len(value) + 2
         for child in value:
-            _check_json_native(child)
-        return
-    if type(value) is dict:
+            _check_json_native(child, budget, depth+1)
+    elif type(value) is dict:
+        if len(value) > 5000:
+            raise WorkTreeCheckpointError("WorkTree JSON dict is too large")
+        budget[0] -= len(value) * 5 + 2
         for key, child in value.items():
             if type(key) is not str:
                 raise WorkTreeCheckpointError("WorkTree state requires string JSON keys")
-            _check_json_native(child)
-        return
-    raise WorkTreeCheckpointError(
-        f"WorkTree state must be native JSON data, got {type(value).__name__}"
-    )
+            _check_json_native(key, budget, depth+1)
+            _check_json_native(child, budget, depth+1)
+    else:
+        raise WorkTreeCheckpointError(
+            f"WorkTree state must be native JSON data, got {type(value).__name__}"
+        )
+    if budget[0] < 0:
+        raise WorkTreeCheckpointError("WorkTree JSON exceeds bounded allocation budget")
 
 
 def encode_finished_tree(root: StoryWorkRoot) -> tuple[str, str]:
@@ -54,8 +74,11 @@ def encode_finished_tree(root: StoryWorkRoot) -> tuple[str, str]:
     stack: list[tuple[WorkNode, int | None]] = [(root.finished_work, None)]
     seen_objects: set[int] = set()
     seen_keys: set[str] = set()
+    budget = [MAX_CHECKPOINT_CHARS]
 
     while stack:
+        if len(nodes) >= MAX_CHECKPOINT_NODES:
+            raise WorkTreeCheckpointError("WorkTree node cap exceeded")
         node, parent_index = stack.pop()
         if id(node) in seen_objects:
             raise WorkTreeCheckpointError("WorkTree has a cycle or shared child")
@@ -63,13 +86,18 @@ def encode_finished_tree(root: StoryWorkRoot) -> tuple[str, str]:
         if not isinstance(node.key, str) or not node.key or node.key in seen_keys:
             raise WorkTreeCheckpointError("WorkTree node keys must be unique nonempty strings")
         seen_keys.add(node.key)
-        _check_json_native(node.memoized_state)
+        _check_json_native(node.key, budget)
+        _check_json_native(node.memoized_fingerprint, budget)
+        _check_json_native(node.memoized_state, budget)
+        if len(node.pending_updates) > MAX_PENDING_PER_NODE:
+            raise WorkTreeCheckpointError("too many pending updates on one node")
 
         pending = []
         for lane, update in sorted(node.pending_updates.items(), key=lambda item: int(item[0])):
             if not _single_lane(int(lane)):
                 raise WorkTreeCheckpointError("pending update must target one concrete lane")
-            _check_json_native(update.state)
+            _check_json_native(update.fingerprint,budget)
+            _check_json_native(update.state,budget)
             pending.append({
                 "lane": int(lane),
                 "state": update.state,
@@ -99,6 +127,8 @@ def encode_finished_tree(root: StoryWorkRoot) -> tuple[str, str]:
         )
     except (TypeError, ValueError, RecursionError) as exc:
         raise WorkTreeCheckpointError("WorkTree state is not safely JSON serializable") from exc
+    if len(raw) > MAX_CHECKPOINT_CHARS:
+        raise WorkTreeCheckpointError("serialized WorkTree checkpoint too large")
     return raw, hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
@@ -109,6 +139,8 @@ def _single_lane(value: int) -> bool:
 
 
 def _decode_tree(raw: str, expected_fingerprint: str) -> StoryWorkRoot:
+    if len(raw)>MAX_CHECKPOINT_CHARS:
+        raise WorkTreeCheckpointError("persisted WorkTree checkpoint exceeds size cap")
     try:
         payload = json.loads(raw)
         if payload.get("schema_version") != SCHEMA_VERSION:
@@ -116,6 +148,8 @@ def _decode_tree(raw: str, expected_fingerprint: str) -> StoryWorkRoot:
         records = payload["nodes"]
         if not isinstance(records, list) or not records:
             raise WorkTreeCheckpointError("empty WorkTree checkpoint")
+        if len(records)>MAX_CHECKPOINT_NODES:
+            raise WorkTreeCheckpointError("persisted WorkTree checkpoint node cap exceeded")
 
         nodes: list[WorkNode] = []
         seen: set[str] = set()
