@@ -79,6 +79,20 @@ class MemoryBoundsTests(unittest.TestCase):
         self.assertTrue(raw)
         self.assertEqual(len(checksum),64)
 
+    def test_speculative_render_cap_fails_clean_and_can_retry(self):
+        root = self.finished_root()
+        # Finished root from helper is intentional: first reject candidate,
+        # then retry current pending work at the same scope.
+        root.discard_finished(drop_rendered_updates=False)
+        with patch("writerforge.story_work_tree.MAX_RENDER_UNITS",1):
+            with self.assertRaisesRegex(RuntimeError,"render cap"):
+                StoryWorkLoop().render(root,render_lanes=Lane.DRAFT)
+        self.assertIsNone(root.finished_work)
+        self.assertTrue(bool(root.current.child.lanes & Lane.DRAFT))
+        # The pending work was not lost and can finish after relaxing budget.
+        result=StoryWorkLoop().render(root,render_lanes=Lane.DRAFT)
+        self.assertGreaterEqual(result.processed_units,2)
+
     def test_checkpoint_rejects_excess_depth_and_long_string(self):
         from writerforge.work_tree_checkpoint import _check_json_native
         with self.assertRaisesRegex(WorkTreeCheckpointError,"nesting"):
