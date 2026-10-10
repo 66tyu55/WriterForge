@@ -98,9 +98,9 @@
   ],
   "test_status": {
     "suite": "python -m unittest discover -s tests -q",
-    "passed": 200,
+    "passed": 201,
     "failed": 0,
-    "status": "V23 branch CI verified; main merge pending"
+    "status": "V23 PR branch CI verified: 201/201, 100/100 original-Chinese study; main merge pending"
   },
   "literary_study": {
     "first_book": "西遊記 (Project Gutenberg #23962), 100 original Chinese chapters",
