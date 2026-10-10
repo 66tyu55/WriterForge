@@ -33,7 +33,7 @@ MAX_EXCERPT = 160
 TRACKS = ("plot", "object", "character", "environment", "time", "location", "sense", "emotion")
 HEAD = re.compile(
     r"(?m)^[ \t\u3000]*第([0-9零〇○一二三四五六七八九十百千兩两"
-    r"壹貳參肆伍陸柒捌玖拾佰]+)回[ \t\u3000]*([^\r\n]{0,90})[ \t\u3000]*\r?$"
+    r"壹貳參肆伍陸柒捌玖拾佰]+)回(?:[ \t\u3000]+([^\r\n]{1,90}))?[ \t\u3000]*\r?$"
 )
 FIGURES = {"零":0, "〇":0, "○":0, "一":1,"二":2,"兩":2,"两":2,"三":3,"四":4,"五":5,
            "六":6,"七":7,"八":8,"九":9,
@@ -121,7 +121,7 @@ def parse_original(text: str, *, require_hundred: bool = True,
         body = text[m.end():end].strip()
         if not body or len(body) > MAX_CHAPTER_CHARS:
             raise StudyError(f"chapter {i+1} missing or oversized")
-        chapters.append(Chapter(nums[i], m.group(2).strip(), body))
+        chapters.append(Chapter(nums[i], (m.group(2) or "").strip(), body))
     return tuple(chapters)
 
 
