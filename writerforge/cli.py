@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shutil
 from pathlib import Path
 
 from .db import WriterForgeDB
@@ -10,6 +12,7 @@ from .runtime import RuntimeEngine
 from .source_study import OriginalStudy, download_original, WORK_ID, SOURCE_PAGE, MAX_DOWNLOAD_BYTES
 from .verified_flow import VerifiedWritingFlow, local_chat_completion, save_candidate, accept_candidate
 from .litcritic_adapter import LitCriticAdapter
+from .study_storage import restore_from_github, REPO_DEFAULT
 
 
 def _load_text(path: Path) -> str:
@@ -80,11 +83,41 @@ def main(argv: list[str] | None = None):
     review.add_argument("--output-dir",default="reviews")
     review.add_argument("--mode",default="quick",choices=["quick","deep"])
     review.add_argument("--api-base",default="http://127.0.0.1:8000/api")
+    restore=sub.add_parser("restore-xiyouji",help="automatically restore durable GitHub Release study into local SQLite")
+    restore.add_argument("--repo",default=REPO_DEFAULT)
+    restore.add_argument("--tag",help="optional versioned study Release tag; defaults to latest study")
+    restore.add_argument("--storage-dir",default="corpus/library",help="verified, content-addressed local study directory")
     args=p.parse_args(argv)
     if args.cmd=="fetch-xiyouji":
         dest=download_original(args.output)
         _emit({"fetched":str(dest),"bytes":dest.stat().st_size,
                "source":SOURCE_PAGE,"language":"original Chinese (not translation)"})
+        return
+    if args.cmd=="restore-xiyouji":
+        result=restore_from_github(
+            repo=args.repo, storage_dir=args.storage_dir,tag=args.tag,
+            token=os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN"),
+        )
+        # Convenience: create the requested working DB ONLY when absent.
+        # Never replace an author's existing accepted prose, preferences or
+        # partially-trained local Xuehai with an imported snapshot.
+        target=Path(args.db)
+        if not target.exists():
+            target.parent.mkdir(parents=True,exist_ok=True)
+            temp=target.with_name(target.name+".restore-partial")
+            try:
+                with Path(result["db"]).open("rb") as inp, temp.open("xb") as out:
+                    shutil.copyfileobj(inp,out,length=1024*1024)
+                os.replace(temp,target)
+            finally:
+                temp.unlink(missing_ok=True)
+            result["working_db"]=str(target)
+            result["working_db_created"]=True
+        else:
+            result["working_db"]=str(target)
+            result["working_db_created"]=False
+            result["note"]="existing project DB preserved; use --db with restored path if desired"
+        _emit(result)
         return
     if args.cmd=="review":
         _emit(LitCriticAdapter(base_url=args.api_base).review(
