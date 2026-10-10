@@ -1,12 +1,12 @@
 ---
-name: writer-forge-v23
+name: writer-forge-v23-1
 description: >
   Long-form fiction runtime with Reader-First source learning, reactive lane scheduling,
   dependency-driven context loading, controlled self-evolution, story-sense routing,
   embodied scene causality, and pairwise literary taste. Designed for novels, not generic copywriting.
 ---
 
-# WriterForge V23
+# WriterForge V23.1
 
 WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutually exclusive.
 
@@ -114,3 +114,8 @@ A single SET_AUTHOR_PREFERENCE table remains the sole authority for explicit wri
 ## V23 Original Chinese Study + Verifiable Writing (operational route)
 
 Production novel research must go through the V23 executable CLI and real published Xuehai snapshots: fetch-xiyouji -> learn -> status -> draft-context / draft via a real local model -> author-accepted StoryCommit. A mere ChatGPT-authored prose sample is NEVER labeled a WriterForge generated test. Source study includes 100 original Chinese 西遊記 chapters, sequentially ingested with SHA256 and eight deterministic structural tracks; it does NOT invent first-read emotional responses or fine-tune model weights. Each snapshot after root is delta-only, with bounded SQL candidate retrieval. The sole independent reviewer is local lit-critic REST; require its real running local endpoint, export read-only Markdown/JSON with source hashes, and never auto-modify canon or train on unverified criticism. Enforce the queue, checkpoint, source-unit, response, and cache caps documented in docs/V23_REAL_ORIGINAL_STUDY_AND_REVIEW.md.
+
+
+## V23.1 Xuehai remote persistence
+
+Persistent corpus training is NOT a chat attachment workflow. Approved public-domain source studies are published automatically on verified main CI to source-hash + schema-versioned GitHub Releases with SHA256 manifests; automatic restore verifies all files, SQLite integrity and chapter/source metadata. Existing local novels and DBs are NEVER overwritten, and ephemeral Actions Artifacts are not long-term storage. No private/third-party copyrighted manuscripts may be published to the public release route. Use the new restore-xiyouji CLI to load the checked library. Details in docs/AUTOMATED_STUDY_STORAGE.md.
