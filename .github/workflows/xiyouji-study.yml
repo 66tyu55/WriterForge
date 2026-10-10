@@ -134,3 +134,12 @@ jobs:
             "$RUNNER_TEMP/restored-study"
           python -m writerforge.cli \
             --db "$RUNNER_TEMP/restored-study/xiyouji_studied.sqlite3" status
+          # Test the exact one-command Python restore used on the author's PC,
+          # not just the GitHub CLI artifact download.
+          python -m writerforge.cli \
+            --db "$RUNNER_TEMP/working-from-release.sqlite3" \
+            restore-xiyouji \
+            --repo "$GITHUB_REPOSITORY" --tag "$STUDY_TAG" \
+            --storage-dir "$RUNNER_TEMP/python-library"
+          python -m writerforge.cli \
+            --db "$RUNNER_TEMP/working-from-release.sqlite3" status
