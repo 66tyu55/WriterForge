@@ -91,7 +91,7 @@ class MemoryBoundsTests(unittest.TestCase):
         self.assertTrue(bool(root.current.child.lanes & Lane.DRAFT))
         # The pending work was not lost and can finish after relaxing budget.
         result=StoryWorkLoop().render(root,render_lanes=Lane.DRAFT)
-        self.assertGreaterEqual(result.processed_units,2)
+        self.assertGreaterEqual(result.units,2)
 
     def test_checkpoint_rejects_excess_depth_and_long_string(self):
         from writerforge.work_tree_checkpoint import _check_json_native
