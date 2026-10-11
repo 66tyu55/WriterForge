@@ -31,7 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m writerforge.cli fetch-classic --work jinghuayuan --output "$RUNNER_TEMP/source.txt"
-          curl --fail --silent --show-error --location 'https://raw.githubusercontent.com/GITenberg/---_23818/master/LICENSE' -o "$RUNNER_TEMP/license.txt"
+          curl --fail --silent --show-error --location 'https://raw.githubusercontent.com/GITenberg/---_25377/master/LICENSE' -o "$RUNNER_TEMP/license.txt"
       - name: Full original 100-chapter source study with audited scope
         run: |
           set -euo pipefail
@@ -48,13 +48,13 @@ jobs:
           set -euo pipefail
           test "$WRITERFORGE_R2_BUCKET" = 'writerforge-private-library'
           python -m writerforge.cli --db "$RUNNER_TEMP/study.sqlite3" backup-r2 \
-            --library jinghuayuan-23818 --edition jinghuayuan-gutenberg-23818-structural-v1 \
+            --library jinghuayuan-25377 --edition jinghuayuan-gutenberg-25377-structural-v1 \
             --source "$RUNNER_TEMP/source.txt" \
             --extra report.json="$RUNNER_TEMP/work-audit/work_report.json" \
             --extra audit.json="$RUNNER_TEMP/work-audit/stage_audit.json" \
             --extra license.txt="$RUNNER_TEMP/license.txt"
           python -m writerforge.cli --db "$RUNNER_TEMP/restored.sqlite3" restore-r2 \
-            --library jinghuayuan-23818 --storage-dir "$RUNNER_TEMP/restore"
+            --library jinghuayuan-25377 --storage-dir "$RUNNER_TEMP/restore"
           python - <<'PY'
           import os, sqlite3, json
           from pathlib import Path
