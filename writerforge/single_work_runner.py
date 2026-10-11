@@ -1,0 +1,152 @@
+"""One reusable, fail-closed private R2 single-work transfer executor.
+
+Uses the already-present R2 source archive and GitHub Actions secrets.
+No reading data is committed to GitHub or stored between runs.
+"""
+from __future__ import annotations
+from contextlib import closing
+from hashlib import sha256
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import json
+import sqlite3
+
+from .private_reading_storage import audit_private_reading
+from .private_single_book_transfer import SOURCE_R2_KEY, SOURCE_R2_SHA256, SOURCE_R2_BYTES
+from .r2_storage import R2StudyVault, R2StorageError, _canonical, _digest, MAX_LATEST_BYTES, MAX_MANIFEST_BYTES
+
+# Exact source title selection, not substring matches in novel text.
+WORKS = {
+    "qiumo": ("求魔", ("求魔",)),
+    "xianni": ("仙逆", ("仙逆",)),
+    "xingchenbian": ("星辰变", ("星辰变", "星辰變")),
+    "fanrenxiuxian": ("凡人修仙传", ("凡人修仙传",)),
+    "wudongqiankun": ("武动乾坤", ("武动乾坤",)),
+    "zhetian": ("遮天", ("遮天",)),
+    "wanmeishijie": ("完美世界", ("完美世界",)),
+    "manghuangji": ("莽荒纪", ("莽荒纪",)),
+    "yuanzun": ("元尊", ("元尊",)),
+    "dazhuzai": ("大主宰", ("大主宰",)),
+    "taigushenwang": ("太古神王", ("太 古 神 王", "太古神王")),
+    "doupo": ("斗破", ("斗破", "斗破苍穹")),
+    "xuanjianxianzu": ("玄鉴仙族", ("玄鉴仙族",)),
+}
+FORMAT="writerforge.private_single_work.v1"
+MAX_SINGLE_BYTES=80*1024*1024
+
+
+class SingleWorkVault(R2StudyVault):
+    def __init__(self, config, *, work_id: str, client=None):
+        if work_id not in WORKS:
+            raise R2StorageError("work ID not in explicit single-work catalog")
+        super().__init__(config,client=client)
+        self.work_id=work_id
+
+    def _root(self, library: str) -> str:
+        if library!=self.work_id:
+            raise R2StorageError("cross-work R2 path is prohibited")
+        return f"{self.config.prefix}/private-reading/single-works/{library}"
+
+    def execute(self) -> dict:
+        if self.config.bucket!="writerforge-private-library":
+            raise R2StorageError("not the expected private R2 bucket")
+        head=self._head(SOURCE_R2_KEY)
+        if head is None or int(head.get("ContentLength",-1))!=SOURCE_R2_BYTES:
+            raise R2StorageError("pinned R2 source archive missing or wrong size")
+        with TemporaryDirectory(prefix="wf-single-work-") as tmp:
+            root=Path(tmp)
+            archive=root/"source.sqlite3"
+            self.client.download_file(self.config.bucket,SOURCE_R2_KEY,str(archive))
+            if _digest(archive)!=(SOURCE_R2_SHA256,SOURCE_R2_BYTES):
+                raise R2StorageError("pinned source archive SHA256 mismatch")
+            audit=audit_private_reading(archive)
+            if audit["works"]!=13:
+                raise R2StorageError("unexpected source work count")
+            label,aliases=WORKS[self.work_id]
+            with closing(sqlite3.connect(f"file:{archive.as_posix()}?mode=ro",uri=True)) as db:
+                works=db.execute("""SELECT id,title,file_name,source_sha256,original_encoding,
+                    original_bytes,original_chars,archived_chars,section_count,status
+                    FROM works ORDER BY id""").fetchall()
+                selected=[r for r in works if any(a in str(r[1]) or a in str(r[2]) for a in aliases)]
+                if len(selected)!=1:
+                    raise R2StorageError("missing or ambiguous work title")
+                work=selected[0]
+                (wid,title,filename,source_sha,source_encoding,source_bytes,
+                    original_chars,archived_chars,expected_sections,source_status)=work
+                target=root/"only-work.utf8.txt"
+                n=total_chars=total_bytes=0
+                previous=None
+                h=sha256()
+                with target.open("xb") as dest:
+                    for ordinal,body,digest,chars in db.execute(
+                        """SELECT ordinal,content,content_sha256,char_count
+                        FROM sections WHERE work_id=? ORDER BY ordinal""",(wid,)
+                    ):
+                        if type(ordinal) is not int or ordinal<0 or (previous is not None and ordinal<=previous):
+                            raise R2StorageError("section ordinals invalid")
+                        previous=ordinal
+                        if not isinstance(body,str) or len(body)!=chars:
+                            raise R2StorageError("section length invalid")
+                        chunk=body.encode("utf-8")
+                        if sha256(chunk).hexdigest()!=digest:
+                            raise R2StorageError("section content checksum mismatch")
+                        total_bytes+=len(chunk)
+                        if total_bytes>MAX_SINGLE_BYTES:
+                            raise R2StorageError("one work exceeds byte budget")
+                        total_chars+=chars
+                        n+=1
+                        dest.write(chunk)
+                        h.update(chunk)
+                if n!=expected_sections or total_chars!=original_chars or total_chars!=archived_chars:
+                    raise R2StorageError("incomplete reconstructed source")
+            checksum=h.hexdigest()
+            if _digest(target)!=(checksum,total_bytes):
+                raise R2StorageError("local source checksum mismatch")
+            key=self._blob_key(self.work_id,checksum)
+            uploaded=self._upload_blob(self.work_id,target,checksum,total_bytes)
+            manifest={"format":FORMAT,"book_id":self.work_id,"title":label,
+                      "status":"archived_unreviewed",
+                      "source_archive_sha256":SOURCE_R2_SHA256,
+                      "original_file_sha256_recorded_not_rederived":source_sha,
+                      "original_encoding":source_encoding,
+                      "original_bytes_recorded":source_bytes,
+                      "sections":n,"characters":total_chars,
+                      "file":{"key":key,"sha256":checksum,"bytes":total_bytes},
+                      "semantic_training_performed":False}
+            raw=_canonical(manifest)
+            version=sha256(raw).hexdigest()
+            self._put_small_immutable(self._manifest_key(self.work_id,version),raw,version)
+            pointer=_canonical({"format":FORMAT,"book_id":self.work_id,
+                                "snapshot":version,"manifest_sha256":version})
+            latest=self._latest_key(self.work_id)
+            current=self._head(latest)
+            if current is None or self._get_small(latest,MAX_LATEST_BYTES)!=pointer:
+                self.client.put_object(Bucket=self.config.bucket,Key=latest,
+                                       Body=pointer,ContentType="application/json")
+            if self._get_small(latest,MAX_LATEST_BYTES)!=pointer:
+                raise R2StorageError("latest pointer readback mismatch")
+            listing=self.client.list_objects_v2(
+                Bucket=self.config.bucket,Prefix=self._root(self.work_id)+"/",MaxKeys=1000)
+            if listing.get("IsTruncated"):
+                raise R2StorageError("R2 inventory truncated")
+            keys={row["Key"] for row in listing.get("Contents",())}
+            if not {key,latest,self._manifest_key(self.work_id,version)}.issubset(keys):
+                raise R2StorageError("R2 missing single-work objects")
+            fresh=root/"fresh"
+            fresh.mkdir()
+            downloaded=fresh/"recovered.txt"
+            self.client.download_file(self.config.bucket,key,str(downloaded))
+            if _digest(downloaded)!=(checksum,total_bytes):
+                raise R2StorageError("fresh R2 download SHA256 differs")
+            checked=self._get_small(self._manifest_key(self.work_id,version),MAX_MANIFEST_BYTES)
+            if checked!=raw or sha256(checked).hexdigest()!=version:
+                raise R2StorageError("remote manifest bytes invalid")
+            return {"work_id":self.work_id,"title":label,
+                    "target_prefix":self._root(self.work_id)+"/",
+                    "source_archive_sha256_verified":True,
+                    "uploaded_new_blob":bool(uploaded),"utf8_bytes":total_bytes,
+                    "utf8_sha256":checksum,"source_sections":n,
+                    "remote_objects_present":3,
+                    "fresh_download_sha256_verified":True,
+                    "snapshot":version,"status":"archived_unreviewed",
+                    "training_performed":False}
