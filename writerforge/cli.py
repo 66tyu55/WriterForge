@@ -10,6 +10,7 @@ from pathlib import Path
 from .db import WriterForgeDB
 from .runtime import RuntimeEngine
 from .source_study import OriginalStudy, download_original, WORK_ID, SOURCE_PAGE, MAX_DOWNLOAD_BYTES
+from .modern_source import study_modern_source
 from .classics_catalog import get_book, download_book, study_book, catalog_progress_local, CATALOG as CLASSICS_CATALOG
 from .verified_flow import VerifiedWritingFlow, local_chat_completion, save_candidate, accept_candidate
 from .litcritic_adapter import LitCriticAdapter
@@ -56,6 +57,11 @@ def main(argv: list[str] | None = None):
     study_classic=sub.add_parser("learn-classic",help="full original structural study from pinned catalog")
     study_classic.add_argument("--work",required=True,choices=tuple(CLASSICS_CATALOG))
     study_classic.add_argument("--source",required=True)
+    modern=sub.add_parser("learn-modern",help="stream a pinned private full-length modern novel")
+    modern.add_argument("--work",required=True,choices=("fanrenxiuxian",))
+    modern.add_argument("--source",required=True,help="runner-local TXT; never committed")
+    modern.add_argument("--expected-sha256",help="optional pinned whole-file hash")
+    modern.add_argument("--report",help="JSON-only structure audit without raw original text")
     progress=sub.add_parser("corpus-progress",help="count full distinct original works; never run premature 50-book assessment")
     progress.add_argument("--remote-r2",action="store_true",help="count separate verified original books across private R2 libraries")
     f=sub.add_parser("fetch-xiyouji",help="download original Chinese Project Gutenberg #23962")
@@ -304,6 +310,27 @@ def main(argv: list[str] | None = None):
                     database=args.db,library=book.library,source=args.source,
                     edition=book.work_id+"-original-structural-v1",
                 )
+            _emit(result)
+        elif args.cmd=="learn-modern":
+            book={
+                "fanrenxiuxian":{
+                    "work_id":"fanrenxiuxian-private-original",
+                    "title":"凡人修仙传","protagonist":"韩立","genre":"仙侠",
+                    "source_uri":"private-validated-source/fanrenxiuxian",
+                    "min_chapters":2000,"max_chapters":3200,
+                    "min_bytes":10*1024*1024,
+                }
+            }[args.work]
+            rt=RuntimeEngine()
+            rt.enter_learn()
+            result=study_modern_source(
+                Path(args.source),db,rt,**book,
+                expected_sha256=args.expected_sha256,
+            )
+            if args.report:
+                out_path=Path(args.report)
+                out_path.parent.mkdir(parents=True,exist_ok=True)
+                out_path.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
             _emit(result)
         elif args.cmd=="corpus-progress":
             if args.remote_r2:
