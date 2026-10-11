@@ -10,7 +10,7 @@ from pathlib import Path
 from .db import WriterForgeDB
 from .runtime import RuntimeEngine
 from .source_study import OriginalStudy, download_original, WORK_ID, SOURCE_PAGE, MAX_DOWNLOAD_BYTES
-from .classics_catalog import get_book, download_book, study_book, catalog_progress_local
+from .classics_catalog import get_book, download_book, study_book, catalog_progress_local, CATALOG as CLASSICS_CATALOG
 from .verified_flow import VerifiedWritingFlow, local_chat_completion, save_candidate, accept_candidate
 from .litcritic_adapter import LitCriticAdapter
 from .study_storage import restore_from_github, REPO_DEFAULT
@@ -51,10 +51,10 @@ def main(argv: list[str] | None = None):
     sub.add_parser("init")
     catalog=sub.add_parser("catalog",help="list verified historical Chinese originals")
     fetch_classic=sub.add_parser("fetch-classic",help="download and validate one pinned Chinese original")
-    fetch_classic.add_argument("--work",required=True,choices=("honglou","shuihu"))
+    fetch_classic.add_argument("--work",required=True,choices=tuple(CLASSICS_CATALOG))
     fetch_classic.add_argument("--output",help="local corpus file path")
     study_classic=sub.add_parser("learn-classic",help="full original structural study from pinned catalog")
-    study_classic.add_argument("--work",required=True,choices=("honglou","shuihu"))
+    study_classic.add_argument("--work",required=True,choices=tuple(CLASSICS_CATALOG))
     study_classic.add_argument("--source",required=True)
     progress=sub.add_parser("corpus-progress",help="count full distinct original works; never run premature 50-book assessment")
     progress.add_argument("--remote-r2",action="store_true",help="count separate verified original books across private R2 libraries")
