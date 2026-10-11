@@ -50,13 +50,42 @@ class SingleWorkVault(R2StudyVault):
     def execute(self) -> dict:
         if self.config.bucket!="writerforge-private-library":
             raise R2StorageError("not the expected private R2 bucket")
-        head=self._head(SOURCE_R2_KEY)
+        # Only use the known R2 source archive. If its original root key
+        # moved, discover it by an exact basename under the controlled
+        # writerforge prefix, and still require the pinned size and SHA256.
+        source_key=SOURCE_R2_KEY
+        head=self._head(source_key)
         if head is None or int(head.get("ContentLength",-1))!=SOURCE_R2_BYTES:
-            raise R2StorageError("pinned R2 source archive missing or wrong size")
+            candidates=[]
+            token=None
+            for _ in range(10):
+                params={"Bucket":self.config.bucket,"Prefix":"writerforge/","MaxKeys":1000}
+                if token:
+                    params["ContinuationToken"]=token
+                page=self.client.list_objects_v2(**params)
+                candidates.extend((obj["Key"],obj["Size"]) for obj in page.get("Contents",())
+                    if obj["Key"].split("/")[-1]==SOURCE_R2_KEY)
+                if not page.get("IsTruncated"):
+                    break
+                token=page.get("NextContinuationToken")
+                if not token:
+                    raise R2StorageError("R2 source search pagination incomplete")
+            else:
+                raise R2StorageError("R2 source inventory exceeded 10000 objects")
+            candidates=[key for key,size in candidates if size==SOURCE_R2_BYTES]
+            if len(candidates)!=1:
+                original_size=(int(head.get("ContentLength",-1)) if head else None)
+                raise R2StorageError(
+                    f"pinned R2 source not found with expected size; root_size={original_size}; "
+                    f"matching_size_candidates={len(candidates)}; no upload attempted")
+            source_key=candidates[0]
+            head=self._head(source_key)
+            if head is None or int(head.get("ContentLength",-1))!=SOURCE_R2_BYTES:
+                raise R2StorageError("discovered archive failed HEAD recheck")
         with TemporaryDirectory(prefix="wf-single-work-") as tmp:
             root=Path(tmp)
             archive=root/"source.sqlite3"
-            self.client.download_file(self.config.bucket,SOURCE_R2_KEY,str(archive))
+            self.client.download_file(self.config.bucket,source_key,str(archive))
             if _digest(archive)!=(SOURCE_R2_SHA256,SOURCE_R2_BYTES):
                 raise R2StorageError("pinned source archive SHA256 mismatch")
             audit=audit_private_reading(archive)
