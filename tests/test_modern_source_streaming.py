@@ -115,6 +115,29 @@ class ModernSourceStreamingTests(unittest.TestCase):
             self.assertEqual(result["chapters"], 2400)
             self.assertLess(peak, 8 * 1024 * 1024,
                             "modern preflight must not keep the entire novel in RAM")
+            # Exercise the real SQLite importer on ALL 2400 chapters, not only
+            # a size/checksum/heading preflight; keep the text in runner tmp.
+            db = WriterForgeDB(Path(tmp) / "large-study.sqlite3")
+            rt = RuntimeEngine()
+            rt.enter_learn()
+            opts = dict(
+                work_id="fanrenxiuxian-private-original",
+                title="凡人修仙传", protagonist="韩立",
+                genre="仙侠", source_uri="private-synthetic-test",
+                min_chapters=2200, max_chapters=3200,
+                min_bytes=10 * 1024 * 1024,
+            )
+            actual = study_modern_source(path, db, rt, **opts)
+            self.assertEqual(actual["studied_chapters"], 2400)
+            self.assertEqual(actual["newly_studied"], 2400)
+            self.assertTrue(actual["structure_complete"])
+            self.assertFalse(actual["literary_learning_verified"])
+            self.assertEqual(db.conn.execute(
+                "SELECT COUNT(*) FROM studied_chapters").fetchone()[0], 2400)
+            self.assertEqual(db.conn.execute("PRAGMA quick_check").fetchone()[0], "ok")
+            again = study_modern_source(path, db, rt, **opts)
+            self.assertEqual(again["newly_studied"], 0)
+            db.close()
 
 
 if __name__ == "__main__":
