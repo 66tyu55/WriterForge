@@ -58,8 +58,14 @@ def _select_book(con: sqlite3.Connection) -> tuple:
             f"found {len(matches)}; refusing ambiguous transfer"
         )
     selected=matches[0]
-    if selected[9]!="archived_unreviewed":
-        raise R2StorageError("unexpected source work status")
+    # The external archiver's per-work status vocabulary may be `stored`,
+    # `archived`, etc. A status WORD is not evidence of literary learning.
+    # Preserve it only as untrusted metadata. Whole-archive quick_check,
+    # source-span SHA, total source characters and our own output hashes are
+    # the real data integrity gates; never falsely upgrade its meaning.
+    if (not isinstance(selected[9],str) or not 1<=len(selected[9].strip())<=80
+        or any(ord(ch)<32 for ch in selected[9])):
+        raise R2StorageError("source work status is malformed")
     return selected
 
 
