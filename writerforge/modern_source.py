@@ -9,6 +9,7 @@ from __future__ import annotations
 from hashlib import sha256
 from pathlib import Path
 import re
+import json
 
 from .db import WriterForgeDB
 from .runtime import Mode, RuntimeEngine
@@ -186,8 +187,8 @@ def _ingest_one(db: WriterForgeDB, work_id: str, chapter: Chapter, *, genre: str
                    tracks_json,craft_json) VALUES(?,?,?,?,?,?,?,?)""",
                 (work_id, chapter.number, paragraph, sentence, excerpt,
                  sha256(piece.encode("utf-8")).hexdigest(),
-                 __import__("json").dumps(tracks, ensure_ascii=False),
-                 __import__("json").dumps(craft, ensure_ascii=False)),
+                 json.dumps(tracks, ensure_ascii=False),
+                 json.dumps(craft, ensure_ascii=False)),
             )
             key = sha256((work_id + "|" + piece).encode("utf-8")).hexdigest()
             if key in seen:
