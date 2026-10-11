@@ -50,6 +50,13 @@ class ClassicBook:
 
 
 CATALOG: dict[str, ClassicBook] = {
+    "jinghuayuan": ClassicBook(
+        key="jinghuayuan", title="鏡花緣", work_id="jinghuayuan-gutenberg-25377",
+        gutenberg_id=25377, source_filename="25377-0.txt",
+        git_blob_sha1="884005c10981d6d51bcf88af7750c21badf82787",
+        expected_chapters=100, include_prologue=False,
+        literary_focus=("奇幻世界構造","群像敘事","才學與諷刺","人物對話"),
+    ),
     "sanguo": ClassicBook(
         key="sanguo", title="三國志演義", work_id="sanguo-gutenberg-23950",
         gutenberg_id=23950, source_filename="23950-0.txt",
