@@ -36,7 +36,7 @@ class ClassicBook:
     @property
     def source_url(self) -> str:
         return (
-            f"https://raw.githubusercontent.com/GITenberg/---_{self.gutenberg_id}/"
+            f"https://raw.githubusercontent.com/GITenberg/{'----' if self.key == 'rulin' else '---'}_{self.gutenberg_id}/"
             f"master/{self.source_filename}"
         )
 
