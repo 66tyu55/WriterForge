@@ -24,6 +24,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/private-reading-one-work.yml'
+      - 'writerforge/single_work_runner.py'
 
 permissions:
   contents: read
