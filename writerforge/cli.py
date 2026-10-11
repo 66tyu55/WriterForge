@@ -10,7 +10,7 @@ from pathlib import Path
 from .db import WriterForgeDB
 from .runtime import RuntimeEngine
 from .source_study import OriginalStudy, download_original, WORK_ID, SOURCE_PAGE, MAX_DOWNLOAD_BYTES
-from .classics_catalog import get_book, download_book, study_book, catalog_progress_local
+from .classics_catalog import get_book, download_book, study_book, catalog_progress_local, CATALOG
 from .verified_flow import VerifiedWritingFlow, local_chat_completion, save_candidate, accept_candidate
 from .litcritic_adapter import LitCriticAdapter
 from .study_storage import restore_from_github, REPO_DEFAULT
