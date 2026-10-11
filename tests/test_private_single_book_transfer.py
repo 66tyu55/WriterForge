@@ -182,6 +182,22 @@ class PrivateOneBookTransferTests(unittest.TestCase):
         with self.assertRaisesRegex(R2StorageError,"invalid or duplicate"):
             extract_one_book(self.source,self.root/"must-fail.txt")
 
+    def test_raw_archive_nonstandard_status_is_not_a_literary_quality_claim(self):
+        with closing(sqlite3.connect(self.source)) as con:
+            con.execute("UPDATE works SET status='raw_preserved' WHERE id=4")
+            con.commit()
+        proof=extract_one_book(self.source,self.root/"raw-status-source.txt")
+        self.assertFalse(proof["semantics_reviewed"])
+        self.assertFalse(proof["training_performed"])
+        self.assertEqual(proof["characters"],len(self.expected))
+
+    def test_invalid_empty_status_still_rejected(self):
+        with closing(sqlite3.connect(self.source)) as con:
+            con.execute("UPDATE works SET status='' WHERE id=4")
+            con.commit()
+        with self.assertRaisesRegex(R2StorageError,"malformed"):
+            extract_one_book(self.source,self.root/"invalid-status.txt")
+
     def test_actual_immutable_upload_listing_fresh_download_sha256(self):
         result=self.run_one()
         self.assertTrue(result["target_bucket_matches_expected"])
