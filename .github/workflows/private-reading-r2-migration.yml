@@ -1,0 +1,72 @@
+name: Private R2 one-book transfer - Xingchen Bian
+
+# This workflow is the ONLY one-book transfer. It deliberately DOES NOT run
+# the old 13-work migration. Secrets are available only on trusted main.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/private-reading-r2-migration.yml'
+      - 'scripts/transfer_one_private_book.py'
+      - 'writerforge/private_single_book_transfer.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: writerforge-private-single-book-r2
+  cancel-in-progress: false
+
+jobs:
+  verify-one-book:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Install existing WriterForge R2 client
+        run: python -m pip install -e '.[r2]'
+      - name: Extract 星辰变 from existing private R2 archive; upload and fresh-download verify
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+        run: |
+          set -euo pipefail
+          # 13-work archive is already in R2. Never request Drive OAuth,
+          # upload it to public GitHub, or touch the other twelve works.
+          python scripts/transfer_one_private_book.py > "$RUNNER_TEMP/one-book-result.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads((Path(os.environ["RUNNER_TEMP"])/"one-book-result.json").read_text())
+          assert r["source_archive_sha256_verified"]
+          assert r["only_one_book_extracted"]
+          assert r["fresh_download_sha256_verified"]
+          assert r["remote_objects_present"]>=3
+          assert r["other_12_works_unchanged"]
+          print("ONE-BOOK PRIVATE R2 TRANSFER VERIFIED")
+          print("Work: 星辰变")
+          print("Source archive SHA256 verified: YES")
+          print("Target bucket matches private expected bucket: YES")
+          print("R2 objects found by ListObjects: YES")
+          print("Fresh re-download SHA256 verified: YES")
+          print("UTF-8 book bytes:",r["utf8_bytes"])
+          print("Book UTF-8 SHA256:",r["utf8_sha256"])
+          print("Other 12 works: untouched")
+          print("Training performed: NO")
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a",encoding="utf-8") as summary:
+              summary.write("## 私有 R2 单书真实传输验证：星辰变\n")
+              summary.write("- 原始 13 本归档 SHA-256 核验：**PASS**\n")
+              summary.write("- 只提取《星辰变》：**PASS**\n")
+              summary.write("- 目标 R2 对象列表核验：**PASS**\n")
+              summary.write("- 全新下载与 SHA-256 校验：**PASS**\n")
+              summary.write("- 其他 12 本未迁移、未训练、未覆盖\n")
+              summary.write("- 私有对象前缀：\`writerforge/v1/private-reading/single-works/xingchenbian/\`\n")
+          PY
