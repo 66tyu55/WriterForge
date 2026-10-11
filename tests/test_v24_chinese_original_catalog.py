@@ -41,7 +41,7 @@ def synthetic_book(key="unit", chapter_count=70, prologue=False) -> str:
 
 class CatalogAndStageTests(unittest.TestCase):
     def test_verified_catalog_never_links_translations(self):
-        self.assertEqual(set(CATALOG),{"honglou","shuihu","sanguo"})
+        self.assertEqual(set(CATALOG),{"honglou","shuihu","sanguo","jinghuayuan"})
         self.assertEqual(CATALOG["honglou"].expected_chapters,120)
         self.assertEqual(CATALOG["shuihu"].expected_chapters,70)
         self.assertTrue(CATALOG["shuihu"].include_prologue)
