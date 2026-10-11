@@ -71,6 +71,7 @@ def extract_one_book(archive: Path, output: Path) -> dict:
     output.parent.mkdir(parents=True,exist_ok=True)
     hasher=sha256()
     byte_count=char_count=section_count=0
+    previous_ordinal=None
     with closing(sqlite3.connect(
         "file:"+archive.resolve().as_posix()+"?mode=ro",uri=True
     )) as con:
@@ -82,8 +83,11 @@ def extract_one_book(archive: Path, output: Path) -> dict:
                    WHERE work_id=? ORDER BY ordinal""",(work_id,)
             ):
                 section_count+=1
-                if ordinal!=section_count or not isinstance(content,str):
-                    raise R2StorageError("private book section ordering invalid")
+                if (type(ordinal) is not int or ordinal<0
+                    or (previous_ordinal is not None and ordinal<=previous_ordinal)
+                    or not isinstance(content,str)):
+                    raise R2StorageError("private book has invalid or repeated section ordinal")
+                previous_ordinal=ordinal
                 encoded=content.encode("utf-8")
                 if (len(content)!=declared_chars or
                     sha256(encoded).hexdigest()!=content_hash):
