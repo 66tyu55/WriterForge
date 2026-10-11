@@ -1,0 +1,63 @@
+name: Private R2 one-book transfer - Qiu Mo
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/private-reading-qiumo.yml'
+      - 'writerforge/private_single_qiumo_transfer.py'
+      - 'scripts/transfer_single_qiumo.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: writerforge-private-qiumo-r2
+  cancel-in-progress: false
+
+jobs:
+  verify-one-book:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing R2 client
+        run: python -m pip install -e '.[r2]'
+      - name: Transfer only Qiu Mo using existing private source archive
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+        run: |
+          set -euo pipefail
+          python scripts/transfer_single_qiumo.py > "$RUNNER_TEMP/qiumo-verification.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads((Path(os.environ["RUNNER_TEMP"])/"qiumo-verification.json").read_text(encoding="utf-8"))
+          assert r["book"] == "求魔"
+          assert r["target_prefix"] == "writerforge/v1/private-reading/single-works/qiumo/"
+          assert r["source_archive_sha256_verified"]
+          assert r["only_one_book_extracted"]
+          assert r["fresh_download_sha256_verified"]
+          assert r["remote_objects_present"] >= 3
+          assert r["other_12_works_unchanged"]
+          print("求魔 - PRIVATE R2 ONE-BOOK VERIFIED")
+          print("UTF8 bytes:",r["utf8_bytes"])
+          print("UTF8 SHA256:",r["utf8_sha256"])
+          print("Object count:",r["remote_objects_present"])
+          print("Fresh restore SHA256: PASS")
+          print("Training performed: NO")
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a",encoding="utf-8") as f:
+              f.write("## 求魔 - private one-book R2 round-trip verification\n")
+              f.write("- Source archive SHA256: PASS\n")
+              f.write("- R2 ListObjects: PASS\n")
+              f.write("- Fresh download SHA256: PASS\n")
+              f.write("- No other books transferred and no literary training\n")
+          PY
