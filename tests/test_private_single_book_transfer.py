@@ -163,6 +163,25 @@ class PrivateOneBookTransferTests(unittest.TestCase):
             "reading should not create ANY new R2 objects",
         )
 
+    def test_realistic_global_or_zero_based_section_ordinals_preserve_content(self):
+        # Earlier archive producer may enumerate 0-based within each book or
+        # maintain a global counter. A strict per-book 1..N check is wrong.
+        with closing(sqlite3.connect(self.source)) as con:
+            con.execute("UPDATE sections SET ordinal=ordinal-1+work_id*10000")
+            con.commit()
+        output=self.root/"reconstructed-global-ordinals.txt"
+        proof=extract_one_book(self.source,output)
+        self.assertEqual(output.read_text(encoding="utf-8"),self.expected)
+        self.assertEqual(proof["characters"],len(self.expected))
+        self.assertEqual(proof["section_count"],2)
+
+    def test_duplicate_ordinals_still_fail_closed(self):
+        with closing(sqlite3.connect(self.source)) as con:
+            con.execute("UPDATE sections SET ordinal=0 WHERE work_id=4")
+            con.commit()
+        with self.assertRaisesRegex(R2StorageError,"invalid or duplicate"):
+            extract_one_book(self.source,self.root/"must-fail.txt")
+
     def test_actual_immutable_upload_listing_fresh_download_sha256(self):
         result=self.run_one()
         self.assertTrue(result["target_bucket_matches_expected"])
