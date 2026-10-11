@@ -1,0 +1,77 @@
+name: Private reading - reusable one-work R2
+on:
+  workflow_dispatch:
+    inputs:
+      work_id:
+        description: "One work only (qiumo, xianni, etc.)"
+        required: true
+        type: choice
+        options:
+          - qiumo
+          - xianni
+          - xingchenbian
+          - fanrenxiuxian
+          - wudongqiankun
+          - zhetian
+          - wanmeishijie
+          - manghuangji
+          - yuanzun
+          - dazhuzai
+          - taigushenwang
+          - doupo
+          - xuanjianxianzu
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/private-reading-one-work.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: writerforge-private-one-work-r2
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Exactly one work from already available private R2 archive
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+          WORK_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.work_id || 'qiumo' }}
+        run: |
+          set -euo pipefail
+          python scripts/run_single_private_work.py --work-id "$WORK_ID" > "$RUNNER_TEMP/one-work.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          x=json.loads((Path(os.environ["RUNNER_TEMP"])/"one-work.json").read_text())
+          assert x["work_id"]==os.environ["WORK_ID"]
+          assert x["source_archive_sha256_verified"]
+          assert x["fresh_download_sha256_verified"]
+          assert x["remote_objects_present"]>=3
+          print("PRIVATE SINGLE WORK FULL R2 ROUNDTRIP VERIFIED")
+          print("Work ID:",x["work_id"])
+          print("Object prefix:",x["target_prefix"])
+          print("UTF8 bytes:",x["utf8_bytes"])
+          print("SHA256:",x["utf8_sha256"])
+          print("Training performed: NO")
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a",encoding="utf-8") as s:
+              s.write("## Private R2 single-work roundtrip: PASS\n")
+              s.write("- Work: "+x["work_id"]+"\n")
+              s.write("- Destination: "+x["target_prefix"]+"\n")
+              s.write("- Fresh download SHA256: PASS\n")
+              s.write("- Literary training: NOT RUN\n")
+          PY
