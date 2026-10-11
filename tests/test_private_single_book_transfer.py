@@ -88,7 +88,8 @@ def make_13_work_archive(path: Path, *,ambiguous:bool=False):
         expected=""
         for i in range(1,14):
             is_target=i==4 or (ambiguous and i==5)
-            name=("星辰变" if is_target else "小说"+str(i))
+            name=("星辰变"+("（校验用第二同名副本）" if ambiguous and i==5 else "")
+                  if is_target else "小说"+str(i))
             segments=(
                 ("第1章 那夜\n他看见流星落进荒山，便决定离开故乡。\n",
                  "第一卷"),
