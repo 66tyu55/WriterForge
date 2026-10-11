@@ -48,7 +48,7 @@ jobs:
           set -euo pipefail
           test "$WRITERFORGE_R2_BUCKET" = 'writerforge-private-library'
           python -m writerforge.cli --db "$RUNNER_TEMP/study.sqlite3" backup-r2 \
-            --library sanguo-23950 --edition sanguo-gutenberg-24032-structural-v1 \
+            --library sanguo-23950 --edition sanguo-gutenberg-23950-structural-v1 \
             --source "$RUNNER_TEMP/source.txt" \
             --extra report.json="$RUNNER_TEMP/work-audit/work_report.json" \
             --extra audit.json="$RUNNER_TEMP/work-audit/stage_audit.json" \
@@ -66,5 +66,10 @@ jobs:
               assert db.execute("SELECT COUNT(*) FROM source_spans").fetchone()[0]==report["source_units"]
           assert report["literary_learning_verified"] is False
           assert report["cross_work_consolidation_performed"] is False
-          print("RULIN ORIGINAL: GITHUB FETCH + SOURCE STUDY + R2 BACKUP + FRESH RESTORE VERIFIED")
+          print("SANGUO ORIGINAL: GITHUB FETCH + SOURCE STUDY + R2 BACKUP + FRESH RESTORE VERIFIED")
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a",encoding="utf-8") as summary:
+              summary.write("## 三國志演義 120回 R2 恢复验收\n")
+              summary.write("Source SHA256: "+report["input_sha256"]+"\n")
+              summary.write("Chapters: 120\n")
+              summary.write("Status: structural study only; R2 restored; no literary model training\n")
           PY
