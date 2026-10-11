@@ -19,6 +19,7 @@ from tempfile import TemporaryDirectory
 import json
 import re
 import sqlite3
+import filecmp
 
 from .private_reading_storage import audit_private_reading
 from .r2_storage import (
@@ -35,7 +36,6 @@ BOOK_LABEL = "星辰变"
 BOOK_ALIASES = ("星辰变", "星辰變")
 FORMAT = "writerforge.private_single_work.v1"
 MAX_BOOK_BYTES = 80 * 1024 * 1024
-MAX_SOURCE_ARCHIVE_BYTES = 300 * 1024 * 1024
 
 
 def _select_book(con: sqlite3.Connection) -> tuple:
@@ -128,6 +128,8 @@ class PrivateSingleBookVault(R2StudyVault):
                        source_bytes: int = SOURCE_R2_BYTES) -> dict:
         if source_key!=SOURCE_R2_KEY or source_hash!=SOURCE_R2_SHA256 or source_bytes!=SOURCE_R2_BYTES:
             raise R2StorageError("only the pinned prior R2 source archive is accepted")
+        if self.config.bucket!="writerforge-private-library":
+            raise R2StorageError("configured R2 bucket does not match the user's private storage")
         head=self._head(source_key)
         if head is None or int(head.get("ContentLength",-1))!=source_bytes:
             raise R2StorageError("existing R2-root source archive missing/wrong size")
@@ -194,9 +196,9 @@ class PrivateSingleBookVault(R2StudyVault):
             checked=self._get_small(self._manifest_key(BOOK_ID,version),MAX_MANIFEST_BYTES)
             if checked!=raw or sha256(checked).hexdigest()!=version:
                 raise R2StorageError("remote single-book manifest checksum mismatch")
-            if restored.read_bytes()!=only_book.read_bytes():
-                # small bounded (<80 MiB) extra byte equality check; hash
-                # already independently computed using streamed disk reads.
+            if not filecmp.cmp(restored,only_book,shallow=False):
+                # Independent bounded-stream binary comparison, without
+                # loading a whole novel into RAM.
                 raise R2StorageError("round-trip text bytes changed")
             return {
                 "book":BOOK_LABEL,
