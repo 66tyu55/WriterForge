@@ -1,0 +1,65 @@
+name: Single modern novel source validation (private input)
+on:
+  workflow_dispatch:
+    inputs:
+      work_id:
+        description: "Only fanrenxiuxian in this first pilot"
+        type: choice
+        options: [fanrenxiuxian]
+        required: true
+
+permissions:
+  contents: read
+jobs:
+  validate-single-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SOURCE_URL: ${{ secrets.WRITERFORGE_FANREN_SOURCE_URL }}
+      SOURCE_SHA256: ${{ secrets.WRITERFORGE_FANREN_SOURCE_SHA256 }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify one configured private source without committing or exposing text
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${SOURCE_URL}" || -z "${SOURCE_SHA256}" ]]; then
+            echo "::error::No independently verified source configured; refusing fabricated archive success."
+            exit 1
+          fi
+          python - <<'PY'
+          import hashlib, os, pathlib, re, urllib.request
+          from urllib.parse import urlparse
+          url=os.environ["SOURCE_URL"]
+          expected=os.environ["SOURCE_SHA256"].lower()
+          assert re.fullmatch(r"[0-9a-f]{64}",expected),"SHA256 must be pinned"
+          parsed=urlparse(url)
+          assert parsed.scheme=="https" and parsed.hostname,"HTTPS source required"
+          target=pathlib.Path(os.environ["RUNNER_TEMP"])/"source.txt"
+          total=0
+          digest=hashlib.sha256()
+          with urllib.request.urlopen(urllib.request.Request(url,headers={"User-Agent":"WriterForge/1.0"}), timeout=40) as response, target.open("wb") as dest:
+              assert response.status==200
+              while chunk:=response.read(1024*1024):
+                  total+=len(chunk)
+                  assert total<=25*1024*1024,"source exceeds 25 MiB"
+                  digest.update(chunk)
+                  dest.write(chunk)
+          assert 10*1024*1024<=total<=25*1024*1024, f"unexpected source size: {total}"
+          assert digest.hexdigest()==expected,"pinned SHA256 mismatch"
+          raw=target.read_bytes()
+          decoded=None
+          for codec in ("utf-8-sig","gb18030"):
+              try:
+                  decoded=raw.decode(codec)
+                  break
+              except UnicodeError:
+                  pass
+          assert decoded is not None,"unsupported encoding"
+          assert "韩立" in decoded and "凡人修仙" in decoded, "book identity cues missing"
+          assert len(re.findall(r"第[一二三四五六七八九十百千万零〇两\\d]{1,9}章",decoded))>=1800, "too few chapter headings; inspect edition"
+          print("FILE VERIFIED:",total,"bytes; SHA256:",digest.hexdigest(),"; valid title/character cues; chapter headings >= 1800")
+          PY
+      - name: Report actual scope (no R2 write until an audited full-book reader exists)
+        run: |
+          echo "Validated source is NOT archived or trained; existing CLI limits input to 8MiB and classic parser expects 100 chapters." >> "$GITHUB_STEP_SUMMARY"
