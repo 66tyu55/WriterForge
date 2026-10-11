@@ -1,3 +1,22 @@
+# 单书传输已真实验证成功（2026-10-11 UTC）
+
+**当前唯一可信事实：不是待办，而是已经成功。**
+
+- GitHub Actions [真实单书上传 + R2 ListObjects + 全新下载 + SHA256 完整核验](https://github.com/66tyu55/WriterForge/actions/runs/38107901164)：成功。
+- 原来已有的 R2 根目录 13 本 SQLite 归档：读取并通过固定 231878656 字节 / SHA-256 检查。
+- 只提取《星辰变》；重建 UTF-8 文本实际大小 **8,256,014 字节**。
+- 重建 UTF-8 文件 SHA256：83da08694a5d5510124711c7bfcc7522be531cdb73e01790aa0d3076932ab5f0。
+- 实际私有存储桶：writerforge-private-library。
+- 新私有对象前缀：writerforge/v1/private-reading/single-works/xingchenbian/ 。
+- 真实 R2 对象列表确认 blob / manifest / latest 三种对象均存在；再下载新文件校验 SHA256 一致。
+- 其他 12 本均没有迁移；旧 13 本归档没有覆盖或删除。
+- 尚未语义理解、分类训练或提高完整作品数；这里只验证归档传输。
+- 修复记录：PR #21（单书流程）、PR #22（归档序号格式兼容）、PR #23（源归档状态词兼容），均已合并。
+- **下一次聊天请直接从这个已验证 R2 输入开始，不要再次向用户索要 Google Drive 链接、R2 API 密钥、或手动上传的 ZIP。**
+- 本次是 R2 已存在归档 → R2 单书对象的内部私有迁移，**不是直接 Google Drive OAuth 实时同步**。不得偷换概念。
+
+---
+
 # 现代小说私有传输：唯一可信交接事实（请勿让作者重新授权）
 
 ## 作者的明确要求
