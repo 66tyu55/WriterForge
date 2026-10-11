@@ -1,0 +1,64 @@
+name: Ru Lin Wai Shi original source study and private R2 verification
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/rulin-original-r2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-rulin-private-r2
+  cancel-in-progress: false
+jobs:
+  study-rulin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install WriterForge with existing R2 client
+        run: python -m pip install -e '.[r2]'
+      - name: Download public-domain original from GitHub and verify pinned edition
+        run: |
+          set -euo pipefail
+          python -m writerforge.cli fetch-classic --work rulin --output "$RUNNER_TEMP/source.txt"
+          curl --fail --silent --show-error --location 'https://raw.githubusercontent.com/GITenberg/----_24032/master/LICENSE' -o "$RUNNER_TEMP/license.txt"
+      - name: Full original 56-chapter source study with audited scope
+        run: |
+          set -euo pipefail
+          python scripts/classics_pilot.py rulin "$RUNNER_TEMP/source.txt" "$RUNNER_TEMP/study.sqlite3" "$RUNNER_TEMP/work-audit"
+      - name: Upload only to private R2 and restore in a new location
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+        run: |
+          set -euo pipefail
+          test "$WRITERFORGE_R2_BUCKET" = 'writerforge-private-library'
+          python -m writerforge.cli --db "$RUNNER_TEMP/study.sqlite3" backup-r2 \
+            --library rulin-24032 --edition rulin-gutenberg-24032-structural-v1 \
+            --source "$RUNNER_TEMP/source.txt" \
+            --extra report.json="$RUNNER_TEMP/work-audit/work_report.json" \
+            --extra audit.json="$RUNNER_TEMP/work-audit/stage_audit.json" \
+            --extra license.txt="$RUNNER_TEMP/license.txt"
+          python -m writerforge.cli --db "$RUNNER_TEMP/restored.sqlite3" restore-r2 \
+            --library rulin-24032 --storage-dir "$RUNNER_TEMP/restore"
+          python - <<'PY'
+          import os, sqlite3, json
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])
+          report=json.loads((root/"work-audit"/"stage_audit.json").read_text())
+          with sqlite3.connect(root/"restored.sqlite3") as db:
+              assert db.execute("PRAGMA quick_check").fetchone()[0]=="ok"
+              assert db.execute("SELECT COUNT(*) FROM studied_chapters").fetchone()[0]==56
+              assert db.execute("SELECT COUNT(*) FROM source_spans").fetchone()[0]==report["source_units"]
+          assert report["literary_learning_verified"] is False
+          assert report["cross_work_consolidation_performed"] is False
+          print("RULIN ORIGINAL: GITHUB FETCH + SOURCE STUDY + R2 BACKUP + FRESH RESTORE VERIFIED")
+          PY
