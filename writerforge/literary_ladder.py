@@ -157,7 +157,7 @@ class LiteraryLadder:
             raise LadderError("unknown work: cannot invent source")
         source=self._source(work_id)
         if source is None:
-            raise LadderError("no eligible original source units")
+            raise LadderError("no unused eligible original source units for this project; review recorded attempts before continuing")
         all_cards=self._facets(work_id)
         distinct={}
         for row in all_cards:
