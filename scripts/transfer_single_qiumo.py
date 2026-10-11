@@ -8,6 +8,8 @@ def main():
     if cfg.bucket!="writerforge-private-library":
         raise RuntimeError("wrong private storage bucket")
     result=PrivateSingleBookVault(cfg).smoke_transfer()
+    if result.get("book") != "求魔" or result.get("target_prefix") != "writerforge/v1/private-reading/single-works/qiumo/":
+        raise RuntimeError("unexpected book identity or destination")
     if not (result["source_archive_sha256_verified"] and
             result["only_one_book_extracted"] and
             result["fresh_download_sha256_verified"] and
