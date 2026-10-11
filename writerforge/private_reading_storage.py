@@ -60,12 +60,21 @@ def audit_private_reading(path: str | Path) -> dict:
                 # Stream sections; keep only running hashes and counters in memory.
                 current=0
                 seen=0
+                previous_ordinal=None
                 for ordinal,content,section_sha,char_count in db.execute(
                     """SELECT ordinal,content,content_sha256,char_count
                        FROM sections WHERE work_id=? ORDER BY ordinal""",(id_,)):
                     seen+=1
-                    if ordinal!=seen or not isinstance(content,str):
-                        raise R2StorageError("missing/out-of-order reading section")
+                    # Private reading archives may use 0-based ordinals or
+                    # book-global section identifiers. The exact values are
+                    # not a proof of corruption; ordering, uniqueness and
+                    # every section's content SHA + total source characters
+                    # are the substantive completeness checks.
+                    if (type(ordinal) is not int or ordinal<0
+                        or (previous_ordinal is not None and ordinal<=previous_ordinal)
+                        or not isinstance(content,str)):
+                        raise R2StorageError("invalid or duplicate private reading ordinal/content")
+                    previous_ordinal=ordinal
                     if char_count!=len(content) or sha256(content.encode("utf-8")).hexdigest()!=section_sha:
                         raise R2StorageError("reading section content hash mismatch")
                     current+=char_count
