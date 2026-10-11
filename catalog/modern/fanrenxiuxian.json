@@ -1,0 +1,35 @@
+{
+  "schema": "writerforge.modern_work_admission.v1",
+  "work_id": "fanrenxiuxian",
+  "title": "凡人修仙传",
+  "author": "忘语",
+  "genre": "仙侠 / 幻想修仙",
+  "status": "quality_admitted_source_pending",
+  "ranking": {
+    "list": "2025年度中国网络文学影响力榜",
+    "category": "海外传播榜",
+    "year": 2025,
+    "published": "2026-07-30",
+    "source": "https://www.chinawriter.com.cn/n1/2026/0730/c403993-40771203.html"
+  },
+  "official_reference": {
+    "url": "https://m.readnovel.com/bookquery/qbcldyhvrhwz",
+    "status": "完结",
+    "directory_entries": 2611,
+    "estimated_characters": 7680000,
+    "remarks": "目录条目可能含番外及新书通知，不能直接作完整章节数"
+  },
+  "source": {
+    "kind": "official_reference_only",
+    "source_binary_sha256": null,
+    "source_verified": false,
+    "redistribution_or_automated_training_permission_verified": false,
+    "stored_in_r2": false
+  },
+  "evaluation": {
+    "literary_training_performed": false,
+    "independent_reviews_performed": false,
+    "global_50_work_assessment": false
+  },
+  "next_gate": "Verified lawful full-text source and chapter/byte hash needed before private R2 upload; archive and training are separate gates"
+}
