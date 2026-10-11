@@ -93,12 +93,41 @@ class LiteraryLadder:
             raise LadderError("a real published original study snapshot is required")
 
     def _source(self,work_id:str):
-        # Strictly source-grounded: select the first concise original unit.
-        return self.db.conn.execute(
+        """Choose a source position not already attempted by this project.
+
+        Receipts, including rejected attempts, count as exposure. Never repeat
+        the first sentence indefinitely and never manufacture a fresh lesson
+        when the available bounded source pool has been exhausted.
+        """
+        used=set()
+        rows=self.db.conn.execute(
+            """SELECT receipt_json FROM literary_training_attempts
+               WHERE project_id=? AND work_id=? AND stage=1""",
+            (self.project_id,work_id),
+        ).fetchall()
+        for row in rows:
+            try:
+                receipt=json.loads(row["receipt_json"])
+                task=receipt.get("task",{})
+                location=task.get("source_location")
+                if (isinstance(location,list) and len(location)==3
+                    and all(isinstance(x,int) for x in location)):
+                    used.add(tuple(location))
+            except (TypeError,ValueError,AttributeError):
+                # Old malformed records are never promoted into semantic proof.
+                continue
+        # At most 400 practice rows per project: 401 ordered candidates are
+        # enough to locate an unused position if one exists in this prefix.
+        candidates=self.db.conn.execute(
             """SELECT chapter,paragraph,sentence,excerpt,source_sha256
                FROM source_spans WHERE work_id=? AND length(excerpt) BETWEEN 12 AND 150
-               ORDER BY chapter,paragraph,sentence LIMIT 1""", (work_id,),
-        ).fetchone()
+               ORDER BY chapter,paragraph,sentence LIMIT ?""",
+            (work_id,MAX_SAVED_TRAINING_RUNS_PER_PROJECT+1),
+        )
+        for candidate in candidates:
+            if (candidate["chapter"],candidate["paragraph"],candidate["sentence"]) not in used:
+                return candidate
+        return None
 
     def _facets(self,work_id:str) -> tuple[dict,...]:
         enc=FictionEncyclopedia(self.db)
@@ -128,7 +157,7 @@ class LiteraryLadder:
             raise LadderError("unknown work: cannot invent source")
         source=self._source(work_id)
         if source is None:
-            raise LadderError("no eligible original source units")
+            raise LadderError("no unused eligible original source units for this project; review recorded attempts before continuing")
         all_cards=self._facets(work_id)
         distinct={}
         for row in all_cards:
