@@ -1,6 +1,10 @@
 name: Private reading R2 legacy migration
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/private-reading-r2-migration.yml'
 
 permissions:
   contents: read
