@@ -5,6 +5,11 @@ on:
     paths:
       - '.github/workflows/rulin-original-r2.yml'
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'writerforge/classics_catalog.py'
+      - 'tests/test_v24_chinese_original_catalog.py'
+      - '.github/workflows/rulin-original-r2.yml'
 
 permissions:
   contents: read
@@ -32,6 +37,7 @@ jobs:
           set -euo pipefail
           python scripts/classics_pilot.py rulin "$RUNNER_TEMP/source.txt" "$RUNNER_TEMP/study.sqlite3" "$RUNNER_TEMP/work-audit"
       - name: Upload only to private R2 and restore in a new location
+        if: github.event_name != 'pull_request'
         env:
           WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
           WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
