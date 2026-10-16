@@ -1,0 +1,28 @@
+name: V28 Flash GLM53 real private R2 receipt audit once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v28-flash-glm53-v4-audit-once.yml'
+permissions:
+  contents: read
+jobs:
+  read-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Verify private R2 real A-B report, read only numbers and safe notes
+        run: |
+          set -euo pipefail
+          python scripts/audit_v28_flash_glm53_v4_r2.py
