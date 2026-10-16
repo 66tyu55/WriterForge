@@ -45,7 +45,7 @@ class DiscoveryAdapterTests(unittest.TestCase):
         with self.assertRaisesRegex(DiscoveryError,"EMPTY_VISIBLE"):
             m.ask("system","synthetic test",num_predict=300)
         t.response={"choices":[{"message":{"content":"not json"}}]}
-        with self.assertRaisesRegex(DiscoveryError,"JSON_CONTRACT"):
+        with self.assertRaisesRegex(DiscoveryError,"STRUCTURED_OUTPUT_FAILED"):
             m.ask("system","synthetic test",num_predict=300)
 
     def test_writer_accepts_plain_prose_without_enforcing_json(self):
