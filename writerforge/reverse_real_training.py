@@ -37,8 +37,11 @@ class ModelUnavailable(RealTrainingError):
 def _safe_json(text: str) -> dict:
     if not isinstance(text, str) or len(text) > MAX_JSON_RESPONSE:
         raise RealTrainingError("model returned oversized/empty answer")
+    cleaned=text.strip()
+    if cleaned.startswith("```json") and cleaned.endswith("```"):
+        cleaned=cleaned[7:-3].strip()
     try:
-        result = json.loads(text)
+        result = json.loads(cleaned)
     except ValueError as exc:
         raise RealTrainingError("model answer not JSON") from exc
     if not isinstance(result, dict):
