@@ -1,0 +1,35 @@
+name: V28 Wudong chapter-one-first private source audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v28-wudong-opening-r2.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: v28-wudong-opening-source-only
+  cancel-in-progress: false
+jobs:
+  single-book-from-chapter-one:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Reader and R2 client
+        run: python -m pip install -e '.[r2]'
+      - name: Synthetic opening continuity tests
+        run: python -m unittest discover -s tests -p 'test_v28_reverse_opening_cursor.py' -v
+      - name: Restore existing private original; validate actual first chapters; store metadata ONLY
+        run: |
+          set -euo pipefail
+          python scripts/prepare_wudong_opening_r2.py
