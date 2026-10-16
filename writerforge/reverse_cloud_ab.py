@@ -107,15 +107,17 @@ class CloudABTrial:
         comparison=self.critic.ask(
             "你是独立的文学批评模型。对以下两篇匿名原创稿按相同任务盲评，"
             "侧重主人公感知合理性、行为因果、信息释放、前后连续性及语言质量。"
-            "仅返回 JSON：{A:{perception:{score:整数,reason:短句},causality:...,"
-            "information:...,continuity:...,language:...},B:同结构,"
-            "uncertainty:短句,learned_mechanism:短句}。"
+            "返回完整有效的 JSON 对象：键 A 和 B 都必须含 perception、"
+            "causality、information、continuity、language 五个对象；每个对象"
+            "严格包含 score（0-100整数）和 reason（简短文本）两个字段。"
+            "此外顶层必须含 uncertainty 和 learned_mechanism 两个字符串。"
+            "不得省略字段、不得写省略号或使用Markdown。"
             "评论必须能指出真实文本差异，不能默认有技巧约束的稿子一定更好。"
             "不得引用大段原著或练习稿；分数只是模型未经校准的观察，"
             "不能视为专家90分证明。",
             json.dumps({"task":BASE_TASK,"source_context":first,
                         "A":masked["A"],"B":masked["B"]},ensure_ascii=False),
-            num_predict=1800)
+            num_predict=2600)
         if not isinstance(comparison,dict) or set(comparison)!={
             "A","B","uncertainty","learned_mechanism"
         }:
