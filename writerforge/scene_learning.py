@@ -73,6 +73,7 @@ class VerifiedScene:
     chapter: int
     scene_id: str
     raw_source_sha256: str
+    decoded_source_sha256: str
     scene_sha256: str
     blind_sha256: str
     text: str
@@ -83,6 +84,7 @@ class VerifiedScene:
         return {
             "work_id": self.work_id, "chapter": self.chapter,
             "scene_id": self.scene_id, "source_sha256": self.raw_source_sha256,
+            "decoded_source_sha256": self.decoded_source_sha256,
             "scene_sha256": self.scene_sha256, "blind_sha256": self.blind_sha256,
             "scene_chars": len(self.text), "blind_chars": len(self.blind_text),
             "source_anchor_count": len(self.evidence_anchors),
@@ -97,6 +99,7 @@ def extract_scene_from_chapter(
     chapter_text: str, *, work_id: str, source_sha256: str,
     scene_id: str, chapter: int, start_anchor: str, reveal_anchor: str,
     end_anchor: str, evidence_anchors: tuple[str, ...] = (),
+    decoded_source_sha256: str | None = None,
 ) -> VerifiedScene:
     if not isinstance(chapter_text, str):
         raise SceneStudyError("chapter body must be actual source text")
@@ -115,6 +118,7 @@ def extract_scene_from_chapter(
             raise SceneStudyError("curated evidence is not in this exact source edition: " + quote)
     return VerifiedScene(
         work_id, chapter, scene_id, source_sha256,
+        decoded_source_sha256 or source_sha256,
         sha256(scene.encode("utf-8")).hexdigest(),
         sha256(blind.encode("utf-8")).hexdigest(),
         scene, blind, tuple(evidence_anchors),
@@ -137,7 +141,9 @@ def extract_verified_classic_scene(source_path: Path | str, book: ClassicBook,
         raise SceneStudyError("selected source chapter is missing")
     return extract_scene_from_chapter(
         chapter.text, work_id=book.work_id,
-        source_sha256=sha256(raw).hexdigest(), **spec,
+        source_sha256=sha256(raw).hexdigest(),
+        decoded_source_sha256=sha256(full_text.encode("utf-8")).hexdigest(),
+        **spec,
     )
 
 
@@ -251,8 +257,8 @@ class SceneLiteraryStudy:
         ).fetchone()
         if not row:
             raise SceneStudyError("work has no completed source study in this SQLite")
-        # The original study normalizes UTF-8 into its source hash; raw source
-        # hash is verified independently by the pinned edition loader.
+        if row["source_sha256"] != scene.decoded_source_sha256:
+            raise SceneStudyError("scene belongs to a different original edition than this SQLite")
         recorded = self.db.conn.execute(
             "SELECT 1 FROM studied_chapters WHERE work_id=? AND chapter=?",
             (scene.work_id, scene.chapter),
@@ -326,20 +332,24 @@ class SceneLiteraryStudy:
     def run(self, scene: VerifiedScene, model_call, model_id: str) -> dict:
         receipt = self.prepare(scene)
         state = self._get(scene)
+        calls = 0
         if state["stage"] == "source_prepared":
-            self.lock_first_read(scene,model_call(first_read_prompt(scene)),model_id)
+            first_response = model_call(first_read_prompt(scene))
+            calls += 1
+            self.lock_first_read(scene,first_response,model_id)
             state = self._get(scene)
         if state["stage"] == "first_read_locked":
             if state["model_id"] != model_id:
                 raise SceneStudyError("cannot resume with a different model silently")
-            self.attach_analysis(
-                scene,model_call(close_read_prompt(
-                    scene,json.loads(state["first_read_json"])
-                )),
-            )
+            second_response = model_call(close_read_prompt(
+                scene,json.loads(state["first_read_json"])
+            ))
+            calls += 1
+            self.attach_analysis(scene,second_response)
         row = self._get(scene)
         return {
-            **receipt, "stage":row["stage"],"model_called":True,
+            **receipt, "stage":row["stage"],"model_called":calls>0,
+            "model_calls_this_invocation":calls,
             "first_read_locked":row["first_read_json"] is not None,
             "hypotheses":len(json.loads(row["analysis_json"])["mechanisms"])
                          if row["analysis_json"] else 0,
