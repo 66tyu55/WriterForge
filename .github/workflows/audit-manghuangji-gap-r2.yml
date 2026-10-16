@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/audit-manghuangji-gap-r2.yml'
+      - 'scripts/audit_manghuangji_gap_r2.py'
   workflow_dispatch:
 permissions:
   contents: read
