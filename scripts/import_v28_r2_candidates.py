@@ -12,7 +12,13 @@ import json
 
 from writerforge.r2_storage import R2Config, R2StudyVault, _canonical
 from writerforge.reverse_ab_candidates import derive_unverified_candidates
-from writerforge.reverse_discovery_models import ROLE_MODELS
+# Freeze the *historical* role mapping so future model changes cannot make
+# this immutable trial inaccessible during offline re-audit.
+PINNED_ROLES = {
+    "planner": "deepseek-v4-flash-0731",
+    "writer": "glm-5.3",
+    "critic": "deepseek-v4-flash-0731",
+}
 
 WORK = "wudongqiankun"
 SOURCE_SHA = "86a2fd859b424efe0500b4b36713ea8b05d551140650904ffc2ae02eb244ed28"
@@ -28,7 +34,7 @@ def import_prior_receipt(r2: R2StudyVault) -> dict:
     config = {
         "source": SOURCE_SHA,
         "task": "opening-chapter-1-contiguous-window-1",
-        "roles": dict(ROLE_MODELS),
+        "roles": dict(PINNED_ROLES),
         "trial": TRIAL,
     }
     key_root = f"{PREFIX}/{sha256(_canonical(config)).hexdigest()}"
