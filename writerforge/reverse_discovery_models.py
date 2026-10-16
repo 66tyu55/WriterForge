@@ -118,9 +118,9 @@ class DiscoveryModel:
             message=choice["message"]
             content=message.get("content")
             if not isinstance(content,str) or not content.strip():
-                raise DiscoveryError("DISCOVERY_EMPTY_VISIBLE_TEXT")
+                raise DiscoveryError("DISCOVERY_"+self.role.upper()+"_EMPTY_VISIBLE_TEXT")
             return _safe_json(content)
         except DiscoveryError:
             raise
         except (IndexError,KeyError,TypeError,ValueError,RealTrainingError):
-            raise DiscoveryError("DISCOVERY_MODEL_JSON_CONTRACT_FAILED") from None
+            raise DiscoveryError("DISCOVERY_"+self.role.upper()+"_JSON_CONTRACT_FAILED") from None
