@@ -468,6 +468,19 @@ CREATE TABLE IF NOT EXISTS accepted_prose (
     PRIMARY KEY(project_id, scope_id)
 );
 
+-- Explicitly author-reviewed prose baseline, not an inferred voice score.
+-- One active reference per project; replaces in-place to bound memory/storage.
+CREATE TABLE IF NOT EXISTS project_prose_style (
+    project_id TEXT PRIMARY KEY,
+    reference_text TEXT NOT NULL,
+    reference_sha256 TEXT NOT NULL,
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('author_supplied','approved_project_prose')),
+    source_scope TEXT,
+    source_body_hash TEXT,
+    version INTEGER NOT NULL DEFAULT 1,
+    approved_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS story_commit_receipts (
     project_id TEXT NOT NULL,
     commit_id TEXT NOT NULL,
