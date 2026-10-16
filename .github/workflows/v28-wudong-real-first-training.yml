@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/v28-wudong-real-first-training.yml'
+      - 'writerforge/reverse_real_training.py'
+      - 'scripts/run_wudong_real_reverse_training.py'
+      - 'tests/test_v28_reverse_real_training.py'
   workflow_dispatch:
 
 permissions:
