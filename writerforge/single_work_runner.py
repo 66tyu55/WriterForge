@@ -136,16 +136,16 @@ class SingleWorkVault(R2StudyVault):
         already = self.verify_existing_single_work()
         if already is not None:
             return already
-        # Only use the known R2 source archive. If its original root key
-        # moved, discover it by an exact basename under the controlled
-        # writerforge prefix, and still require the pinned size and SHA256.
+        # For as-yet-unarchived works only, try the pinned legacy input.
+        # If its original root key moved, discover it by an exact basename at
+        # ANY key in the same expected bucket, and still require pinned size/SHA256.
         source_key=SOURCE_R2_KEY
         head=self._head(source_key)
         if head is None or int(head.get("ContentLength",-1))!=SOURCE_R2_BYTES:
             candidates=[]
             token=None
             for _ in range(10):
-                params={"Bucket":self.config.bucket,"Prefix":"writerforge/","MaxKeys":1000}
+                params={"Bucket":self.config.bucket,"MaxKeys":1000}
                 if token:
                     params["ContinuationToken"]=token
                 page=self.client.list_objects_v2(**params)
