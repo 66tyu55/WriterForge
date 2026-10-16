@@ -1,0 +1,57 @@
+name: Private Fanren TXT from owner Drive directly to R2
+on:
+  pull_request:
+    paths:
+      - 'scripts/drive_fanren_to_private_r2.py'
+      - 'tests/test_v30_private_drive_r2.py'
+      - '.github/workflows/private-drive-fanren-to-r2.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/private-drive-fanren-to-r2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-drive-fanren-private-r2
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test fake Google Drive response and fake R2 independent recovery
+        run: python -m unittest discover -s tests -p test_v30_private_drive_r2.py -v
+
+  real-private-transfer:
+    if: github.event_name != 'pull_request'
+    needs: [test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WRITERFORGE_GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.WRITERFORGE_GDRIVE_SERVICE_ACCOUNT_JSON }}
+      WRITERFORGE_FANREN_DRIVE_FILE_ID: ${{ secrets.WRITERFORGE_FANREN_DRIVE_FILE_ID }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing private R2 vault + Google service-account reader
+        run: |
+          python -m pip install -e '.[r2]'
+          python -m pip install 'google-auth>=2,<3' 'requests>=2,<3'
+      - name: Direct private original -> new R2 blobs -> fresh SHA download
+        run: |
+          set -euo pipefail
+          python scripts/drive_fanren_to_private_r2.py
