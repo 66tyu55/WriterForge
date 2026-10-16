@@ -17,6 +17,50 @@ SHA = re.compile(r"[a-f0-9]{64}\Z")
 ID = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}\Z")
 
 
+# Deliberately no 'body', 'draft', 'text' or original-source columns.
+RECORD_FIELDS={
+    "rc_meta":{"project","work","edition","max_chapters","max_units_per_chapter"},
+    "rc_units":{"id","chapter","ordinal","anchor_hash","context_hash",
+                "status","attempts","draft_hash","remote_hash","core_hash"},
+    "rc_attempts":{"unit_id","attempt","draft_hash","quality","status",
+                   "reviewer","faults","hypothesis"},
+    "rc_cores":{"core_hash","spec","tier"},
+    "rc_evidence":{"core_hash","context_hash","unit_id"},
+    "rc_merges":{"pair_start","status","attempts","draft_hash","remote_hash"}
+}
+TABLE_CAPS={"rc_meta":1,"rc_units":18,"rc_attempts":54,
+            "rc_cores":128,"rc_evidence":512,"rc_merges":9}
+
+
+def _validate_snapshot(decoded, work, project, edition):
+    if not isinstance(decoded,dict) or set(decoded)!={"format","project","tables"}:
+        raise R2StorageError("invalid or unexpected snapshot top-level fields")
+    if decoded.get("format")!="writerforge.reverse-core.v1" or decoded.get("project")!=project:
+        raise R2StorageError("wrong reverse-core snapshot identity")
+    tables=decoded.get("tables")
+    if not isinstance(tables,dict) or set(tables)!=set(RECORD_FIELDS):
+        raise R2StorageError("invalid reverse-core table whitelist")
+    for table,columns in RECORD_FIELDS.items():
+        entries=tables[table]
+        if not isinstance(entries,list) or len(entries)>TABLE_CAPS[table]:
+            raise R2StorageError("reverse core table exceeds bounded cardinality")
+        if any(not isinstance(entry,dict) or set(entry)!=columns for entry in entries):
+            raise R2StorageError("reverse-core snapshot contains extra/raw-text fields")
+    if len(tables["rc_meta"])!=1:
+        raise R2StorageError("missing project provenance")
+    meta=tables["rc_meta"][0]
+    if (meta["project"],meta["work"],meta["edition"])!=(project,work,edition):
+        raise R2StorageError("wrong pinned source provenance")
+    for attempt in tables["rc_attempts"]:
+        if not all(isinstance(attempt[k],str) and len(attempt[k])<=350
+                   for k in ("faults","hypothesis")):
+            raise R2StorageError("unbounded trial interpretation")
+    for core in tables["rc_cores"]:
+        if not isinstance(core["spec"],str) or len(core["spec"])>1600:
+            raise R2StorageError("unbounded abstract core")
+    return tables
+
+
 class ReverseCoreVault:
     def __init__(self, config: R2Config, *, client=None):
         if config.bucket != "writerforge-private-library":
@@ -41,20 +85,7 @@ class ReverseCoreVault:
             decoded=json.loads(payload)
         except (UnicodeError,ValueError) as exc:
             raise R2StorageError("snapshot must be valid UTF8 JSON") from exc
-        if (decoded.get("format")!="writerforge.reverse-core.v1" or
-            decoded.get("project")!=project or not isinstance(decoded.get("tables"),dict)):
-            raise R2StorageError("reverse-core manifest is not trusted")
-        if set(decoded["tables"])!={
-            "rc_meta","rc_units","rc_attempts","rc_cores","rc_evidence","rc_merges"
-        }:
-            raise R2StorageError("invalid snapshot table whitelist")
-        if any(not isinstance(value,list) for value in decoded["tables"].values()):
-            raise R2StorageError("snapshot tables must contain bounded records")
-        if not decoded["tables"]["rc_meta"] or len(decoded["tables"]["rc_meta"])!=1:
-            raise R2StorageError("snapshot has no pinned provenance")
-        meta=decoded["tables"]["rc_meta"][0]
-        if (meta.get("project"),meta.get("work"),meta.get("edition"))!=(project,work,edition):
-            raise R2StorageError("source edition not in permitted namespace")
+        _validate_snapshot(decoded,work,project,edition)
         encoded=json.dumps(decoded,sort_keys=True,ensure_ascii=False,
                            separators=(",",":"),allow_nan=False).encode("utf-8")
         if encoded!=payload:
@@ -95,9 +126,5 @@ class ReverseCoreVault:
             raise R2StorageError("core snapshot on R2 failed hash validation")
         # Repeat the edition/schema checks, including canonical JSON.
         decoded=json.loads(data)
-        meta=decoded.get("tables",{}).get("rc_meta",[])
-        if (decoded.get("format")!="writerforge.reverse-core.v1"
-            or decoded.get("project")!=project or len(meta)!=1
-            or (meta[0].get("project"),meta[0].get("work"),meta[0].get("edition"))!=(project,work,edition)):
-            raise R2StorageError("restored core has incorrect source identity")
+        _validate_snapshot(decoded,work,project,edition)
         return data
