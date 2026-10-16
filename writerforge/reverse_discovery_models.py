@@ -91,36 +91,51 @@ class DiscoveryModel:
     def ask(self, system: str, user: str, *, num_predict: int = 1800) -> dict:
         if not isinstance(system,str) or not isinstance(user,str):
             raise DiscoveryError("INVALID_MODEL_PROMPT")
-        messages=[{"role":"system","content":system},
+        if not 50 <= num_predict <= MAX_REQUESTED_OUTPUT_TOKENS:
+            raise DiscoveryError("MODEL_OUTPUT_BUDGET_INVALID")
+        messages=[{"role":"system","content":system+" 仅返回一个合法JSON对象，必须完整闭合。"},
                   {"role":"user","content":user}]
-        body=json.dumps({"model":self.name,"messages":messages,
-                         "stream":False,"max_tokens":num_predict,
-                         "temperature":1 if self.name=="kimi-k2.6" else 0.4},
-                        ensure_ascii=False,separators=(",",":")).encode("utf-8")
-        self.budget.reserve(len(body),num_predict)
-        req=Request(ENDPOINT,data=body,method="POST",headers={
-            "Authorization":"Bearer "+self._key,
-            "Content-Type":"application/json",
-            "Accept":"application/json",
-        })
-        raw=self.transport(req)
-        if not isinstance(raw,bytes) or len(raw)>MAX_OUTPUT_BYTES:
-            raise DiscoveryError("DISCOVERY_RESPONSE_OVERSIZE")
-        try:
-            result=json.loads(raw)
-            usage=result.get("usage") or {}
-            if isinstance(usage,dict):
-                n=usage.get("prompt_tokens")
-                m=usage.get("completion_tokens")
-                if type(n) is int and n>=0:self.budget.total_prompt_tokens+=n
-                if type(m) is int and m>=0:self.budget.total_completion_tokens+=m
-            choice=result["choices"][0]
-            message=choice["message"]
-            content=message.get("content")
-            if not isinstance(content,str) or not content.strip():
-                raise DiscoveryError("DISCOVERY_"+self.role.upper()+"_EMPTY_VISIBLE_TEXT")
-            return _safe_json(content)
-        except DiscoveryError:
-            raise
-        except (IndexError,KeyError,TypeError,ValueError,RealTrainingError):
-            raise DiscoveryError("DISCOVERY_"+self.role.upper()+"_JSON_CONTRACT_FAILED") from None
+        requested=num_predict
+        # Exactly ONE repair is possible across the entire shared AB budget.
+        # No cross-provider fallback, and budget is reserved BEFORE each call.
+        for turn in range(2):
+            body=json.dumps({
+                "model":self.name,"messages":messages,
+                "stream":False,"max_tokens":requested,
+                "temperature":1 if self.name=="kimi-k2.6" else (0.2 if turn else 0.4),
+                "response_format":{"type":"json_object"},
+            },ensure_ascii=False,separators=(",",":")).encode("utf-8")
+            self.budget.reserve(len(body),requested)
+            req=Request(ENDPOINT,data=body,method="POST",headers={
+                "Authorization":"Bearer "+self._key,
+                "Content-Type":"application/json","Accept":"application/json",
+            })
+            raw=self.transport(req)
+            if not isinstance(raw,bytes) or len(raw)>MAX_OUTPUT_BYTES:
+                raise DiscoveryError("DISCOVERY_RESPONSE_OVERSIZE")
+            try:
+                result=json.loads(raw)
+                usage=result.get("usage") or {}
+                if isinstance(usage,dict):
+                    n=usage.get("prompt_tokens")
+                    m=usage.get("completion_tokens")
+                    if type(n) is int and n>=0:
+                        self.budget.total_prompt_tokens+=n
+                    if type(m) is int and m>=0:
+                        self.budget.total_completion_tokens+=m
+                choice=result["choices"][0]
+                message=choice["message"]
+                content=message.get("content")
+                if not isinstance(content,str) or not content.strip():
+                    if turn:
+                        raise DiscoveryError("DISCOVERY_"+self.role.upper()+"_EMPTY_VISIBLE_TEXT")
+                    requested=min(4000,max(2400,requested))
+                    continue
+                return _safe_json(content)
+            except DiscoveryError:
+                raise
+            except (IndexError,KeyError,TypeError,ValueError,RealTrainingError):
+                if turn:
+                    raise DiscoveryError("DISCOVERY_"+self.role.upper()+"_JSON_CONTRACT_FAILED") from None
+                requested=min(4000,max(2400,requested))
+        raise DiscoveryError("DISCOVERY_"+self.role.upper()+"_JSON_RETRY_EXHAUSTED")
