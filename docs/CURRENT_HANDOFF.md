@@ -168,3 +168,14 @@
 源：`wudongqiankun` 在私有 R2 已有 8,254,079 bytes SHA `86a2fd859b424efe0500b4b36713ea8b05d551140650904ffc2ae02eb244ed28`，**全书章节连续性尚有已知异常**。首个真实试点只能使用明确核验的局部场景、全程单本；不得把跳号版本称为完整学习。试点建议 `max_chapters=3`、每章最多 6 单元、每单元最多 3 个候选、双段合并最多 2 次，预算耗尽则 BLOCKED，不能无限追求 90 分。
 
 下一步如用户同意实现：只先构建最小状态机/合成测试和 R2 私有核心快照，验证内存上限、重复 +3、crash/restart、伪评分和删稿可靠性；**在基础合格之前不启动真实章节训练**。
+
+
+## 12. V28 最小运行内核已实现并通过合成工程测试（2026-10-16）
+
+- **用户批准开始实现** V28 临摹倒推最小内核，但尚未授权绕过原文来源及独立评价门槛。代码实现：[writerforge/reverse_craft.py](../writerforge/reverse_craft.py)（隔离 V28 SQLite 有限状态机、临时草稿清理、每单元至多 3 次练习、每 2 单元合并至多 2 次、独立 90/100 评价与闭卷重测拦截、通过核验后 3→6→9 个不同场景核心合并）；[writerforge/reverse_core_vault.py](../writerforge/reverse_core_vault.py)（只备份抽象核心 JSON 到私有 R2 独立目录、不可变 SHA256 对象及全新读取比对；严格字段白名单，禁止 `body`/草稿混入）。
+- 隔离管理命令已加到 `writerforge/cli.py`：`writerforge --db workbench/v28-wudong.sqlite3 reverse-core-init --project wudong-lab --max-chapters 3 --max-units-per-chapter 6`、`reverse-core-status` 和 `reverse-core-restore --snapshot <SHA256>`，只初始化/观察/恢复 V28 小库，拒绝初始化覆盖原有学海 SQLite。**没有真实模型练习 CLI**，只有经过 source/reviewer gate 才能开发。
+- 测试：[tests/test_v28_reverse_craft.py](../tests/test_v28_reverse_craft.py)、[tests/test_v28_reverse_craft_stress.py](../tests/test_v28_reverse_craft_stress.py)、[tests/test_v28_reverse_cli.py](../tests/test_v28_reverse_cli.py)，模拟模型/独立审稿器与模拟 R2；验证失败三次停机、评审缺失 BLOCKED、非独立评审拒绝、重复证据不能刷 +3、R2 回读损坏拒绝晋级、拟提交状态的恢复、两段合并关、2,000 次临时稿创建清理的有限内存使用、专用库隔离和正文注入拒绝。
+- **GitHub Actions 全量测试成功：[run #38875995893](https://github.com/66tyu55/WriterForge/actions/runs/38875995893)**（含新增 R2 snapshot 字段白名单安全回归）。早先 [run #38875687961](https://github.com/66tyu55/WriterForge/actions/runs/38875687961) 也通过全部测试，包括内存和 +3 阶段用例。
+- 使用说明及明确未实现的能力：[V28_MINIMAL_RUNTIME.md](V28_MINIMAL_RUNTIME.md)。这**不是真实《武动乾坤》文学训练、不是真实 90% 成功率，也没有运行真实模型或真实独立文学审稿服务**。V28 R2 备份只有 FakeR2 工程测试；尚未在真实 Cloudflare R2 上传新 V28 核心快照。真实文章目前仅已有单书原文归档，章节完整性仍存在缺陷，须先核实局部原文。
+- 草稿 `TemporaryDirectory` 正常退出即清理，非物理安全擦除；崩溃后的临时文件须安排启动 `cleanup_stale_scratch` TTL 清理。不能让旧 `literary_ladder.py` 对练习稿 `body` 进行普通 R2 学习库备份。**不把合成评审器注入实际作者训练**。
+- **下次按一次一本推进**：先完成《武动乾坤》第一小段和紧邻第二小段的真实章节/source span 校验（私有 runner 内做、日志只输出哈希）；再接独立生成模型和经过实际验证的盲评器，不共享原著全文给生成器；有了真实的评审回执和 R2 验收才允许自动晋级。
