@@ -12,7 +12,7 @@ from writerforge.reverse_cloud_ab import CloudABTrial,BASE_TASK
 
 def fake_chapter(chapter):
     return f"第{chapter}章 合成资料标题\n"+ "".join(
-        f"人物在旧林路口遇到第{idx}个需要解决的障碍，先观察再作出改变方向的决定。\n"
+        f"人物在第{chapter}段旧林路口遇到第{idx}个障碍，先观察再作出改变方向的决定。\n"
         for idx in range(75))
 
 
