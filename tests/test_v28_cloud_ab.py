@@ -163,5 +163,41 @@ class ABTests(unittest.TestCase):
             self.assertNotIn(excerpt, value["reason"])
 
 
+
+class EvidenceFirstProtectionTests(unittest.TestCase):
+    def test_opt_in_abstention_does_not_call_paid_writer_or_critic(self):
+        from writerforge.reverse_cloud_ab import ABTrialError
+        source="合成段落展示一件尚不足以形成叙事机制的普通事件。\n"*20
+        p=FakeModel("planner",{"selections":[]},"p")
+        w=FakeModel("writer",{},"w")
+        critic=FakeModel("critic",CRITIC,"critic")
+        from writerforge.reverse_real_training import raw_hash
+        with self.assertRaisesRegex(ABTrialError,"NO_VERIFIED_TRANSFERABLE_MECHANISM"):
+            CloudABTrial(planner=p,writer=w,critic=critic,evidence_first=True).run(
+                source,"合成下一段"*60,source_sha="a"*64,window_hash=raw_hash(source))
+        self.assertEqual(len(p.calls),1)
+        self.assertEqual(len(w.calls),0)
+        self.assertEqual(len(critic.calls),0)
+        self.assertIn("selections 为 []",p.calls[0][1])
+
+    def test_only_known_negative_source_and_pair_are_quarantined(self):
+        source="原著来源为合成上下文，暂不声称拥有因果理解。\n"*22
+        from writerforge.reverse_real_training import raw_hash
+        p=FakeModel("planner",PLANNER,"p")
+        w=FakeModel("writer",{},"w")
+        critic=FakeModel("critic",CRITIC,"c")
+        blocked=((raw_hash(source),("COST_VISIBLE_IN_ACTION","GOAL_FILTERS_ATTENTION")),)
+        with self.assertRaisesRegex(ABTrialError,"NO_VERIFIED_TRANSFERABLE_MECHANISM"):
+            CloudABTrial(planner=p,writer=w,critic=critic,
+                         evidence_first=True,quarantined_pairs=blocked).run(
+                             source,"合成下一段"*60,source_sha="a"*64,
+                             window_hash=raw_hash(source))
+        self.assertEqual(len(w.calls),0)
+        # Legacy parser is not changed, nor are model IDs or prior R2 receipts.
+        from writerforge.reverse_mechanism_boundary import parse_selections,source_paragraphs
+        selected=parse_selections(PLANNER,source_paragraphs(source))
+        self.assertEqual(len(selected),2)
+
+
 if __name__=="__main__":
     unittest.main()
