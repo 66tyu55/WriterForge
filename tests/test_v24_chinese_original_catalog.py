@@ -41,8 +41,13 @@ def synthetic_book(key="unit", chapter_count=70, prologue=False) -> str:
 
 class CatalogAndStageTests(unittest.TestCase):
     def test_verified_catalog_never_links_translations(self):
-        self.assertEqual(set(CATALOG),{"honglou","shuihu","sanguo","jinghuayuan"})
+        self.assertEqual(set(CATALOG),{"honglou","shuihu","sanguo","jinghuayuan","laocanyouji"})
         self.assertEqual(CATALOG["honglou"].expected_chapters,120)
+        self.assertEqual(CATALOG["laocanyouji"].expected_chapters,20)
+        self.assertIn("GITenberg/----_25124/master/25124-0.txt",
+                      CATALOG["laocanyouji"].source_url)
+        self.assertEqual(CATALOG["laocanyouji"].git_blob_sha1,
+                         "8d20364de9813236c3ada3759b559b3945dc2a3d")
         self.assertEqual(CATALOG["shuihu"].expected_chapters,70)
         self.assertTrue(CATALOG["shuihu"].include_prologue)
         self.assertEqual(MIN_WORKS_FOR_CROSS_CORPUS_REVIEW,50)
