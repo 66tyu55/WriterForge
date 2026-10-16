@@ -59,5 +59,39 @@ class CrossWindowTests(unittest.TestCase):
         with self.assertRaises(CandidateEvidenceError):
             compare_existing_chapters(a,b,v5_sha=h(a),v6_sha=h(b))
 
+    def test_proven_negative_context_quarantine_not_global_disable(self):
+        from writerforge.reverse_cross_window_review import (
+            quarantine_pairs_from_verified_candidate,
+        )
+        from writerforge.reverse_mechanism_boundary import (
+            source_paragraphs, guarded_selections,
+        )
+        from writerforge.reverse_ab_candidates import _canonical
+        a,b=fake_pair(v6_skill=60)
+        result=compare_existing_chapters(a,b,v5_sha=h(a),v6_sha=h(b))
+        digest=sha256(_canonical(result)).hexdigest()
+        blocked=quarantine_pairs_from_verified_candidate(
+            result,candidate_sha256=digest)
+        self.assertEqual(blocked[0][0],"c"*64)
+        paragraphs=source_paragraphs("合成场景存在不确定的认知线索。\\n"*20)
+        selection={"selections":[
+            {"id":"COST_VISIBLE_IN_ACTION","evidence_ids":["P0"]},
+            {"id":"GOAL_FILTERS_ATTENTION","evidence_ids":["P1"]},
+        ]}
+        picks,reason=guarded_selections(
+            selection,paragraphs,source_window_sha256="c"*64,
+            quarantined_pairs=blocked)
+        self.assertEqual(picks,())
+        self.assertEqual(reason,"QUARANTINED_PREVIOUS_NEGATIVE_CONTEXT")
+        old_picks,other=guarded_selections(
+            selection,paragraphs,source_window_sha256="b"*64,
+            quarantined_pairs=blocked)
+        self.assertEqual(len(old_picks),2)
+        self.assertEqual(other,"UNVERIFIED_EXPERIMENT_CANDIDATE")
+        with self.assertRaises(CandidateEvidenceError):
+            quarantine_pairs_from_verified_candidate(
+                result,candidate_sha256="d"*64)
+
+
 if __name__=="__main__":
     unittest.main()
