@@ -87,3 +87,37 @@ def compare_existing_chapters(v5:dict,v6:dict,*,v5_sha:str,v6_sha:str) -> dict:
     if len(_canon(result))>8192:
         raise CandidateEvidenceError("bounded cross-chapter report too large")
     return result
+
+
+def quarantine_pairs_from_verified_candidate(candidate:dict, *, candidate_sha256:str
+                                             ) -> tuple[tuple[str,tuple[str,...]], ...]:
+    """Derive narrow opt-in writer-side quarantine from immutable R2 evidence.
+
+    The callback caller first loads a PRIVATE candidate JSON with fresh GET.
+    This checks canonical byte content, schema, negative observed A/B sign,
+    and exactly the SOURCE WINDOW + HOST mechanism IDs. A regression in one
+    chapter does NOT disable that mechanism everywhere.
+    """
+    import re
+    from .reverse_mechanism_boundary import TECHNIQUES
+    if (not isinstance(candidate_sha256,str) or not re.fullmatch(
+        r"[0-9a-f]{64}",candidate_sha256) or
+        not isinstance(candidate,dict) or
+        sha256(_canon(candidate)).hexdigest()!=candidate_sha256):
+        raise CandidateEvidenceError("unverified candidate digest")
+    if (candidate.get("format")!="writerforge.cross-chapter-unverified-diagnostic.v1"
+        or candidate.get("new_source_held_for_diagnostic_not_curriculum_unlock") is not True
+        or candidate.get("first_window_passed") is not False
+        or candidate.get("second_window_unlocked") is not False
+        or candidate.get("core_promoted") is not False):
+        raise CandidateEvidenceError("cannot interpret candidate as locked regression")
+    if candidate.get("negative_model_rated_new_ab_effect") is not True:
+        return ()
+    sha=candidate.get("new_unit_sha256")
+    ids=candidate.get("selected_mechanisms_after")
+    if (not isinstance(sha,str) or not re.fullmatch(r"[0-9a-f]{64}",sha)
+        or not isinstance(ids,list) or not 1<=len(ids)<=2
+        or len(set(ids))!=len(ids)
+        or any(not isinstance(x,str) or x not in TECHNIQUES for x in ids)):
+        raise CandidateEvidenceError("candidate does not name safe source-scoped techniques")
+    return ((sha,tuple(sorted(ids))),)
