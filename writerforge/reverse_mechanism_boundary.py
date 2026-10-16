@@ -65,19 +65,14 @@ def source_paragraphs(first: str) -> tuple[dict, ...]:
 
 
 def proposal_prompt(paragraphs: tuple[dict,...]) -> str:
-    ids="
-".join("- "+id+": "+description for id,description in TECHNIQUES.items())
+    ids="\n".join("- "+key+": "+description for key,description in TECHNIQUES.items())
     return (
         "你只能从宿主提供的机制 ID 里选择最多两项最有依据的叙事操作。"
         "对每个选择给出至少一个已经出现的段落 ID，不能猜后文。"
         "只返回 JSON 对象，唯一顶层字段 selections；"
         "selections 是 1~2 项数组，每项严格包含 id（宿主机制 ID）"
         "和 evidence_ids（1~3 个 P 编号）的字段。不要复述原文情节。"
-        "
-宿主操作定义：
-"+ids+"
-仅供分析器阅读的原文段落：
-"
+        "\n宿主操作定义：\n"+ids+"\n仅供分析器阅读的原文段落：\n"
         +json.dumps(paragraphs,ensure_ascii=False)
     )
 
