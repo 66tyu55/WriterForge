@@ -237,3 +237,15 @@
 用户提供 GitHub 页面已存在 `DISCOVERY_API_KEY` 的截图，**不得要求用户反复新增/改名或在聊天里发送真实 API Key**。最初 `scripts/probe_discovery_api.py` 用 `len(key)<12 or whitespace` 输出 `MISSING_SECRET`，无法判断密钥到底是否在 Action 中可见；此前因此推断“用户未配置”不成立。已修改成三种独立状态：环境变量缺席、GitHub Actions Secret 表达式映射为空、变量有值但本地格式检查失败，绝不输出原密钥、长度或片段。
 
 **重新运行 [#38885722986](https://github.com/66tyu55/WriterForge/actions/runs/38885722986) 真实结果：`GITHUB_ACTIONS_SECRET_RESOLVED_EMPTY`，workflow 的 `env: DISCOVERY_API_KEY: ${{ secrets.DISCOVERY_API_KEY }}` 在 `66tyu55/WriterForge` main 分支 push 运行环境被解析为空。真实模型请求为 0，小说原文外发为 0，费用为 0。**这不等于用户没保存密钥。** 需检查屏幕上对应 Secrets 是该仓库的 Actions Repository secret、Environment secret（需要 job `environment` 匹配）还是其他仓库/组织/Dependabot/Codespaces 范围。截图裁切未显示层级，不可猜测是哪一类；不能读取密钥本体。
+
+
+## 17. Discovery 实际密钥名修正、可用模型、正式 V28 A/B 试跑（2026-10-16）
+
+用户截图中 GitHub Secret 的准确名称是 **`DISCOVERY__API__KEY`（双下划线）**，此前错误地引用为 `DISCOVERY_API_KEY` 导致 Actions 环境变量为空；**不是用户未保存密钥，无需重新注册或修改 Secret**。已把 `.github/workflows/discovery-api-probe.yml` 与专用 V28 工作流改为引用 `${{ secrets.DISCOVERY__API__KEY }}`，进程内部 env 名可仍用单下划线，不冲突。
+
+- [鉴权和真实短文生成 success #38886144104](https://github.com/66tyu55/WriterForge/actions/runs/38886144104)：端砚 `https://discovery-api.intern-ai.org.cn/v1` 实测返回 11 个模型，包括 `deepseek-v4-flash-0731`、`deepseek-v4-pro-0813`、`glm-5.3`、`kimi-k2.6`、`intern-s2`、`minimax-m3`。使用 DeepSeek V4 Flash 真实生成 45 字符（prompt 109、completion 69 tokens），`finish_reason=stop`；没有发送私有小说。
+- [三个模型各自真实简短 JSON 能力 success #38886690784](https://github.com/66tyu55/WriterForge/actions/runs/38886690784)：`glm-5.3`、`kimi-k2.6`、`deepseek-v4-pro-0813` 均可返回短 JSON；这**不代表**长文复杂输出一定合格。
+- 新增 `writerforge/reverse_discovery_models.py`（固定端砚 HTTPS 主机、5 次请求/16000 预约输出 tokens 总上限，单请求超时 150 秒，不暴露 key，安全 JSON 重试至多一次）；`scripts/run_wudong_discovery_ab.py`（从已有私有 R2 SHA pin 恢复《武动乾坤》第一章首段、真实非模拟 Planner→Kimi Writer A/B→DeepSeek V4 Pro Critic、只存抽象证据及短回执到独立私有 R2；不把练习稿或整本原文持久保存）；`.github/workflows/v28-discovery-real-ab.yml`（已在用户同意“能调通就开始正规训练”后启动单书）。
+- [首轮正式 A/B #38886477025](https://github.com/66tyu55/WriterForge/actions/runs/38886477025) **失败**，因复杂 JSON 契约；[第二轮 #38887011693](https://github.com/66tyu55/WriterForge/actions/runs/38887011693) 在有限重试后仍失败，精确故障为 `DISCOVERY_PLANNER_JSON_CONTRACT_FAILED`，来自 GLM-5.3 面对实际原著的长结构分析。原文 R2 未损坏；无“90% 大师水平通过”或第二段解锁。
+- 已将仅规划角色替换为 **`deepseek-v4-flash-0731`**；保留 `kimi-k2.6` 写作、`deepseek-v4-pro-0813` 审评。[第三轮正式 A/B #38887477346](https://github.com/66tyu55/WriterForge/actions/runs/38887477346) 在本文写入时刚启动，**必须读 job 最终结论和远端 R2 receipt 才能确认结果**，不可预写成功或文学能力改善。
+- 后续无论结果如何，不许用模型自己的 90 分取代独立校准盲评。不启动额外小说、不跳过序列原著、不无限迭代。API Key 真值不能回显，不需要用户重复配置。
