@@ -28,7 +28,7 @@ from writerforge.single_work_runner import SingleWorkVault
 WORK = "wudongqiankun"
 SOURCE_SHA = "86a2fd859b424efe0500b4b36713ea8b05d551140650904ffc2ae02eb244ed28"
 SOURCE_BYTES = 8_254_079
-PREFIX = "writerforge/v1/reverse-craft/wudongqiankun/fixed-1m-context-50k-ab-v3"
+PREFIX = "writerforge/v1/reverse-craft/wudongqiankun/cross-vendor-flash-glm53-50k-ab-v4"
 MAX_RECEIPT_BYTES = 32000
 
 def run() -> dict:
@@ -44,7 +44,7 @@ def run() -> dict:
     if orig is None or (orig["utf8_sha256"],orig["utf8_bytes"])!=(SOURCE_SHA,SOURCE_BYTES):
         raise DiscoveryError("PINNED_ORIGINAL_MISMATCH")
     config={"source":SOURCE_SHA,"task":"opening-chapter-1-contiguous-window-1",
-            "roles":ROLE_MODELS,"trial":"fixed-1m-context-50k-ab-v3"}
+            "roles":ROLE_MODELS,"trial":"cross-vendor-flash-glm53-50k-ab-v4"}
     config_sha=sha256(_canonical(config)).hexdigest()
     root=f"{PREFIX}/{config_sha}"
     finished=root+"/completed.json"
@@ -151,6 +151,12 @@ def run() -> dict:
             "per_trial_requested_completion_tokens_max":budget.max_reserved_output_tokens,
             "max_api_calls":budget.max_calls,
         }
+        outcome["fixed_cross_vendor_roles"]={
+            "planner_and_critic":"deepseek-v4-flash-0731",
+            "writer":"glm-5.3",
+            "critic_independent_of_writer":True,
+            "three_distinct_models":False,
+        }
         outcome["provider"]="discovery"
         outcome["source_scope"]="only_first_2125_characters_of_chapter_1"
         outcome["literary_quality_status"]="UNVERIFIED_BY_INDEPENDENT_HUMANS"
@@ -171,7 +177,7 @@ def run() -> dict:
             raise DiscoveryError("AB_REPORT_CONCURRENT_FINALIZATION")
         pointer=_canonical({"sha256":h,"source_sha256":SOURCE_SHA,
                              "config_sha256":config_sha,
-                             "format":"fixed-1m-context-50k-ab-v3"})
+                             "format":"cross-vendor-flash-glm53-50k-ab-v4"})
         r2.client.put_object(Bucket=cfg.bucket,Key=finished,
                              Body=pointer,ContentType="application/json")
         if r2._get_small(finished,4096)!=pointer:
