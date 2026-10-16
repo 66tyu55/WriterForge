@@ -1,0 +1,30 @@
+name: V28 true private R2 mechanism regression guard once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v28-real-negative-guard-proof-once.yml'
+permissions:
+  contents: read
+jobs:
+  verify-no-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Backward compatible old AB and opt-in guard regressions
+        run: |
+          python -m unittest discover -s tests -p test_v28_cloud_ab.py -q
+          python -m unittest discover -s tests -p test_v28_cross_window_review.py -q
+      - name: Read genuine V6 negative private R2 receipt and verify quarantine preserves old skills
+        run: python -m scripts.verify_v28_real_negative_guard_r2
