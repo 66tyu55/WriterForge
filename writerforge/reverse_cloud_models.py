@@ -108,7 +108,8 @@ class CloudModel:
             "messages": [{"role":"system","content":system},
                          {"role":"user","content":user}],
             "max_tokens":num_predict,
-            "temperature":0.35,
+            # Kimi K2.5/K2.6 require temperature=1; other endpoints vary.
+            "temperature":1.0 if self.provider=="moonshot" else 0.35,
             "response_format":{"type":"json_object"},
             "stream":False,
         }
