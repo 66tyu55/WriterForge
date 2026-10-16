@@ -42,6 +42,7 @@ def later_chapter_diagnostic(path: str | Path, encoding: str, *,
     current=0
     headers=0
     content=[]
+    chapter_chars=0
     preamble=0
     with Path(path).open("r",encoding=encoding) as fp:
         for line_no,line in enumerate(fp,1):
@@ -68,7 +69,8 @@ def later_chapter_diagnostic(path: str | Path, encoding: str, *,
                     raise LaterWindowError("PREAMBLE_TOO_LONG")
             if current==chapter:
                 content.append(line)
-                if sum(map(len,content))>MAX_CHAPTER:
+                chapter_chars+=len(line)
+                if chapter_chars>MAX_CHAPTER:
                     raise LaterWindowError("CHAPTER_TOO_LARGE")
     if current!=chapter+1 or headers!=chapter+1:
         raise LaterWindowError("CHAPTER_END_NOT_CONFIRMED")
