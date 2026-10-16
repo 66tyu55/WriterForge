@@ -315,3 +315,15 @@
 **本轮已发生真实模型推理，并实证多个底层协议缺陷；没有新的“通过文学训练”的证明，没有可比的新版增强/无增强评分，也没有升到第2段。** 本轮只通过工程单测和真实失败留证，90% 晋级始终 BLOCKED。
 
 **下次最先要做的不是盲目扩大 max_calls**：先确认有能力输出短、结构化技术ID的 Planner 模型以及端砚模型返回结构（不可见 reasoning、content 与 finish_reason 的类型与长度），避免继续浪费端砚余额。随后在相同原著窗口、相同稿长条件下做完整原创 A/B；有真实可比批评结果后才修 WriterForge 的文学机制层。保持普通 GitHub push 不自动收费；所有这轮 one-shot workflows 仅对其自身的文件变化触发。
+
+
+## 23. V28 固定百万上下文模型二人组与 50,000 Token 总预算（2026-10-16）
+
+用户要求“**固定2/3个模型，全是1m上下文的，限制大一点，5万**”。实际选择 **2 个模型**：端砚所列 `deepseek-v4-flash-0731` 做规划+模型批评、`deepseek-v4-pro-0813` 做原创+续写，**不再频繁换模型**。DeepSeek 官方 V4 文档证实二者支持 1M（1,048,576）token 上下文，DeepSeek 官方 Chat API 支持 `thinking:{"type":"disabled"}` 关闭默认思考；端砚 Discovery 网关 [真实短问探针 #38910061191](https://github.com/66tyu55/WriterForge/actions/runs/38910061191) **success**，两个具体模型 ID 在此第三方网关都能使用 thinking=disabled 并返回可见短文本，未发送私有原著。端砚 `/models` 未暴露实际 context_window，**不能把官方 1M 参数宣称为第三方网关 1M 实压通过**。
+
+实施：
+- `writerforge/reverse_discovery_models.py` 固定角色映射、声明官方 1M 规格与网关压测未验收状态；每次请求显式关闭 DeepSeek V4 的深思考，避免小窗口空白回复；单次 `max_tokens` 配置上限 50,000 且**共享每轮总预留输出最多 50,000 tokens**，最多 7 次实际模型请求。请求传输上限4MiB，响应最大1MB，超额 fail closed。
+- `writerforge/reverse_cloud_ab.py` 请求预算按 Planner 6,500 + Writer A 11,000 + Writer B 11,000 + Critic 8,000 = 默认36,500；余下13,500留给有限一次的故障重试；达到总50,000时停止。不是每个阶段自动消耗满5万。
+- `scripts/run_wudong_discovery_ab.py` 使用独立 v3 `fixed-1m-context-50k-ab-v3` 前缀及模型/源指纹，旧 v1/v2 的成功与失败证据都保留。
+- 新回归 `tests/test_v28_fixed_pair_budget.py`；GitHub [全量 Tests #38910871380](https://github.com/66tyu55/WriterForge/actions/runs/38910871380) **success**。代码与限制见 [V28_FIXED_1M_PAIR_50K.md](V28_FIXED_1M_PAIR_50K.md)。
+- 用户先前明确“边消耗真实端砚额度边发现问题”，因此已启动**仅一次**实际 [#38910720051](https://github.com/66tyu55/WriterForge/actions/runs/38910720051)，本条写入时仍执行中，必须读取最终 Actions job 结论与私有 R2 凭证；不能提前宣称文学训练完成或90分，第二窗口始终锁定。普通代码提交不会重复触发这个一次性付费工作流。
