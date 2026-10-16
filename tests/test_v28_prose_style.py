@@ -95,7 +95,7 @@ class StyleReferenceTests(unittest.TestCase):
         self.assertNotIn("结构类别=",p.prompt)
         self.assertNotIn("classical_dialogue",p.prompt)
         self.assertNotIn(p.evidence[0]["evidence_excerpt"],p.prompt)
-        self.assertFalse(p.manifest()["source_evidence_shown_to_model"])
+        self.assertFalse(p.manifest()["unreviewed_source_excerpts_shown_to_model"])
         self.assertFalse(p.manifest()["craft_labels_shown_to_model"])
         self.assertNotIn("30%对话",p.prompt)
         self.assertNotIn("每章至少",p.prompt)
