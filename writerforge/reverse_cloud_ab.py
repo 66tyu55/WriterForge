@@ -9,9 +9,10 @@ from dataclasses import dataclass
 from hashlib import sha256
 import json
 
-from .reverse_real_training import (
-    RealTrainingError, raw_hash, _source_copy_guard, _limited_explanation,
-    _clean_abstract, NOTE_FIELDS, FAULT_FIELDS, MAX_NOTE_CHARS,
+from .reverse_real_training import RealTrainingError, raw_hash, _source_copy_guard
+from .reverse_mechanism_boundary import (
+    MechanismBoundaryError, source_paragraphs, proposal_prompt,
+    parse_selections, build_writer_packet, report_evidence,
 )
 
 MAX_AB_CALLS = 4
@@ -54,10 +55,10 @@ def _choice_score(doc, draft, source):
 
 
 class CloudABTrial:
-    """One window; no automatic threshold promotion or multiple generations.
+    """Source-isolated AB. Planner chooses HOST-defined reusable mechanisms.
 
-    Uses three independent roles with cloud rate/call budgets; critic sees
-    anonymized A/B drafts in a reproducible order. No human score asserted.
+    Writer sees no source prose or plot; critic sees both anonymized drafts.
+    Length mismatches fail closed; model score cannot promote literary skill.
     """
     def __init__(self, *, planner, writer, critic):
         if (writer.provider,writer.name)==(critic.provider,critic.name):
@@ -69,25 +70,18 @@ class CloudABTrial:
             raise ABTrialError("source is not a real bounded first chapter window")
         if raw_hash(first)!=window_hash:
             raise ABTrialError("first window no longer matches R2 pin")
-        source_context="【当前第一窗口】\n"+first
-        p=self.planner.ask(
-            "只阅读给定的当前原著片段，具体解释人物的有限感知和动作因果、"
-            "叙述者为什么此时呈现这一细节、以及读者仍不知什么。"
-            "不要推测未来内容，不要引用或复述大段原文。"
-            "仅返回含 trigger/perception/decision/consequence/reader_question/author_mechanism 的JSON。",
-            source_context,num_predict=1700)
-        hypothesis=_limited_explanation(p, NOTE_FIELDS,cap=MAX_NOTE_CHARS)
-        hypothesis=_clean_abstract(hypothesis,first,"")
-        neutral={"writing_task":BASE_TASK,"return_json":{"scene":"string"}}
-        enhanced={
-            "writing_task":BASE_TASK,
-            "technique_constraints":{
-                "attention":hypothesis["perception"],
-                "decision_causality":hypothesis["decision"],
-                "narrative_function":hypothesis["author_mechanism"],
-            },
-            "return_json":{"scene":"string"},
-        }
+        # Source/plot only enters the planner and critic; Writer receives
+        # only program-owned enum operations and the same neutral task.
+        paragraphs=source_paragraphs(first)
+        proposal=self.planner.ask(
+            "你负责原著证据选择，不负责替写作者写剧情提纲。"
+            "不能输出原著专名、事件描述或任意创作指令。"
+            "严格按宿主的 id/evidence_ids JSON 结构回复。",
+            proposal_prompt(paragraphs),num_predict=1700)
+        selections=parse_selections(proposal,paragraphs)
+        abstract_evidence=report_evidence(selections,paragraphs)
+        neutral=build_writer_packet(selections,enhanced=False,writing_task=BASE_TASK)
+        enhanced=build_writer_packet(selections,enhanced=True,writing_task=BASE_TASK)
         outputs={}
         for kind, instruction in (("baseline",neutral),("skill",enhanced)):
             response=self.writer.ask(
@@ -100,6 +94,12 @@ class CloudABTrial:
                 raise ABTrialError("writer failed to produce bounded original scene")
             _source_copy_guard(draft,first)
             outputs[kind]=draft
+        # A/B must be comparable BEFORE any numerical critic score exists.
+        # Earlier actual A/B had a 49% length difference, a severe confound.
+        baseline_chars=len(outputs["baseline"])
+        skill_chars=len(outputs["skill"])
+        if (abs(baseline_chars-skill_chars)/max(baseline_chars,skill_chars))>0.15:
+            raise ABTrialError("AB_LENGTH_MISMATCH_NOT_COMPARABLE")
         # Blind ordering is fixed by *draft hashes* before seeing evaluation,
         # so the critic never receives which prompt included the learned rule.
         ordered=sorted(outputs, key=lambda k:raw_hash(outputs[k]))
@@ -151,7 +151,14 @@ class CloudABTrial:
             "roles":{"planner":{"provider":self.planner.provider,"model":self.planner.name},
                      "writer":{"provider":self.writer.provider,"model":self.writer.name},
                      "critic":{"provider":self.critic.provider,"model":self.critic.name}},
-            "hypothesis":hypothesis,"comparisons":display,
+            "planner_mechanisms_unreviewed":abstract_evidence,
+            "writer_prompt_source_prose_or_plot":False,
+            "mechanism_registry":"host_static_only_v1",
+            "length_gate":{"max_relative_difference":0.15,
+                           "baseline_chars":baseline_chars,
+                           "skill_chars":skill_chars,
+                           "comparable":True},
+            "comparisons":display,
             **neutral_note,
             "model_call_count_nominal":4,
             "drafts_retained":False,"human_blind_review_performed":False,
