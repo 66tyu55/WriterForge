@@ -7,7 +7,7 @@ the explicitly chosen Discovery provider. The provider is third-party.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.request import Request, build_opener, HTTPSHandler, HTTPRedirectHandler
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
@@ -29,7 +29,7 @@ ROLE_MODELS = {
 }
 MAX_PROMPT_BYTES = 25000
 MAX_OUTPUT_BYTES = 80000
-MAX_CALLS = 5
+MAX_CALLS = 7
 MAX_REQUESTED_OUTPUT_TOKENS = 4000
 
 class DiscoveryError(RealTrainingError):
@@ -43,19 +43,23 @@ class _NoRedirect(HTTPRedirectHandler):
 class DiscoveryCallBudget:
     max_calls: int = MAX_CALLS
     calls: int = 0
-    max_reserved_output_tokens: int = 16000
+    max_reserved_output_tokens: int = 25000
+    last_requested_role: str = "not_started"
+    calls_by_role: dict[str,int] = field(default_factory=dict)
     reserved_output_tokens: int = 0
     total_prompt_tokens: int = 0
     total_completion_tokens: int = 0
 
-    def reserve(self, request_bytes: int, requested: int) -> None:
-        if not (1 <= self.max_calls <= 6 and
+    def reserve(self, request_bytes: int, requested: int, *, role: str = "unknown") -> None:
+        self.last_requested_role=role
+        if not (1 <= self.max_calls <= 8 and
                 0 <= self.calls < self.max_calls and
                 50 <= requested <= MAX_REQUESTED_OUTPUT_TOKENS and
                 request_bytes <= MAX_PROMPT_BYTES and
                 self.reserved_output_tokens + requested <= self.max_reserved_output_tokens):
             raise DiscoveryError("MODEL_CALL_OR_TOKEN_BUDGET_EXHAUSTED")
         self.calls += 1
+        self.calls_by_role[role]=self.calls_by_role.get(role,0)+1
         self.reserved_output_tokens += requested
 
 class DiscoveryModel:
@@ -112,7 +116,7 @@ class DiscoveryModel:
             if not prose_mode:
                 request_data["response_format"]={"type":"json_object"}
             body=json.dumps(request_data,ensure_ascii=False,separators=(",",":")).encode("utf-8")
-            self.budget.reserve(len(body),requested)
+            self.budget.reserve(len(body),requested,role=self.role)
             req=Request(ENDPOINT,data=body,method="POST",headers={
                 "Authorization":"Bearer "+self._key,
                 "Content-Type":"application/json","Accept":"application/json",
