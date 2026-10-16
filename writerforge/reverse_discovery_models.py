@@ -115,6 +115,11 @@ class DiscoveryModel:
                 "stream":False,"max_tokens":requested,
                 "temperature":1 if self.name=="kimi-k2.6" else (0.2 if turn else 0.4),
             }
+            if self.name=="intern-s2":
+                # Official Intern-S2 Chat API supports disabling deep
+                # thinking for brief selector-style responses. Different
+                # Discovery gateway behavior is checked by a live probe.
+                request_data["thinking_mode"]=False
             if not prose_mode:
                 request_data["response_format"]={"type":"json_object"}
             body=json.dumps(request_data,ensure_ascii=False,separators=(",",":")).encode("utf-8")
