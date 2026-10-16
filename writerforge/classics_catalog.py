@@ -36,7 +36,7 @@ class ClassicBook:
     @property
     def source_url(self) -> str:
         return (
-            f"https://raw.githubusercontent.com/GITenberg/{'-----' if self.key == 'sanguo' else '---'}_{self.gutenberg_id}/"
+            f"https://raw.githubusercontent.com/GITenberg/{'-----' if self.key == 'sanguo' else ('----' if self.key == 'laocanyouji' else '---')}_{self.gutenberg_id}/"
             f"master/{self.source_filename}"
         )
 
@@ -50,6 +50,13 @@ class ClassicBook:
 
 
 CATALOG: dict[str, ClassicBook] = {
+    "laocanyouji": ClassicBook(
+        key="laocanyouji", title="老殘遊記", work_id="laocanyouji-gutenberg-25124",
+        gutenberg_id=25124, source_filename="25124-0.txt",
+        git_blob_sha1="8d20364de9813236c3ada3759b559b3945dc2a3d",
+        expected_chapters=20, include_prologue=False,
+        literary_focus=("晚清社会观察","听觉与视角","市井对话","社会讽刺"),
+    ),
     "jinghuayuan": ClassicBook(
         key="jinghuayuan", title="鏡花緣", work_id="jinghuayuan-gutenberg-25377",
         gutenberg_id=25377, source_filename="25377-0.txt",
