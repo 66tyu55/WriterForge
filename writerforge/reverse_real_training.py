@@ -158,6 +158,7 @@ class RealFirstUnitTrainer:
         if self.writer.name==self.critic.name:
             raise RealTrainingError("critic must be a different actual model")
         self.calls=0
+        self.redacted_notes=0
 
     def _ask(self,model,system,user,predict=1400):
         if self.calls>=MAX_MODEL_CALLS:
@@ -182,7 +183,16 @@ class RealFirstUnitTrainer:
                 "仅返回包含相同字段的JSON，各字段20-80汉字。",
                 json.dumps(short,ensure_ascii=False),950)
             normalized=_limited_explanation(revised,fields,cap=cap)
-            return _clean_abstract(normalized,source,draft)
+            safe={}
+            for key,value in normalized.items():
+                if len(value)>55 and (value in source or value in draft):
+                    # Persist *only a hash and explicit failure*, not a guessed
+                    # replacement or a copyrighted/draft quote.
+                    safe[key]="UNVERIFIED_QUOTATION_REDACTED_"+raw_hash(value)[:18]
+                    self.redacted_notes+=1
+                else:
+                    safe[key]=value
+            return safe
 
     def learn(self,segments:tuple[str,str], *, source_sha:str, max_attempts:int=2):
         if not 1<=max_attempts<=3:
@@ -257,6 +267,8 @@ class RealFirstUnitTrainer:
             "critic_model":self.critic.name,"real_model_calls":self.calls,
             "initial_hypothesis":concepts,"attempts":attempts,
             "noted_failures":len(attempts),
+            "unverified_critic_quote_redactions":self.redacted_notes,
+            "critic_core_promotable":False,
             "real_model_training_executed":True,
             "original_full_chapters_read":False,
             "independent_human_review_performed":False,
