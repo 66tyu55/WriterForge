@@ -20,6 +20,7 @@ from writerforge.reverse_real_training import first_chapter_windows, raw_hash
 from writerforge.reverse_cloud_ab import CloudABTrial
 from writerforge.reverse_discovery_models import (
     DiscoveryCallBudget, DiscoveryModel, ROLE_MODELS, DiscoveryError,
+    FIXED_MODEL_CONTEXT_TOKENS, DISCOVERY_GATEWAY_1M_LOAD_VERIFIED,
 )
 from writerforge.r2_storage import R2Config, R2StudyVault, _canonical, _digest
 from writerforge.single_work_runner import SingleWorkVault
@@ -27,7 +28,7 @@ from writerforge.single_work_runner import SingleWorkVault
 WORK = "wudongqiankun"
 SOURCE_SHA = "86a2fd859b424efe0500b4b36713ea8b05d551140650904ffc2ae02eb244ed28"
 SOURCE_BYTES = 8_254_079
-PREFIX = "writerforge/v1/reverse-craft/wudongqiankun/source-isolated-ab-v2"
+PREFIX = "writerforge/v1/reverse-craft/wudongqiankun/fixed-1m-context-50k-ab-v3"
 MAX_RECEIPT_BYTES = 32000
 
 def run() -> dict:
@@ -43,7 +44,7 @@ def run() -> dict:
     if orig is None or (orig["utf8_sha256"],orig["utf8_bytes"])!=(SOURCE_SHA,SOURCE_BYTES):
         raise DiscoveryError("PINNED_ORIGINAL_MISMATCH")
     config={"source":SOURCE_SHA,"task":"opening-chapter-1-contiguous-window-1",
-            "roles":ROLE_MODELS,"trial":"source-isolated-ab-v2"}
+            "roles":ROLE_MODELS,"trial":"fixed-1m-context-50k-ab-v3"}
     config_sha=sha256(_canonical(config)).hexdigest()
     root=f"{PREFIX}/{config_sha}"
     finished=root+"/completed.json"
@@ -66,7 +67,7 @@ def run() -> dict:
         plan,(first,second)=first_chapter_windows(path,_encoding(path),SOURCE_SHA)
         if plan["units"][0]["start"]!=0 or len(first)!=plan["units"][1]["start"]:
             raise DiscoveryError("SOURCE_WINDOW_NOT_CONTIGUOUS")
-        budget=DiscoveryCallBudget(max_calls=7,max_reserved_output_tokens=25000)
+        budget=DiscoveryCallBudget(max_calls=7,max_reserved_output_tokens=50000)
         roles={role:DiscoveryModel(name=name,role=role,api_key=token,budget=budget)
                for role,name in ROLE_MODELS.items()}
         try:
@@ -144,6 +145,12 @@ def run() -> dict:
             "prompt_tokens_reported":budget.total_prompt_tokens,
             "completion_tokens_reported":budget.total_completion_tokens,
         }
+        outcome["context_configuration"]={
+            "model_specs_official_context_tokens":dict(FIXED_MODEL_CONTEXT_TOKENS),
+            "discovery_gateway_full_1m_load_verified":DISCOVERY_GATEWAY_1M_LOAD_VERIFIED,
+            "per_trial_requested_completion_tokens_max":budget.max_reserved_output_tokens,
+            "max_api_calls":budget.max_calls,
+        }
         outcome["provider"]="discovery"
         outcome["source_scope"]="only_first_2125_characters_of_chapter_1"
         outcome["literary_quality_status"]="UNVERIFIED_BY_INDEPENDENT_HUMANS"
@@ -164,7 +171,7 @@ def run() -> dict:
             raise DiscoveryError("AB_REPORT_CONCURRENT_FINALIZATION")
         pointer=_canonical({"sha256":h,"source_sha256":SOURCE_SHA,
                              "config_sha256":config_sha,
-                             "format":"source-isolated-ab-v2"})
+                             "format":"fixed-1m-context-50k-ab-v3"})
         r2.client.put_object(Bucket=cfg.bucket,Key=finished,
                              Body=pointer,ContentType="application/json")
         if r2._get_small(finished,4096)!=pointer:
