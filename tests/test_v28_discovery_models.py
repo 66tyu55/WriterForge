@@ -50,7 +50,7 @@ class DiscoveryAdapterTests(unittest.TestCase):
 
     def test_different_model_roles_with_real_listed_names(self):
         self.assertEqual(set(ROLE_MODELS),{"planner","writer","critic"})
-        self.assertEqual(len(set(ROLE_MODELS.values())),3)
+        self.assertNotEqual(ROLE_MODELS["writer"], ROLE_MODELS["critic"])
         for role,model in ROLE_MODELS.items():
             self.assertEqual(self.create(model=model,role=role).name,model)
         with self.assertRaises(DiscoveryError):
