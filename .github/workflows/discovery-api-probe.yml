@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
-      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY_API_KEY }}
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
