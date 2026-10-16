@@ -288,3 +288,13 @@
 - **实际原文 R2 预检** [run #38894840319](https://github.com/66tyu55/WriterForge/actions/runs/38894840319) success：原文 SHA仍是 `86a2fd859b424efe0500b4b36713ea8b05d551140650904ffc2ae02eb244ed28`，第一章第一窗口2125字符、37物理段（最大126字符）、与下一窗口连续。把原先过紧36段上限调整为96段+总输入5,500字符上限。只读原文，无模型、无收费、无原文输出日志。
 - 未来正式 A/B 版本已升级为 `source-isolated-ab-v2` 独立 R2 命名空间和缓存指纹；旧 `real-discovery-ab-v1` 私有失败实证不覆盖、不修改。付费工作流仍**仅手动 workflow_dispatch**，本轮未启动新正式模型训练。
 - 未完成：产生真正新候选文学机制并经独立文本审评/闭卷迁移晋级、把真实失败/遗忘纳入 V28 SQLite+R2 有界证据、对正式 A/B 做跨题等长和独立真人/模型校准。**第一段仍 NOT_PASSED，第二段 LOCKED，所谓大师90%尚无验证。**
+
+
+## 21. V28 按用户要求恢复真实额度训练：P0 后反馈式迭代（2026-10-16）
+
+用户明确指示“**继续消耗，就是要一边消耗一边发现问题**”，不再局限于离线修代码。**限次真实训练获授权**，仍一书、一窗口、预算上限与源文隔离，不得无期限重试；费用不是质量证据。
+
+- **真实 P0 修复后首轮** [run #38895404803](https://github.com/66tyu55/WriterForge/actions/runs/38895404803)：P0 源文隔离/AB/Discovery 协议单测通过；实际端砚调用 **3次**，Planner 成功而写作阶段 `DISCOVERY_WRITER_JSON_CONTRACT_FAILED`，程序终止、未比较文学评分。新增代码 `scripts/run_wudong_discovery_ab.py` 会把失败码、实际调用数、报告 token 使用、源文哈希与实验配置哈希（没有原著或草稿）写入**独立私有 R2**，经 fresh GET 核验，真实失败回执 SHA256 `59d489b6050851e63b2ae78b80ebc2a31c747f226d6f955dd3cf775afe6f2d2d`。这是首次失败证据独立存储，不能算成功。
+- 通过真实故障推断，不宜强制长篇小说正文遵守 JSON 序列化契约；已将 `writerforge/reverse_discovery_models.py` 拆分角色协议：Writer 接收有界**原生小说正文**、必要时封装为内部 `{"scene":...}`（不回写正文）；Planner 与 Critic 仍严格 JSON。拒绝被截断的正文、只允许一次预算内重试；`writerforge/reverse_cloud_ab.py` 写作提示与 `reverse_mechanism_boundary.py` 也改为正文输出契约。新增正文/截断回归 `tests/test_v28_discovery_models.py`，**全量 GitHub Tests #38896069801 success**。
+- 已发起**第二次真实代码修订后试验** [run #38896171856](https://github.com/66tyu55/WriterForge/actions/runs/38896171856)，在本节记录时仍在运行；应以最终 job `conclusion` 和 R2 成功/失败 SHA 作为唯一真实状态来源。若结果失败，按失败阶段做有限修复和真实对照，禁止简单跳过、假造 90 分或解锁第二窗口。
+- 两个单次工作流 `.github/workflows/v28-wudong-iteration-one-shot.yml` 和 `...iteration-02.yml` 仅在其各自文件创建的 push 上触发，不会因日后普通代码改动而重复消耗；常规 `v28-discovery-real-ab.yml` 仍仅手动启动。
