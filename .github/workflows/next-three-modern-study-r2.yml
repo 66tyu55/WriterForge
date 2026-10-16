@@ -1,13 +1,6 @@
 name: WriterForge next three PRIVATE-R2 originals structural study
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/next-three-modern-study-r2.yml'
-      - 'writerforge/modern_volumes.py'
-      - 'writerforge/modern_source.py'
-      - 'scripts/learn_archived_modern_r2.py'
-      - 'tests/test_v34_modern_volumes.py'
+  # Explicit only: user requests one book at a time.
   workflow_dispatch:
 permissions:
   contents: read
