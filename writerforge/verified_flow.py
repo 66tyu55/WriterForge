@@ -73,7 +73,7 @@ class GroundedDraftPacket:
             "study_level": "deterministic_structural_unverified",
             "review_status": "pending_external_review",
             "accepted": False,
-            "source_evidence_shown_to_model": False,
+            "unreviewed_source_excerpts_shown_to_model": False,
             "craft_labels_shown_to_model": False,
             "prose_style": {
                 "mode": "explicit_author_approved" if self.prose_reference_sha256 else "free_model",
