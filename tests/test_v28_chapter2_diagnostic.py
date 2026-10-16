@@ -65,6 +65,22 @@ class LaterWindowTests(unittest.TestCase):
                                          expected_source_sha256="invalid",chapter=2)
         finally:t.cleanup()
 
+    def test_v6_changes_source_only_not_writer_model_or_original_task(self):
+        from scripts.run_wudong_chapter2_diagnostic_v6 import (
+            TRANSFER_TASK as new_task, SOURCE_SHA as new_sha,
+            PREFIX as new_prefix,
+        )
+        from scripts.run_wudong_transfer_baseline30_v5 import (
+            TRANSFER_TASK as prior_task,SOURCE_SHA as prior_sha,
+            PREFIX as prior_prefix,
+        )
+        from writerforge.reverse_discovery_models import ROLE_MODELS
+        self.assertEqual(new_task,prior_task)
+        self.assertEqual(new_sha,prior_sha)
+        self.assertNotEqual(new_prefix,prior_prefix)
+        self.assertEqual(ROLE_MODELS["writer"],"glm-5.3")
+        self.assertEqual(ROLE_MODELS["critic"],"deepseek-v4-flash-0731")
+
     def test_existing_public_signatures_still_work(self):
         import inspect
         from writerforge.reverse_cloud_ab import CloudABTrial
