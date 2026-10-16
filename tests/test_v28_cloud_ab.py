@@ -63,7 +63,7 @@ class AdapterTests(unittest.TestCase):
 
     def test_three_role_wiring_requires_explicit_different_critic(self):
         env={"WF_V28_MAX_USD":"0.5","WF_V28_MAX_CALLS":"7"}
-        for role,model in (("PLANNER","p"),("WRITER","w"),("CRITIC","c")):
+        for role,model in (("PLANNER","planner-v1"),("WRITER","writer-v1"),("CRITIC","critic-v1")):
             env.update({
                 f"WF_V28_{role}_PROVIDER":"deepseek",
                 f"WF_V28_{role}_MODEL":model,
@@ -75,7 +75,7 @@ class AdapterTests(unittest.TestCase):
         self.assertIs(roles["planner"].budget,roles["writer"].budget)
         self.assertIs(roles["critic"].budget,budget)
         self.assertTrue(safe_cloud_readiness(environ=env)["ready"])
-        env["WF_V28_CRITIC_MODEL"]="w"
+        env["WF_V28_CRITIC_MODEL"]="writer-v1"
         with self.assertRaisesRegex(ModelUnavailable,"different model"):
             configured_cloud_roles(environ=env)
 
