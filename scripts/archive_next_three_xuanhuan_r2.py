@@ -29,7 +29,7 @@ SOURCES = {
     "qiumo": NovelSource(
         "qiumo", "求魔", "耳根", "苏铭",
         "https://download.zxcs.zip/" + quote("《求魔》（校对版全本）作者：耳根.txt"),
-        5_000_000, 18_000_000, None, None, 600),
+        5_000_000, 18_000_000, 9437806, "210acebeef123f2c369d57d95d2ea5ee5a1c15716b859db15696c48294bcd687", 600),
     "zhetian": NovelSource(
         "zhetian", "遮天", "辰东", "叶凡",
         "https://download.zxcs.zip/" + quote("《遮天》（精校版全本）作者：辰东.txt"),
