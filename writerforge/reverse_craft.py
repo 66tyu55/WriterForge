@@ -122,6 +122,8 @@ class ReverseCraftCoordinator:
         self.path = Path(path)
         if self.path == Path(":memory:"):
             raise ReverseCraftError("durable DB required, not :memory:")
+        if create and self.path.exists():
+            raise ReverseCraftError("init requires a NEW dedicated reverse-core SQLite file")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(str(self.path), timeout=10)
         self.conn.row_factory = sqlite3.Row
@@ -181,8 +183,11 @@ class ReverseCraftCoordinator:
                     ).fetchone()
                     if not pair or pair[0] != "MERGED_PASS":
                         raise ReverseCraftError("two units require merged story pass")
-                if (chapter, ordinal) <= (previous["chapter"], previous["ordinal"]):
-                    raise ReverseCraftError("source units not ordered")
+                expected = ((previous["chapter"], previous["ordinal"]+1)
+                    if previous["ordinal"] < meta["max_units_per_chapter"]
+                    else (previous["chapter"]+1,1))
+                if (chapter, ordinal) != expected:
+                    raise ReverseCraftError("source units must be immediately consecutive")
             cur = self.conn.execute(
                 "INSERT INTO rc_units(chapter,ordinal,anchor_hash,context_hash,status) VALUES(?,?,?,?,'READY')",
                 (chapter, ordinal, anchor_hash, context_hash))
@@ -240,6 +245,11 @@ class ReverseCraftCoordinator:
             raise ReverseCraftError("attempt budget exhausted")
         key, core_raw = _core(core)
         fault, hypothesis = _note(fault, "fault"), _note(hypothesis, "hypothesis")
+        # Reject obvious attempt to smuggle retained manuscript prose into
+        # supposed abstract core notes (source-side copying needs a later guard).
+        if any(len(value)>=60 and value in prose
+               for value in list(core.values())+[fault,hypothesis]):
+            raise ReverseCraftError("abstract evidence contains a draft passage")
         # No persistent DB column holds prose. All reviewer work sees only the
         # ephemeral file and cannot mutate rc_core directly.
         with self._ephemeral(prose) as path:
