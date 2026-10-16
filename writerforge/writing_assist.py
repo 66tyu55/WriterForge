@@ -20,6 +20,7 @@ import re
 from .db import WriterForgeDB
 from .encyclopedia import FictionEncyclopedia, FacetQuery
 from .runtime import RuntimeEngine
+from .prose_style import format_prose_reference
 from .verified_flow import (
     VerifiedWritingFlow, GroundedDraftPacket, WritingExecutionError,
     local_chat_completion, save_candidate, MAX_PROMPT_CHARS,
@@ -108,8 +109,15 @@ def _craft_needs(needs: tuple[str, ...]) -> tuple[str, ...]:
 
 
 def _enrich(packet: GroundedDraftPacket, addition: str,
-            facets: tuple[dict,...] = ()) -> GroundedDraftPacket:
+            facets: tuple[dict,...] = (), *,
+            prose_task: bool = True) -> GroundedDraftPacket:
     context=packet.prompt
+    # Move the human-approved prose reference AFTER facts, live manuscript
+    # and chapter instructions; never feed style samples to JSON-only planning.
+    tail=(format_prose_reference(packet.prose_reference_text)
+          if packet.prose_reference_text else "")
+    if tail and context.endswith(tail):
+        context=context[:-len(tail)]
     if facets:
         context+="\n已由真实来源和审核状态确认的实体属性（只借鉴机制，不能复制原句）：\n"
         context+="\n".join(
@@ -119,6 +127,8 @@ def _enrich(packet: GroundedDraftPacket, addition: str,
             for c in facets
         )
     context+="\n"+addition
+    if prose_task and tail:
+        context+=tail
     if len(context)>MAX_PROMPT_CHARS:
         raise WritingExecutionError("assembled writing context exceeds size limit")
     return replace(
@@ -295,7 +305,8 @@ class AutonomousWriting:
                 +"\n请先规划本章，不写正文。必须明确人物目的、冲突、选择、后果和视角；"
                 "内部调用结构技法，不照搬原著。只返回 JSON："
                 '{"objective":"...","conflict":"...","decision":"...",'
-                '"outcome":"...","pov":"...","needs":["dialogue","decision"]}'
+                '"outcome":"...","pov":"...","needs":["dialogue","decision"]}',
+                prose_task=False,
             )
             plan_raw=local_chat_completion(
                 plan_prompt,model=self.assist.model,
