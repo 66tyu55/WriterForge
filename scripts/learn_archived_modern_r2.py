@@ -51,8 +51,8 @@ WORKS = {
 
 # Diagnostic only: broad heading matches, not a chapter-completeness proof.
 DIAGNOSTIC_HEAD = re.compile(
-    r"^(?:正文[\\s:：]*)?第(?P<num>[0-9零〇○一二三四五六七八九十百千萬万兩两]{1,16})"
-    r"[章回](?:[\\s:：、.．\\-]+[^\\r\\n]{0,90})?$"
+    r"^(?:正文[\s:：]*)?第(?P<num>[0-9零〇○一二三四五六七八九十百千萬万兩两]{1,16})"
+    r"[章回](?:[\s:：、.．\-]+[^\r\n]{0,90})?$"
 )
 
 def heading_audit(path: Path) -> dict:
