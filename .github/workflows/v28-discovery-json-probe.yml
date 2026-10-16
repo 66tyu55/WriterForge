@@ -1,0 +1,28 @@
+name: V28 Discovery REAL structured JSON model capability probe
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v28-discovery-json-probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-discovery-three-role-json-probe
+  cancel-in-progress: false
+jobs:
+  three-model-small-json-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - name: Real 3-model JSON capability tests with synthetic question only
+        run: |
+          set -euo pipefail
+          python scripts/probe_discovery_json_roles.py
