@@ -1,0 +1,39 @@
+name: V28 one-shot Flash GLM53 new scenario baseline30 transfer
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v28-flash-glm53-transfer30-one-shot.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wf-v28-wudong-real-experiments
+  cancel-in-progress: false
+jobs:
+  one-transfer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Verify real-call budgets and new baseline scoring invariants without network
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v28_discovery_models.py -q
+          python -m unittest discover -s tests -p test_v28_mechanism_boundary.py -q
+          python -m unittest discover -s tests -p test_v28_cloud_ab.py -q
+          python -m unittest discover -s tests -p test_v28_baseline30_transfer.py -q
+      - name: Run exactly one new private-window Flash GLM53 transfer trial
+        run: python -m scripts.run_wudong_transfer_baseline30_v5
+      - name: Audit only the new immutable private R2 receipt without another model call
+        run: python -m scripts.audit_v28_transfer30_v5_r2
