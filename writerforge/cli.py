@@ -213,7 +213,46 @@ def main(argv: list[str] | None = None):
     ladder_run.add_argument("--critic-project",help="existing lit-critic project with CANON.md / STYLE.md")
     ladder_run.add_argument("--output-dir",default="writing_runs/literary_ladder")
     ladder_run.add_argument("--backup-r2",action="store_true",help="back up completed trials to existing private R2")
+    # V28 core administration only. Real literary model/reviewer execution is
+    # intentionally not wired until source and independent-critic gates exist.
+    reverse_init=sub.add_parser("reverse-core-init",
+        help="initialize one isolated V28 evidence-only training store")
+    reverse_init.add_argument("--project",required=True)
+    reverse_init.add_argument("--max-chapters",type=int,default=3)
+    reverse_init.add_argument("--max-units-per-chapter",type=int,default=6)
+    reverse_status=sub.add_parser("reverse-core-status",
+        help="inspect verified V28 core state without reading draft prose")
+    reverse_status.add_argument("--project",required=True)
+    reverse_restore=sub.add_parser("reverse-core-restore",
+        help="restore SHA-pinned abstract core checkpoint from private R2 to NEW DB")
+    reverse_restore.add_argument("--project",required=True)
+    reverse_restore.add_argument("--snapshot",required=True)
     args=p.parse_args(argv)
+    if args.cmd in ("reverse-core-init","reverse-core-status","reverse-core-restore"):
+        from .reverse_craft import ReverseCraftCoordinator, WORK, EDITION
+        from .reverse_core_vault import ReverseCoreVault
+        if args.cmd=="reverse-core-restore":
+            core=ReverseCoreVault(R2Config.from_environment())
+            payload=core.restore_verified(work=WORK,project=args.project,
+                                          edition=EDITION,snapshot_sha=args.snapshot)
+            engine=ReverseCraftCoordinator.restore_snapshot(
+                Path(args.db),args.project,payload)
+        else:
+            engine=ReverseCraftCoordinator(
+                Path(args.db),args.project,
+                create=args.cmd=="reverse-core-init",
+                max_chapters=args.max_chapters if args.cmd=="reverse-core-init" else 3,
+                max_units_per_chapter=(args.max_units_per_chapter
+                  if args.cmd=="reverse-core-init" else 6))
+        try:
+            _emit({"stage":"v28_core_engineering_only",
+                   "model_training_performed":False,
+                   "independent_literary_evaluation_performed":False,
+                   "private_r2_restore":args.cmd=="reverse-core-restore",
+                   **engine.inspect()})
+        finally:
+            engine.close()
+        return
     if args.cmd=="catalog":
         from .classics_catalog import CATALOG, MIN_WORKS_FOR_CROSS_CORPUS_REVIEW
         _emit({"verified_sources":{k:{"title":v.title,"gutenberg":v.gutenberg_id,
