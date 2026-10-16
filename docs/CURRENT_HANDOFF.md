@@ -298,3 +298,20 @@
 - 通过真实故障推断，不宜强制长篇小说正文遵守 JSON 序列化契约；已将 `writerforge/reverse_discovery_models.py` 拆分角色协议：Writer 接收有界**原生小说正文**、必要时封装为内部 `{"scene":...}`（不回写正文）；Planner 与 Critic 仍严格 JSON。拒绝被截断的正文、只允许一次预算内重试；`writerforge/reverse_cloud_ab.py` 写作提示与 `reverse_mechanism_boundary.py` 也改为正文输出契约。新增正文/截断回归 `tests/test_v28_discovery_models.py`，**全量 GitHub Tests #38896069801 success**。
 - 已发起**第二次真实代码修订后试验** [run #38896171856](https://github.com/66tyu55/WriterForge/actions/runs/38896171856)，在本节记录时仍在运行；应以最终 job `conclusion` 和 R2 成功/失败 SHA 作为唯一真实状态来源。若结果失败，按失败阶段做有限修复和真实对照，禁止简单跳过、假造 90 分或解锁第二窗口。
 - 两个单次工作流 `.github/workflows/v28-wudong-iteration-one-shot.yml` 和 `...iteration-02.yml` 仅在其各自文件创建的 push 上触发，不会因日后普通代码改动而重复消耗；常规 `v28-discovery-real-ab.yml` 仍仅手动启动。
+
+
+## 22. 用户要求真实消耗发现问题：四轮受限实跑及根因（2026-10-16，覆盖第 21 节 pending 状态）
+
+用户明确同意继续花端砚可用额度开展真实调试，策略是**有限预算逐轮实跑、真实故障->修正->回归->再测**；本节全部证据来自已完成 Actions，不可说“模型训练过关”。仍遵循《武动乾坤》第一章第一窗口，不跳章、不自动无限收费。
+
+- **修复后首轮** [#38895404803](https://github.com/66tyu55/WriterForge/actions/runs/38895404803) **failed**：Planner 通过，Writer 的长篇正文 JSON 输出契约失败，3 次真实 API 调用；私有 R2 哈希化失败记录 `59d489b6050851e63b2ae78b80ebc2a31c747f226d6f955dd3cf775afe6f2d2d`。没有把不完整原著或草稿写到公共仓库、R2 学海，第二窗口未晋级。
+- 将输出协议按角色分离：**Writer 返回原生连续小说正文**（内部只临时包装为字典），Planner/Critic 继续 JSON；拒绝文本过短、异常代码块、模型截断，仅有限一次重试。相关离线全量 [#38896069801](https://github.com/66tyu55/WriterForge/actions/runs/38896069801) **success**。
+- **第二次** [#38896171856](https://github.com/66tyu55/WriterForge/actions/runs/38896171856) **failed**：5 次真实 API 调用后命中总预算；R2 失败 SHA `b569aa421741c32b989621ca6f58c0f0867408bc0b5e161ad89c1437868a99fb`。增加 `DiscoveryCallBudget.calls_by_role / last_requested_role / response_observations` 以存每角色次数、完成原因、可见字数（**不存生成内容**），硬上限有界从 5 次适度提高至 7 次、预留输出 token 上限 25,000。
+- **第三次** [#38896845100](https://github.com/66tyu55/WriterForge/actions/runs/38896845100) **failed**：Planner 1 次成功，Writer 4 次响应导致 `DISCOVERY_WRITER_OUTPUT_TRUNCATED`，R2 SHA `6857551c6ee35ddd2428be96bb5c05727c2d81b6744827dc0bab87b77ce18a0d`。过去重发相同请求从头生成，浪费 tokens；已改为遇到已有部分可见正文且 `finish_reason=length` 时，**只允许带前文接续一次**，同时检查截断和边界，仍不把小说全文持久化。补合成“接续而非从头写”的回归测试。
+- **第四次** [#38897761659](https://github.com/66tyu55/WriterForge/actions/runs/38897761659) **failed**：这轮前端正文阶段之前，Planner 连续 2 次 `finish_reason=length`、可见内容0字符，故 `DISCOVERY_PLANNER_OUTPUT_TRUNCATED`；失败记录 R2 SHA `6fcd297e8f6152752d5f89b462dface322126a6cd3502b420f5067dd5028afe4`。说明 V4 Flash 作为分析器偶尔会把短格式回答预算全部用于不可见推理，不能靠盲加调用上限解决。
+- 官方 Intern Chat API 文档表明 **Intern-S2 支持 `thinking_mode=false`**，已仅给此模型适配该参数；[真实无原著小型兼容性探针 #38898246863](https://github.com/66tyu55/WriterForge/actions/runs/38898246863) **failed**：返回 `finish_reason=stop` 但可见0字符，受到单请求预算限制；在端砚 Discovery 网关当前能力未核实前 **不能切换 S2 为正式模型或谎称已解决无可见回复**。
+- `scripts/run_wudong_discovery_ab.py` 已把 R2 失败凭证中的代码升级为受白名单字符限制的静态 `DISCOVERY_<ROLE>_<CODE>`，便于后续明确辨别哪个环节失败，但不允许记录任意服务端错误正文/密钥。上面第 3、4 次老失败凭证部分 `code` 仍为泛型 `DiscoveryError`，但该次真实 GitHub 日志保留了具体错误码和角色响应元数据；不能偷偷重写不可变快照。
+
+**本轮已发生真实模型推理，并实证多个底层协议缺陷；没有新的“通过文学训练”的证明，没有可比的新版增强/无增强评分，也没有升到第2段。** 本轮只通过工程单测和真实失败留证，90% 晋级始终 BLOCKED。
+
+**下次最先要做的不是盲目扩大 max_calls**：先确认有能力输出短、结构化技术ID的 Planner 模型以及端砚模型返回结构（不可见 reasoning、content 与 finish_reason 的类型与长度），避免继续浪费端砚余额。随后在相同原著窗口、相同稿长条件下做完整原创 A/B；有真实可比批评结果后才修 WriterForge 的文学机制层。保持普通 GitHub push 不自动收费；所有这轮 one-shot workflows 仅对其自身的文件变化触发。
