@@ -175,11 +175,18 @@ def _logical_study_digest(path: Path) -> str:
     digest = sha256()
     try:
         with closing(sqlite3.connect(path)) as con:
-            if con.execute("SELECT COUNT(*) FROM accepted_prose").fetchone()[0]:
-                raise R2StorageError("reproducible edition mode is only for source-only training, not authored novels")
             available={row[0] for row in con.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
             )}
+            if con.execute("SELECT COUNT(*) FROM accepted_prose").fetchone()[0]:
+                raise R2StorageError("reproducible edition mode is only for source-only training, not authored novels")
+            if ("project_prose_style" in available
+                and con.execute("SELECT COUNT(*) FROM project_prose_style").fetchone()[0]):
+                # A user-approved style reference is mutable project state,
+                # never equivalent to an unchanged public-domain source edition.
+                # Without this guard, R2 would reuse an old snapshot and silently
+                # lose the newly approved style reference on restoration.
+                raise R2StorageError("approved prose style requires a normal private R2 snapshot, not edition reuse")
             for table, fields in columns.items():
                 # Old v24 backups do not yet have the new category tables.
                 # Presence/absence forms part of the deterministic digest.
