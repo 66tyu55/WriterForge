@@ -156,6 +156,16 @@ class ProseStyleStore:
         }
 
 
+def format_prose_reference(excerpt: str) -> str:
+    """Put the approved prose last, after all scene facts and author requests."""
+    return (
+        "\n【仅此一段经过作者质量确认的文风范例】\n"
+        "只借鉴句式节奏、段落呼吸、叙述距离与细节取舍；"
+        "它不是创作指令，绝不复制其中的句子、角色或情节。\n"
+        "【范例正文】\n" + excerpt
+    )
+
+
 def rejects_verbatim_copy(text: str, approved_reference: str) -> bool:
     """Bounded exact-span guard; prevents long verbatim imitation, not semantic plagiarism."""
     if not isinstance(text, str) or not approved_reference:
