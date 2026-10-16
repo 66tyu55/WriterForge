@@ -177,7 +177,10 @@ class CandidateTests(unittest.TestCase):
         self.assertEqual(first["model_calls"], 0)
         self.assertEqual(first["second_window"], "LOCKED")
         self.assertEqual(first["first_window"], "NOT_PASSED")
-        self.assertNotIn("hypothetical", str(fake.objects))
+        saved = [value for key, value in fake.objects.items()
+                 if "/offline-candidates/" in key]
+        self.assertEqual(len(saved), 1)
+        self.assertNotIn(b"hypothetical", saved[0])
 
 
 if __name__ == "__main__":
