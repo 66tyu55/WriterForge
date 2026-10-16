@@ -17,6 +17,7 @@ import tracemalloc
 
 from writerforge.classics_catalog import get_book, study_book
 from writerforge import WriterForgeDB, RuntimeEngine, OriginalStudy, VerifiedWritingFlow
+from writerforge.scene_learning import extract_verified_classic_scene, SceneLiteraryStudy
 
 
 STAGES = {
@@ -121,6 +122,32 @@ def main():
             if prologue!=1:
                 raise AssertionError("Water Margin prologue was lost")
         audit=audit_source(db,book.work_id)
+        if book.key=="honglou":
+            # Locate one real scene in the already SHA-pinned source.
+            # No model is available in Actions: record only source evidence,
+            # NOT a fabricated first-reader prediction or literary mastery.
+            verified_scene=extract_verified_classic_scene(source,book)
+            prepared=SceneLiteraryStudy(
+                db,rt,"honglou-source-evidence-pilot"
+            ).prepare(verified_scene)
+            if prepared["stage"]!="source_prepared" or prepared["model_called"]:
+                raise AssertionError("source-only CI must not fabricate a model reading")
+            audit["scene_literary_pilot"]={
+                "stage":"source_prepared",
+                "scene_id":verified_scene.scene_id,
+                "source_sha256":verified_scene.raw_source_sha256,
+                "scene_sha256":verified_scene.scene_sha256,
+                "blind_sha256":verified_scene.blind_sha256,
+                "exact_anchors_verified":len(verified_scene.evidence_anchors),
+                "model_called":False,
+                "first_reader_reactions_recorded":False,
+                "deep_literary_learning_verified":False,
+                "transfer_to_failed_manuscript_verified":False,
+            }
+            (output/"scene.json").write_text(
+                json.dumps(audit["scene_literary_pilot"],ensure_ascii=False,indent=2),
+                encoding="utf-8",
+            )
         if (audit["source_units"]!=training["studied_units"]
             or audit["invalid_or_missing_craft_flag"]
             or audit["provenance_issues"]
