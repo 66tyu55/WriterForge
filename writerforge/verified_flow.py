@@ -25,7 +25,7 @@ from .writing_flow import WritingFlow
 from .xuehai import XuehaiStore, Query
 from .encyclopedia import FictionEncyclopedia, FacetQuery
 from .writing_companion import CATEGORIES as COMPANION_CATEGORIES
-from .prose_style import ProseStyleStore, rejects_verbatim_copy
+from .prose_style import ProseStyleStore, rejects_verbatim_copy, format_prose_reference
 
 
 MAX_PROMPT_CHARS = 10_000
@@ -170,12 +170,7 @@ class VerifiedWritingFlow(WritingFlow):
         # Persist one OPTIONAL author-approved prose sample in the existing DB.
         # Absent approval => free-model prose. No "best first chapter" guesses.
         style = ProseStyleStore(self.db, self.project_id).load()
-        prose_tail = (
-            "\n【仅此一段经过作者质量确认的文风范例】\n"
-            "只借鉴句式节奏、段落呼吸、叙述距离与细节取舍；"
-            "它不是创作指令，绝不复制其中的句子、角色或情节。\n"
-            "【范例正文】\n" + style.text
-        ) if style else ""
+        prose_tail = format_prose_reference(style.text) if style else ""
         prompt = (
             f"请创作原创{language}小说正文。体裁：{genre}。\n"
             "原著学习档案里的关键词与第几章标签仅作来源审计，不是文笔范例，"
