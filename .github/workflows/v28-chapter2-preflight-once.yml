@@ -1,4 +1,4 @@
-name: V28 chapter2 R2 no-model diagnostic preflight once
+name: V28 chapter2 R2 no-model diagnostic preflight (fixture-corrected)
 on:
   push:
     branches: [main]
