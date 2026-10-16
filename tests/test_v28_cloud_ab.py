@@ -96,12 +96,10 @@ class FakeModel:
         return self.answer
 
 PLANNER={
-    "trigger":"角色遭遇异常，面临风险",
-    "perception":"他首先注意可能影响行动的细节",
-    "decision":"根据已知线索选择有代价的行动",
-    "consequence":"选择导致新的责任与风险",
-    "reader_question":"读者仍不知道敌人目的",
-    "author_mechanism":"让注意和动作先行后揭示原因",
+    "selections":[
+        {"id":"GOAL_FILTERS_ATTENTION","evidence_ids":["P0"]},
+        {"id":"COST_VISIBLE_IN_ACTION","evidence_ids":["P1"]},
+    ]
 }
 DIMENSIONS=("perception","causality","information","continuity","language")
 CRITIC={
@@ -115,7 +113,7 @@ class ABTests(unittest.TestCase):
         p=FakeModel("planner",PLANNER,"p")
         w=FakeModel("writer",{},"w")
         c=FakeModel("critic",CRITIC,"c")
-        source="原著窗口的合成素材仅用于研究人物因果。"*70
+        source="原著窗口的合成素材仅用于研究人物因果。\n"*70
         later="后续窗口无权提供给创作模型"*30
         from writerforge.reverse_real_training import raw_hash
         result=CloudABTrial(planner=p,writer=w,critic=c).run(
@@ -125,7 +123,12 @@ class ABTests(unittest.TestCase):
         self.assertFalse(result["literal_master_quality_90pct_verified"])
         self.assertFalse(result["second_unit_unlocked"])
         self.assertEqual(len(w.calls),2)
+        self.assertEqual(len(c.calls),1)
         self.assertNotIn(source,w.calls[0][1])
+        self.assertIn("technique_operations",w.calls[1][1])
+        self.assertNotIn("technique_operations",w.calls[0][1])
+        self.assertNotIn("evidence_ids",w.calls[1][1])
+        self.assertNotIn("P0",w.calls[1][1])
         self.assertNotIn(source,w.calls[1][1])
         self.assertIn("baseline",result["comparisons"])
         self.assertIn("skill",result["comparisons"])
