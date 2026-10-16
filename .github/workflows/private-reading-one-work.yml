@@ -76,6 +76,8 @@ jobs:
               s.write("## Private R2 single-work roundtrip: PASS\n")
               s.write("- Work: "+x["work_id"]+"\n")
               s.write("- Destination: "+x["target_prefix"]+"\n")
-              s.write("- Fresh download SHA256: PASS\n")\n              s.write("- Source origin: "+x["source_origin"]+"\n")\n              s.write("- New R2 blob uploaded: "+str(x["uploaded_new_blob"])+"\n")
+              s.write("- Fresh download SHA256: PASS\n")
+              s.write("- Source origin: "+x["source_origin"]+"\n")
+              s.write("- New R2 blob uploaded: "+str(x["uploaded_new_blob"])+"\n")
               s.write("- Literary training: NOT RUN\n")
           PY
