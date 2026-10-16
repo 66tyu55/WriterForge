@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import json
 
+from .modern_volumes import volume_chapters
 from .db import WriterForgeDB
 from .runtime import Mode, RuntimeEngine
 from .source_study import (
@@ -103,6 +104,7 @@ def inspect_modern_source(
     path: str | Path, *, title: str, protagonist: str,
     min_chapters: int, max_chapters: int = MAX_MODERN_CHAPTERS,
     min_bytes: int = 1, expected_sha256: str | None = None,
+    chapter_scheme: str = "continuous",
 ) -> dict:
     """Full-file SHA256 + decoding + contiguous numbered chapter preflight.
 
@@ -127,9 +129,13 @@ def inspect_modern_source(
     if title not in front:
         raise StudyError("expected novel title not found in edition front matter")
 
+    if chapter_scheme not in ("continuous", "volume_reset", "volume_prefix_global"):
+        raise StudyError("unrecognized modern chapter scheme")
     found_character = False
     count = 0
-    for chapter in _chapters(source, encoding):
+    chapter_stream = (_chapters(source, encoding) if chapter_scheme == "continuous"
+                      else volume_chapters(source, encoding, scheme=chapter_scheme))
+    for chapter in chapter_stream:
         count += 1
         if protagonist in chapter.text:
             found_character = True
@@ -147,6 +153,7 @@ def inspect_modern_source(
         "encoding": encoding,
         "chapters": count,
         "structure_preflight": True,
+        "chapter_scheme": chapter_scheme,
         "full_edition_independently_verified": False,
     }
 
@@ -238,6 +245,7 @@ def study_modern_source(
     work_id: str, title: str, protagonist: str, genre: str, source_uri: str,
     min_chapters: int, max_chapters: int = MAX_MODERN_CHAPTERS,
     min_bytes: int = 1, expected_sha256: str | None = None,
+    chapter_scheme: str = "continuous",
 ) -> dict:
     runtime.require(Mode.LEARN)
     if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{2,79}", work_id):
@@ -247,6 +255,7 @@ def study_modern_source(
         source, title=title, protagonist=protagonist,
         min_chapters=min_chapters, max_chapters=max_chapters,
         min_bytes=min_bytes, expected_sha256=expected_sha256,
+        chapter_scheme=chapter_scheme,
     )
     conn = db.conn
     existing = conn.execute(
@@ -265,7 +274,9 @@ def study_modern_source(
         )
         conn.commit()
     completed = 0
-    for chapter in _chapters(source, info["encoding"]):
+    chapter_stream = (_chapters(source, info["encoding"]) if chapter_scheme == "continuous"
+                      else volume_chapters(source, info["encoding"], scheme=chapter_scheme))
+    for chapter in chapter_stream:
         if _ingest_one(db, work_id, chapter, genre=genre):
             completed += 1
             if completed % 100 == 0:
