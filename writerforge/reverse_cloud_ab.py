@@ -78,12 +78,14 @@ class CloudABTrial:
             raise ABTrialError("writer cannot critique same identity")
         self.planner,self.writer,self.critic=planner,writer,critic
 
-    def run(self, first:str, second:str, *, source_sha:str, window_hash:str):
+    def run(self, first:str, second:str, *, source_sha:str, window_hash:str, writing_task:str=BASE_TASK):
         if not 300<=len(first)<=5500 or not second:
             raise ABTrialError("source is not a real bounded first chapter window")
+        if not isinstance(writing_task,str) or not 40<=len(writing_task)<=800:
+            raise ABTrialError("invalid new original writing task")
         if raw_hash(first)!=window_hash:
             raise ABTrialError("first window no longer matches R2 pin")
-        # Source/plot only enters the planner and critic; Writer receives
+        # Source/plot only enters the planner; Writer and critic receive
         # only program-owned enum operations and the same neutral task.
         paragraphs=source_paragraphs(first)
         proposal=self.planner.ask(
@@ -93,8 +95,8 @@ class CloudABTrial:
             proposal_prompt(paragraphs),num_predict=6500)
         selections=parse_selections(proposal,paragraphs)
         abstract_evidence=report_evidence(selections,paragraphs)
-        neutral=build_writer_packet(selections,enhanced=False,writing_task=BASE_TASK)
-        enhanced=build_writer_packet(selections,enhanced=True,writing_task=BASE_TASK)
+        neutral=build_writer_packet(selections,enhanced=False,writing_task=writing_task)
+        enhanced=build_writer_packet(selections,enhanced=True,writing_task=writing_task)
         outputs={}
         for kind, instruction in (("baseline",neutral),("skill",enhanced)):
             response=self.writer.ask(
@@ -131,7 +133,7 @@ class CloudABTrial:
             "评论必须能指出真实文本差异，不能默认有技巧约束的稿子一定更好。"
             "不得引用大段原著或练习稿；分数只是模型未经校准的观察，"
             "不能视为专家90分证明。",
-            json.dumps({"task":BASE_TASK,
+            json.dumps({"task":writing_task,
                         "A":masked["A"],"B":masked["B"]},ensure_ascii=False),
             num_predict=8000)
         if not isinstance(comparison,dict) or set(comparison)!={
@@ -163,6 +165,7 @@ class CloudABTrial:
             "format":"writerforge.cloud-ab-v1",
             "source_work":"wudongqiankun","edition_sha256":source_sha,
             "source_unit_sha256":window_hash,"next_unit_sha256":raw_hash(second),
+            "writing_task_sha256":raw_hash(writing_task),
             "stage":"true_model_calls_and_private_source_AB_comparison_unverified",
             "roles":{"planner":{"provider":self.planner.provider,"model":self.planner.name},
                      "writer":{"provider":self.writer.provider,"model":self.writer.name},
