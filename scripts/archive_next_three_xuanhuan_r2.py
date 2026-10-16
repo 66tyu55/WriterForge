@@ -37,7 +37,7 @@ SOURCES = {
     "manghuangji": NovelSource(
         "manghuangji", "莽荒纪", "我吃西红柿", "纪宁",
         "https://download.zxcs.zip/" + quote("《莽荒纪》（校对版全本）作者：我吃西红柿.txt"),
-        5_000_000, 25_000_000, None, None, 500),
+        5_000_000, 25_000_000, 8961764, "f7aee869e201b4171e40a3ff9230e794f01fdc959d372017b8982635668be3d5", 500),
 }
 
 def fetch_zipped_txt(source: NovelSource, destination: Path) -> dict:
@@ -103,6 +103,38 @@ def fetch_qiumo_probe(source: NovelSource, destination: Path) -> dict:
             if total > MAX_BYTES:
                 raise OriginalSourceError("SOURCE_OVER_MAX_32_MIB")
             output.write(chunk)
+    # Source remains in this private runner while its heading grammar is diagnosed.
+    counts = {"lines": 0, "chapter_word_lines": 0, "line_start_chapter": 0,
+              "volume_first": 0, "chapter_ordinal_anywhere": 0, "shape_samples": []}
+    import re
+    for codec in ("utf-8-sig", "gb18030"):
+        try:
+            with destination.open("r", encoding=codec) as stream:
+                for line in stream:
+                    counts["lines"] += 1
+                    if len(line) > 400:
+                        continue
+                    t = line.strip()
+                    if "第" in t and ("章" in t or "回" in t or "节" in t):
+                        counts["chapter_word_lines"] += 1
+                        if len(counts["shape_samples"]) < 12:
+                            counts["shape_samples"].append({
+                                "len": len(t), "di_index": t.find("第"),
+                                "zhang_index": t.find("章"), "hui_index": t.find("回"),
+                                "jie_index": t.find("节"), "juan_index": t.find("卷"),
+                                "first_two_are_digits": t[:2].isdecimal()})
+                    if re.match(r"^第[0-9零〇一二三四五六七八九十百千]{1,14}[章回节]", t):
+                        counts["line_start_chapter"] += 1
+                    if re.search(r"第[0-9零〇一二三四五六七八九十百千]{1,14}[章回节]", t):
+                        counts["chapter_ordinal_anywhere"] += 1
+                    if t.startswith("第") and "卷" in t[:25]:
+                        counts["volume_first"] += 1
+            counts["encoding"] = codec
+            break
+        except UnicodeError:
+            counts["lines"] = 0
+            continue
+    print(json.dumps({"safe_qiumo_header_structure_probe": counts}, ensure_ascii=False), flush=True)
     return verify_source(source, destination)
 
 def main():
