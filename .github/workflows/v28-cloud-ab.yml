@@ -1,0 +1,93 @@
+name: V28 cloud models and A/B (explicit paid run only)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v28-cloud-ab.yml'
+  workflow_dispatch:
+    inputs:
+      confirm_source_egress:
+        type: boolean
+        required: true
+        default: false
+        description: 'I approve sending only the verified first scene to my configured cloud LLMs'
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-v28-wudong-cloud-ab
+  cancel-in-progress: false
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      WF_V28_MAX_CALLS: ${{ vars.WF_V28_MAX_CALLS }}
+      WF_V28_MAX_USD: ${{ vars.WF_V28_MAX_USD }}
+      WF_V28_PLANNER_PROVIDER: ${{ vars.WF_V28_PLANNER_PROVIDER }}
+      WF_V28_PLANNER_MODEL: ${{ vars.WF_V28_PLANNER_MODEL }}
+      WF_V28_PLANNER_INPUT_USD_PER_M: ${{ vars.WF_V28_PLANNER_INPUT_USD_PER_M }}
+      WF_V28_PLANNER_OUTPUT_USD_PER_M: ${{ vars.WF_V28_PLANNER_OUTPUT_USD_PER_M }}
+      WF_V28_PLANNER_API_KEY: ${{ secrets.WF_V28_PLANNER_API_KEY }}
+      WF_V28_WRITER_PROVIDER: ${{ vars.WF_V28_WRITER_PROVIDER }}
+      WF_V28_WRITER_MODEL: ${{ vars.WF_V28_WRITER_MODEL }}
+      WF_V28_WRITER_INPUT_USD_PER_M: ${{ vars.WF_V28_WRITER_INPUT_USD_PER_M }}
+      WF_V28_WRITER_OUTPUT_USD_PER_M: ${{ vars.WF_V28_WRITER_OUTPUT_USD_PER_M }}
+      WF_V28_WRITER_API_KEY: ${{ secrets.WF_V28_WRITER_API_KEY }}
+      WF_V28_CRITIC_PROVIDER: ${{ vars.WF_V28_CRITIC_PROVIDER }}
+      WF_V28_CRITIC_MODEL: ${{ vars.WF_V28_CRITIC_MODEL }}
+      WF_V28_CRITIC_INPUT_USD_PER_M: ${{ vars.WF_V28_CRITIC_INPUT_USD_PER_M }}
+      WF_V28_CRITIC_OUTPUT_USD_PER_M: ${{ vars.WF_V28_CRITIC_OUTPUT_USD_PER_M }}
+      WF_V28_CRITIC_API_KEY: ${{ secrets.WF_V28_CRITIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - name: Offline cloud ABI/price/AB tests (zero external calls)
+        run: python -m unittest discover -s tests -p 'test_v28_cloud_ab.py' -v
+      - name: Check model configuration, never expose secret presence
+        run: |
+          python - <<'PY'
+          import json
+          from writerforge.reverse_cloud_models import safe_cloud_readiness
+          status=safe_cloud_readiness()
+          print(json.dumps(status,ensure_ascii=False))
+          PY
+  cloud_paid_trial:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_source_egress == true }}
+    needs: readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+      WF_V28_ALLOW_SOURCE_EGRESS: 'yes'
+      WF_V28_MAX_CALLS: ${{ vars.WF_V28_MAX_CALLS }}
+      WF_V28_MAX_USD: ${{ vars.WF_V28_MAX_USD }}
+      WF_V28_PLANNER_PROVIDER: ${{ vars.WF_V28_PLANNER_PROVIDER }}
+      WF_V28_PLANNER_MODEL: ${{ vars.WF_V28_PLANNER_MODEL }}
+      WF_V28_PLANNER_INPUT_USD_PER_M: ${{ vars.WF_V28_PLANNER_INPUT_USD_PER_M }}
+      WF_V28_PLANNER_OUTPUT_USD_PER_M: ${{ vars.WF_V28_PLANNER_OUTPUT_USD_PER_M }}
+      WF_V28_PLANNER_API_KEY: ${{ secrets.WF_V28_PLANNER_API_KEY }}
+      WF_V28_WRITER_PROVIDER: ${{ vars.WF_V28_WRITER_PROVIDER }}
+      WF_V28_WRITER_MODEL: ${{ vars.WF_V28_WRITER_MODEL }}
+      WF_V28_WRITER_INPUT_USD_PER_M: ${{ vars.WF_V28_WRITER_INPUT_USD_PER_M }}
+      WF_V28_WRITER_OUTPUT_USD_PER_M: ${{ vars.WF_V28_WRITER_OUTPUT_USD_PER_M }}
+      WF_V28_WRITER_API_KEY: ${{ secrets.WF_V28_WRITER_API_KEY }}
+      WF_V28_CRITIC_PROVIDER: ${{ vars.WF_V28_CRITIC_PROVIDER }}
+      WF_V28_CRITIC_MODEL: ${{ vars.WF_V28_CRITIC_MODEL }}
+      WF_V28_CRITIC_INPUT_USD_PER_M: ${{ vars.WF_V28_CRITIC_INPUT_USD_PER_M }}
+      WF_V28_CRITIC_OUTPUT_USD_PER_M: ${{ vars.WF_V28_CRITIC_OUTPUT_USD_PER_M }}
+      WF_V28_CRITIC_API_KEY: ${{ secrets.WF_V28_CRITIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Perform one private original controlled cloud AB and fresh R2 recovery
+        run: python scripts/run_wudong_cloud_ab.py
