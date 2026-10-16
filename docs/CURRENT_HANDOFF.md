@@ -341,3 +341,17 @@
 - V28的模型短评不是独立真人评价，单组分差不是稳定因果效果，也**不允许**以76分晋级；第一窗口仍 `NOT_PASSED`，第二窗口 `LOCKED`。
 
 技术状态：现在【固定模型 / 1M官方规格 / 端砚实测关闭深度思考 / 50k预算 / 真实A/B / R2回读】都已通过；**技能写作质量提升没有通过**。不要错误地把 #38910720051 的GitHub success解释为文学胜过基线或大师90分。公开源文件与真实状态见 [V28_FIXED_1M_PAIR_50K.md](V28_FIXED_1M_PAIR_50K.md)。后续训练改进重点是机制选择/呈现是否真正引导主人公感知、行动与读者理解，而非继续盲目换模型或扩大token。此轮一次性工作流不会因普通代码 push 重复产生费用。
+
+
+## 25. 用户纠正跨厂商模型固定配置、继续真实训练，但文学分析延后（2026-10-16）
+
+用户明确要求：**“no——不要使用一家的模型——暂时v4 flash和5.3吧——然后这次继续训练——留到下次一起分析。”**
+
+本轮不再采用一家的 V4 Flash+V4 Pro。已修改：
+- `writerforge/reverse_discovery_models.py` 固定 **Planner = DeepSeek V4 Flash `deepseek-v4-flash-0731`，Writer = Z.ai/智谱 `glm-5.3`，Critic = DeepSeek V4 Flash `deepseek-v4-flash-0731`**。两家、两个模型，三角色并非三种独立模型。Writer/Critic 来自不同厂商。模型官方均标 1,048,576 tokens 上下文；端砚 Discovery 网关尚未对 1M 请求实压验收。
+- 保留每轮共享 `50_000` 预约输出 Token 上限、7 次 API 请求上限、单次最多一次有限重试与 Source/Writer 剧情隔离；DeepSeek Flash 显式 `thinking:disabled`，GLM 不擅自传未经端砚网关核验的思考参数。
+- `scripts/run_wudong_discovery_ab.py` 将本次结果独立存入 `cross-vendor-flash-glm53-50k-ab-v4` 私有 R2 路径，不污染原有 v3 及之前真实失败凭证。上游仍是私有 `wudongqiankun` 第一章第一连续窗口，不解锁第二段。
+- 新的角色与 1M 规格回归 `tests/test_v28_fixed_pair_budget.py` 已实际通过 [GitHub Tests #38913521779](https://github.com/66tyu55/WriterForge/actions/runs/38913521779)。
+- 用户已授权**本轮一次**真实额度训练，[one-shot Actions #38913593019](https://github.com/66tyu55/WriterForge/actions/runs/38913593019) 在写入此条时执行中；必须根据最终 job `conclusion` 和 R2 SHA 更新。本轮按用户要求**不做文学原因分析/不做新评分长评**，即使 A/B 完成也只保存私有证据，下一次聊天统一分析。不可将工作流成功解释为已达到90%，也不自动进入第二段。
+
+注意：此 one-shot workflow 仅因新文件创建触发；未来代码普通 push 不会自动重复产生模型调用。不要自动改回同一厂商两款 V4。
