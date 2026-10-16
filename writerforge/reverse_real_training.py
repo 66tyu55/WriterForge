@@ -19,7 +19,7 @@ from .reverse_source_cursor import HEADING, digest, opening_chapter_plan
 
 MAX_JSON_RESPONSE = 24_000
 MAX_USER_PROMPT = 13_000
-MAX_MODEL_CALLS = 7
+MAX_MODEL_CALLS = 9
 NOTE_FIELDS = ("trigger", "perception", "decision", "consequence",
                "reader_question", "author_mechanism")
 FAULT_FIELDS = ("perception", "causality", "information")
@@ -165,6 +165,25 @@ class RealFirstUnitTrainer:
         self.calls+=1
         return model.ask(system,user,num_predict=predict)
 
+    def _abstract_review(self, record, source, draft, *, model, fields, cap=160):
+        """Only one extra model operation to paraphrase a long copied note.
+
+        Real original/draft passages are never allowed in the final R2 core.
+        """
+        short=_limited_explanation(record,fields,cap=cap)
+        try:
+            return _clean_abstract(short,source,draft)
+        except RealTrainingError as exc:
+            if str(exc)!="unabstracted original/draft in review note":
+                raise
+            revised=self._ask(model,
+                "你是独立编辑。把下面的文学分析缩写成抽象机制、角色认知或反事实规则，"
+                "保留原先的判断，不引用任何原著或草稿连续语句，也不要角色姓名。"
+                "仅返回包含相同字段的JSON，各字段20-80汉字。",
+                json.dumps(short,ensure_ascii=False),950)
+            normalized=_limited_explanation(revised,fields,cap=cap)
+            return _clean_abstract(normalized,source,draft)
+
     def learn(self,segments:tuple[str,str], *, source_sha:str, max_attempts:int=2):
         if not 1<=max_attempts<=3:
             raise RealTrainingError("max attempts outside finite budget")
@@ -177,8 +196,8 @@ class RealFirstUnitTrainer:
             "只输出 JSON，恰含 trigger/perception/decision/consequence/reader_question/author_mechanism 六项，"
             "每项一句，80字以内。明确未知而不是补造。",
             "【源片段，绝不可照录用于练习写作】\n"+first,1600)
-        concepts=_limited_explanation(proposed,NOTE_FIELDS)
-        concepts=_clean_abstract(concepts,first,"")
+        concepts=self._abstract_review(proposed,first,"",model=self.planner,
+                                       fields=NOTE_FIELDS,cap=MAX_NOTE_CHARS)
         # Writer must not receive the original text nor its proper nouns.
         instruction={
             "setting":"完全原创的非武动乾坤世界，不使用林动、林家、青阳镇等原著角色或事件",
@@ -213,11 +232,11 @@ class RealFirstUnitTrainer:
                 "revision 为一句可迁移修订原则。所有字符串不超120字。"
                 "这仅是模型审稿假设，不是正式90%独立评审。",
                 "【局部原著】\n"+first+"\n【已锁定的原创练笔】\n"+generated,1600)
-            faults=_limited_explanation(critique.get("faults"),FAULT_FIELDS,cap=160)
-            comments=_limited_explanation(critique,
-                                         ("mechanism","counterfactual","revision"),cap=160)
-            faults=_clean_abstract(faults,first,generated)
-            comments=_clean_abstract(comments,first,generated)
+            faults=self._abstract_review(critique.get("faults"),first,generated,
+                                         model=self.critic,fields=FAULT_FIELDS,cap=160)
+            comments=self._abstract_review(critique,first,generated,
+                               model=self.critic,
+                               fields=("mechanism","counterfactual","revision"),cap=160)
             attempts.append({
                 "attempt":idx, "draft_sha256":raw_hash(generated),
                 "draft_chars":len(generated),"critic_model":self.critic.name,
