@@ -8,6 +8,8 @@ description: >
 
 # WriterForge V27
 
+> **Read first before continuing WriterForge:** [docs/CURRENT_HANDOFF.md](docs/CURRENT_HANDOFF.md). It contains verified private-R2 sources, successful Actions runs, known blockers and the exact next stage. Do not repeat prior source uploads or claim unperformed literary training.
+
 WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutually exclusive.
 
 ## Runtime rule
