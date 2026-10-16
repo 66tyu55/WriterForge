@@ -14,7 +14,7 @@ import sys
 
 from writerforge.modern_source import _encoding
 from writerforge.reverse_core_vault import _validate_snapshot
-from writerforge.reverse_real_training import LocalModel,RealFirstUnitTrainer,first_chapter_windows
+from writerforge.reverse_real_training import LocalModel,RealFirstUnitTrainer,first_chapter_windows,RealTrainingError
 from writerforge.r2_storage import R2Config,R2StudyVault,_canonical,_digest
 from writerforge.single_work_runner import SingleWorkVault
 
@@ -106,7 +106,9 @@ def main():
     except Exception as exc:
         # Do not expose model prompts, private original or temporary draft.
         print(json.dumps({"status":"REAL_TRAINING_BLOCKED",
-                          "failure_type":type(exc).__name__},ensure_ascii=False),
+                          "failure_type":type(exc).__name__,
+                          "failure_code":str(exc)[:160] if isinstance(exc,RealTrainingError)
+                              else "source_or_runtime_failure_redacted"},ensure_ascii=False),
               file=sys.stderr,flush=True)
         raise SystemExit(1)
     print(json.dumps(receipt,ensure_ascii=False,indent=2),flush=True)
