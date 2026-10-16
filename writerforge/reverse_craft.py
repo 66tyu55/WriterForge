@@ -277,30 +277,123 @@ class ReverseCraftCoordinator:
                 raise
         return new_status
 
-    def snapshot(self) -> bytes:
-        """Content-addressed, only abstract records and hashes. No draft body."""
-        tables = ("rc_meta","rc_units","rc_attempts","rc_cores","rc_evidence","rc_merges")
-        result = {"format":"writerforge.reverse-core.v1","project":self.project,
-                  "tables":{}}
+    def snapshot(self, *, unit_id: int | None = None,
+                 target: str | None = None,
+                 merge_id: int | None = None) -> bytes:
+        """Canonical snapshot of the future committed state (no draft prose).
+
+        When storing a checkpoint we stage the expected state before moving
+        the local DB, so a clean R2 restore has PASS/MERGED_PASS too.
+        """
+        tables=("rc_meta","rc_units","rc_attempts","rc_cores","rc_evidence","rc_merges")
+        result={"format":"writerforge.reverse-core.v1","project":self.project,
+                "tables":{}}
         for table in tables:
-            rows = self.conn.execute("SELECT * FROM "+table+" ORDER BY rowid").fetchall()
-            result["tables"][table] = [dict(row) for row in rows]
-        encoded = _canon(result).encode("utf-8")
-        if len(encoded) > 512 * 1024:
+            # This project DB is bounded by strict per-unit cardinality caps.
+            rows=self.conn.execute("SELECT * FROM "+table+" ORDER BY rowid").fetchall()
+            result["tables"][table]=[dict(row) for row in rows]
+        if unit_id is not None:
+            if target not in ("RETEST_READY","PASS"):
+                raise ReverseCraftError("invalid prospective checkpoint state")
+            unit=next((r for r in result["tables"]["rc_units"] if r["id"]==unit_id),None)
+            if not unit:
+                raise ReverseCraftError("prospective unit missing")
+            expected=("PERSIST_PENDING" if target=="RETEST_READY"
+                      else "RETEST_PERSIST_PENDING")
+            if unit["status"]!=expected:
+                raise ReverseCraftError("prospective checkpoint state differs")
+            unit["status"]=target
+            unit["remote_hash"]=None  # self-referential digest is impossible
+            if target=="PASS":
+                pairs=result["tables"]["rc_evidence"]
+                if not any(r["core_hash"]==unit["core_hash"]
+                           and r["context_hash"]==unit["context_hash"] for r in pairs):
+                    pairs.append({"core_hash":unit["core_hash"],
+                                  "context_hash":unit["context_hash"],"unit_id":unit_id})
+                core=next(r for r in result["tables"]["rc_cores"]
+                          if r["core_hash"]==unit["core_hash"])
+                count=sum(r["core_hash"]==unit["core_hash"] for r in pairs)
+                core["tier"]=("generalized_9" if count>=9 else
+                               "retested_6" if count>=6 else
+                               "recurrent_3" if count>=3 else "candidate")
+        if merge_id is not None:
+            if target!="MERGED_PASS" or unit_id is not None:
+                raise ReverseCraftError("invalid prospective merged state")
+            record=next((r for r in result["tables"]["rc_merges"]
+                         if r["pair_start"]==merge_id),None)
+            if record is None or record["status"]!="PERSIST_PENDING":
+                raise ReverseCraftError("pending merge not found")
+            record["status"]="MERGED_PASS"
+            record["remote_hash"]=None
+        encoded=_canon(result).encode("utf-8")
+        if len(encoded)>512*1024:
             raise ReverseCraftError("core snapshot exceeds 512 KiB cap")
         return encoded
+
+    @classmethod
+    def restore_snapshot(cls, path: str | Path, project: str, payload: bytes,
+                         *, scratch: str | Path | None = None):
+        """Restore a verified payload into a NEW DB, without source/draft prose.
+
+        Caller must first read/verify it through ReverseCoreVault; this method
+        additionally validates format, pinned book and strict table keys.
+        """
+        target=Path(path)
+        if target.exists():
+            raise ReverseCraftError("refuse to overwrite an existing project DB")
+        if not isinstance(payload,bytes) or len(payload)>512*1024:
+            raise ReverseCraftError("invalid restore payload")
+        try:
+            data=json.loads(payload)
+        except (ValueError,UnicodeError) as exc:
+            raise ReverseCraftError("core payload is not JSON") from exc
+        expected={"rc_meta","rc_units","rc_attempts","rc_cores","rc_evidence","rc_merges"}
+        if (data.get("format")!="writerforge.reverse-core.v1" or
+            data.get("project")!=_id(project) or
+            set(data.get("tables",{}))!=expected):
+            raise ReverseCraftError("invalid reverse core snapshot")
+        info=data["tables"]["rc_meta"]
+        if (len(info)!=1 or info[0].get("work")!=WORK
+            or info[0].get("project")!=project or info[0].get("edition")!=EDITION):
+            raise ReverseCraftError("reverse core edition mismatch")
+        target.parent.mkdir(parents=True,exist_ok=True)
+        conn=sqlite3.connect(str(target))
+        try:
+            conn.executescript(SCHEMA)
+            conn.execute("BEGIN IMMEDIATE")
+            for table in ("rc_meta","rc_units","rc_attempts","rc_cores",
+                          "rc_evidence","rc_merges"):
+                fields=[x[1] for x in conn.execute("PRAGMA table_info("+table+")")]
+                rows=data["tables"][table]
+                if not isinstance(rows,list) or len(rows)>MAX_EVIDENCE:
+                    raise ReverseCraftError("oversized snapshot table")
+                for record in rows:
+                    if not isinstance(record,dict) or set(record)!=set(fields):
+                        raise ReverseCraftError("invalid snapshot schema")
+                    conn.execute("INSERT INTO "+table+"("+",".join(fields)+") VALUES("+
+                        ",".join(["?"]*len(fields))+")", [record[k] for k in fields])
+            conn.commit()
+            if conn.execute("PRAGMA quick_check").fetchone()[0]!="ok":
+                raise ReverseCraftError("restored core SQLite integrity failed")
+        except Exception:
+            conn.rollback()
+            conn.close()
+            target.unlink(missing_ok=True)
+            raise
+        conn.close()
+        return cls(target,project,scratch=scratch)
 
     def checkpoint(self, unit_id: int, vault) -> str:
         row = self._unit(unit_id)
         if row["status"] not in ("PERSIST_PENDING", "RETEST_PERSIST_PENDING"):
             raise ReverseCraftError("not waiting for a durable checkpoint")
-        payload = self.snapshot()
+        target = "RETEST_READY" if row["status"]=="PERSIST_PENDING" else "PASS"
+        payload = self.snapshot(unit_id=unit_id, target=target)
         snap_hash = _hash(payload)
         # A real implementation must fresh-download and verify returned bytes.
         receipt = vault.store_and_restore(payload, work=WORK, project=self.project, edition=EDITION)
         if receipt != snap_hash:
             raise ReverseCraftError("core remote checkpoint not independently verified")
-        target = "RETEST_READY" if row["status"]=="PERSIST_PENDING" else "PASS"
         self.conn.execute("BEGIN IMMEDIATE")
         try:
             latest = self._unit(unit_id)
@@ -399,7 +492,7 @@ class ReverseCraftCoordinator:
                 raise
         if state!="PERSIST_PENDING":
             return state
-        payload=self.snapshot()
+        payload=self.snapshot(merge_id=first_id,target="MERGED_PASS")
         h=_hash(payload)
         if vault.store_and_restore(payload,work=WORK,project=self.project,edition=EDITION)!=h:
             raise ReverseCraftError("merged checkpoint verification failed")
