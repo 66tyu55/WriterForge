@@ -1,0 +1,33 @@
+name: WriterForge next three fantasy novels source-verification gate
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/next-three-xuanhuan-r2.yml'
+      - 'scripts/archive_next_three_xuanhuan_r2.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-next-three-source-pinning
+  cancel-in-progress: false
+
+jobs:
+  verify-three-distinct-new-sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        work: [qiumo, zhetian, manghuangji]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - name: Runner-local download and evidence hash only (NO public full text; NO R2 mutation)
+        run: |
+          set -euo pipefail
+          python scripts/archive_next_three_xuanhuan_r2.py --work "${{ matrix.work }}" --validate-only
