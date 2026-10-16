@@ -13,6 +13,7 @@ from .reverse_real_training import RealTrainingError, raw_hash, _source_copy_gua
 from .reverse_mechanism_boundary import (
     MechanismBoundaryError, source_paragraphs, proposal_prompt,
     parse_selections, build_writer_packet, report_evidence,
+    guarded_proposal_prompt, guarded_selections,
 )
 
 MAX_AB_CALLS = 4
@@ -73,10 +74,13 @@ class CloudABTrial:
     Writer sees no source prose or plot; critic sees both anonymized drafts.
     Length mismatches fail closed; model score cannot promote literary skill.
     """
-    def __init__(self, *, planner, writer, critic):
+    def __init__(self, *, planner, writer, critic, evidence_first:bool=False,
+                 quarantined_pairs:tuple=()):
         if (writer.provider,writer.name)==(critic.provider,critic.name):
             raise ABTrialError("writer cannot critique same identity")
         self.planner,self.writer,self.critic=planner,writer,critic
+        self.evidence_first=bool(evidence_first)
+        self.quarantined_pairs=quarantined_pairs
 
     def run(self, first:str, second:str, *, source_sha:str, window_hash:str, writing_task:str=BASE_TASK):
         if not 300<=len(first)<=5500 or not second:
@@ -92,8 +96,19 @@ class CloudABTrial:
             "你负责原著证据选择，不负责替写作者写剧情提纲。"
             "不能输出原著专名、事件描述或任意创作指令。"
             "严格按宿主的 id/evidence_ids JSON 结构回复。",
-            proposal_prompt(paragraphs),num_predict=6500)
-        selections=parse_selections(proposal,paragraphs)
+            guarded_proposal_prompt(paragraphs) if self.evidence_first
+            else proposal_prompt(paragraphs),num_predict=6500)
+        if self.evidence_first:
+            selections,decision=guarded_selections(
+                proposal,paragraphs,source_window_sha256=window_hash,
+                quarantined_pairs=self.quarantined_pairs)
+            if not selections:
+                # Preserve token budget, neutral baseline and existing craft
+                # registry: do not force a new technique into a wrong context.
+                raise ABTrialError("NO_VERIFIED_TRANSFERABLE_MECHANISM")
+        else:
+            selections=parse_selections(proposal,paragraphs)
+            decision="LEGACY_EXPERIMENT_UNVERIFIED"
         abstract_evidence=report_evidence(selections,paragraphs)
         neutral=build_writer_packet(selections,enhanced=False,writing_task=writing_task)
         enhanced=build_writer_packet(selections,enhanced=True,writing_task=writing_task)
@@ -174,6 +189,7 @@ class CloudABTrial:
             "writer_prompt_source_prose_or_plot":False,
             "critic_prompt_original_source_prose":False,
             "mechanism_registry":"host_static_only_v1",
+            "planner_evidence_policy":decision,
             "length_gate":{"max_relative_difference":0.15,
                            "baseline_chars":baseline_chars,
                            "skill_chars":skill_chars,
