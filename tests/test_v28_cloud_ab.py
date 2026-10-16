@@ -124,6 +124,9 @@ class ABTests(unittest.TestCase):
         self.assertFalse(result["second_unit_unlocked"])
         self.assertEqual(len(w.calls),2)
         self.assertEqual(len(c.calls),1)
+        self.assertNotIn(source,c.calls[0][1])
+        self.assertNotIn("source_context",c.calls[0][1])
+        self.assertFalse(result["critic_prompt_original_source_prose"])
         self.assertNotIn(source,w.calls[0][1])
         self.assertIn("technique_operations",w.calls[1][1])
         self.assertNotIn("technique_operations",w.calls[0][1])
@@ -148,6 +151,17 @@ class ABTests(unittest.TestCase):
             CloudABTrial(planner=p,writer=w,critic=c).run(
                 "甲"*650,"乙"*650,source_sha="a"*64,window_hash="b"*64)
         self.assertEqual(len(w.calls),0)
+
+    def test_short_exact_source_quote_does_not_survive_review(self):
+        from writerforge.reverse_cloud_ab import _choice_score
+        excerpt="这是仅供测试的十八个以上连续中文原文字符必须被隐藏"
+        text=excerpt+"而非模型原创评论"
+        scores={key: {"score": 81, "reason": text} for key in DIMENSIONS}
+        output=_choice_score(scores, "假稿", excerpt)
+        for value in output.values():
+            self.assertTrue(value["reason"].startswith("UNVERIFIED_QUOTATION_REDACTED_"))
+            self.assertNotIn(excerpt, value["reason"])
+
 
 if __name__=="__main__":
     unittest.main()
