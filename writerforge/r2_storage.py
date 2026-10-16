@@ -171,6 +171,7 @@ def _logical_study_digest(path: Path) -> str:
         "encyclopedia_evidence": "id,entity_id,work_id,chapter,paragraph,sentence,category_path,attribute,quotation,source_unit_sha256,explanation,assertion,origin,status,reviewer_reason",
         "encyclopedia_relations": "id,source_entity_id,target_entity_id,relation,evidence_id",
         "literary_training_attempts": "run_id,project_id,work_id,stage,prompt_sha256,body_sha256,status,model,body,receipt_json",
+        "literary_scene_trials": "project_id,scene_id,work_id,chapter,raw_source_sha256,scene_sha256,blind_sha256,model_id,stage,first_read_json,analysis_json,review_status,reviewer_reason",
     }
     digest = sha256()
     try:
@@ -192,6 +193,11 @@ def _logical_study_digest(path: Path) -> str:
                 # Presence/absence forms part of the deterministic digest.
                 if table not in available:
                     digest.update((table + ":absent").encode("ascii"))
+                    continue
+                if (table=="literary_scene_trials"
+                    and con.execute("SELECT COUNT(*) FROM literary_scene_trials").fetchone()[0]==0):
+                    # Keep unchanged source-only editions from growing solely
+                    # because the schema gained an empty optional research table.
                     continue
                 digest.update(table.encode("ascii"))
                 cur = con.execute(f"SELECT {fields} FROM {table} ORDER BY rowid")

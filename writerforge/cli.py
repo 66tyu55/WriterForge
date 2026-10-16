@@ -14,6 +14,9 @@ from .modern_source import study_modern_source
 from .classics_catalog import get_book, download_book, study_book, catalog_progress_local, CATALOG as CLASSICS_CATALOG
 from .verified_flow import VerifiedWritingFlow, local_chat_completion, save_candidate, accept_candidate
 from .prose_style import ProseStyleStore, ProseStyleError, MAX_REFERENCE_CHARS
+from .scene_learning import SceneLiteraryStudy, extract_verified_classic_scene
+from .verified_flow import GroundedDraftPacket
+from hashlib import sha256
 from .litcritic_adapter import LitCriticAdapter
 from .study_storage import restore_from_github, REPO_DEFAULT
 from .r2_storage import R2Config, R2StudyVault
@@ -58,6 +61,15 @@ def main(argv: list[str] | None = None):
     study_classic=sub.add_parser("learn-classic",help="full original structural study from pinned catalog")
     study_classic.add_argument("--work",required=True,choices=tuple(CLASSICS_CATALOG))
     study_classic.add_argument("--source",required=True)
+    read_scene=sub.add_parser("read-original-scene",
+        help="source-pinned two-pass scene study; no auto-promoted literary claims")
+    read_scene.add_argument("--work",choices=("honglou",),required=True)
+    read_scene.add_argument("--source",required=True,help="pinned original source in the current trusted runtime")
+    read_scene.add_argument("--project",default="honglou-source-evidence-pilot")
+    read_scene.add_argument("--model",help="an ACTUAL locally running LLM; omit for source-only inspection")
+    read_scene.add_argument("--api-base",default="http://127.0.0.1:1234/v1")
+    read_scene.add_argument("--output",required=True,help="JSON receipt only, no full source excerpts")
+    read_scene.add_argument("--backup-r2",action="store_true",help="private R2 backup + fresh restore of this DB")
     modern=sub.add_parser("learn-modern",help="stream a pinned private full-length modern novel")
     modern.add_argument("--work",required=True,choices=("fanrenxiuxian",))
     modern.add_argument("--source",required=True,help="runner-local TXT; never committed")
@@ -343,6 +355,56 @@ def main(argv: list[str] | None = None):
                 out_path=Path(args.report)
                 out_path.parent.mkdir(parents=True,exist_ok=True)
                 out_path.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+            _emit(result)
+        elif args.cmd=="read-original-scene":
+            book=get_book(args.work)
+            scene=extract_verified_classic_scene(args.source,book)
+            rt=RuntimeEngine()
+            rt.enter_learn()
+            lab=SceneLiteraryStudy(db,rt,args.project)
+            if args.model:
+                def _ask(prompt):
+                    packet=GroundedDraftPacket(
+                        scene.scene_id,args.project,0,(),(),prompt,
+                        sha256(prompt.encode("utf-8")).hexdigest(),
+                    )
+                    return local_chat_completion(
+                        packet,model=args.model,api_base=args.api_base,
+                        max_tokens=2200,
+                    )
+                result=lab.run(scene,_ask,args.model)
+            else:
+                result=lab.prepare(scene)
+                result["first_read_or_model_analysis_performed"]=False
+            output=Path(args.output)
+            output.parent.mkdir(parents=True,exist_ok=True)
+            output.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",
+                              encoding="utf-8")
+            if args.backup_r2:
+                if not args.model:
+                    raise ValueError("source-only reading is backed up in the existing CI; --backup-r2 requires a real model stage")
+                library=book.library
+                vault=R2StudyVault(R2Config.from_environment())
+                result["private_r2_backup"]=vault.backup(
+                    database=args.db,library=library,
+                    source=args.source,extras={"scene.json":output},
+                )
+                # Fresh independent verification (R2 checks each file SHA).
+                from tempfile import TemporaryDirectory
+                with TemporaryDirectory(prefix="writerforge-scene-r2-") as folder:
+                    restored=vault.restore(library=library,destination=folder)
+                    import sqlite3
+                    with sqlite3.connect(restored["db"]) as check:
+                        row=check.execute(
+                            """SELECT stage,scene_sha256
+                               FROM literary_scene_trials
+                               WHERE project_id=? AND scene_id=?""",
+                            (args.project,scene.scene_id),
+                        ).fetchone()
+                    if (not row or row[0]!=result["stage"]
+                        or row[1]!=scene.scene_sha256):
+                        raise ValueError("restored private R2 does not contain the expected literary scene state")
+                    result["private_r2_fresh_scene_restore_verified"]=True
             _emit(result)
         elif args.cmd=="corpus-progress":
             if args.remote_r2:

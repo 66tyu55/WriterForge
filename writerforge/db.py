@@ -167,6 +167,29 @@ CREATE TABLE IF NOT EXISTS encyclopedia_relations (
 CREATE INDEX IF NOT EXISTS idx_encyclopedia_relation_source
 ON encyclopedia_relations(source_entity_id,relation);
 
+-- Source-traced scene reading lives in the existing Xuehai DB, not a new Skill.
+-- Stage markers separate verified SOURCE from fallible model interpretation.
+-- Do not use model predictions as measurements of real reader emotion.
+CREATE TABLE IF NOT EXISTS literary_scene_trials (
+    project_id TEXT NOT NULL,
+    scene_id TEXT NOT NULL,
+    work_id TEXT NOT NULL,
+    chapter INTEGER NOT NULL,
+    raw_source_sha256 TEXT NOT NULL,
+    scene_sha256 TEXT NOT NULL,
+    blind_sha256 TEXT NOT NULL,
+    model_id TEXT,
+    stage TEXT NOT NULL CHECK(stage IN ('source_prepared','first_read_locked','interpretation_unreviewed')),
+    first_read_json TEXT,
+    analysis_json TEXT,
+    review_status TEXT NOT NULL DEFAULT 'not_reviewed'
+        CHECK(review_status IN ('not_reviewed','approved','rejected')),
+    reviewer_reason TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(project_id,scene_id),
+    FOREIGN KEY(work_id) REFERENCES studied_works(work_id)
+);
+
 CREATE TABLE IF NOT EXISTS literary_training_attempts (
     run_id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL,
