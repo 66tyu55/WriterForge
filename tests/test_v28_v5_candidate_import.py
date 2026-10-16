@@ -5,7 +5,7 @@ from hashlib import sha256
 from types import SimpleNamespace
 import scripts.import_v28_v5_transfer_candidates_r2 as importer
 from writerforge.r2_storage import _canonical
-from tests.test_v28_reverse_ab_candidates import synthetic_receipt
+from test_v28_reverse_ab_candidates import synthetic_receipt
 
 class FakeStore:
     def __init__(self, raw):
