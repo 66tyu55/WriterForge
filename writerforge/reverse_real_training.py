@@ -92,7 +92,31 @@ class LocalModel:
             output=obj["message"]["content"]
         except (ValueError,TypeError,IndexError,KeyError) as exc:
             raise ModelUnavailable("local model wire response malformed") from exc
-        return _safe_json(output)
+        try:
+            return _safe_json(output)
+        except RealTrainingError as exc:
+            if str(exc)!="model answer not JSON":
+                raise
+            # Exactly one bounded local retry for malformed JSON. Reuse the
+            # same private inputs; no fallback to a fabricated model answer.
+            retry=json.dumps({
+                "model":self.name,"stream":False,"format":"json","think":False,
+                "keep_alive":0,
+                "messages":[{"role":"system","content":system+" 只返回严格有效的JSON对象。"},
+                            {"role":"user","content":user}],
+                "options":{"num_ctx":8192,"num_predict":2400,"temperature":0},
+            },ensure_ascii=False).encode("utf-8")
+            request=Request(self.base_url.rstrip("/")+"/api/chat",data=retry,
+                            headers={"Content-Type":"application/json"},method="POST")
+            try:
+                with urlopen(request,timeout=360) as response:
+                    fixed=response.read(MAX_JSON_RESPONSE*2+1)
+                if len(fixed)>MAX_JSON_RESPONSE*2:
+                    raise ModelUnavailable("retry exceeded response bound")
+                obj=json.loads(fixed)
+                return _safe_json(obj["message"]["content"])
+            except (ValueError,KeyError,TypeError) as rexc:
+                raise ModelUnavailable("single bounded JSON retry failed") from rexc
 
 
 def first_chapter_windows(path:Path, encoding:str, expected_sha:str):
