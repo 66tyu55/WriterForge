@@ -69,7 +69,8 @@ jobs:
           python scripts/learn_archived_modern_r2.py --work fanrenxiuxian
 
   three-xuanhuan-private-r2-structural-learning:
-    needs: fanren-private-r2-structural-learning
+    # Separate works must still be audited even when Fanren's pinned edition is malformed.
+    needs: regressions
     runs-on: ubuntu-latest
     timeout-minutes: 180
     strategy:
