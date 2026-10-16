@@ -13,6 +13,7 @@ from .source_study import OriginalStudy, download_original, WORK_ID, SOURCE_PAGE
 from .modern_source import study_modern_source
 from .classics_catalog import get_book, download_book, study_book, catalog_progress_local, CATALOG as CLASSICS_CATALOG
 from .verified_flow import VerifiedWritingFlow, local_chat_completion, save_candidate, accept_candidate
+from .prose_style import ProseStyleStore, ProseStyleError, MAX_REFERENCE_CHARS
 from .litcritic_adapter import LitCriticAdapter
 from .study_storage import restore_from_github, REPO_DEFAULT
 from .r2_storage import R2Config, R2StudyVault
@@ -97,6 +98,17 @@ def main(argv: list[str] | None = None):
     draft.add_argument("--model",required=True,help="model currently loaded in LM Studio")
     draft.add_argument("--api-base",default="http://127.0.0.1:1234/v1")
     draft.add_argument("--output-dir",default="writing_runs")
+    style_approve=sub.add_parser("prose-style-approve",help="approve ONE quality-reviewed prose reference for a project")
+    style_approve.add_argument("--project",required=True)
+    style_approve.add_argument("--file",required=True,help="author-approved ORIGINAL sample; never committed")
+    style_approve.add_argument("--source-scope",help="bind reference to accepted project scene; stale edits invalidate it")
+    style_approve.add_argument("--confirm-quality-reviewed",action="store_true")
+    style_approve.add_argument("--backup-r2",action="store_true",help="back up the existing SQLite to private R2 after approval")
+    style_status=sub.add_parser("prose-style-status",help="report provenance without printing private sample")
+    style_status.add_argument("--project",required=True)
+    style_disable=sub.add_parser("prose-style-disable",help="revoke project prose reference")
+    style_disable.add_argument("--project",required=True)
+    style_disable.add_argument("--backup-r2",action="store_true")
     accept=sub.add_parser("accept")
     accept.add_argument("--project",required=True)
     accept.add_argument("--manifest",required=True)
@@ -405,6 +417,29 @@ def main(argv: list[str] | None = None):
                             database=args.db,library=os.environ.get("WRITERFORGE_R2_LIBRARY","writerforge-personal"),
                         )
                 _emit(result)
+        elif args.cmd in ("prose-style-approve","prose-style-status","prose-style-disable"):
+            styles=ProseStyleStore(db,args.project)
+            if args.cmd=="prose-style-approve":
+                path=Path(args.file)
+                if not path.is_file() or path.stat().st_size>8*1024:
+                    raise ProseStyleError("sample file missing or oversized")
+                approved=styles.approve(
+                    path.read_text(encoding="utf-8-sig"),
+                    author_confirmed=args.confirm_quality_reviewed,
+                    accepted_scope=args.source_scope,
+                )
+                result={"project":args.project, "status":"author_approved_reference",
+                        **approved}
+            elif args.cmd=="prose-style-status":
+                result={"project":args.project, **styles.status()}
+            else:
+                result={"project":args.project,"revoked":styles.disable()}
+            if args.cmd != "prose-style-status" and args.backup_r2:
+                library=os.environ.get("WRITERFORGE_R2_LIBRARY","writerforge-personal")
+                result["private_r2_backup"]=R2StudyVault(
+                    R2Config.from_environment()
+                ).backup(database=args.db,library=library)
+            _emit(result)
         elif args.cmd=="status":
             snap=db.conn.execute(
                 "SELECT id FROM snapshots WHERE status='published' ORDER BY id DESC LIMIT 1"
