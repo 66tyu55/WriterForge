@@ -131,3 +131,55 @@ def report_evidence(selections:tuple[dict,...],paragraphs:tuple[dict,...])->list
         } for pid in entry["evidence_ids"]],
         "semantic_support_unreviewed":True,
     } for entry in selections]
+
+
+def guarded_proposal_prompt(paragraphs: tuple[dict,...]) -> str:
+    """Optional V28 evidence-first planner contract; original API unchanged.
+
+    Empty selections means that the source does not justify even one HOST
+    mechanism. The model must not improvise new mechanism IDs or source facts.
+    """
+    original=proposal_prompt(paragraphs)
+    assert "selections 是 1~2 项数组" in original
+    return original.replace(
+        "你只能从宿主提供的机制 ID 里选择最多两项最有依据的叙事操作。",
+        "仅在具体来源证据确实支持时才从宿主机制 ID 选择，最多两项；"
+        "如没有可信的因果与人物认知证据，必须弃权并返回空 selections。",
+    ).replace(
+        "selections 是 1~2 项数组",
+        "selections 是 0~2 项数组；无证据时 selections 为 []",
+    )
+
+
+def guarded_selections(reply: dict, paragraphs: tuple[dict,...], *,
+                       source_window_sha256: str,
+                       quarantined_pairs: tuple[tuple[str, tuple[str,...]], ...] = ()
+                       ) -> tuple[tuple[dict,...], str]:
+    """Optional context-scoped quarantine for actual negative A/B candidates.
+
+    Caller must first verify the immutable R2 receipt and negative evidence.
+    Does not block a mechanism on other texts or change the legacy 1..2 rule.
+    It also cannot certify semantic correctness, which needs independent review.
+    """
+    if not isinstance(source_window_sha256,str) or not re.fullmatch(
+        r"[0-9a-f]{64}",source_window_sha256
+    ):
+        raise MechanismBoundaryError("invalid source window provenance")
+    if not isinstance(quarantined_pairs,tuple) or len(quarantined_pairs)>64:
+        raise MechanismBoundaryError("unbounded quarantine evidence")
+    for item in quarantined_pairs:
+        if (not isinstance(item,tuple) or len(item)!=2 or
+            not isinstance(item[0],str) or
+            not re.fullmatch(r"[0-9a-f]{64}",item[0]) or
+            not isinstance(item[1],tuple) or len(item[1]) not in (1,2) or
+            any(id not in TECHNIQUES for id in item[1]) or
+            len(set(item[1]))!=len(item[1])):
+            raise MechanismBoundaryError("unverified quarantine shape")
+    if isinstance(reply,dict) and set(reply)=={"selections"} and reply["selections"]==[]:
+        return (),"ABSTAIN_NO_SUPPORTED_MECHANISM"
+    selected=parse_selections(reply,paragraphs)
+    key=tuple(sorted(item["id"] for item in selected))
+    if any(source_window_sha256==window and key==tuple(sorted(ids))
+           for window,ids in quarantined_pairs):
+        return (),"QUARANTINED_PREVIOUS_NEGATIVE_CONTEXT"
+    return selected,"UNVERIFIED_EXPERIMENT_CANDIDATE"
