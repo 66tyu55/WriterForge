@@ -1,0 +1,31 @@
+name: V28 chapter2 R2 no-model diagnostic preflight once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v28-chapter2-preflight-once.yml'
+permissions:
+  contents: read
+jobs:
+  verify-pinned-later-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Ensure all prior chapter1 regression tests remain green
+        run: |
+          python -m unittest discover -s tests -p test_v28_chapter2_diagnostic.py -q
+          python -m unittest discover -s tests -p test_v28_reverse_opening_cursor.py -q
+          python -m unittest discover -s tests -p test_v28_cloud_ab.py -q
+      - name: Privately hash and verify chapter2 window, without model calls
+        run: python -m scripts.probe_wudong_chapter2_r2_no_model
