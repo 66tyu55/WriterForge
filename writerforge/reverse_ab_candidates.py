@@ -173,19 +173,6 @@ class OfflineCandidateLedger:
         )""")
         self.db.commit()
 
-    def add(self, report: dict) -> bool:
-        if not isinstance(report, dict) or report.get("format") != "writerforge.reverse-ab-candidates.v1":
-            raise CandidateEvidenceError("invalid candidate format")
-        if (report.get("promotable") is not False
-            or report.get("first_window") != "NOT_PASSED"
-            or report.get("second_window") != "LOCKED"
-            or report.get("human_review") != "NOT_PERFORMED"):
-            raise CandidateEvidenceError("candidate status must stay unpromoted")
-        # Guard against arbitrary fields/text entering a trusted store. A
-        # candidate can ONLY be built from a validated, in-memory R2 receipt.
-        # Callers pass the receipt to add_receipt(), not arbitrary JSON here.
-        raise CandidateEvidenceError("use add_receipt for provenance validation")
-
     def add_receipt(self, receipt: dict, *, receipt_sha256: str) -> bool:
         result = derive_unverified_candidates(receipt, receipt_sha256=receipt_sha256)
         serialized = _canonical(result).decode("utf-8")
