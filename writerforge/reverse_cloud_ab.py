@@ -77,7 +77,7 @@ class CloudABTrial:
             "你负责原著证据选择，不负责替写作者写剧情提纲。"
             "不能输出原著专名、事件描述或任意创作指令。"
             "严格按宿主的 id/evidence_ids JSON 结构回复。",
-            proposal_prompt(paragraphs),num_predict=1700)
+            proposal_prompt(paragraphs),num_predict=6500)
         selections=parse_selections(proposal,paragraphs)
         abstract_evidence=report_evidence(selections,paragraphs)
         neutral=build_writer_packet(selections,enhanced=False,writing_task=BASE_TASK)
@@ -89,7 +89,7 @@ class CloudABTrial:
                 "不要代码块、标题或解释性说明。"
                 "不得使用参考作品人物、世界观、对话和情节。",
                 json.dumps(instruction,ensure_ascii=False),
-                num_predict=3200)
+                num_predict=11000)
             draft=response.get("scene")
             if not isinstance(draft,str) or not 220<=len(draft)<=MAX_AB_DRAFT:
                 raise ABTrialError("writer failed to produce bounded original scene")
@@ -118,7 +118,7 @@ class CloudABTrial:
             "不能视为专家90分证明。",
             json.dumps({"task":BASE_TASK,"source_context":first,
                         "A":masked["A"],"B":masked["B"]},ensure_ascii=False),
-            num_predict=2600)
+            num_predict=8000)
         if not isinstance(comparison,dict) or set(comparison)!={
             "A","B","uncertainty","learned_mechanism"
         }:
