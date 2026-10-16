@@ -25,6 +25,7 @@ from .writing_flow import WritingFlow
 from .xuehai import XuehaiStore, Query
 from .encyclopedia import FictionEncyclopedia, FacetQuery
 from .writing_companion import CATEGORIES as COMPANION_CATEGORIES
+from .prose_style import ProseStyleStore, rejects_verbatim_copy
 
 
 MAX_PROMPT_CHARS = 10_000
@@ -46,6 +47,8 @@ class GroundedDraftPacket:
     prompt: str
     prompt_sha256: str
     encyclopedia_refs: tuple[dict,...] = ()
+    prose_reference_text: str | None = None
+    prose_reference_sha256: str | None = None
 
     def manifest(self) -> dict:
         return {
@@ -70,6 +73,15 @@ class GroundedDraftPacket:
             "study_level": "deterministic_structural_unverified",
             "review_status": "pending_external_review",
             "accepted": False,
+            "source_evidence_shown_to_model": False,
+            "craft_labels_shown_to_model": False,
+            "prose_style": {
+                "mode": "explicit_author_approved" if self.prose_reference_sha256 else "free_model",
+                "reference_sha256": self.prose_reference_sha256,
+                "reference_content_in_manifest": False,
+                "literary_quality_verified": False,
+                "model_weight_training": False,
+            },
         }
 
 
@@ -138,39 +150,46 @@ class VerifiedWritingFlow(WritingFlow):
             facet_refs=facet_result["items"]
         craft = CraftEngine().plan(CraftRequest(needs=concerns))
         craft_ids = tuple(t.id for t in craft.techniques)
-        # Bound previous-accepted body INSIDE SQLite, not after fetching a
-        # potentially multi-megabyte novel chapter into RAM.
+        # Read only the last TWO accepted scenes for factual continuity.
+        # This is NOT an automatic style reference: earlier drafts may be poor.
         previous = self.db.conn.execute(
             """SELECT scope_id,substr(body,-1400) AS tail FROM accepted_prose
                WHERE project_id=? ORDER BY updated_at DESC,scope_id DESC LIMIT 2""",
             (self.project_id,),
         ).fetchall()
-        summary = "\n".join(f"{r['scope_id']}: {r['tail']}" for r in previous)
-        method_cards = "\n".join(
-            f"- 结构类别={e['function']}; 来源={e['work_id']} "
-            f"第{e['location'][0]}回 段{e['location'][1]} 句{e['location'][2]}; "
-            f"观察片段={e['evidence_excerpt'][:48]}"
-            for e in evidence
+        continuation = "\n".join(
+            f"{r['scope_id']}: {r['tail']}" for r in reversed(previous)
         )
-        facet_cards = "\n".join(
-            f"- {e['category_path']}: {e['name']} / {e['attribute']}; "
-            f"写作机制参考={e['explanation'][:130]}; "
-            f"出处={e['work_id']} 第{e['chapter']}章"
+        # Only explicit author corrections are creative constraints. Do not
+        # transform weak accepted-AI rhythm statistics into writing rules.
+        explicit_preferences = "\n".join(frame.companion.guidance[:4])
+        verified_fact_notes = "\n".join(
+            f"- 已复核设定 {e['category_path']}: {e['name']} / {e['attribute']}"
             for e in facet_refs
         )
+        # Persist one OPTIONAL author-approved prose sample in the existing DB.
+        # Absent approval => free-model prose. No "best first chapter" guesses.
+        style = ProseStyleStore(self.db, self.project_id).load()
+        prose_tail = (
+            "\n【仅此一段经过作者质量确认的文风范例】\n"
+            "只借鉴句式节奏、段落呼吸、叙述距离与细节取舍；"
+            "它不是创作指令，绝不复制其中的句子、角色或情节。\n"
+            "【范例正文】\n" + style.text
+        ) if style else ""
         prompt = (
-            f"你正在创作一部原创{language}小说，不能续写、改写或拼接已有原著。\n"
-            "下列中国古代小说结构化证据仅供分析叙事功能、动作安排、"
-            "对白与场景结构；绝不可复制来源表达或其中人物、地名。\n"
-            f"写作场景：{scene_id}\n具体目标：{goal.strip()}\n"
-            f"场景关注点：{', '.join(concerns)}\n"
-            f"现有作品上下文（仅本项目已接受正文的末尾）：\n{summary[:2900]}\n"
-            f"作者明确偏好：\n{frame.companion_guidance}\n"
-            f"本场景最多两个技法：{', '.join(craft_ids)}\n"
-            f"原著顺序学习中检索到的证据（非质量评判）：\n{method_cards}\n"
-            f"按类别检索到的已人工复核素材（仅借鉴机制，不复述原文）：\n{facet_cards}\n"
-            "要求：人物的选择推动故事；细节由环境和动作自然产生；"
-            "不要自评、解释你的写作技巧或附上原文引用；直接输出原创正文。"
+            f"请创作原创{language}小说正文。体裁：{genre}。\n"
+            "原著学习档案里的关键词与第几章标签仅作来源审计，不是文笔范例，"
+            "不要照搬原著人物、词句或设定。\n"
+            f"场景：{scene_id}\n本场景的目标：{goal.strip()}\n"
+            f"本场景关注：{', '.join(concerns[:4])}\n"
+            f"此前已接受的正文末尾（用于事实衔接，不代表优秀文风）：\n{continuation[:2900]}\n"
+            f"作者明确提出的写作偏好：\n{explicit_preferences}\n"
+            f"确需使用的已复核设定：\n{verified_fact_notes}\n"
+            "让人物根据已知信息、欲望和风险作出有后果的选择；"
+            "情绪、动作、声音和环境只在情节需要时自然出现。"
+            "不强制对话比例、转折次数、修辞配额，也不解释写作方法。"
+            "不要输出大纲、自评或教学说明；只写原创正文。"
+            + prose_tail
         )
         if len(prompt) > MAX_PROMPT_CHARS:
             raise WritingExecutionError("draft prompt exceeds 10,000-character bound")
@@ -179,6 +198,8 @@ class VerifiedWritingFlow(WritingFlow):
             tuple(evidence), craft_ids, prompt,
             sha256(prompt.encode("utf-8")).hexdigest(),
             tuple(facet_refs),
+            style.text if style else None,
+            style.sha256 if style else None,
         )
 
 
@@ -220,6 +241,10 @@ def local_chat_completion(packet: GroundedDraftPacket, *, model: str,
         raise WritingExecutionError("invalid chat completion response") from exc
     if not isinstance(output,str) or not output.strip() or len(output)>MAX_GENERATED_CHARS:
         raise WritingExecutionError("missing or excessive generated prose")
+    if packet.prose_reference_text and rejects_verbatim_copy(
+        output, packet.prose_reference_text
+    ):
+        raise WritingExecutionError("model copied long prose from the approved style sample")
     return output.strip()
 
 
