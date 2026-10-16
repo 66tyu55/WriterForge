@@ -1,4 +1,4 @@
-name: V28 true private R2 mechanism regression guard once
+name: V28 true private R2 mechanism regression guard corrected
 on:
   push:
     branches: [main]
