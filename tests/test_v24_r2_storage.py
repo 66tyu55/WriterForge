@@ -17,6 +17,7 @@ import sqlite3
 import unittest
 
 from writerforge import WriterForgeDB
+from writerforge.prose_style import ProseStyleStore
 from writerforge.r2_storage import (
     R2Config, R2StudyVault, R2StorageError, r2_configured,
     _sqlite_audit, MAX_DB_BYTES,
@@ -172,6 +173,41 @@ class R2StudyTests(unittest.TestCase):
                                  destination=self.folder/"library")
         self.assertTrue(again["from_local_cache"])
         self.assertEqual(self.fake.download_count,3)
+
+    def test_explicit_style_r2_roundtrip_does_not_silently_reuse_source_edition(self):
+        # A genuine SQLite -> simulated R2 objects -> independently downloaded
+        # SQLite roundtrip. It is not a live Cloudflare write.
+        initial=self.store.backup(
+            database=self.db_path,library="style-pilot",
+            source=self.source,edition="source-only-edition-v1",
+        )
+        style_text=(
+            "雨停时，瓦檐下还有一滴水没有落下。"
+            "他握着那封信，先看了看对面人的鞋面，却没有问为什么。"
+            "远处传来卖饼人的吆喝，巷子里很快又安静了。"
+        )*3
+        with closing(WriterForgeDB(self.db_path)) as db:
+            styles=ProseStyleStore(db,"project-a")
+            approved=styles.approve(style_text,author_confirmed=True)
+            self.assertTrue(styles.status()["active"])
+        with self.assertRaisesRegex(R2StorageError,"style requires a normal"):
+            self.store.backup(
+                database=self.db_path,library="style-pilot",
+                source=self.source,edition="source-only-edition-v1",
+            )
+        next_snapshot=self.store.backup(
+            database=self.db_path,library="style-pilot",source=self.source,
+        )
+        self.assertNotEqual(initial["snapshot"],next_snapshot["snapshot"])
+        fresh=self.store.restore(library="style-pilot",
+                                 destination=self.folder/"style-restore")
+        with closing(WriterForgeDB(Path(fresh["db"]))) as db:
+            style=ProseStyleStore(db,"project-a").load()
+            self.assertIsNotNone(style)
+            self.assertEqual(style.sha256,approved["style_reference_sha256"])
+            self.assertEqual(style.text,style_text)
+            self.assertIsNone(ProseStyleStore(db,"project-b").load())
+        self.assertEqual(Path(fresh["source"]).read_bytes(),self.source.read_bytes())
 
     def test_incomplete_single_chapter_never_counts_as_one_completed_book(self):
         self.store.backup(
