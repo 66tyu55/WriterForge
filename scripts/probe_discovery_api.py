@@ -17,7 +17,7 @@ import ssl
 
 BASE = "https://discovery-api.intern-ai.org.cn/v1"
 MAX_RESPONSE_BYTES = 196608
-MAX_COMPLETION_TOKENS = 160
+MAX_COMPLETION_TOKENS = 512
 
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -68,9 +68,10 @@ def model_ids(doc: dict) -> list[str]:
 
 def choose_model(ids: list[str]) -> str | None:
     preferred=(
+        # Prefer fast text model for a tiny completion probe; thinking
+        # variants may spend their whole output allowance on reasoning.
+        "deepseek-v4-flash-0731", "kimi-k2.6", "glm-5.3",
         "intern-s2", "intern-latest", "intern-s1-pro",
-        "intern-s2-preview-397b", "intern-s2-preview-35b",
-        "intern-s1", "intern-s1-mini",
     )
     for candidate in preferred:
         if candidate in ids:
