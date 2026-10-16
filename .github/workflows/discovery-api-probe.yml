@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/discovery-api-probe.yml'
+      - 'scripts/probe_discovery_api.py'
   workflow_dispatch:
 permissions:
   contents: read
