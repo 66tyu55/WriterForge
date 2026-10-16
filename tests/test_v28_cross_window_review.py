@@ -18,6 +18,10 @@ def fake_pair(v6_skill=None):
         "chapter":2,"ordinal":1,"diagnostic_only_no_promotion":True,
         "earlier_first_window":"NOT_PASSED","second_curriculum_window":"LOCKED",
         "full_body_reconstructed":True,
+        "chapter_headers_sequential":True,
+        "source_window_sha256":"c"*64,
+        "next_contiguous_sha256":new["next_unit_sha256"],
+        "chapter_body_sha256":"46acf29ea47e63b0a47a18413260a689bcaf9a9f1284338a2cebc4771428956e",
     }
     if v6_skill is not None:
         for name in ("perception","causality","information","continuity","language"):
