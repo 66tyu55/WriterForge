@@ -1,0 +1,21 @@
+name: WriterForge fixed 1M-context DeepSeek pair gateway check
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v28-discovery-1m-pair-probe.yml'
+permissions:
+  contents: read
+jobs:
+  tiny-real-capability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - run: python scripts/probe_discovery_million_context.py
