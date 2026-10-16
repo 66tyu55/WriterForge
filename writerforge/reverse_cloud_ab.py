@@ -85,7 +85,8 @@ class CloudABTrial:
         outputs={}
         for kind, instruction in (("baseline",neutral),("skill",enhanced)):
             response=self.writer.ask(
-                "你是原创小说作家。只返回严格JSON对象，唯一字段 scene。"
+                "你是原创小说作家。只输出小说正文；不要包装为JSON、"
+                "不要代码块、标题或解释性说明。"
                 "不得使用参考作品人物、世界观、对话和情节。",
                 json.dumps(instruction,ensure_ascii=False),
                 num_predict=3200)
