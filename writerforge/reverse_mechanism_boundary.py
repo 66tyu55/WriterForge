@@ -108,7 +108,7 @@ def build_writer_packet(selections:tuple[dict,...],*,enhanced:bool,writing_task:
     """Never include planner reply, novel text, source names, or evidence IDs."""
     if not isinstance(writing_task,str) or not 1<=len(writing_task)<=800:
         raise MechanismBoundaryError("unbounded creative task")
-    packet={"writing_task":writing_task,"return_json":{"scene":"string"}}
+    packet={"writing_task":writing_task,"output_type":"plain_original_fiction"}
     if enhanced:
         if not selections or len(selections)>MAX_SELECTED:
             raise MechanismBoundaryError("unverified technique selection")
