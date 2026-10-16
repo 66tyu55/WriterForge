@@ -113,7 +113,7 @@ class ABTests(unittest.TestCase):
         p=FakeModel("planner",PLANNER,"p")
         w=FakeModel("writer",{},"w")
         c=FakeModel("critic",CRITIC,"c")
-        source="原著窗口的合成素材仅用于研究人物因果。\n"*70
+        source="原著窗口的合成素材仅用于研究人物因果。\n"*20
         later="后续窗口无权提供给创作模型"*30
         from writerforge.reverse_real_training import raw_hash
         result=CloudABTrial(planner=p,writer=w,critic=c).run(
