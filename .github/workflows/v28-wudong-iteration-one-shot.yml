@@ -1,0 +1,38 @@
+name: V28 Wudong genuine iteration - one-shot experiment
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v28-wudong-iteration-one-shot.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wf-v28-wudong-real-experiments
+  cancel-in-progress: false
+jobs:
+  run-one-verified-experiment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Guarded P0 source-leak and A-B fairness tests
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v28_mechanism_boundary.py -v
+          python -m unittest discover -s tests -p test_v28_cloud_ab.py -v
+          python -m unittest discover -s tests -p test_v28_discovery_models.py -v
+      - name: One real pinned opening scene model experiment and R2 failure/success evidence
+        run: |
+          set -euo pipefail
+          python scripts/run_wudong_discovery_ab.py
