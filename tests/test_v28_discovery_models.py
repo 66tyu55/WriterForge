@@ -100,6 +100,45 @@ class DiscoveryAdapterTests(unittest.TestCase):
             model.ask("写作","原创",num_predict=1200)
         self.assertEqual(len(t.requests),2)
 
+    def test_transient_timeout_gets_one_charged_retry(self):
+        calls=[]
+        def transport(request):
+            calls.append(request)
+            if len(calls)==1:
+                raise DiscoveryError("DISCOVERY_TIMEOUT")
+            return json.dumps({"choices":[
+                {"message":{"content":'{"reason":"短的有效原因"}'},
+                 "finish_reason":"stop"}
+            ]},ensure_ascii=False).encode("utf-8")
+        budget=DiscoveryCallBudget(max_calls=3,max_reserved_output_tokens=5000)
+        model=self.create(transport=transport,budget=budget)
+        self.assertEqual(model.ask("system","source-free synthetic task",
+                                   num_predict=1500),{"reason":"短的有效原因"})
+        self.assertEqual(budget.calls,2)
+        self.assertEqual(budget.calls_by_role,{"planner":2})
+        self.assertEqual(budget.reserved_output_tokens,3000)
+        self.assertEqual(budget.response_observations[0]["transport_code"],
+                         "DISCOVERY_TIMEOUT")
+
+    def test_permanent_timeout_never_loops(self):
+        def failed(request):
+            raise DiscoveryError("DISCOVERY_TIMEOUT")
+        budget=DiscoveryCallBudget(max_calls=7,max_reserved_output_tokens=9000)
+        model=self.create(transport=failed,budget=budget)
+        with self.assertRaisesRegex(DiscoveryError,"DISCOVERY_TIMEOUT"):
+            model.ask("system","synthetic task",num_predict=1200)
+        self.assertEqual(budget.calls,2)
+        self.assertEqual(len(budget.response_observations),2)
+
+    def test_nontransient_http_is_not_replayed(self):
+        def rejected(request):
+            raise DiscoveryError("DISCOVERY_HTTP_401")
+        budget=DiscoveryCallBudget()
+        model=self.create(transport=rejected,budget=budget)
+        with self.assertRaisesRegex(DiscoveryError,"HTTP_401"):
+            model.ask("system","synthetic task",num_predict=1200)
+        self.assertEqual(budget.calls,1)
+
     def test_different_model_roles_with_real_listed_names(self):
         self.assertEqual(set(ROLE_MODELS),{"planner","writer","critic"})
         self.assertNotEqual(ROLE_MODELS["writer"], ROLE_MODELS["critic"])
