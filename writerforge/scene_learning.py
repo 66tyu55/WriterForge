@@ -26,7 +26,7 @@ MAX_NOTES_CHARS = 800
 MAX_HYPOTHESES = 4
 
 # These are *locators*, not prelearned claims about human psychology.
-HONGlOU_SCENE = {
+HONGLOU_SCENE = {
     "scene_id": "honglou-ch003-daiyu-arrival-and-xifeng",
     "chapter": 3,
     "start_anchor": "這林黛玉常听得母親說過",
@@ -126,7 +126,7 @@ def extract_scene_from_chapter(
 
 
 def extract_verified_classic_scene(source_path: Path | str, book: ClassicBook,
-                                   spec: dict = HONGlOU_SCENE) -> VerifiedScene:
+                                   spec: dict = HONGLOU_SCENE) -> VerifiedScene:
     path = Path(source_path)
     if not path.is_file() or path.stat().st_size > 8 * 1024 * 1024:
         raise SceneStudyError("missing or oversized pinned original")
