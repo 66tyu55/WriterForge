@@ -1,0 +1,35 @@
+name: WriterForge Manghuangji ONLY audited structural learning
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/manghuangji-verified-structural-r2.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wf-manghuangji-one-book-learning
+  cancel-in-progress: false
+
+jobs:
+  verified-one-book:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Strict volume-format regression tests
+        run: python -m unittest discover -s tests -p test_v34_modern_volumes.py -v
+      - name: Full pinned source restore, structural learning, private R2 backup and fresh restore
+        run: |
+          set -euo pipefail
+          python scripts/learn_archived_modern_r2.py --work manghuangji
