@@ -47,6 +47,15 @@ WORKS = {
     "wanmeishijie": Work("完美世界", "石昊", "玄幻",
         "322e84872b2259d9210f84de63efd70d901a412dfefbe9bb9d52168eea56d481",
         14053175, 1500),
+    "zhetian": Work("遮天", "叶凡", "玄幻",
+        "9cbf8da97daceb36fbd85edd84e2874a9ceac28252c18386fecf167d5a95660b",
+        13455412, 900),
+    "manghuangji": Work("莽荒纪", "纪宁", "玄幻",
+        "f7aee869e201b4171e40a3ff9230e794f01fdc959d372017b8982635668be3d5",
+        8961764, 700),
+    "qiumo": Work("求魔", "苏铭", "玄幻",
+        "210acebeef123f2c369d57d95d2ea5ee5a1c15716b859db15696c48294bcd687",
+        9437806, 700),
 }
 
 # Diagnostic only: broad heading matches, not a chapter-completeness proof.
