@@ -92,7 +92,16 @@ def run() -> dict:
                 "MODEL_CALL_OR_TOKEN_BUDGET_EXHAUSTED",
             )
             message=str(exc)
-            failure_code=message if message in known else type(exc).__name__
+            # Discovery adapter emits static, role-specific error codes only.
+            # Never write arbitrary HTTP/provider exception text to logs/R2.
+            if isinstance(exc,DiscoveryError) and (
+                message.startswith("DISCOVERY_") and
+                len(message)<=90 and
+                all(c.isupper() or c.isdigit() or c=="_" for c in message)
+            ):
+                failure_code=message
+            else:
+                failure_code=message if message in known else type(exc).__name__
             attempt={
                 "format":"writerforge.reverse-ab-failure.v2",
                 "status":"UNVERIFIED_FAILED_NOT_PROMOTED",
