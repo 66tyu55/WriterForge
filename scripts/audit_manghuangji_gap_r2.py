@@ -47,7 +47,10 @@ def read_audit(source:Path):
             if heading:
                 ordinal=chapter_number(heading.group("chapter"))
                 headings.append({"volume":volume,"number":ordinal,"line":line_number,
-                                 "raw_heading_sha256":sha256(line.encode("utf-8")).hexdigest()})
+                                 "raw_heading_sha256":sha256(line.encode("utf-8")).hexdigest(),
+                                 "external_toc_title_match": (
+                                   "花光了" in value if volume==25 and ordinal==20 else
+                                   "偷天生死丹" in value if volume==25 and ordinal==19 else False)})
                 counts["strict_headers"]+=1
                 continue
             if len(value)>140:
@@ -65,6 +68,7 @@ def read_audit(source:Path):
                     "volume":volume,"ordinal":num,"line":line_number,
                     "length":len(value),"line_starts_with_numbered_chapter":bool(loose),
                     "prefix_length":len(prefix),
+                    "external_toc_chapter_3_title_match":bool(volume==22 and num==3 and "一柄剑" in value),
                     "prefix_is_zhengwen":bool(re.fullmatch(r"正文[ \\t\\u3000:：\\-]*",prefix)),
                     "prefix_is_volume_marker":bool(re.fullmatch(r"第[0-9零〇一二三四五六七八九十百千]+卷.*",prefix)),
                     "prefix_is_punctuation_only":bool(re.fullmatch(r"[\\W_]+",prefix)),
