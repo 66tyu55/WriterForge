@@ -1,0 +1,23 @@
+name: WriterForge real Intern-S2 nonthinking proof only once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v28-discovery-s2-probe-once.yml'
+permissions:
+  contents: read
+jobs:
+  no-original-minimal-model-call:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - run: |
+          set -euo pipefail
+          python scripts/probe_discovery_s2_nonthinking.py
