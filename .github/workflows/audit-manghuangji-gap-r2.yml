@@ -1,0 +1,32 @@
+name: WriterForge Manghuangji single-book R2 chapter-gap audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/audit-manghuangji-gap-r2.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wf-single-manghuangji-r2-gap-audit
+  cancel-in-progress: false
+jobs:
+  audit-one-private-original:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Examine only volume 22 and 25 chapter numbering with original SHA provenance
+        run: |
+          set -euo pipefail
+          python scripts/audit_manghuangji_gap_r2.py
