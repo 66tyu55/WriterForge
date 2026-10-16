@@ -76,6 +76,9 @@ class ThreeNovelSourceTests(unittest.TestCase):
                             for n in arch.SOURCES.values()))
         self.assertEqual(len(arch.SOURCES["doupo"].pinned_sha256),64)
         self.assertEqual(len(arch.SOURCES["wudongqiankun"].pinned_sha256),64)
+        self.assertEqual(arch.SOURCES["wanmeishijie"].expected_bytes,14_053_175)
+        self.assertEqual(arch.SOURCES["wanmeishijie"].pinned_sha256,
+                         "322e84872b2259d9210f84de63efd70d901a412dfefbe9bb9d52168eea56d481")
 
     def test_synthetic_book_upload_fresh_restore_and_resume(self):
         evidence = arch.verify_source(self.fixture, self.source)
