@@ -230,3 +230,10 @@
 **已核实 GitHub 证据**：[配置检查和模型协议测试 run #38882720229](https://github.com/66tyu55/WriterForge/actions/runs/38882720229) `success`（7 项测试），但 `safe_cloud_readiness` 返回 `ready=false`，原因仅报告 `cloud_roles_or_price_or_credential_unconfigured`；收费作业 `cloud_paid_trial` 正确为 **skipped**。这不是实测云端模型质量通过。最新仓库全量 Python 测试另有 [#38882868438](https://github.com/66tyu55/WriterForge/actions/runs/38882868438) `success`，包含上述 A/B 相关回归。
 
 **待办**：由用户自行在 GitHub Actions 配置角色 Secrets、Variables 和价格/预算，明确选定云端模型和允许哪家服务接收私有小说首窗，随后手动触发真实付费单本 A/B。完成后应检查 API 真实调用、R2 SHA 和文学盲评证据；不能因模型评分数字大于 90 就晋级。编排仍保持从原著第一章连续推进，下一段尚未解锁。InkOS 只借鉴架构/调度理念，未复制 AGPL 源码。
+
+ 
+## 16. Discovery 密钥可见性核验（2026-10-16；覆盖错误的“用户未保存”判断）
+
+用户提供 GitHub 页面已存在 `DISCOVERY_API_KEY` 的截图，**不得要求用户反复新增/改名或在聊天里发送真实 API Key**。最初 `scripts/probe_discovery_api.py` 用 `len(key)<12 or whitespace` 输出 `MISSING_SECRET`，无法判断密钥到底是否在 Action 中可见；此前因此推断“用户未配置”不成立。已修改成三种独立状态：环境变量缺席、GitHub Actions Secret 表达式映射为空、变量有值但本地格式检查失败，绝不输出原密钥、长度或片段。
+
+**重新运行 [#38885722986](https://github.com/66tyu55/WriterForge/actions/runs/38885722986) 真实结果：`GITHUB_ACTIONS_SECRET_RESOLVED_EMPTY`，workflow 的 `env: DISCOVERY_API_KEY: ${{ secrets.DISCOVERY_API_KEY }}` 在 `66tyu55/WriterForge` main 分支 push 运行环境被解析为空。真实模型请求为 0，小说原文外发为 0，费用为 0。**这不等于用户没保存密钥。** 需检查屏幕上对应 Secrets 是该仓库的 Actions Repository secret、Environment secret（需要 job `environment` 匹配）还是其他仓库/组织/Dependabot/Codespaces 范围。截图裁切未显示层级，不可猜测是哪一类；不能读取密钥本体。
