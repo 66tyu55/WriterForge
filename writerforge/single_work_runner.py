@@ -47,19 +47,105 @@ class SingleWorkVault(R2StudyVault):
             raise R2StorageError("cross-work R2 path is prohibited")
         return f"{self.config.prefix}/private-reading/single-works/{library}"
 
+    def verify_existing_single_work(self) -> dict | None:
+        """Restore an already archived private book, without the lost 13-book root.
+
+        This does NOT create new books or count a prior snapshot as an upload.
+        If the existing latest/manifest/blob is tampered, stop rather than
+        silently falling back to an unrelated source.
+        """
+        latest = self._latest_key(self.work_id)
+        if self._head(latest) is None:
+            return None
+        raw_pointer = self._get_small(latest, MAX_LATEST_BYTES)
+        try:
+            pointer = json.loads(raw_pointer)
+        except ValueError as exc:
+            raise R2StorageError("existing per-book R2 latest pointer invalid JSON") from exc
+        version = pointer.get("snapshot")
+        if (pointer.get("format") != FORMAT or pointer.get("book_id") != self.work_id
+            or not isinstance(version, str) or len(version) != 64
+            or any(c not in "0123456789abcdef" for c in version)
+            or pointer.get("manifest_sha256") != version):
+            raise R2StorageError("existing per-book R2 pointer belongs to wrong work or is corrupt")
+        raw_manifest = self._get_small(
+            self._manifest_key(self.work_id, version), MAX_MANIFEST_BYTES
+        )
+        if sha256(raw_manifest).hexdigest() != version:
+            raise R2StorageError("existing per-book R2 manifest hash mismatch")
+        try:
+            manifest = json.loads(raw_manifest)
+        except ValueError as exc:
+            raise R2StorageError("existing per-book R2 manifest invalid JSON") from exc
+        file = manifest.get("file", {})
+        if not isinstance(file, dict):
+            raise R2StorageError("existing per-book R2 file manifest missing")
+        digest, count = file.get("sha256"), file.get("bytes")
+        if (manifest.get("format") != FORMAT
+            or manifest.get("book_id") != self.work_id
+            or manifest.get("status") != "archived_unreviewed"
+            or not isinstance(digest, str) or len(digest) != 64
+            or any(c not in "0123456789abcdef" for c in digest)
+            or type(count) is not int or not 0 < count <= MAX_SINGLE_BYTES
+            or file.get("key") != self._blob_key(self.work_id, digest)):
+            raise R2StorageError("existing per-book source manifest is inconsistent")
+        source_key = file["key"]
+        head = self._head(source_key)
+        if (head is None or int(head.get("ContentLength", -1)) != count
+            or head.get("Metadata", {}).get("sha256") != digest):
+            raise R2StorageError("existing per-book source blob missing or wrong metadata")
+        inventory = self.client.list_objects_v2(
+            Bucket=self.config.bucket, Prefix=self._root(self.work_id) + "/",
+            MaxKeys=1000,
+        )
+        if inventory.get("IsTruncated"):
+            raise R2StorageError("per-book R2 listing truncated; cannot verify source")
+        keys = {item["Key"] for item in inventory.get("Contents", ())}
+        needed = {latest, self._manifest_key(self.work_id, version), source_key}
+        if not needed.issubset(keys):
+            raise R2StorageError("existing per-book R2 inventory incomplete")
+        with TemporaryDirectory(prefix="wf-private-existing-") as tmp:
+            fresh = Path(tmp) / "fresh-r2-download.txt"
+            self.client.download_file(self.config.bucket, source_key, str(fresh))
+            if _digest(fresh) != (digest, count):
+                raise R2StorageError("existing per-book fresh download SHA256 mismatch")
+        return {
+            "work_id": self.work_id,
+            "title": WORKS[self.work_id][0],
+            "target_prefix": self._root(self.work_id) + "/",
+            "source_origin": "existing_private_per_book_r2",
+            "source_integrity_verified": True,
+            "source_archive_sha256_verified": False,
+            "already_archived": True,
+            "uploaded_new_blob": False,
+            "utf8_bytes": count,
+            "utf8_sha256": digest,
+            "source_sections": manifest.get("sections"),
+            "remote_objects_present": len(needed),
+            "fresh_download_sha256_verified": True,
+            "snapshot": version,
+            "status": "archived_unreviewed",
+            "training_performed": False,
+        }
+
     def execute(self) -> dict:
         if self.config.bucket!="writerforge-private-library":
             raise R2StorageError("not the expected private R2 bucket")
-        # Only use the known R2 source archive. If its original root key
-        # moved, discover it by an exact basename under the controlled
-        # writerforge prefix, and still require the pinned size and SHA256.
+        # A verified independent per-book R2 object is sufficient for restart.
+        # The legacy 231 MiB master archive is NOT required in this case.
+        already = self.verify_existing_single_work()
+        if already is not None:
+            return already
+        # For as-yet-unarchived works only, try the pinned legacy input.
+        # If its original root key moved, discover it by an exact basename at
+        # ANY key in the same expected bucket, and still require pinned size/SHA256.
         source_key=SOURCE_R2_KEY
         head=self._head(source_key)
         if head is None or int(head.get("ContentLength",-1))!=SOURCE_R2_BYTES:
             candidates=[]
             token=None
             for _ in range(10):
-                params={"Bucket":self.config.bucket,"Prefix":"writerforge/","MaxKeys":1000}
+                params={"Bucket":self.config.bucket,"MaxKeys":1000}
                 if token:
                     params["ContinuationToken"]=token
                 page=self.client.list_objects_v2(**params)
@@ -77,7 +163,9 @@ class SingleWorkVault(R2StudyVault):
                 original_size=(int(head.get("ContentLength",-1)) if head else None)
                 raise R2StorageError(
                     f"pinned R2 source not found with expected size; root_size={original_size}; "
-                    f"matching_size_candidates={len(candidates)}; no upload attempted")
+                    f"matching_size_candidates={len(candidates)}; no upload attempted; "
+                    "NO SOURCE IN THIS BUCKET for requested work. "
+                    "Provide a verified independent source, not another retry.")
             source_key=candidates[0]
             head=self._head(source_key)
             if head is None or int(head.get("ContentLength",-1))!=SOURCE_R2_BYTES:
@@ -173,6 +261,9 @@ class SingleWorkVault(R2StudyVault):
             return {"work_id":self.work_id,"title":label,
                     "target_prefix":self._root(self.work_id)+"/",
                     "source_archive_sha256_verified":True,
+                    "source_integrity_verified":True,
+                    "source_origin":"verified_legacy_13work_archive",
+                    "already_archived":False,
                     "uploaded_new_blob":bool(uploaded),"utf8_bytes":total_bytes,
                     "utf8_sha256":checksum,"source_sections":n,
                     "remote_objects_present":3,
