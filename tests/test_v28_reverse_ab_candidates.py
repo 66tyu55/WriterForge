@@ -142,6 +142,43 @@ class CandidateTests(unittest.TestCase):
         with self.assertRaises(CandidateEvidenceError):
             derive_unverified_candidates(receipt, receipt_sha256=digest(receipt))
 
+    def test_existing_r2_receipt_can_be_backfilled_without_model_calls(self):
+        from unittest.mock import patch
+        import scripts.import_v28_r2_candidates as backfill
+        from types import SimpleNamespace
+
+        class FakeR2:
+            def __init__(self, initial):
+                self.config = SimpleNamespace(bucket="writerforge-private-library")
+                self.objects = {"known-receipt": initial}
+                self.saved = 0
+
+            def _get_small(self, key, cap):
+                data = self.objects["known-receipt"] if "/snapshots/" in key else self.objects[key]
+                assert len(data) <= cap
+                return data
+
+            def _put_small_immutable(self, key, data, digest):
+                assert sha256(data).hexdigest() == digest
+                if key not in self.objects:
+                    self.objects[key] = data
+                    self.saved += 1
+                assert self.objects[key] == data
+
+        receipt = synthetic_receipt()
+        raw = _canonical(receipt)
+        fake = FakeR2(raw)
+        with patch.object(backfill, "RECEIPT_SHA", sha256(raw).hexdigest()), \
+             patch.object(backfill, "SOURCE_SHA", "a"*64):
+            first = backfill.import_prior_receipt(fake)
+            second = backfill.import_prior_receipt(fake)
+        self.assertEqual(first, second)
+        self.assertEqual(fake.saved, 1)
+        self.assertEqual(first["model_calls"], 0)
+        self.assertEqual(first["second_window"], "LOCKED")
+        self.assertEqual(first["first_window"], "NOT_PASSED")
+        self.assertNotIn("hypothetical", str(fake.objects))
+
 
 if __name__ == "__main__":
     unittest.main()
