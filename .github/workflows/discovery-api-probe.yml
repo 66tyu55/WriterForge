@@ -1,0 +1,27 @@
+name: WriterForge DISCOVERY_API_KEY safe live probe
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/discovery-api-probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-discovery-safe-once
+  cancel-in-progress: false
+jobs:
+  real-auth-and-short-generation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Real authorized models list and one short inference; no private novel
+        run: |
+          set -euo pipefail
+          python scripts/probe_discovery_api.py
