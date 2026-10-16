@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/v28-discovery-real-ab.yml'
+      - 'writerforge/reverse_discovery_models.py'
+      - 'writerforge/reverse_cloud_ab.py'
   workflow_dispatch:
 permissions:
   contents: read
