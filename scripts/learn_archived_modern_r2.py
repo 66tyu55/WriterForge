@@ -102,7 +102,7 @@ def heading_audit(path: Path) -> dict:
 
 def run(work_id: str, *, audit_only: bool) -> dict:
     spec = WORKS[work_id]
-    scheme = ("volume_reset" if work_id == "manghuangji" else
+    scheme = ("volume_reset_manghuangji_pinned" if work_id == "manghuangji" else
               "volume_prefix_global" if work_id == "qiumo" else "continuous")
     config = R2Config.from_environment()
     if config.bucket != "writerforge-private-library":
@@ -167,9 +167,40 @@ def run(work_id: str, *, audit_only: bool) -> dict:
             raise RuntimeError("db: CHAPTER_COUNT_NOT_COMPLETE")
         stage = "upload"
         library = work_id + "-private-original"
+        extras = {}
+        if work_id == "manghuangji":
+            # Evidence record only. The archived TXT bytes and original printed
+            # headings remain unchanged; verified parsing is source-specific.
+            evidence = {
+                "status": "source_specific_audited_heading_exceptions",
+                "source_sha256": spec.source_sha256,
+                "source_bytes": spec.source_bytes,
+                "structural_parser": "volume_reset_manghuangji_pinned",
+                "raw_text_modified": False,
+                "printed_header_preserved": True,
+                "exceptions": [
+                    {"volume": 22, "canonical_chapter": 3,
+                     "kind": "nonstandard_heading_prefix", "line": 60160,
+                     "line_sha256": "8af3b3af69a68e1d2b0f72f8c541fc8a2cdb4f3e6ef324842599e2e8e74f1f9c"},
+                    {"volume": 25, "canonical_chapter": 18,
+                     "printed_chapter": 20, "kind": "printed_heading_misnumber",
+                     "line": 69921,
+                     "line_sha256": "68eefe9d8f51189dbfb795b47514e1b0fc90d34f6546147d21c487cbdaf16d9c"}
+                ],
+                "independent_catalogues": [
+                    "https://www.99csw.com/book/4660/167000.htm",
+                    "https://www.piaotia.com/html/3/3259/",
+                    "https://www.kunnu.com/mhj/"
+                ],
+                "entire_edition_independently_compared": False,
+                "model_semantic_training_verified": False
+            }
+            report_path = root / "chapter_audit.json"
+            report_path.write_text(json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8")
+            extras = {"chapter_audit.json": report_path}
         backup = R2StudyVault(config).backup(
-            database=db_path, library=library, source=source,
-            edition=work_id + "-structural-v1")
+            database=db_path, library=library, source=source, extras=extras,
+            edition=work_id + "-structural-v2" if work_id == "manghuangji" else work_id + "-structural-v1")
         if not backup.get("verified"):
             raise RuntimeError("upload: R2_BACKUP_NOT_VERIFIED")
         stage = "restore"
