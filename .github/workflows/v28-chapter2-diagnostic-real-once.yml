@@ -1,0 +1,40 @@
+name: V28 chapter2 diagnostic real Flash GLM53 one-shot
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v28-chapter2-diagnostic-real-once.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wf-v28-wudong-real-experiments
+  cancel-in-progress: false
+jobs:
+  one-chapter2-ab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Preserve old features and request caps in offline regression
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v28_chapter2_diagnostic.py -q
+          python -m unittest discover -s tests -p test_v28_reverse_opening_cursor.py -q
+          python -m unittest discover -s tests -p test_v28_discovery_models.py -q
+          python -m unittest discover -s tests -p test_v28_cloud_ab.py -q
+          python -m unittest discover -s tests -p test_v28_baseline30_transfer.py -q
+      - name: Once only chapter 2 diagnostic A-B, fixed cross-vendor models and task
+        run: python -m scripts.run_wudong_chapter2_diagnostic_v6
+      - name: Hash validate private result and compare v5 without further inference
+        run: python -m scripts.audit_v28_chapter2_v6_r2
