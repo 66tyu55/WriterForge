@@ -1,0 +1,39 @@
+name: WriterForge V28 REAL Discovery literary A-B first chapter
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v28-discovery-real-ab.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-v28-discovery-real-ab-first-chapter
+  cancel-in-progress: false
+jobs:
+  real-three-model-ab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install WriterForge R2 client
+        run: python -m pip install -e '.[r2]'
+      - name: Offline Discovery authorization and budget regressions
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_v28_discovery_models.py' -v
+          python -m unittest discover -s tests -p 'test_v28_cloud_ab.py' -v
+      - name: Real GLM/Kimi/DeepSeek no-synthetic AB comparison from first actual chapter
+        run: |
+          set -euo pipefail
+          python scripts/run_wudong_discovery_ab.py
