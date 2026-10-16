@@ -1,0 +1,95 @@
+name: WriterForge private R2 modern source structural continuation
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/modern-archive-study-r2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-modern-private-r2-structural
+  cancel-in-progress: false
+
+jobs:
+  regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install WriterForge
+        run: python -m pip install -e '.[r2]'
+      - name: Modern source pinned audit regression
+        run: python -m unittest discover -s tests -p test_v33_learn_archived_modern_r2.py -v
+
+  fanren-private-r2-source-audit:
+    needs: regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: READ ALREADY ARCHIVED Fanren from private R2 and audit actual chapter grammar
+        run: |
+          set -euo pipefail
+          python scripts/learn_archived_modern_r2.py --work fanrenxiuxian --audit-only
+
+  fanren-private-r2-structural-learning:
+    needs: fanren-private-r2-source-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Full chapter by chapter structural reading; private R2 backup and FRESH restore
+        run: |
+          set -euo pipefail
+          python scripts/learn_archived_modern_r2.py --work fanrenxiuxian
+
+  three-xuanhuan-private-r2-structural-learning:
+    needs: fanren-private-r2-structural-learning
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        work: [doupo, wudongqiankun, wanmeishijie]
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: One source at a time - strict preflight, SQLite structural study and FRESH R2 restore
+        run: |
+          set -euo pipefail
+          python scripts/learn_archived_modern_r2.py --work "${{ matrix.work }}"
