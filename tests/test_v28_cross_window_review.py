@@ -76,7 +76,7 @@ class CrossWindowTests(unittest.TestCase):
         paragraphs=source_paragraphs("合成场景存在不确定的认知线索。\n"*20)
         selection={"selections":[
             {"id":"COST_VISIBLE_IN_ACTION","evidence_ids":["P0"]},
-            {"id":"GOAL_FILTERS_ATTENTION","evidence_ids":["P1"]},
+            {"id":"EMOTIONAL_TURN_WITH_EVIDENCE","evidence_ids":["P1"]},
         ]}
         picks,reason=guarded_selections(
             selection,paragraphs,source_window_sha256="c"*64,
