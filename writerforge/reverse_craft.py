@@ -173,6 +173,8 @@ class ReverseCraftCoordinator:
             rows = self.conn.execute("SELECT * FROM rc_units ORDER BY id").fetchall()
             if len(rows) >= MAX_UNITS:
                 raise ReverseCraftError("total source unit budget exhausted")
+            if not rows and (chapter, ordinal) != (1, 1):
+                raise ReverseCraftError("reverse training must begin at chapter 1, unit 1")
             if rows:
                 previous = rows[-1]
                 if previous["status"] != "PASS":
