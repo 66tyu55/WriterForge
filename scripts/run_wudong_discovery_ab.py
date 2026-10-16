@@ -27,7 +27,7 @@ from writerforge.single_work_runner import SingleWorkVault
 WORK = "wudongqiankun"
 SOURCE_SHA = "86a2fd859b424efe0500b4b36713ea8b05d551140650904ffc2ae02eb244ed28"
 SOURCE_BYTES = 8_254_079
-PREFIX = "writerforge/v1/reverse-craft/wudongqiankun/real-discovery-ab-v1"
+PREFIX = "writerforge/v1/reverse-craft/wudongqiankun/source-isolated-ab-v2"
 MAX_RECEIPT_BYTES = 32000
 
 def run() -> dict:
@@ -43,7 +43,7 @@ def run() -> dict:
     if orig is None or (orig["utf8_sha256"],orig["utf8_bytes"])!=(SOURCE_SHA,SOURCE_BYTES):
         raise DiscoveryError("PINNED_ORIGINAL_MISMATCH")
     config={"source":SOURCE_SHA,"task":"opening-chapter-1-contiguous-window-1",
-            "roles":ROLE_MODELS,"trial":"real-discovery-ab-v1"}
+            "roles":ROLE_MODELS,"trial":"source-isolated-ab-v2"}
     config_sha=sha256(_canonical(config)).hexdigest()
     root=f"{PREFIX}/{config_sha}"
     finished=root+"/completed.json"
@@ -99,7 +99,7 @@ def run() -> dict:
             raise DiscoveryError("AB_REPORT_CONCURRENT_FINALIZATION")
         pointer=_canonical({"sha256":h,"source_sha256":SOURCE_SHA,
                              "config_sha256":config_sha,
-                             "format":"real-discovery-ab-v1"})
+                             "format":"source-isolated-ab-v2"})
         r2.client.put_object(Bucket=cfg.bucket,Key=finished,
                              Body=pointer,ContentType="application/json")
         if r2._get_small(finished,4096)!=pointer:
