@@ -190,3 +190,19 @@
 **真实 GitHub Actions #38876799592 success**：私有 R2 中已归档《武动乾坤》原文 SHA256 `86a2fd859b424efe0500b4b36713ea8b05d551140650904ffc2ae02eb244ed28`、字节 8,254,079 重新读取并哈希核验。检测真实前 3 章标题依序 1→2→3，位于第 8、85、146 行；第一章正文 4,209 字符；提出两个从头连续的候选窗口 `[0,2125)` 和 `[2125,4209)`，无丢字、无跳跃。元数据-only 私有 R2 新对象及 fresh GET 全字节核验成功：`writerforge/v1/reverse-craft/wudongqiankun/opening-source/cc3c98eda8953fa23b2f8328fa6f897d5d0cfffa313561868389324aa178b441.json`。**当前仅 `OPENING_SOURCE_VERIFIED / BOUNDARY_UNREVIEWED`**；原文段落分界还未由真实模型审核为正确的叙事节点；没有生成原创稿、独立文学评论或 90 分晋级。
 
 下一步先以第 1 章作真实语义场景/因果边界核查（人物当前所知、读者所知、目标、误解、行动、后果、未兑现问题）；通过后用 skill 自己调用隔离模型，只写第一窗口。首窗核心审评、短期稿清除、闭卷迁移过关之后才开启第二窗口。不可将第一章的机器“长度中点”当做已证实的文学场景切点；不能隐瞒模型/审稿/长因果上下文还没接通的事实。
+
+
+## 14. V28 正式本地真实模型实践（2026-10-16，覆盖“仅模拟”状态）
+
+用户要求：**不再小规模模拟，正式从《武动乾坤》开篇顺序进行临摹倒推，失败经验也必须真实入库**。当前仍只允许第一章首个连续窗口；不随机跳章，不伪造 90 分通过。
+
+已提交模型运行流程：[writerforge/reverse_real_training.py](../writerforge/reverse_real_training.py) + [scripts/run_wudong_real_reverse_training.py](../scripts/run_wudong_real_reverse_training.py) + [.github/workflows/v28-wudong-real-first-training.yml](../.github/workflows/v28-wudong-real-first-training.yml) + [tests/test_v28_reverse_real_training.py](../tests/test_v28_reverse_real_training.py)。GitHub Actions 在隔离运行器内安装 Ollama，使用 **qwen2.5:3b** 规划和原创、独立的 **gemma3:4b** 做原著机制对照批评，限定每窗口最多 2 次候选、有限模型调用。原文只从私有 R2 恢复到运行器临时目录；原创练笔正文/原著不进入 GitHub 公开仓库、CI Artifact、持久 R2 学海。只保存抽象观点、缺点、反事实、原创草稿 SHA、失败哈希和模型身份到独立私有前缀 `writerforge/v1/reverse-craft/wudongqiankun/real-model-first-unit-v1/`（如生成成功）；不得把批评模型主观推测称作真实独立专家 90 分。
+
+真实运行历史：
+- [#38878209564](https://github.com/66tyu55/WriterForge/actions/runs/38878209564)：两个模型启动到真实推理环节，但结果被规范检查拦截；首次单元测试步骤误将 0 个测试显示为通过。
+- [#38878544084](https://github.com/66tyu55/WriterForge/actions/runs/38878544084)：修复后确实运行 5 项单元测试；真实对照批评返回近似原著/草稿的长引用，拒绝持久化（`unabstracted original/draft in review note`），无 R2 核心晋级。
+- [#38878999983](https://github.com/66tyu55/WriterForge/actions/runs/38878999983)：为批评模型提供有限一次重新抽象机会；第二次仍返回不合格文本，同样被拒绝入库。防复制闸门不能关闭。
+- [#38879583627](https://github.com/66tyu55/WriterForge/actions/runs/38879583627)：已改为**无法重新抽象的字段仅保留内容哈希与 `UNVERIFIED_QUOTATION_REDACTED` 状态**，其他符合安全标准的经验继续保存；**本节记录时仍在执行**，需核查该运行的真实成功/失败日志、R2 新快照 SHA、fresh GET 才能确定是否已生成可用训练证据。不能先报成功。
+- 实际独立模型批评仍**不是经过人类基准校准的 90% 文学能力审核**。真实模型有运行，模型权重未训练，WriterForge 核心晋级依然被阻塞；第二原著窗口未解锁。不能用模型生成文本/评论本身冒充“大师水平 90%”。
+
+重要：GitHub Models inference API 于 2026-07-30 退役，不能再使用旧 GitHub Models 通道；当前使用本地 Ollama，GitHub Runner 没有继承用户聊天窗口模型。后续优先执行用户关心的**真实训练迭代质量与完整因果**，勿只重复 R2 连接模拟。原文有全书章节异常，开篇首窗已经严格按 source hash 和章节 1→2→3 验证；仍不可冒充全书完整章序。
