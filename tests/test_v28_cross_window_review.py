@@ -73,7 +73,7 @@ class CrossWindowTests(unittest.TestCase):
         blocked=quarantine_pairs_from_verified_candidate(
             result,candidate_sha256=digest)
         self.assertEqual(blocked[0][0],"c"*64)
-        paragraphs=source_paragraphs("合成场景存在不确定的认知线索。\\n"*20)
+        paragraphs=source_paragraphs("合成场景存在不确定的认知线索。\n"*20)
         selection={"selections":[
             {"id":"COST_VISIBLE_IN_ACTION","evidence_ids":["P0"]},
             {"id":"GOAL_FILTERS_ATTENTION","evidence_ids":["P1"]},
