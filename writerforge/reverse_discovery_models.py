@@ -23,7 +23,7 @@ MODELS = {
     "glm-5.3", "kimi-k2.6", "intern-s2", "minimax-m3",
 }
 ROLE_MODELS = {
-    "planner": "glm-5.3",
+    "planner": "deepseek-v4-flash-0731",
     "writer": "kimi-k2.6",
     "critic": "deepseek-v4-pro-0813",
 }
