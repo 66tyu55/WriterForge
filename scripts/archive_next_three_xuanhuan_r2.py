@@ -33,7 +33,7 @@ SOURCES = {
     "zhetian": NovelSource(
         "zhetian", "遮天", "辰东", "叶凡",
         "https://download.zxcs.zip/" + quote("《遮天》（精校版全本）作者：辰东.txt"),
-        8_000_000, 25_000_000, None, None, 800),
+        8_000_000, 25_000_000, 13455412, "9cbf8da97daceb36fbd85edd84e2874a9ceac28252c18386fecf167d5a95660b", 800),
     "manghuangji": NovelSource(
         "manghuangji", "莽荒纪", "我吃西红柿", "纪宁",
         "https://d.noveless.com/d/one/books/1965.txt.zip",
@@ -127,10 +127,43 @@ def main():
                 }
             print(json.dumps(result, ensure_ascii=False, indent=2))
     except Exception as exc:
+        # Additional SAFE chapter-shape diagnostics: counts/positions only, never text.
+        if args.work == "qiumo" and "path" in locals() and path.exists():
+            import re
+            for codec in ("utf-8-sig", "gb18030"):
+                try:
+                    lines = chapter_like = numbered = start_chapter = 0
+                    examples = []
+                    with path.open("r", encoding=codec) as src:
+                        for line in src:
+                            lines += 1
+                            if len(line) > 400:
+                                continue
+                            text = line.strip()
+                            pos = text.find("第")
+                            if pos >= 0 and ("章" in text or "回" in text):
+                                chapter_like += 1
+                                if len(examples) < 8:
+                                    examples.append({"line_length": len(text), "first_di_position": pos,
+                                        "first_zhang_position": text.find("章"),
+                                        "first_hui_position": text.find("回"),
+                                        "starts_with_di": text.startswith("第"),
+                                        "contains_juan": "卷" in text})
+                            if re.search(r"第[0-9一二三四五六七八九十百千零〇]{1,12}章", text):
+                                numbered += 1
+                            if re.match(r"^第[0-9一二三四五六七八九十百千零〇]{1,12}章", text):
+                                start_chapter += 1
+                    print(json.dumps({"safe_qiumo_heading_probe": {
+                        "encoding": codec, "lines": lines, "chapter_like": chapter_like,
+                        "inline_numbered": numbered, "line_start_numbered": start_chapter,
+                        "shape_samples_without_original_text": examples}}, ensure_ascii=False))
+                    break
+                except UnicodeError:
+                    continue
         # redact URL/query and never include any original prose
         print(json.dumps({"work_id": args.work, "stage": "source_or_upload",
             "error_type": type(exc).__name__,
-            "error": str(exc)[:120]}, ensure_ascii=False), file=sys.stderr)
+            "error": str(exc)[:350]}, ensure_ascii=False), file=sys.stderr)
         raise SystemExit(1)
 
 if __name__ == "__main__":
