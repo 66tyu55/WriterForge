@@ -153,8 +153,8 @@ Original-study structural labels and Craft technique IDs remain audit/provenance
 are **not** direct prose instructions by default. The writer must not treat
 auto-accepted AI prose or lexical cue statistics as evidence of literary style quality.
 A single 120–1200-character project style reference can be activated only with explicit
-author quality approval (\`prose-style-approve\`), loaded last in real prose prompts,
-rejected on source revision, revoked (\`prose-style-disable\`) and stored in the existing
+author quality approval (`prose-style-approve`), loaded last in real prose prompts,
+rejected on source revision, revoked (`prose-style-disable`) and stored in the existing
 SQLite and optional private R2 backup. Empty style reference => free-model writing.
 JSON-only planning omits the prose sample. No sentence/dialogue/hook quotas.
 Verbatim copying from the style example is blocked; no claim of literary quality gain
