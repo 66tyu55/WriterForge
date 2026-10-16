@@ -20,7 +20,8 @@ import writerforge.private_single_book_transfer as transfer
 from writerforge.private_single_book_transfer import (
     PrivateSingleBookVault, extract_one_book, BOOK_ID, SOURCE_R2_KEY,
 )
-from writerforge.r2_storage import R2Config, R2StorageError, _digest
+from writerforge.r2_storage import R2Config, R2StorageError, _digest, _canonical
+from writerforge.single_work_runner import SingleWorkVault, FORMAT as SINGLE_FORMAT
 
 
 class NotFound(Exception):
@@ -263,6 +264,74 @@ class PrivateOneBookTransferTests(unittest.TestCase):
                     source_hash=self.digest,source_bytes=self.size,
                 )
         self.assertEqual(len(self.fake.objects),1)
+
+
+
+class LegacyRootLossRecoveryTests(unittest.TestCase):
+    """Prove that each independently archived book survives a missing root."""
+
+    def setUp(self):
+        self.config=R2Config(
+            account_id="a"*32,bucket="writerforge-private-library",
+            access_key_id="test",secret_access_key="test",
+        )
+        self.fake=FakeS3()
+        self.vault=SingleWorkVault(self.config,work_id="xingchenbian",client=self.fake)
+
+    def seed(self, book_id="xingchenbian"):
+        vault=SingleWorkVault(self.config,work_id=book_id,client=self.fake)
+        body=("独立原文归档演练，不包含用户的任何真实小说内容。"*8).encode("utf-8")
+        digest=sha256(body).hexdigest()
+        key=vault._blob_key(book_id,digest)
+        doc={"format":SINGLE_FORMAT,"book_id":book_id,"status":"archived_unreviewed",
+             "file":{"key":key,"sha256":digest,"bytes":len(body)},
+             "sections":1,"characters":100,"semantic_training_performed":False}
+        encoded=_canonical(doc)
+        version=sha256(encoded).hexdigest()
+        pointer=_canonical({"format":SINGLE_FORMAT,"book_id":book_id,
+                            "snapshot":version,"manifest_sha256":version})
+        self.fake.objects[(self.config.bucket,key)]=(body,{"sha256":digest})
+        self.fake.objects[(self.config.bucket,vault._manifest_key(book_id,version))]=(
+            encoded,{"sha256":version})
+        self.fake.objects[(self.config.bucket,vault._latest_key(book_id))]=(pointer,{})
+        return vault,key
+
+    def test_existing_book_recovers_without_13book_root_or_upload(self):
+        self.seed()
+        result=self.vault.execute()
+        self.assertTrue(result["source_integrity_verified"])
+        self.assertFalse(result["source_archive_sha256_verified"])
+        self.assertEqual(result["source_origin"],"existing_private_per_book_r2")
+        self.assertTrue(result["fresh_download_sha256_verified"])
+        self.assertTrue(result["already_archived"])
+        self.assertFalse(result["uploaded_new_blob"])
+        self.assertEqual(self.fake.upload_count,0)
+
+    def test_second_existing_book_survives_root_absence(self):
+        vault,_=self.seed("xianni")
+        result=vault.execute()
+        self.assertEqual(result["work_id"],"xianni")
+        self.assertTrue(result["fresh_download_sha256_verified"])
+
+    def test_missing_work_stops_before_upload(self):
+        missing=SingleWorkVault(self.config,work_id="qiumo",client=self.fake)
+        with self.assertRaisesRegex(R2StorageError,"NO SOURCE IN THIS BUCKET"):
+            missing.execute()
+        self.assertEqual(self.fake.upload_count,0)
+
+    def test_corrupted_manifest_pointer_blocks_fallback(self):
+        self.seed()
+        key=self.vault._latest_key("xingchenbian")
+        self.fake.objects[(self.config.bucket,key)]=(b'{"format":"bad"}',{})
+        with self.assertRaisesRegex(R2StorageError,"pointer"):
+            self.vault.execute()
+
+    def test_fresh_restore_detects_bit_corruption(self):
+        _,blob=self.seed()
+        body,metadata=self.fake.objects[(self.config.bucket,blob)]
+        self.fake.objects[(self.config.bucket,blob)]=(b"x"+body[1:],metadata)
+        with self.assertRaisesRegex(R2StorageError,"fresh download SHA256"):
+            self.vault.execute()
 
 
 if __name__=="__main__":
