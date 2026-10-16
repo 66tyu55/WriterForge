@@ -355,3 +355,15 @@
 - 用户已授权**本轮一次**真实额度训练，[one-shot Actions #38913593019](https://github.com/66tyu55/WriterForge/actions/runs/38913593019) 在写入此条时执行中；必须根据最终 job `conclusion` 和 R2 SHA 更新。本轮按用户要求**不做文学原因分析/不做新评分长评**，即使 A/B 完成也只保存私有证据，下一次聊天统一分析。不可将工作流成功解释为已达到90%，也不自动进入第二段。
 
 注意：此 one-shot workflow 仅因新文件创建触发；未来代码普通 push 不会自动重复产生模型调用。不要自动改回同一厂商两款 V4。
+
+
+## 26. 跨厂商 Flash + GLM-5.3 上轮结论及有限网络重试实跑（2026-10-16）
+
+用户说“开始”，依上一轮交接继续，**不重新定义模型或原文**。固定 Planner/Critic=`deepseek-v4-flash-0731`，Writer=`glm-5.3`，首书仍《武动乾坤》第一章第一连续窗口，50,000 预留输出 tokens、最多7次调用。GLM原生小说正文，Flash结构化分析。
+
+- 已核实上一轮 [#38913593019](https://github.com/66tyu55/WriterForge/actions/runs/38913593019) **失败**，不是“仍执行中”。真实请求3次（Flash规划1/GLM写作2）；Flash解析输出148可见字符，GLM第一稿1127可见字符、`finish_reason=stop`；第二个GLM写作请求 `DISCOVERY_NETWORK_FAILED`（旧适配器把超时、连接错误合成此码），因此**尚无第二篇完整稿、未进行独立审评，不能给这轮文学分数**。此失败已经存入独立私有R2，SHA256 `1e50ae50b1c1818a853268269fd1be184b30de4317beeb3ae89ea2d2482160ab`。源码和原R2快照未受影响。
+- 依据实际失败修 `writerforge/reverse_discovery_models.py`：区分 `DISCOVERY_TIMEOUT` / `DISCOVERY_CONNECTION_FAILED` / 状态码；仅对超时、连接失败、HTTP 429/502/503/504 **在同一次调用内额外重试1次**。两次请求都提前预留 token、都计入全局 max_calls（即使网络超时后服务商可能已经收费），每角色响应记录纯错误类型与可见长度，不泄露密钥/原文。401等永久失败不自动重试。
+- 已增加离线测试 `tests/test_v28_discovery_models.py`，验证超时恰好一次重试、费用额度预留、重复超时终止、401不重放；GitHub [全量回归 #38918418959](https://github.com/66tyu55/WriterForge/actions/runs/38918418959) **success**。
+- 已经针对同一本第一窗口启动一次受限真实 A/B [run #38918557675](https://github.com/66tyu55/WriterForge/actions/runs/38918557675)，**本节落盘时任务正在执行**；必须再核查最终job状态、真实API调用及私有R2 SHA，不能声称通过。只有在双稿、长度闸门、审评、R2备份全部满足时才可分析本轮质量。文学 90% 及第二窗口均未解锁。
+
+保持所有付费 workflow 为一次性文件创建触发或显式手动触发，代码普通提交不自动无限消费。
