@@ -66,7 +66,7 @@ def run() -> dict:
         plan,(first,second)=first_chapter_windows(path,_encoding(path),SOURCE_SHA)
         if plan["units"][0]["start"]!=0 or len(first)!=plan["units"][1]["start"]:
             raise DiscoveryError("SOURCE_WINDOW_NOT_CONTIGUOUS")
-        budget=DiscoveryCallBudget(max_calls=5,max_reserved_output_tokens=16000)
+        budget=DiscoveryCallBudget(max_calls=7,max_reserved_output_tokens=25000)
         roles={role:DiscoveryModel(name=name,role=role,api_key=token,budget=budget)
                for role,name in ROLE_MODELS.items()}
         try:
@@ -101,6 +101,8 @@ def run() -> dict:
                 "experiment_config_sha256":config_sha,
                 "code":failure_code,
                 "calls":budget.calls,
+                "calls_by_role":dict(budget.calls_by_role),
+                "last_requested_role":budget.last_requested_role,
                 "reported_prompt_tokens":budget.total_prompt_tokens,
                 "reported_completion_tokens":budget.total_completion_tokens,
                 "requested_completion_token_budget":budget.reserved_output_tokens,
@@ -116,6 +118,8 @@ def run() -> dict:
             print(json.dumps({"stage":"REAL_AB_FAILURE_PERSISTED_TO_R2",
                               "failure_code":failure_code,
                               "calls":budget.calls,
+                              "calls_by_role":dict(budget.calls_by_role),
+                              "last_requested_role":budget.last_requested_role,
                               "failure_sha256":record_hash,
                               "no_draft_or_original_persisted":True,
                               "literary_skill_passed":False},
@@ -123,6 +127,7 @@ def run() -> dict:
             raise
         outcome["usage"]={
             "api_calls":budget.calls,
+            "calls_by_role":dict(budget.calls_by_role),
             "requested_output_tokens_reserved":budget.reserved_output_tokens,
             "prompt_tokens_reported":budget.total_prompt_tokens,
             "completion_tokens_reported":budget.total_completion_tokens,
@@ -154,6 +159,7 @@ def run() -> dict:
             raise DiscoveryError("AB_REPORT_REMOTE_POINTER_RECOVERY_FAILED")
         return {"stage":"DISCOVERY_REAL_MODEL_AB_R2_CONFIRMED",
                 "receipt_sha256":h,"calls_this_run":budget.calls,
+                "calls_by_role":dict(budget.calls_by_role),
                 "reported_prompt_tokens":budget.total_prompt_tokens,
                 "reported_completion_tokens":budget.total_completion_tokens,
                 "mastery_90_percent_verified":False,
