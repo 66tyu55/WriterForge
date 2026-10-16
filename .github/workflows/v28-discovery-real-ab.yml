@@ -31,6 +31,7 @@ jobs:
           set -euo pipefail
           python -m unittest discover -s tests -p 'test_v28_discovery_models.py' -v
           python -m unittest discover -s tests -p 'test_v28_cloud_ab.py' -v
+          python -m unittest discover -s tests -p 'test_v28_mechanism_boundary.py' -v
       - name: Real GLM/Kimi/DeepSeek no-synthetic AB comparison from first actual chapter
         run: |
           set -euo pipefail
