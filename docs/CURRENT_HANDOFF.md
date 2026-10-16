@@ -249,3 +249,17 @@
 - [首轮正式 A/B #38886477025](https://github.com/66tyu55/WriterForge/actions/runs/38886477025) **失败**，因复杂 JSON 契约；[第二轮 #38887011693](https://github.com/66tyu55/WriterForge/actions/runs/38887011693) 在有限重试后仍失败，精确故障为 `DISCOVERY_PLANNER_JSON_CONTRACT_FAILED`，来自 GLM-5.3 面对实际原著的长结构分析。原文 R2 未损坏；无“90% 大师水平通过”或第二段解锁。
 - 已将仅规划角色替换为 **`deepseek-v4-flash-0731`**；保留 `kimi-k2.6` 写作、`deepseek-v4-pro-0813` 审评。[第三轮正式 A/B #38887477346](https://github.com/66tyu55/WriterForge/actions/runs/38887477346) 在本文写入时刚启动，**必须读 job 最终结论和远端 R2 receipt 才能确认结果**，不可预写成功或文学能力改善。
 - 后续无论结果如何，不许用模型自己的 90 分取代独立校准盲评。不启动额外小说、不跳过序列原著、不无限迭代。API Key 真值不能回显，不需要用户重复配置。
+
+
+## 18. Discovery 真正连通 + 第一次正规原著文学 A/B 真实完成（2026-10-16，覆盖第 17 节尚在执行）
+
+已确认用户使用的是 **GitHub Secret `DISCOVERY__API__KEY`（双下划线）**，工作流已经引用此名称。**不必要求用户重命名、新建密钥或在聊天中暴露 Key**。
+
+**成功的真实端砚 API 和 R2 证据：**
+- [连通和单次生成 #38886144104](https://github.com/66tyu55/WriterForge/actions/runs/38886144104) `success`，`deepseek-v4-flash-0731` 正常输出；
+- [GLM/Kimi/DeepSeek 三种真实模型的短 JSON #38886690784](https://github.com/66tyu55/WriterForge/actions/runs/38886690784) `success`；
+- 初始大型 A/B 曾因 GLM-5.3 规划阶段复杂 JSON 错误、Kimi-K2.6 长篇请求无可见正文而失败，原文/草稿未持久污染学习库，完整失败日志在 [#38887011693](https://github.com/66tyu55/WriterForge/actions/runs/38887011693) 和 [#38887477346](https://github.com/66tyu55/WriterForge/actions/runs/38887477346)。还有一次 [#38887900901](https://github.com/66tyu55/WriterForge/actions/runs/38887900901) 仅为测试要求三模型必须完全不同而导致工程验证失败；已把测试修为实际要求 Writer/Critic 模型身份不同。
+- **最终真实完整 A/B [run #38888018955](https://github.com/66tyu55/WriterForge/actions/runs/38888018955) `success`**：使用 `deepseek-v4-flash-0731` 为原著规划，`deepseek-v4-pro-0813` 生成 A/B 两份原创稿，`deepseek-v4-flash-0731` 独立于写作者执行匿名模型批评（规划与评审同一模型 ID，不能称为三个互相独立模型，更不能声称独立人类评审）。原文使用已验证私有 R2 《武动乾坤》第 1 章第一连续窗口。**共 5 次真实 API 调用**，服务端报告输入 11,658、输出 7,637 tokens，总 19,295 tokens；未进行模型权重微调。抽象报告和两篇原创草稿 SHA 已存独立私有 R2，完整原著和草稿均不持久保留。私有快照 SHA256 `86953525286e33e5a09f0acb4d4774e7ccfa3abafe0b5d00fe65c5f5e0c66b04`，全新回读检验成功。
+- **只读数字结果审核 [run #38888592336](https://github.com/66tyu55/WriterForge/actions/runs/38888592336) `success`**：模型批评分 **无技能基线 86/100**（感知88、因果85、信息82、连续90、语言86），**启用 WriterForge 技法 84/100**（感知84、因果86、信息80、连续88、语言82），**单次增量 -2 分**。说明这次增强策略并未改善写作，且不满足原定 90/100 门槛。样本仅一组，且批评模型未作专家/真人校准，**不能证明长期有效或有害**。不要把生成或 R2 写入成功标成文学能力升级；第二窗口 **未解锁**。
+- 为防推送代码时重复消耗用户的端砚额度，已将 `.github/workflows/v28-discovery-real-ab.yml` 改为 **仅 `workflow_dispatch` 手动启动**。不要再无授权做付费/额度消耗调用。
+- 当前正确下一步是**分析首轮增强稿为何比基线差**，从已保存的私有短机制/审评意见中提炼缺点，先修 Skill 的信息提取及因果上下文选择，再由独立客观评审与不同剧情验证；不是继续盲试多个模型或跳到下一章。所有 90% 阶段晋级仍 **BLOCKED**。
