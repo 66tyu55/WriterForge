@@ -1,5 +1,7 @@
 # WriterForge V27 — Source-grounded Faceted Literary Encyclopedia
 
+> **Current canonical project handoff:** [docs/CURRENT_HANDOFF.md](docs/CURRENT_HANDOFF.md). Check R2-verified book hashes, actual learning stages and live run links before starting any new work. Never treat archived books as model training.
+
 WriterForge is a long-form fiction system built around strict LEARN / WRITE separation, Reader-First source learning, Canon/Character/Knowledge/Promise memory, lean Craft routing, Literary Taste, Story Sense and controlled Evolution.
 
 V16 continues the runtime optimization phase. It separates source-event urgency from capability execution lanes and adds root-level pending/suspended/pinged/warm/expired/entangled state.
