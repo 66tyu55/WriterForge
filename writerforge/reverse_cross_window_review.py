@@ -21,7 +21,12 @@ def compare_existing_chapters(v5:dict,v6:dict,*,v5_sha:str,v6_sha:str) -> dict:
         cursor.get("ordinal")!=1 or cursor.get("diagnostic_only_no_promotion") is not True or
         cursor.get("earlier_first_window")!="NOT_PASSED" or
         cursor.get("second_curriculum_window")!="LOCKED" or
-        cursor.get("full_body_reconstructed") is not True):
+        cursor.get("chapter_headers_sequential") is not True or
+        cursor.get("full_body_reconstructed") is not True or
+        cursor.get("source_window_sha256") != v6.get("source_unit_sha256") or
+        cursor.get("next_contiguous_sha256") != v6.get("next_unit_sha256") or
+        cursor.get("chapter_body_sha256") !=
+        "46acf29ea47e63b0a47a18413260a689bcaf9a9f1284338a2cebc4771428956e"):
         raise CandidateEvidenceError("missing later-window diagnostic provenance")
     if (old["work"]!=new["work"] or old["edition_sha256"]!=new["edition_sha256"]
         or old["writer_model"]!=new["writer_model"] or
@@ -76,6 +81,8 @@ def compare_existing_chapters(v5:dict,v6:dict,*,v5_sha:str,v6_sha:str) -> dict:
         "new_source_held_for_diagnostic_not_curriculum_unlock":True,
         "first_window_passed":False,"second_window_unlocked":False,
         "human_review_performed":False,"core_promoted":False,
+        "retain_previous_evidence_immutable":True,
+        "new_chapter_mechanisms_quarantined_pending_independent_review":True,
     }
     if len(_canon(result))>8192:
         raise CandidateEvidenceError("bounded cross-chapter report too large")
