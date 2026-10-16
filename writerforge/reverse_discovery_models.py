@@ -93,18 +93,25 @@ class DiscoveryModel:
             raise DiscoveryError("INVALID_MODEL_PROMPT")
         if not 50 <= num_predict <= MAX_REQUESTED_OUTPUT_TOKENS:
             raise DiscoveryError("MODEL_OUTPUT_BUDGET_INVALID")
-        messages=[{"role":"system","content":system+" 仅返回一个合法JSON对象，必须完整闭合。"},
+        # Long novel prose is PLAIN TEXT. Only planning/review returns JSON.
+        # No raw novel response ever reaches public logs or permanent R2.
+        prose_mode=self.role=="writer"
+        instructions=(
+            "只输出原创小说正文。不输出JSON、Markdown、解释或标题。" if prose_mode
+            else "仅返回一个合法JSON对象，所有字段必须完整闭合。"
+        )
+        messages=[{"role":"system","content":system+" "+instructions},
                   {"role":"user","content":user}]
         requested=num_predict
-        # Exactly ONE repair is possible across the entire shared AB budget.
-        # No cross-provider fallback, and budget is reserved BEFORE each call.
         for turn in range(2):
-            body=json.dumps({
+            request_data={
                 "model":self.name,"messages":messages,
                 "stream":False,"max_tokens":requested,
                 "temperature":1 if self.name=="kimi-k2.6" else (0.2 if turn else 0.4),
-                "response_format":{"type":"json_object"},
-            },ensure_ascii=False,separators=(",",":")).encode("utf-8")
+            }
+            if not prose_mode:
+                request_data["response_format"]={"type":"json_object"}
+            body=json.dumps(request_data,ensure_ascii=False,separators=(",",":")).encode("utf-8")
             self.budget.reserve(len(body),requested)
             req=Request(ENDPOINT,data=body,method="POST",headers={
                 "Authorization":"Bearer "+self._key,
@@ -126,16 +133,39 @@ class DiscoveryModel:
                 choice=result["choices"][0]
                 message=choice["message"]
                 content=message.get("content")
+                reason=choice.get("finish_reason")
+                if reason=="length":
+                    # Truncated prose is not a complete story. Retry once.
+                    if turn:
+                        raise DiscoveryError("DISCOVERY_"+self.role.upper()+"_OUTPUT_TRUNCATED")
+                    requested=min(4000,max(2400,requested))
+                    continue
                 if not isinstance(content,str) or not content.strip():
                     if turn:
                         raise DiscoveryError("DISCOVERY_"+self.role.upper()+"_EMPTY_VISIBLE_TEXT")
                     requested=min(4000,max(2400,requested))
                     continue
+                if prose_mode:
+                    candidate=content.strip()
+                    if candidate.startswith("{"):
+                        structured=_safe_json(candidate)
+                        if set(structured)!={"scene"} or not isinstance(structured["scene"],str):
+                            raise DiscoveryError("DISCOVERY_WRITER_INVALID_JSON_SCENE")
+                        candidate=structured["scene"].strip()
+                    fence=chr(96)*3
+                    if (len(candidate)<220 or len(candidate)>4500
+                        or candidate.startswith((fence,"抱歉","作为AI","作为一个AI"))
+                        or fence in candidate):
+                        if turn:
+                            raise DiscoveryError("DISCOVERY_WRITER_INVALID_PROSE")
+                        requested=min(4000,max(2400,requested))
+                        continue
+                    return {"scene":candidate}
                 return _safe_json(content)
             except DiscoveryError:
                 raise
             except (IndexError,KeyError,TypeError,ValueError,RealTrainingError):
                 if turn:
-                    raise DiscoveryError("DISCOVERY_"+self.role.upper()+"_JSON_CONTRACT_FAILED") from None
+                    raise DiscoveryError("DISCOVERY_"+self.role.upper()+"_STRUCTURED_OUTPUT_FAILED") from None
                 requested=min(4000,max(2400,requested))
-        raise DiscoveryError("DISCOVERY_"+self.role.upper()+"_JSON_RETRY_EXHAUSTED")
+        raise DiscoveryError("DISCOVERY_"+self.role.upper()+"_RETRY_EXHAUSTED")
