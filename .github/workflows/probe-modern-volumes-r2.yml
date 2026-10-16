@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/probe-modern-volumes-r2.yml'
+      - 'scripts/probe_modern_volumes_r2.py'
   workflow_dispatch:
 permissions:
   contents: read
