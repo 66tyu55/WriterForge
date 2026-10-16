@@ -69,10 +69,58 @@ def run() -> dict:
         budget=DiscoveryCallBudget(max_calls=5,max_reserved_output_tokens=16000)
         roles={role:DiscoveryModel(name=name,role=role,api_key=token,budget=budget)
                for role,name in ROLE_MODELS.items()}
-        outcome=CloudABTrial(planner=roles["planner"],
-                             writer=roles["writer"],
-                             critic=roles["critic"]).run(
-            first,second,source_sha=SOURCE_SHA,window_hash=raw_hash(first))
+        try:
+            outcome=CloudABTrial(planner=roles["planner"],
+                                 writer=roles["writer"],
+                                 critic=roles["critic"]).run(
+                first,second,source_sha=SOURCE_SHA,window_hash=raw_hash(first))
+        except Exception as exc:
+            # Failed real exercises ARE study evidence, but must not become
+            # craft rules. Persist a tiny whitelisted *failure receipt*.
+            # Never keep novel, draft, prompt, credentials or provider response.
+            known=(
+                "AB_LENGTH_MISMATCH_NOT_COMPARABLE",
+                "writer failed to produce bounded original scene",
+                "planner returned unrecognized analysis or plot fields",
+                "planner selection count must be 1..2",
+                "planner entry has untrusted fields",
+                "invalid or duplicate technique ID",
+                "planner cited missing source paragraph",
+                "DISCOVERY_PLANNER_JSON_CONTRACT_FAILED",
+                "DISCOVERY_WRITER_JSON_CONTRACT_FAILED",
+                "DISCOVERY_CRITIC_JSON_CONTRACT_FAILED",
+                "MODEL_CALL_OR_TOKEN_BUDGET_EXHAUSTED",
+            )
+            message=str(exc)
+            failure_code=message if message in known else type(exc).__name__
+            attempt={
+                "format":"writerforge.reverse-ab-failure.v2",
+                "status":"UNVERIFIED_FAILED_NOT_PROMOTED",
+                "source_sha256":SOURCE_SHA,
+                "source_window_sha256":raw_hash(first),
+                "experiment_config_sha256":config_sha,
+                "code":failure_code,
+                "calls":budget.calls,
+                "reported_prompt_tokens":budget.total_prompt_tokens,
+                "reported_completion_tokens":budget.total_completion_tokens,
+                "requested_completion_token_budget":budget.reserved_output_tokens,
+                "second_window_unlocked":False,
+                "draft_or_source_text_saved":False,
+            }
+            record=_canonical(attempt)
+            record_hash=sha256(record).hexdigest()
+            failure_key=f"{root}/failures/{record_hash}.json"
+            r2._put_small_immutable(failure_key,record,record_hash)
+            if r2._get_small(failure_key,4096)!=record:
+                raise DiscoveryError("FAILED_ATTEMPT_R2_ROUNDTRIP_FAILED") from None
+            print(json.dumps({"stage":"REAL_AB_FAILURE_PERSISTED_TO_R2",
+                              "failure_code":failure_code,
+                              "calls":budget.calls,
+                              "failure_sha256":record_hash,
+                              "no_draft_or_original_persisted":True,
+                              "literary_skill_passed":False},
+                             ensure_ascii=False),flush=True)
+            raise
         outcome["usage"]={
             "api_calls":budget.calls,
             "requested_output_tokens_reserved":budget.reserved_output_tokens,
