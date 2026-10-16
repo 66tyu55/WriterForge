@@ -24,8 +24,8 @@ MODELS = {
 }
 ROLE_MODELS = {
     "planner": "deepseek-v4-flash-0731",
-    "writer": "kimi-k2.6",
-    "critic": "deepseek-v4-pro-0813",
+    "writer": "deepseek-v4-pro-0813",
+    "critic": "deepseek-v4-flash-0731",
 }
 MAX_PROMPT_BYTES = 25000
 MAX_OUTPUT_BYTES = 80000
