@@ -1,0 +1,29 @@
+name: V28 real Wudong AB evidence reasons audit (read only)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v28-discovery-audit-reasons.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-safe-critic-reasons:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Review source-protected real A/B comparison notes, NO model inference
+        run: |
+          set -euo pipefail
+          python scripts/audit_discovery_ab_reasons.py
