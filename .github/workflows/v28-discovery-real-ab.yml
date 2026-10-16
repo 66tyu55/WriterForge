@@ -6,6 +6,7 @@ on:
       - '.github/workflows/v28-discovery-real-ab.yml'
       - 'writerforge/reverse_discovery_models.py'
       - 'writerforge/reverse_cloud_ab.py'
+      - 'tests/test_v28_discovery_models.py'
   workflow_dispatch:
 permissions:
   contents: read
