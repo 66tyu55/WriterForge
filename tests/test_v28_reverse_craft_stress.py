@@ -10,7 +10,7 @@ import unittest
 from writerforge.reverse_craft import (
     ReverseCraftCoordinator, ReverseCraftError, _hash
 )
-from tests.test_v28_reverse_craft import (
+from test_v28_reverse_craft import (
     FakeR2, SyntheticTestAuthority, CORE, DRAFT, report
 )
 from writerforge.reverse_core_vault import ReverseCoreVault
