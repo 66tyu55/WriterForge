@@ -144,3 +144,20 @@ When user is composing in our WriterForge Studio, browser input/debounce is the 
 ## V27 trained-source literary curriculum: fail closed before creativity claims
 
 For autonomous writing capability refinement use the existing Xuehai + V25 Human-Verified category evidence and the literary ladder rather than expecting source chunk statistics to imply literary mastery. Work from exact source spans -> 12-65-character original short units -> one verified category -> two distinct semantic roots -> three+ distinct roots -> paragraph -> causal scene, increasing complexity only when the source gates are satisfied. Model category annotations remain UNVERIFIED proposed hypotheses until independently checked. The real local LLM produces candidate text; optionally the existing lit-critic produces an independent editorial report on paragraphs/scenes, followed by no more than ONE logged revision. Critics and author feedback are NOT automatically treated as permanent Skill promotions or proof of artistic gain. Store every accepted and rejected practice attempt in the EXISTING SQLite and private R2 backups, not a competing learning store. Stop after 400 trials/project until archived. No 50-book global literary evaluation yet. Details in docs/V27_STAGED_LITERARY_PRACTICE.md.
+
+
+## Prose-first correction — verified style reference, not synthetic literary training
+
+The production draft route now uses minimal factual continuity and explicit author corrections.
+Original-study structural labels and Craft technique IDs remain audit/provenance only; they
+are **not** direct prose instructions by default. The writer must not treat
+auto-accepted AI prose or lexical cue statistics as evidence of literary style quality.
+A single 120–1200-character project style reference can be activated only with explicit
+author quality approval (\`prose-style-approve\`), loaded last in real prose prompts,
+rejected on source revision, revoked (\`prose-style-disable\`) and stored in the existing
+SQLite and optional private R2 backup. Empty style reference => free-model writing.
+JSON-only planning omits the prose sample. No sentence/dialogue/hook quotas.
+Verbatim copying from the style example is blocked; no claim of literary quality gain
+without independently blind-read same-model baseline comparison.
+See [docs/PROSE_FIRST_STYLE_BASELINE.md](docs/PROSE_FIRST_STYLE_BASELINE.md).
+
