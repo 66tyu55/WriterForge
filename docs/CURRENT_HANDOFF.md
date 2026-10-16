@@ -179,3 +179,14 @@
 - 使用说明及明确未实现的能力：[V28_MINIMAL_RUNTIME.md](V28_MINIMAL_RUNTIME.md)。这**不是真实《武动乾坤》文学训练、不是真实 90% 成功率，也没有运行真实模型或真实独立文学审稿服务**。V28 R2 备份只有 FakeR2 工程测试；尚未在真实 Cloudflare R2 上传新 V28 核心快照。真实文章目前仅已有单书原文归档，章节完整性仍存在缺陷，须先核实局部原文。
 - 草稿 `TemporaryDirectory` 正常退出即清理，非物理安全擦除；崩溃后的临时文件须安排启动 `cleanup_stale_scratch` TTL 清理。不能让旧 `literary_ladder.py` 对练习稿 `body` 进行普通 R2 学习库备份。**不把合成评审器注入实际作者训练**。
 - **下次按一次一本推进**：先完成《武动乾坤》第一小段和紧邻第二小段的真实章节/source span 校验（私有 runner 内做、日志只输出哈希）；再接独立生成模型和经过实际验证的盲评器，不共享原著全文给生成器；有了真实的评审回执和 R2 验收才允许自动晋级。
+
+
+## 13. V28 已按用户新要求从《武动乾坤》开篇顺序启动（2026-10-16，覆盖先前“随机小场景”建议）
+
+**用户决定必须从第一章最初开始，逐步建立人物前史、因果与认知，而非随机抽样。** 这条优先级覆盖以往任何“随机挑一段剧情做训练”的建议。本阶段不会自动多书并行。
+
+新增程序 `writerforge/reverse_source_cursor.py`、`scripts/prepare_wudong_opening_r2.py`、`.github/workflows/v28-wudong-opening-r2.yml`、回归 `tests/test_v28_reverse_opening_cursor.py`。`ReverseCraftCoordinator.open_unit` 拒绝不从 `(chapter=1,ordinal=1)` 起步，后续仍受相邻单元和 AB 合并门槛约束。开篇确切 R2 来源与学习顺序说明见 [V28_FROM_BEGINNING_WUDONG.md](V28_FROM_BEGINNING_WUDONG.md)。
+
+**真实 GitHub Actions #38876799592 success**：私有 R2 中已归档《武动乾坤》原文 SHA256 `86a2fd859b424efe0500b4b36713ea8b05d551140650904ffc2ae02eb244ed28`、字节 8,254,079 重新读取并哈希核验。检测真实前 3 章标题依序 1→2→3，位于第 8、85、146 行；第一章正文 4,209 字符；提出两个从头连续的候选窗口 `[0,2125)` 和 `[2125,4209)`，无丢字、无跳跃。元数据-only 私有 R2 新对象及 fresh GET 全字节核验成功：`writerforge/v1/reverse-craft/wudongqiankun/opening-source/cc3c98eda8953fa23b2f8328fa6f897d5d0cfffa313561868389324aa178b441.json`。**当前仅 `OPENING_SOURCE_VERIFIED / BOUNDARY_UNREVIEWED`**；原文段落分界还未由真实模型审核为正确的叙事节点；没有生成原创稿、独立文学评论或 90 分晋级。
+
+下一步先以第 1 章作真实语义场景/因果边界核查（人物当前所知、读者所知、目标、误解、行动、后果、未兑现问题）；通过后用 skill 自己调用隔离模型，只写第一窗口。首窗核心审评、短期稿清除、闭卷迁移过关之后才开启第二窗口。不可将第一章的机器“长度中点”当做已证实的文学场景切点；不能隐瞒模型/审稿/长因果上下文还没接通的事实。
