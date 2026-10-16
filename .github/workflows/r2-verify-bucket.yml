@@ -96,6 +96,64 @@ jobs:
           if not rows or not any(item["Key"] == latest for item in rows):
               result("Diagnosis", "No complete study under EXPECTED bucket and prefix")
               sys.exit(4)
+          # Diagnose the ACTUAL source needed by private modern-novel jobs.
+          # Scan the WHOLE bucket, not merely "writerforge/" as the failed
+          # single_work_runner does. Metadata only: no text or secret output.
+          root_key = "WriterForge_PrivateReading_13Works_20261011.sqlite3"
+          expected_size = 231878656
+          from botocore.exceptions import ClientError
+          try:
+              root_head = s3.head_object(Bucket=actual_bucket, Key=root_key)
+              root_size = int(root_head.get("ContentLength", -1))
+          except ClientError as exc:
+              error = str(exc.response.get("Error", {}).get("Code", ""))
+              if error not in ("404", "NoSuchKey", "NotFound"):
+                  raise  # No pretending permission failures are missing files.
+              root_size = None
+          found_name = 0
+          found_size = 0
+          source_pointer_books = set()
+          listed = 0
+          token = None
+          for page_number in range(50):
+              params = {"Bucket": actual_bucket, "MaxKeys": 1000}
+              if token:
+                  params["ContinuationToken"] = token
+              page = s3.list_objects_v2(**params)
+              for obj in page.get("Contents", []):
+                  listed += 1
+                  key = obj["Key"]
+                  if key.rsplit("/", 1)[-1] == root_key:
+                      found_name += 1
+                  if int(obj["Size"]) == expected_size:
+                      found_size += 1
+                  fixed_prefix = "writerforge/v1/private-reading/single-works/"
+                  if key.startswith(fixed_prefix) and key.endswith("/latest.json"):
+                      work_id = key[len(fixed_prefix):-len("/latest.json")]
+                      if work_id and "/" not in work_id:
+                          source_pointer_books.add(work_id)
+              if not page.get("IsTruncated"):
+                  break
+              token = page.get("NextContinuationToken")
+              if not token:
+                  raise RuntimeError("R2 inventory pagination incomplete")
+          else:
+              raise RuntimeError("R2 inventory exceeded 50,000 objects; absence cannot be determined")
+          result("Legacy 13-work root source present (exact key and size)",
+                 "YES" if root_size == expected_size else "NO")
+          result("Legacy source canonical root bytes", root_size)
+          result("Legacy source basename matches anywhere in bucket", found_name)
+          result("Legacy source expected-size matches anywhere in bucket", found_size)
+          result("Legacy source metadata search scanned total objects", listed)
+          result("Already archived independent private-book IDs",
+                 ",".join(sorted(source_pointer_books)) if source_pointer_books else "NONE")
+          if root_size != expected_size:
+              result("Legacy source diagnosis",
+                     "BLOCKED BEFORE UPLOAD: canonical source missing/wrong size; "
+                     "a separate per-book source or restored original is required")
+          else:
+              result("Legacy source diagnosis",
+                     "PRESENT by HEAD; verify pinned SHA256 before attempting migration")
           # No file uploads or deletes are performed by this job.
           result("Result", "CONFIRMED in expected private bucket by direct, read-only R2 listing")
           PY
