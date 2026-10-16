@@ -93,10 +93,16 @@ class DiscoveryModel:
             with opener.open(request,timeout=300) as response:
                 raw=response.read(MAX_OUTPUT_BYTES + 1)
         except HTTPError as exc:
-            # HTTP body may repeat prompt or key. Only status number survives.
+            # Response bodies may repeat private prompts; never print them.
             raise DiscoveryError("DISCOVERY_HTTP_"+str(exc.code)) from None
-        except (TimeoutError,URLError,OSError):
-            raise DiscoveryError("DISCOVERY_NETWORK_FAILED") from None
+        except TimeoutError:
+            raise DiscoveryError("DISCOVERY_TIMEOUT") from None
+        except URLError as exc:
+            if isinstance(exc.reason,TimeoutError):
+                raise DiscoveryError("DISCOVERY_TIMEOUT") from None
+            raise DiscoveryError("DISCOVERY_CONNECTION_FAILED") from None
+        except OSError:
+            raise DiscoveryError("DISCOVERY_CONNECTION_FAILED") from None
         if len(raw)>MAX_OUTPUT_BYTES:
             raise DiscoveryError("DISCOVERY_RESPONSE_OVERSIZE")
         return raw
@@ -131,12 +137,35 @@ class DiscoveryModel:
             if not prose_mode:
                 request_data["response_format"]={"type":"json_object"}
             body=json.dumps(request_data,ensure_ascii=False,separators=(",",":")).encode("utf-8")
-            self.budget.reserve(len(body),requested,role=self.role)
             req=Request(ENDPOINT,data=body,method="POST",headers={
                 "Authorization":"Bearer "+self._key,
                 "Content-Type":"application/json","Accept":"application/json",
             })
-            raw=self.transport(req)
+            # One extra attempt for a transient transport failure only.
+            # Charge/budget BOTH attempts, because a timed-out provider
+            # request might already have completed and been billed.
+            raw=None
+            for transport_attempt in range(2):
+                self.budget.reserve(len(body),requested,role=self.role)
+                try:
+                    raw=self.transport(req)
+                    break
+                except DiscoveryError as exc:
+                    code=str(exc)
+                    transient=code in (
+                        "DISCOVERY_TIMEOUT","DISCOVERY_CONNECTION_FAILED",
+                        "DISCOVERY_HTTP_429","DISCOVERY_HTTP_502",
+                        "DISCOVERY_HTTP_503","DISCOVERY_HTTP_504",
+                    )
+                    if not transient:
+                        raise
+                    self.budget.response_observations.append({
+                        "role":self.role,"finish_reason":"transport_failure",
+                        "transport_code":code,"visible_chars":0,
+                        "turn":turn+1,"transport_attempt":transport_attempt+1,
+                    })
+                    if transport_attempt:
+                        raise
             if not isinstance(raw,bytes) or len(raw)>MAX_OUTPUT_BYTES:
                 raise DiscoveryError("DISCOVERY_RESPONSE_OVERSIZE")
             try:
