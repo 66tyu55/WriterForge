@@ -61,7 +61,7 @@ class FakeS3:
             raise NotFound()
         return {"Body":BytesIO(self.objects[(Bucket,Key)][0])}
 
-    def list_objects_v2(self, *, Bucket,Prefix,MaxKeys):
+    def list_objects_v2(self, *, Bucket,MaxKeys,Prefix=""):
         rows=[
             {"Key":k,"Size":len(data)}
             for (b,k),(data,meta) in sorted(self.objects.items())
