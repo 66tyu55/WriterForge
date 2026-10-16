@@ -57,12 +57,12 @@ def _source_reader(session, file_id: str, destination: Path) -> tuple[str, int, 
             or TITLE not in str(info.get("name", ""))):
             raise DriveR2InputError("unexpected Drive original file identity/type")
         size = int(info.get("size", -1))
-        if not MIN_SOURCE_BYTES <= size <= MAX_SOURCE_BYTES:
-            raise DriveR2InputError("unexpected Drive TXT size in metadata")
         if size != EXACT_EXPECTED_BYTES:
             raise DriveR2InputError(
-                "DRIVE_SOURCE_VERSION_CHANGED: size does not match owner-visible version"
+                "DRIVE_SOURCE_VERSION_CHANGED: metadata size differs from owner-visible original"
             )
+        if not MIN_SOURCE_BYTES <= size <= MAX_SOURCE_BYTES:
+            raise DriveR2InputError("unexpected Drive TXT size in metadata")
         with closing(session.get(
             url, params={"alt": "media"}, stream=True,
             timeout=(30, 120), allow_redirects=False,
