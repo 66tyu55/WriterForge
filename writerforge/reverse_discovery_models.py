@@ -27,10 +27,17 @@ ROLE_MODELS = {
     "writer": "deepseek-v4-pro-0813",
     "critic": "deepseek-v4-flash-0731",
 }
-MAX_PROMPT_BYTES = 25000
-MAX_OUTPUT_BYTES = 80000
+FIXED_MODEL_CONTEXT_TOKENS = {
+    "deepseek-v4-flash-0731": 1_048_576,
+    "deepseek-v4-pro-0813": 1_048_576,
+}
+# Official DeepSeek V4 capacity. Discovery's /models listing does not expose
+# context_window; this is NOT a verified 1M-token Discovery gateway stress test.
+DISCOVERY_GATEWAY_1M_LOAD_VERIFIED = False
+MAX_PROMPT_BYTES = 4_194_304  # bounded input transport; 1M is model capability, NOT verified gateway load
+MAX_OUTPUT_BYTES = 1_000_000  # up to 50k completion tokens incl. Chinese UTF-8, bounded
 MAX_CALLS = 7
-MAX_REQUESTED_OUTPUT_TOKENS = 4000
+MAX_REQUESTED_OUTPUT_TOKENS = 50_000
 
 class DiscoveryError(RealTrainingError):
     pass
@@ -43,7 +50,7 @@ class _NoRedirect(HTTPRedirectHandler):
 class DiscoveryCallBudget:
     max_calls: int = MAX_CALLS
     calls: int = 0
-    max_reserved_output_tokens: int = 25000
+    max_reserved_output_tokens: int = 50_000
     last_requested_role: str = "not_started"
     calls_by_role: dict[str,int] = field(default_factory=dict)
     response_observations: list[dict] = field(default_factory=list)
@@ -82,7 +89,7 @@ class DiscoveryModel:
     def _request(request: Request) -> bytes:
         opener=build_opener(_NoRedirect(),HTTPSHandler(context=ssl.create_default_context()))
         try:
-            with opener.open(request,timeout=150) as response:
+            with opener.open(request,timeout=300) as response:
                 raw=response.read(MAX_OUTPUT_BYTES + 1)
         except HTTPError as exc:
             # HTTP body may repeat prompt or key. Only status number survives.
@@ -115,11 +122,11 @@ class DiscoveryModel:
                 "stream":False,"max_tokens":requested,
                 "temperature":1 if self.name=="kimi-k2.6" else (0.2 if turn else 0.4),
             }
-            if self.name=="intern-s2":
-                # Official Intern-S2 Chat API supports disabling deep
-                # thinking for brief selector-style responses. Different
-                # Discovery gateway behavior is checked by a live probe.
-                request_data["thinking_mode"]=False
+            if self.name in ("deepseek-v4-flash-0731","deepseek-v4-pro-0813"):
+                # Verified on Discovery gateway: both give visible text with
+                # OpenAI-compatible thinking.type=disabled. Planning needs
+                # bounded visible JSON; novelist needs finished native prose.
+                request_data["thinking"]={"type":"disabled"}
             if not prose_mode:
                 request_data["response_format"]={"type":"json_object"}
             body=json.dumps(request_data,ensure_ascii=False,separators=(",",":")).encode("utf-8")
@@ -170,12 +177,12 @@ class DiscoveryModel:
                         # Reasoning-only or too-short result: bound a single
                         # re-try with a shorter target, never loop forever.
                         messages[0]["content"] += " 控制为800至1000汉字并结束完整场景。"
-                    requested=min(4000,max(2400,requested))
+                    requested=min(MAX_REQUESTED_OUTPUT_TOKENS,max(2500,requested))
                     continue
                 if not isinstance(content,str) or not content.strip():
                     if turn:
                         raise DiscoveryError("DISCOVERY_"+self.role.upper()+"_EMPTY_VISIBLE_TEXT")
-                    requested=min(4000,max(2400,requested))
+                    requested=min(MAX_REQUESTED_OUTPUT_TOKENS,max(2500,requested))
                     continue
                 if prose_mode:
                     candidate=(partial_prose+content).strip()
@@ -190,7 +197,7 @@ class DiscoveryModel:
                         or fence in candidate):
                         if turn:
                             raise DiscoveryError("DISCOVERY_WRITER_INVALID_PROSE")
-                        requested=min(4000,max(2400,requested))
+                        requested=min(MAX_REQUESTED_OUTPUT_TOKENS,max(2500,requested))
                         continue
                     return {"scene":candidate}
                 return _safe_json(content)
