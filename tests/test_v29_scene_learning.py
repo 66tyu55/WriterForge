@@ -169,7 +169,7 @@ class LiterarySceneTests(unittest.TestCase):
     def test_review_requires_explicit_confirmation_and_never_certifies_quality(self):
         current=scene()
         self.lab.run(current,lambda prompt:
-                     FIRST if "截至此刻可見原文" in prompt else SECOND,
+                     FIRST if "【截至此刻可见原文】" in prompt else SECOND,
                      "model-fixture")
         with self.assertRaisesRegex(SceneStudyError,"explicit reasoned"):
             self.lab.review(current,approved=True,reason="同意",reviewer_confirmed=False)
