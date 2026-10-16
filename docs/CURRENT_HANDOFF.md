@@ -327,3 +327,17 @@
 - `scripts/run_wudong_discovery_ab.py` 使用独立 v3 `fixed-1m-context-50k-ab-v3` 前缀及模型/源指纹，旧 v1/v2 的成功与失败证据都保留。
 - 新回归 `tests/test_v28_fixed_pair_budget.py`；GitHub [全量 Tests #38910871380](https://github.com/66tyu55/WriterForge/actions/runs/38910871380) **success**。代码与限制见 [V28_FIXED_1M_PAIR_50K.md](V28_FIXED_1M_PAIR_50K.md)。
 - 用户先前明确“边消耗真实端砚额度边发现问题”，因此已启动**仅一次**实际 [#38910720051](https://github.com/66tyu55/WriterForge/actions/runs/38910720051)，本条写入时仍执行中，必须读取最终 Actions job 结论与私有 R2 凭证；不能提前宣称文学训练完成或90分，第二窗口始终锁定。普通代码提交不会重复触发这个一次性付费工作流。
+
+
+## 24. V28 两个固定 1M 模型、50k预算的真实 A/B 已完成，**文学增益仍失败**（2026-10-16）
+
+更新第23节的 pending 状态。**[GitHub Actions #38910720051](https://github.com/66tyu55/WriterForge/actions/runs/38910720051) success**；实际端砚 Discovery 上 `deepseek-v4-flash-0731` 负责规划/批评、`deepseek-v4-pro-0813` 负责写作；均显式 `thinking:{"type":"disabled"}`。4次真实API请求（Planner1/Writer2/Critic1），模型报告输入6648、输出3090 tokens；36,500为预算**预留**，不是实际消费，硬上限仍为50,000请求预留输出tokens。私有 R2 不可变快照 SHA256 `b1354316a9ca487e7e07f127be78b0ca3856855f1168d73d313ae6a99568822a`，fresh GET 哈希核验通过，无公开原文或草稿正文。
+
+**[只读数值审计 #38911363049](https://github.com/66tyu55/WriterForge/actions/runs/38911363049) success**：
+- Baseline **86/100**（感知88、因果85、信息82、连续90、语言86），稿长1656字符；
+- WF enhanced **76/100**（感知74、因果78、信息70、连续80、语言82），稿长1533字符；
+- 模型审评 **增量 -10 分**。A/B等长控制已通过，长度差123字符 /1656 =7.4%；不再沿用原 v1 的49.4%不等长/源剧情污染。
+- Planner 选取的两项**宿主预置**机制 `GOAL_FILTERS_ATTENTION`、`COST_VISIBLE_IN_ACTION`；不能宣称它们是WF新学出的技巧。当前数据显示这两个固定操作未在单次原创中产生质量提升，应检查机制转译是否让文字僵硬、故事目标不一致等假说，但未经独立评论确认不可断言。
+- V28的模型短评不是独立真人评价，单组分差不是稳定因果效果，也**不允许**以76分晋级；第一窗口仍 `NOT_PASSED`，第二窗口 `LOCKED`。
+
+技术状态：现在【固定模型 / 1M官方规格 / 端砚实测关闭深度思考 / 50k预算 / 真实A/B / R2回读】都已通过；**技能写作质量提升没有通过**。不要错误地把 #38910720051 的GitHub success解释为文学胜过基线或大师90分。公开源文件与真实状态见 [V28_FIXED_1M_PAIR_50K.md](V28_FIXED_1M_PAIR_50K.md)。后续训练改进重点是机制选择/呈现是否真正引导主人公感知、行动与读者理解，而非继续盲目换模型或扩大token。此轮一次性工作流不会因普通代码 push 重复产生费用。
