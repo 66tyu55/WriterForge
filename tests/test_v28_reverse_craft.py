@@ -222,6 +222,18 @@ class TestReverseCraft(unittest.TestCase):
             hypothesis="需要区分作者与叙述者",authority=self.auth),"REVIEW_BLOCKED")
         self.assertEqual(self.engine.inspect()["units"][0]["status"],"REVIEW_BLOCKED")
 
+    def test_r2_rejects_any_body_field_even_with_valid_hash(self):
+        unit=self.open_one()
+        self.assertEqual(self.attempt(unit),"PERSIST_PENDING")
+        payload=json.loads(self.engine.snapshot())
+        payload["tables"]["rc_attempts"][0]["body"]=SENTINEL
+        encoded=json.dumps(payload,sort_keys=True,ensure_ascii=False,
+                           separators=(",",":")).encode("utf-8")
+        with self.assertRaisesRegex(R2StorageError,"extra/raw-text"):
+            self.vault.store_and_restore(
+                encoded,work=WORK,project="pilot",edition=EDITION)
+        self.assertEqual(self.r2.uploads,0)
+
     def test_snapshot_rejects_modified_hash(self):
         unit=self.open_one()
         self.finish(unit)
