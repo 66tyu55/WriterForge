@@ -62,6 +62,33 @@ class DiscoveryAdapterTests(unittest.TestCase):
         self.assertIn("只输出原创小说正文",sent["messages"][0]["content"])
         self.assertEqual(model.budget.calls,1)
 
+    def test_writer_continues_actual_partial_prose_instead_of_restarting(self):
+        first=("陌生行人在冰冷山路上感到风向骤变。"
+               "他想起必须带回的重要消息，决定查看积雪。")*11
+        ending=("脚印通向林间废屋，他放下行囊查找线索。"
+                "得知危险来自暗道之后，他决定返回村庄报信。")*10
+        class TwoCallTransport:
+            def __init__(self):
+                self.requests=[]
+            def __call__(self,request):
+                self.requests.append(request)
+                text=first if len(self.requests)==1 else ending
+                finish="length" if len(self.requests)==1 else "stop"
+                return json.dumps({"choices":[{"message":{"content":text},
+                                                "finish_reason":finish}]}).encode("utf-8")
+        t=TwoCallTransport()
+        m=self.create(model="deepseek-v4-pro-0813",role="writer",transport=t)
+        result=m.ask("原创小说","新场景",num_predict=1200)
+        self.assertEqual(result["scene"],first+ending)
+        self.assertEqual(m.budget.calls_by_role,{"writer":2})
+        self.assertEqual([x["finish_reason"] for x in m.budget.response_observations],
+                         ["length","stop"])
+        continuation=json.loads(t.requests[1].data)
+        self.assertEqual(continuation["messages"][2]["role"],"assistant")
+        self.assertEqual(continuation["messages"][2]["content"],first)
+        self.assertIn("只续写",continuation["messages"][3]["content"])
+        self.assertNotIn("response_format",continuation)
+
     def test_writer_rejects_truncated_text_after_bounded_retry(self):
         prose=("山路上的旅人发现雪层下有奇怪足迹。"
                "他考虑风险并决定返回营地通知同伴。")*14
