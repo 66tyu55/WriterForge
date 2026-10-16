@@ -1,0 +1,125 @@
+name: Lao Can You Ji - NEW original novel private R2 archive
+on:
+  pull_request:
+    paths:
+      - 'writerforge/classics_catalog.py'
+      - 'tests/test_v24_chinese_original_catalog.py'
+      - '.github/workflows/laocanyouji-original-r2.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/laocanyouji-original-r2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-laocanyouji-new-r2
+  cancel-in-progress: false
+
+jobs:
+  verify-and-store-one-new-book:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing WriterForge and R2 client
+        run: python -m pip install -e '.[r2]'
+      - name: Fetch exactly pinned original Chinese 20-chapter edition
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m writerforge.cli fetch-classic --work laocanyouji --output "$RUNNER_TEMP/laocanyouji-25124.txt"
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/GITenberg/----_25124/master/LICENSE \
+            -o "$RUNNER_TEMP/LICENSE.txt"
+      - name: Study all 20 chapters into new separate SQLite, verify original version
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/classics_pilot.py laocanyouji \
+            "$RUNNER_TEMP/laocanyouji-25124.txt" \
+            "$RUNNER_TEMP/laocanyouji-study.sqlite3" \
+            "$RUNNER_TEMP/verified-study"
+          python - <<'PY'
+          import json, os, sqlite3
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])
+          meta=json.loads((root/"verified-study"/"stage_audit.json").read_text(encoding="utf-8"))
+          assert meta["full_chapters"]==20
+          assert meta["structurally_complete"] is True
+          assert meta["source_units"]>500
+          assert meta["literary_learning_verified"] is False
+          with sqlite3.connect(root/"laocanyouji-study.sqlite3") as db:
+              assert db.execute("PRAGMA quick_check").fetchone()[0]=="ok"
+              assert db.execute("SELECT COUNT(*) FROM studied_chapters").fetchone()[0]==20
+          print("NEW BOOK LOCAL: Lao Can You Ji 20 original chapters / independent SQLite validated")
+          PY
+      - name: Upload NEW book source and study to expected private R2 and fresh-restore both
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+        run: |
+          set -euo pipefail
+          test "$WRITERFORGE_R2_BUCKET" = "writerforge-private-library"
+          python -m writerforge.cli \
+            --db "$RUNNER_TEMP/laocanyouji-study.sqlite3" backup-r2 \
+            --library laocanyouji-25124 --edition laocanyouji-gutenberg-25124-structural-v1 \
+            --source "$RUNNER_TEMP/laocanyouji-25124.txt" \
+            --extra audit.json="$RUNNER_TEMP/verified-study/stage_audit.json" \
+            --extra report.json="$RUNNER_TEMP/verified-study/work_report.json" \
+            --extra license.txt="$RUNNER_TEMP/LICENSE.txt" \
+            > "$RUNNER_TEMP/new-r2-backup.json"
+          python -m writerforge.cli \
+            --db "$RUNNER_TEMP/laocanyouji-fresh-restored.sqlite3" restore-r2 \
+            --library laocanyouji-25124 \
+            --storage-dir "$RUNNER_TEMP/fresh-from-r2" \
+            > "$RUNNER_TEMP/new-r2-restore.json"
+          python - <<'PY'
+          import hashlib,json,os,sqlite3
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])
+          backup=json.loads((root/"new-r2-backup.json").read_text())
+          restore=json.loads((root/"new-r2-restore.json").read_text())
+          audit=json.loads((root/"verified-study"/"stage_audit.json").read_text())
+          assert backup["verified"] and restore["verified"]
+          assert backup["library"]==restore["library"]=="laocanyouji-25124"
+          assert restore["from_local_cache"] is False, "must be a fresh R2 download"
+          assert backup["snapshot"]==restore["snapshot"]
+          with sqlite3.connect(root/"laocanyouji-fresh-restored.sqlite3") as db:
+              assert db.execute("PRAGMA quick_check").fetchone()[0]=="ok"
+              chapters=db.execute("SELECT COUNT(*) FROM studied_chapters").fetchone()[0]
+              spans=db.execute("SELECT COUNT(*) FROM source_spans").fetchone()[0]
+              assert chapters==20 and spans==audit["source_units"]
+          original=(root/"laocanyouji-25124.txt").read_bytes()
+          from_r2=Path(restore["source"]).read_bytes()
+          assert hashlib.sha256(original).digest()==hashlib.sha256(from_r2).digest()
+          assert original==from_r2, "restored original bytes must be identical"
+          assert restore["stats"]["studied_chapters"]==20
+          assert backup.get("edition_reused") is False, "this must be a NEW study snapshot"
+          assert "study.sqlite3" in backup["uploaded_files"]
+          assert "source.txt" in backup["uploaded_files"]
+          print("NEW NOVEL R2 ARCHIVE + INDEPENDENT RESTORE PASSED")
+          print("Original: 老殘遊記 / Project Gutenberg #25124 / 20 chapters")
+          print("New private library:",backup["library"])
+          print("Source SHA256:",hashlib.sha256(original).hexdigest())
+          print("Restored source chapters:",chapters,"source units:",spans)
+          print("R2 snapshot:",backup["snapshot"])
+          print("Literary model training performed: NO")
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a",encoding="utf-8") as file:
+              file.write("## NEW original novel actually persisted: 老殘遊記\n")
+              file.write(f"Private library: writerforge/v1/libraries/{backup['library']}/\n")
+              file.write(f"Source SHA256: {hashlib.sha256(original).hexdigest()}\n")
+              file.write(f"Snapshot: {backup['snapshot']}\n")
+              file.write(f"Chapters: {chapters}; source units: {spans}\n")
+              file.write("New upload + fresh R2 download + SQLite integrity + exact source bytes: PASS\n")
+              file.write("Structural study only; semantic/model literary training not claimed.\n")
+          PY
