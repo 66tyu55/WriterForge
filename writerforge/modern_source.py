@@ -129,7 +129,7 @@ def inspect_modern_source(
     if title not in front:
         raise StudyError("expected novel title not found in edition front matter")
 
-    if chapter_scheme not in ("continuous", "volume_reset", "volume_prefix_global"):
+    if chapter_scheme not in ("continuous", "volume_reset", "volume_prefix_global", "volume_reset_manghuangji_pinned"):
         raise StudyError("unrecognized modern chapter scheme")
     found_character = False
     count = 0
