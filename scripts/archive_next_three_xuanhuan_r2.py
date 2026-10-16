@@ -36,7 +36,7 @@ SOURCES = {
         8_000_000, 25_000_000, 13455412, "9cbf8da97daceb36fbd85edd84e2874a9ceac28252c18386fecf167d5a95660b", 800),
     "manghuangji": NovelSource(
         "manghuangji", "莽荒纪", "我吃西红柿", "纪宁",
-        "https://d.noveless.com/d/one/books/1965.txt.zip",
+        "https://download.zxcs.zip/" + quote("《莽荒纪》（校对版全本）作者：我吃西红柿.txt"),
         5_000_000, 25_000_000, None, None, 500),
 }
 
@@ -88,6 +88,23 @@ def fetch_zipped_txt(source: NovelSource, destination: Path) -> dict:
         partial.unlink(missing_ok=True)
 
 
+
+def fetch_qiumo_probe(source: NovelSource, destination: Path) -> dict:
+    """Keep runner-local bytes only for SAFE heading-format diagnosis if header validation fails."""
+    if source.work_id != "qiumo" or destination.exists():
+        raise OriginalSourceError("QIUMO_PROBE_SOURCE_OR_DESTINATION_INVALID")
+    req = Request(source.source_url, headers={"User-Agent": "WriterForge-private-R2/1"})
+    with urlopen(req, timeout=90) as response, destination.open("xb") as output:
+        if response.status != 200:
+            raise OriginalSourceError("SOURCE_SERVER_HTTP_NOT_200")
+        total = 0
+        while chunk := response.read(1024 * 1024):
+            total += len(chunk)
+            if total > MAX_BYTES:
+                raise OriginalSourceError("SOURCE_OVER_MAX_32_MIB")
+            output.write(chunk)
+    return verify_source(source, destination)
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--work", choices=sorted(SOURCES), required=True)
@@ -99,7 +116,7 @@ def main():
     try:
         with TemporaryDirectory(prefix="wf-next-xuanhuan-") as temp:
             path = Path(temp) / "original.txt"
-            receipt = (fetch_zipped_txt(spec, path) if args.work == "manghuangji"
+            receipt = (fetch_qiumo_probe(spec, path) if args.work == "qiumo"
                        else fetch_original(spec, path))
             if args.validate_only:
                 result = {"stage": "new_work_source_verified_only",
