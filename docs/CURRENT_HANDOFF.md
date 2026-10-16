@@ -214,3 +214,19 @@
 - 已修改 `writerforge/reverse_real_training.py`：可解析合法 JSON fenced 输出，遇到 JSON 格式错误时**最多一次**本地模型重试（temperature=0，输出有大小和超时上限），绝不假造回答。
 - [#38880422839](https://github.com/66tyu55/WriterForge/actions/runs/38880422839) 是更新代码后自动发起的第 5 次真实运行，在本节记录时尚未最终完成。必须查 job 真实 `conclusion` 和是否生成独立私有 R2 核心回执；不许因启动任务就声称成功。
 - 用户关心的文学习得质量仍**没有 90% 经校准独立结论**；即便运行成功，目前只可能得到“原文开篇首段真实模型练习及未审查机制证据”，不得开放第二段晋级。训练失败留存日志和哈希已在 GitHub Actions；公开仓库无原文正文或练习稿。
+
+
+## 15. V28 云端高能力模型适配层与盲评 A/B（2026-10-16，覆盖旧 CPU 小模型依赖）
+
+用户在检查 [InkOS](https://github.com/Narcooo/inkos) 后同意借鉴模型无关的 Agent Harness/多服务商路由，优先替代 GitHub CPU 上 3B/4B 模型并进行无技能/有技能的实际对比。**用户尚未选择付费模型服务商或提供对应 API 凭证、当前价格，不能自动进行外部原著传输及付费请求**。
+
+已经实现：
+- [writerforge/reverse_cloud_models.py](../writerforge/reverse_cloud_models.py)：角色 `planner / writer / critic` 独立配置；固定 HTTPS Chat Completions 兼容提供商白名单 `moonshot/deepseek/openrouter/openai/google`，不接受任意 URL，拒绝 HTTP 重定向；凭证取自运行环境，不进日志与 R2；每次调用前按输入字节与最大输出 token 预留美元保守预算，且有每任务请求上限和响应大小上限。Writer/Critic 必须是**不同模型身份**；不存在旧小模型自动回退。
+- [writerforge/reverse_cloud_ab.py](../writerforge/reverse_cloud_ab.py)：只选《武动乾坤》第一章**第一连续源窗口**。同一原创任务：A 不含技能机制，B 仅含 Planner 从原文抽象得出的感知/因果/叙事方法；两份独立原创稿的哈希固定后才匿名给另一模型批评，对人物感知、因果、信息释放、连续性、语言逐维比较；长期只保留原文/稿哈希、短机制解释、模型评分（标为**unverified**），绝不把模型自评分宣称已达大师 90%。
+- [scripts/run_wudong_cloud_ab.py](../scripts/run_wudong_cloud_ab.py)：必须明确原文外发同意；从既有 R2 恢复 pinned 原文校验后调用云端，单组模型配置有去重指针，结果哈希化保存在独立私有 R2 并 fresh GET 复验。未配置提供商/密钥/价格和独立同意时拒绝并不付费。
+- [.github/workflows/v28-cloud-ab.yml](../.github/workflows/v28-cloud-ab.yml)：**普通 push 仅离线测试与凭证配置检测（零付费/零外发）**；只有手动 workflow_dispatch 且 `confirm_source_egress=true` 才可能运行收费的 `cloud_paid_trial`。这样不会因每次改代码就重复下载模型、产生 API 账单。
+- [tests/test_v28_cloud_ab.py](../tests/test_v28_cloud_ab.py)：无网络的安全/角色/预算/同题匿名 AB 回归。完整配置说明与用户须操作项见 [V28_CLOUD_MODEL_AB_SETUP.md](V28_CLOUD_MODEL_AB_SETUP.md)。
+
+**已核实 GitHub 证据**：[配置检查和模型协议测试 run #38882720229](https://github.com/66tyu55/WriterForge/actions/runs/38882720229) `success`（7 项测试），但 `safe_cloud_readiness` 返回 `ready=false`，原因仅报告 `cloud_roles_or_price_or_credential_unconfigured`；收费作业 `cloud_paid_trial` 正确为 **skipped**。这不是实测云端模型质量通过。最新仓库全量 Python 测试另有 [#38882868438](https://github.com/66tyu55/WriterForge/actions/runs/38882868438) `success`，包含上述 A/B 相关回归。
+
+**待办**：由用户自行在 GitHub Actions 配置角色 Secrets、Variables 和价格/预算，明确选定云端模型和允许哪家服务接收私有小说首窗，随后手动触发真实付费单本 A/B。完成后应检查 API 真实调用、R2 SHA 和文学盲评证据；不能因模型评分数字大于 90 就晋级。编排仍保持从原著第一章连续推进，下一段尚未解锁。InkOS 只借鉴架构/调度理念，未复制 AGPL 源码。
