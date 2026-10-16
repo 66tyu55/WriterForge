@@ -63,8 +63,8 @@ SOURCES = {
     "wanmeishijie": NovelSource(
         "wanmeishijie", "完美世界", "辰东", "石昊",
         "https://download.zxcs.zip/" + quote("《完美世界》（校对版全本）作者：辰东.txt"),
-        9_000_000, 19_000_000, None,
-        None, 800,
+        9_000_000, 19_000_000, 14_053_175,
+        "322e84872b2259d9210f84de63efd70d901a412dfefbe9bb9d52168eea56d481", 800,
     ),
 }
 
