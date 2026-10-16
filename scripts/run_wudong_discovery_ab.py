@@ -103,9 +103,7 @@ def run() -> dict:
                 "calls":budget.calls,
                 "calls_by_role":dict(budget.calls_by_role),
                 "response_observations":list(budget.response_observations),
-            "response_observations":list(budget.response_observations),
                 "last_requested_role":budget.last_requested_role,
-                "response_observations":list(budget.response_observations),
                 "reported_prompt_tokens":budget.total_prompt_tokens,
                 "reported_completion_tokens":budget.total_completion_tokens,
                 "requested_completion_token_budget":budget.reserved_output_tokens,
@@ -132,6 +130,7 @@ def run() -> dict:
         outcome["usage"]={
             "api_calls":budget.calls,
             "calls_by_role":dict(budget.calls_by_role),
+            "response_observations":list(budget.response_observations),
             "requested_output_tokens_reserved":budget.reserved_output_tokens,
             "prompt_tokens_reported":budget.total_prompt_tokens,
             "completion_tokens_reported":budget.total_completion_tokens,
