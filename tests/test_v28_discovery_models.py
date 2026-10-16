@@ -48,6 +48,31 @@ class DiscoveryAdapterTests(unittest.TestCase):
         with self.assertRaisesRegex(DiscoveryError,"JSON_CONTRACT"):
             m.ask("system","synthetic test",num_predict=300)
 
+    def test_writer_accepts_plain_prose_without_enforcing_json(self):
+        prose=("原创山岭中，年轻旅人追着风雪寻找同伴。"
+               "他看到谷底结冰的河流，便决定沿着脚印往北走。")*12
+        t=DummyTransport({"choices":[{
+            "message":{"content":prose},"finish_reason":"stop"
+        }],"usage":{"prompt_tokens":50,"completion_tokens":480}})
+        model=self.create(model="deepseek-v4-pro-0813",role="writer",transport=t)
+        result=model.ask("只输出正文","创作故事",num_predict=1200)
+        self.assertEqual(result,{"scene":prose})
+        sent=json.loads(t.requests[0].data)
+        self.assertNotIn("response_format",sent)
+        self.assertIn("只输出原创小说正文",sent["messages"][0]["content"])
+        self.assertEqual(model.budget.calls,1)
+
+    def test_writer_rejects_truncated_text_after_bounded_retry(self):
+        prose=("山路上的旅人发现雪层下有奇怪足迹。"
+               "他考虑风险并决定返回营地通知同伴。")*14
+        t=DummyTransport({"choices":[{
+            "message":{"content":prose},"finish_reason":"length"
+        }]})
+        model=self.create(model="deepseek-v4-pro-0813",role="writer",transport=t)
+        with self.assertRaisesRegex(DiscoveryError,"OUTPUT_TRUNCATED"):
+            model.ask("写作","原创",num_predict=1200)
+        self.assertEqual(len(t.requests),2)
+
     def test_different_model_roles_with_real_listed_names(self):
         self.assertEqual(set(ROLE_MODELS),{"planner","writer","critic"})
         self.assertNotEqual(ROLE_MODELS["writer"], ROLE_MODELS["critic"])
