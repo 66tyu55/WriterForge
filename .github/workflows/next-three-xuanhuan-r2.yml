@@ -72,3 +72,23 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/archive_next_three_xuanhuan_r2.py --work manghuangji
+
+  archive-pinned-qiumo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Archive verified Qiumo volume-qualified edition and independently fresh-restore
+        run: |
+          set -euo pipefail
+          python scripts/archive_next_three_xuanhuan_r2.py --work qiumo
