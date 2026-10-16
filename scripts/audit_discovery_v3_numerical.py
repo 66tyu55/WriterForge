@@ -4,7 +4,8 @@ from hashlib import sha256
 import json
 from writerforge.r2_storage import R2Config,R2StudyVault,_canonical
 from writerforge.reverse_discovery_models import ROLE_MODELS
-from scripts.run_wudong_discovery_ab import SOURCE_SHA,PREFIX
+SOURCE_SHA="86a2fd859b424efe0500b4b36713ea8b05d551140650904ffc2ae02eb244ed28"
+PREFIX="writerforge/v1/reverse-craft/wudongqiankun/fixed-1m-context-50k-ab-v3"
 EXPECTED_SHA="b1354316a9ca487e7e07f127be78b0ca3856855f1168d73d313ae6a99568822a"
 FIELDS=("perception","causality","information","continuity","language")
 
