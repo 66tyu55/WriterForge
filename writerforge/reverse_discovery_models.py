@@ -46,6 +46,7 @@ class DiscoveryCallBudget:
     max_reserved_output_tokens: int = 25000
     last_requested_role: str = "not_started"
     calls_by_role: dict[str,int] = field(default_factory=dict)
+    response_observations: list[dict] = field(default_factory=list)
     reserved_output_tokens: int = 0
     total_prompt_tokens: int = 0
     total_completion_tokens: int = 0
@@ -107,6 +108,7 @@ class DiscoveryModel:
         messages=[{"role":"system","content":system+" "+instructions},
                   {"role":"user","content":user}]
         requested=num_predict
+        partial_prose=""
         for turn in range(2):
             request_data={
                 "model":self.name,"messages":messages,
@@ -138,10 +140,31 @@ class DiscoveryModel:
                 message=choice["message"]
                 content=message.get("content")
                 reason=choice.get("finish_reason")
+                safe_reason=reason if reason in ("stop","length","content_filter") else "unknown"
+                self.budget.response_observations.append({
+                    "role":self.role,
+                    "finish_reason":safe_reason,
+                    "visible_chars":len(content) if isinstance(content,str) else 0,
+                    "turn":turn+1,
+                })
                 if reason=="length":
-                    # Truncated prose is not a complete story. Retry once.
                     if turn:
                         raise DiscoveryError("DISCOVERY_"+self.role.upper()+"_OUTPUT_TRUNCATED")
+                    if prose_mode and isinstance(content,str) and 180<=len(content)<=3500:
+                        # Actual prose continuation, not a fresh second story:
+                        # the original request remains, the generated partial
+                        # is explicitly the prior assistant turn. Nothing
+                        # persists outside the current API request.
+                        partial_prose=content
+                        messages.append({"role":"assistant","content":content})
+                        messages.append({"role":"user","content":
+                            "只续写前文尚未完成的这一段，不重述已写部分。"
+                            "使主人公的选择产生可见后果，并在本次输出中"
+                            "完成场景；只返回新增加的小说正文，不要解释。"})
+                    else:
+                        # Reasoning-only or too-short result: bound a single
+                        # re-try with a shorter target, never loop forever.
+                        messages[0]["content"] += " 控制为800至1000汉字并结束完整场景。"
                     requested=min(4000,max(2400,requested))
                     continue
                 if not isinstance(content,str) or not content.strip():
@@ -150,8 +173,8 @@ class DiscoveryModel:
                     requested=min(4000,max(2400,requested))
                     continue
                 if prose_mode:
-                    candidate=content.strip()
-                    if candidate.startswith("{"):
+                    candidate=(partial_prose+content).strip()
+                    if candidate.startswith("{") and not partial_prose:
                         structured=_safe_json(candidate)
                         if set(structured)!={"scene"} or not isinstance(structured["scene"],str):
                             raise DiscoveryError("DISCOVERY_WRITER_INVALID_JSON_SCENE")
