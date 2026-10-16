@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/v28-fixed-pair-v3-score-read.yml'
+      - 'scripts/audit_discovery_v3_numerical.py'
 permissions:
   contents: read
 jobs:
