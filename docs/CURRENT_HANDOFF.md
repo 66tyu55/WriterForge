@@ -276,3 +276,15 @@
 - 仅因果项 +1，人物感知及语言项均 -4；模型短评认为技能增强稿内在感知较弱、信息更直白、心理转折偏快，两稿的悬念均缺足够先导线索。Planner 与 Critic 同为 DeepSeek V4 Flash，不算三模型互相独立。
 - 正式 V28 失败/遗忘/因果跨段状态机尚未连接实际 A/B；云端原型只留单组 R2 报告和稿件哈希，丢失了日后对原稿进行再次独立审查的可能性。
 - **P0 修复**：必须把 `SourceCharacterState`（原著专有角色/知识/剧情，仅供分析审核）与 `TransferableMechanism`（面向写作的 HOST 策略 ID，无原文专名及剧情）隔离；对 prompt 泄露设置拒绝规则。随后控制 A/B 等长、不同评审和真正的短期草稿审阅→删除→闭卷复测。**没有修复前不再进行新收费 A/B，也不能解锁第二窗口或伪称已达90%。**
+
+
+## 20. V28 底层 P0 已修：原著情节→写作提示的污染被接口隔离（2026-10-16）
+
+用户质疑“WF 是否给写作添乱、是底层问题还是模型问题”，依据真实 A/B 失败认定首先是底层数据路由错误（Planner 的自由原著剧情描述被当作 technique_constraints 送给 Writer），同时只凭单样本评分不能确定技能总体质量。**已直接修改代码，不只是设计。** 详见 [V28_P0_ROOT_CAUSE_FIX.md](V28_P0_ROOT_CAUSE_FIX.md)。
+
+- 新模块 `writerforge/reverse_mechanism_boundary.py`：宿主维护四项有限、可执行的非原著叙事操作；只允许 Planner 返回最多两个预定义技巧 ID + 原文段落证据 ID，原著人物/情节/自由文本不能进入 Writer 提示。缺失段落、原著人物字段、未知机制、重复证据全部 fail closed。**4项是固定安全初始集合，不等于模型已自主学出4种新技能。**
+- `writerforge/reverse_cloud_ab.py` 不再直接发送 Planner 的 perception/decision/author_mechanism 剧情说明给 Writer，只发送固定机制操作；A/B 实际稿长相差超过15%时在批评模型调用前直接拒绝评分，杜绝之前49.4%不等长的明显混杂。
+- 新合成防污染回归 `tests/test_v28_mechanism_boundary.py` 及更新的 `tests/test_v28_cloud_ab.py`；[GitHub 全量测试 #38894363064](https://github.com/66tyu55/WriterForge/actions/runs/38894363064) success、[#38894585603](https://github.com/66tyu55/WriterForge/actions/runs/38894585603) success。
+- **实际原文 R2 预检** [run #38894840319](https://github.com/66tyu55/WriterForge/actions/runs/38894840319) success：原文 SHA仍是 `86a2fd859b424efe0500b4b36713ea8b05d551140650904ffc2ae02eb244ed28`，第一章第一窗口2125字符、37物理段（最大126字符）、与下一窗口连续。把原先过紧36段上限调整为96段+总输入5,500字符上限。只读原文，无模型、无收费、无原文输出日志。
+- 未来正式 A/B 版本已升级为 `source-isolated-ab-v2` 独立 R2 命名空间和缓存指纹；旧 `real-discovery-ab-v1` 私有失败实证不覆盖、不修改。付费工作流仍**仅手动 workflow_dispatch**，本轮未启动新正式模型训练。
+- 未完成：产生真正新候选文学机制并经独立文本审评/闭卷迁移晋级、把真实失败/遗忘纳入 V28 SQLite+R2 有界证据、对正式 A/B 做跨题等长和独立真人/模型校准。**第一段仍 NOT_PASSED，第二段 LOCKED，所谓大师90%尚无验证。**
