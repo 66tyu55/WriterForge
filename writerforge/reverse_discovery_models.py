@@ -24,15 +24,16 @@ MODELS = {
 }
 ROLE_MODELS = {
     "planner": "deepseek-v4-flash-0731",
-    "writer": "deepseek-v4-pro-0813",
+    "writer": "glm-5.3",
     "critic": "deepseek-v4-flash-0731",
 }
 FIXED_MODEL_CONTEXT_TOKENS = {
     "deepseek-v4-flash-0731": 1_048_576,
-    "deepseek-v4-pro-0813": 1_048_576,
+    "glm-5.3": 1_048_576,
 }
-# Official DeepSeek V4 capacity. Discovery's /models listing does not expose
-# context_window; this is NOT a verified 1M-token Discovery gateway stress test.
+# DeepSeek V4 and GLM-5.3 have documented 1M capacities on their own
+# official model endpoints. Discovery /models omits context_window and the
+# third-party gateway has NOT been load-tested at 1M tokens.
 DISCOVERY_GATEWAY_1M_LOAD_VERIFIED = False
 MAX_PROMPT_BYTES = 4_194_304  # bounded input transport; 1M is model capability, NOT verified gateway load
 MAX_OUTPUT_BYTES = 1_000_000  # up to 50k completion tokens incl. Chinese UTF-8, bounded
