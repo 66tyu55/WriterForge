@@ -36,6 +36,19 @@ def _brief(value, key):
     return value.strip()
 
 
+def _has_long_exact_overlap(note: str, *references: str) -> bool:
+    """Prevent saving >=18 consecutive characters of original or draft prose.
+
+    A privacy filter; this does not claim to detect semantic copying.
+    """
+    width = 18
+    return len(note) >= width and any(
+        note[i:i + width] in reference
+        for i in range(len(note) - width + 1)
+        for reference in references
+    )
+
+
 def _choice_score(doc, draft, source):
     if not isinstance(doc,dict) or set(doc)!=set(DIMENSIONS):
         raise ABTrialError("comparison dimensions incomplete")
@@ -48,7 +61,7 @@ def _choice_score(doc, draft, source):
         if type(n) is not int or not 0<=n<=100:
             raise ABTrialError("unbounded comparison score")
         reason=_brief(item["reason"], name)
-        if len(reason)>55 and (reason in source or reason in draft):
+        if _has_long_exact_overlap(reason, source, draft):
             reason="UNVERIFIED_QUOTATION_REDACTED_"+raw_hash(reason)[:18]
         result[name]={"score":n,"reason":reason}
     return result
@@ -103,6 +116,8 @@ class CloudABTrial:
             raise ABTrialError("AB_LENGTH_MISMATCH_NOT_COMPARABLE")
         # Blind ordering is fixed by *draft hashes* before seeing evaluation,
         # so the critic never receives which prompt included the learned rule.
+        # The critic must not see the source novel. Quality is assessed
+        # only against the original creative assignment and anonymized drafts.
         ordered=sorted(outputs, key=lambda k:raw_hash(outputs[k]))
         masked={"A":outputs[ordered[0]],"B":outputs[ordered[1]]}
         comparison=self.critic.ask(
@@ -116,7 +131,7 @@ class CloudABTrial:
             "评论必须能指出真实文本差异，不能默认有技巧约束的稿子一定更好。"
             "不得引用大段原著或练习稿；分数只是模型未经校准的观察，"
             "不能视为专家90分证明。",
-            json.dumps({"task":BASE_TASK,"source_context":first,
+            json.dumps({"task":BASE_TASK,
                         "A":masked["A"],"B":masked["B"]},ensure_ascii=False),
             num_predict=8000)
         if not isinstance(comparison,dict) or set(comparison)!={
@@ -130,7 +145,7 @@ class CloudABTrial:
         neutral_note={}
         for key in ("uncertainty","learned_mechanism"):
             value=_brief(comparison[key],key)
-            if len(value)>55 and (value in first or any(value in d for d in outputs.values())):
+            if _has_long_exact_overlap(value, first, *outputs.values()):
                 value="UNVERIFIED_QUOTATION_REDACTED_"+raw_hash(value)[:18]
             neutral_note[key]=value
         def mean(name):
@@ -154,6 +169,7 @@ class CloudABTrial:
                      "critic":{"provider":self.critic.provider,"model":self.critic.name}},
             "planner_mechanisms_unreviewed":abstract_evidence,
             "writer_prompt_source_prose_or_plot":False,
+            "critic_prompt_original_source_prose":False,
             "mechanism_registry":"host_static_only_v1",
             "length_gate":{"max_relative_difference":0.15,
                            "baseline_chars":baseline_chars,
