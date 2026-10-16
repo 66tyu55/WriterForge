@@ -11,8 +11,8 @@ from scripts.learn_archived_modern_r2 import (
 class ModernArchiveContinuationTests(unittest.TestCase):
     def test_only_already_archived_editions_are_eligible(self):
         self.assertEqual(set(WORKS),
-                         {"fanrenxiuxian", "doupo", "wudongqiankun", "wanmeishijie"})
-        self.assertEqual(len({w.source_sha256 for w in WORKS.values()}), 4)
+                         {"fanrenxiuxian", "doupo", "wudongqiankun", "wanmeishijie", "zhetian", "manghuangji", "qiumo"})
+        self.assertEqual(len({w.source_sha256 for w in WORKS.values()}), 7)
         for spec in WORKS.values():
             self.assertEqual(len(spec.source_sha256), 64)
             self.assertGreater(spec.source_bytes, 8_000_000)
