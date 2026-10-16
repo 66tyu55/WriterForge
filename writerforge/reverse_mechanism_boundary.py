@@ -37,7 +37,7 @@ TECHNIQUES = {
 }
 # No model-controlled descriptions, references, names or plot in write packet.
 MAX_SELECTED = 2
-MAX_PARAGRAPHS = 36
+MAX_PARAGRAPHS = 96  # Up to 96 real physical source lines, still capped at 5.5k total chars
 MAX_PARAGRAPH_CHARS = 650
 MAX_BOUND_INPUT_CHARS = 5500
 MAX_PLAN_JSON_CHARS = 5500
