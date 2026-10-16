@@ -80,10 +80,24 @@ def choose_model(ids: list[str]) -> str | None:
     return None
 
 def main():
-    key=os.environ.get("DISCOVERY_API_KEY","")
+    key=os.environ.get("DISCOVERY_API_KEY")
+    # GitHub resolves an inaccessible/mis-scoped Secret expression as an
+    # empty string. Distinguish that from an actually present but malformed
+    # value; never print, hash, prefix, suffix or length of credentials.
+    if key is None:
+        print(json.dumps({"status":"KEY_NOT_EXPORTED_TO_PROCESS",
+            "secret_name":"DISCOVERY_API_KEY","model_call_performed":False,
+            "diagnosis":"workflow_env_missing"}))
+        return 2
+    if key == "":
+        print(json.dumps({"status":"GITHUB_ACTIONS_SECRET_RESOLVED_EMPTY",
+            "secret_name":"DISCOVERY_API_KEY","model_call_performed":False,
+            "diagnosis":"scope_or_permissions_or_name_mismatch"}))
+        return 2
     if len(key)<12 or any(c.isspace() for c in key):
-        print(json.dumps({"status":"MISSING_SECRET",
-            "secret_name":"DISCOVERY_API_KEY","model_call_performed":False}))
+        print(json.dumps({"status":"KEY_PRESENT_BUT_FORMAT_CHECK_FAILED",
+            "secret_name":"DISCOVERY_API_KEY","model_call_performed":False,
+            "diagnosis":"format_check_only"}))
         return 2
     listing=call("/models",key)
     if not listing["ok"]:
