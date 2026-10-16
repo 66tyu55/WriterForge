@@ -59,9 +59,16 @@ def read_audit(source:Path):
                 token=(loose or any_number).group("num")
                 try:num=chapter_number(token)
                 except (ValueError,StudyError):continue
+                offset=(loose or any_number).start()
+                prefix=value[:offset]
                 candidate_lines.append({
                     "volume":volume,"ordinal":num,"line":line_number,
                     "length":len(value),"line_starts_with_numbered_chapter":bool(loose),
+                    "prefix_length":len(prefix),
+                    "prefix_is_zhengwen":bool(re.fullmatch(r"正文[ \\t\\u3000:：\\-]*",prefix)),
+                    "prefix_is_volume_marker":bool(re.fullmatch(r"第[0-9零〇一二三四五六七八九十百千]+卷.*",prefix)),
+                    "prefix_is_punctuation_only":bool(re.fullmatch(r"[\\W_]+",prefix)),
+                    "prefix_is_web_decoration":bool(re.fullmatch(r"[\\[【(（].*?[\\]】)）]",prefix)),
                     "line_is_strict_chapter_header":False,
                     "line_sha256":sha256(line.encode("utf-8")).hexdigest(),
                 })
