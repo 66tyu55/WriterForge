@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/v28-mechanism-p0-r2-preflight.yml'
+      - 'writerforge/reverse_mechanism_boundary.py'
+      - 'scripts/preflight_v28_mechanism_boundary_r2.py'
   workflow_dispatch:
 permissions:
   contents: read
