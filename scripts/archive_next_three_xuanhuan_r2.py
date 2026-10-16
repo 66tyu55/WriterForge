@@ -135,7 +135,26 @@ def fetch_qiumo_probe(source: NovelSource, destination: Path) -> dict:
             counts["lines"] = 0
             continue
     print(json.dumps({"safe_qiumo_header_structure_probe": counts}, ensure_ascii=False), flush=True)
-    return verify_source(source, destination)
+    # This edition prints a VOLUME first, then a chapter ordinal on the same
+    # heading line. Do NOT turn a volume number into a chapter number.
+    qualified = 0
+    volume_head = re.compile(
+        r"^第[0-9零〇一二三四五六七八九十百千萬万兩两]{1,10}卷"
+        r"[^\\r\\n]{0,60}?第[0-9零〇一二三四五六七八九十百千萬万兩两]{1,14}章"
+        r"(?:[^\\r\\n]{0,90})?$"
+    )
+    with destination.open("r", encoding=counts["encoding"]) as src:
+        for line in src:
+            if len(line) <= 180 and volume_head.fullmatch(line.strip()):
+                qualified += 1
+    print(json.dumps({"safe_qiumo_volume_qualified_heading_count": qualified}, ensure_ascii=False), flush=True)
+    if qualified < source.min_heading_occurrences:
+        raise OriginalSourceError(
+            "SOURCE_VOLUME_QUALIFIED_HEADINGS_TOO_FEW: " + str(qualified))
+    receipt = verify_source(replace(source, min_heading_occurrences=0), destination)
+    receipt["chapter_heading_occurrences"] = qualified
+    receipt["volume_qualified_heading_grammar"] = True
+    return receipt
 
 def main():
     parser = argparse.ArgumentParser()
