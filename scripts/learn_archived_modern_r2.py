@@ -102,6 +102,8 @@ def heading_audit(path: Path) -> dict:
 
 def run(work_id: str, *, audit_only: bool) -> dict:
     spec = WORKS[work_id]
+    scheme = ("volume_reset" if work_id == "manghuangji" else
+              "volume_prefix_global" if work_id == "qiumo" else "continuous")
     config = R2Config.from_environment()
     if config.bucket != "writerforge-private-library":
         raise RuntimeError("source: WRONG_PRIVATE_R2_BUCKET")
@@ -131,7 +133,7 @@ def run(work_id: str, *, audit_only: bool) -> dict:
             info = inspect_modern_source(
                 source, title=spec.title, protagonist=spec.protagonist,
                 min_chapters=spec.min_chapters, expected_sha256=spec.source_sha256,
-                min_bytes=spec.source_bytes)
+                min_bytes=spec.source_bytes, chapter_scheme=scheme)
         except Exception as exc:
             # Crucial: audit evidence is visible even when older parser cannot handle the edition.
             print(json.dumps({**basic, "stage": "chapter", "structure_preflight": False,
@@ -157,7 +159,8 @@ def run(work_id: str, *, audit_only: bool) -> dict:
                 title=spec.title, protagonist=spec.protagonist,
                 genre=spec.genre, source_uri="private-r2/single-works/" + work_id,
                 min_chapters=spec.min_chapters, min_bytes=spec.source_bytes,
-                expected_sha256=spec.source_sha256)
+                expected_sha256=spec.source_sha256,
+                chapter_scheme=scheme)
         finally:
             db.close()
         if learned["studied_chapters"] != info["chapters"] or not learned["structure_complete"]:
