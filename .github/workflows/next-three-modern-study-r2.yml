@@ -4,6 +4,10 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/next-three-modern-study-r2.yml'
+      - 'writerforge/modern_volumes.py'
+      - 'writerforge/modern_source.py'
+      - 'scripts/learn_archived_modern_r2.py'
+      - 'tests/test_v34_modern_volumes.py'
   workflow_dispatch:
 permissions:
   contents: read
@@ -22,6 +26,7 @@ jobs:
           python-version: '3.11'
       - run: python -m pip install -e '.[r2]'
       - run: python -m unittest discover -s tests -p test_v33_learn_archived_modern_r2.py -v
+      - run: python -m unittest discover -s tests -p test_v34_modern_volumes.py -v
 
   read-structurally-and-fresh-r2-verify:
     needs: test-structural-audit
