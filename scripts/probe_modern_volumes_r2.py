@@ -14,7 +14,7 @@ from writerforge.r2_storage import R2Config, _digest
 from writerforge.single_work_runner import SingleWorkVault
 from writerforge.modern_source import _encoding, CHAPTER_HEAD
 from writerforge.source_study import chapter_number, StudyError
-from scripts.learn_archived_modern_r2 import WORKS
+from learn_archived_modern_r2 import WORKS
 
 NUM = r"[0-9零〇○一二三四五六七八九十百千萬万兩两]{1,14}"
 VOLUME = re.compile(r"^第(?P<num>" + NUM + r")卷(?:[ \t\u3000:：]+[^\r\n]{0,100})?$")
