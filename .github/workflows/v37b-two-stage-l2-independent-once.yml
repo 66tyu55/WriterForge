@@ -1,0 +1,36 @@
+name: V37b two independently graded short L2 stages exact numbered citations
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v37b-two-stage-l2-independent-once.yml'
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-v37b-two-critic-fixed-historic-case-once
+  cancel-in-progress: false
+jobs:
+  independent-l2-source-and-two-drafts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 34
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Strict numbering and no fake literary evidence/no leak
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v37b_l2_two_stage.py -q
+          python -m unittest discover -s tests -p test_v37_L2_forensic.py -q
+          python -m unittest discover -s tests -p test_v37_l2_evidence.py -q
+      - name: Actual source model review plus independent setup-payoff review, no new WF fiction
+        run: python -m scripts.forensic_v37b_xiyouji_two_stage
