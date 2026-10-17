@@ -71,10 +71,12 @@ def failure_first_review(raw_report:dict,*,receipt_sha256:str)->dict:
             severe_regressions+=1
         elif weak:
             verdict="PARTIAL_DIMENSION_REGRESSION_REQUIRES_REVIEW"
-        elif not changed:
+        elif actual_delta>0 and not changed:
             verdict="POSITIVE_SCORE_SAME_OPERATIONS_NO_SELECTOR_CREDIT"
-        else:
+        elif actual_delta>0 and changed:
             verdict="MODEL_POSITIVE_CHANGED_OPERATIONS_NOT_YET_VERIFIED"
+        else:
+            verdict="NO_NEGATIVE_DIMENSION_BUT_NO_POSITIVE_EVIDENCE"
         negative_dimensions+=len(weak)
         if changed and actual_delta>0:
             changed_with_positive+=1
