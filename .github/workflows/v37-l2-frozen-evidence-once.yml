@@ -1,4 +1,4 @@
-name: V37 L2 frozen source to two draft evidence no-model audit once
+name: V37 L2 frozen source first revised draft anchor verified no-model audit
 on:
   push:
     branches: [main]
