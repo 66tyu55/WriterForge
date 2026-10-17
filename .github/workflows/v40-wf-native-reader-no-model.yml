@@ -4,6 +4,10 @@ on:
     branches: [v40-wf-reader-no-model-exam]
     paths:
       - '.github/workflows/v40-wf-native-reader-no-model.yml'
+      - 'writerforge/source_study.py'
+      - 'scripts/run_v40_wf_native_reader_exam.py'
+      - 'tests/test_v40_native_reader_no_model_exam.py'
+      - 'exams/wf_v40_reader_ch07/**'
   workflow_dispatch:
 permissions:
   contents: read
@@ -26,4 +30,9 @@ jobs:
         with:
           name: v40-unassisted-wf-exam-receipt
           path: v40_unassisted_exam_receipt.json
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v40-wf-chapter-exam-source-pack
+          path: exams/wf_v40_reader_ch07/
           retention-days: 30
