@@ -1,0 +1,34 @@
+{
+  "format": "writerforge.exam.standalone-chapter.v1",
+  "exam_id": "WF-V40-NO-MODEL-READER-001",
+  "source": {
+    "work_title": "老殘遊記",
+    "author": "劉鶚",
+    "source_page": "https://www.gutenberg.org/ebooks/25124",
+    "original_text_url": "https://raw.githubusercontent.com/GITenberg/----_25124/master/25124-0.txt",
+    "pinned_catalog_git_blob_sha1": "8d20364de9813236c3ada3759b559b3945dc2a3d",
+    "original_chapter_number": 7,
+    "body_selection": "chapter-heading-7 to before heading-8; original body not edited"
+  },
+  "native_parser": {
+    "source_path": "reader_packet.txt",
+    "slot_chapter_number": 1,
+    "slot_is_not_original_chapter_number": true,
+    "requires_hundred": false,
+    "expected_count": 1,
+    "wrapped_lines": true
+  },
+  "integrity": {
+    "reader_packet_git_blob_sha1": "d91d51fc71dcd5b3d1d87780f0a3d98903fe75a2",
+    "characters": 6342
+  },
+  "isolation": {
+    "no_remote_model_calls": true,
+    "no_local_model_calls": true,
+    "no_external_human_or_assistant_answers": true,
+    "no_premade_reader_reactions": true,
+    "no_copying_external_analysis": true,
+    "read_only_test_mode": true
+  },
+  "task_contract": "参见EXAM.md；WF自行给出回答，不能由考官脚本补答案。"
+}
