@@ -554,3 +554,17 @@
 - 增加未来多评审去偏协议 `writerforge/v30_blind_reviewer_gate.py` 和 `tests/test_v30_blind_reviewer_gate.py`：两名评论模型须与Planner/Writer及彼此不同，必须A/B匿名标签交换，互相矛盾的负评绝不能均分抵消，双模型同意仍不等于独立真人文学审评。**只是下一轮接口与合成测试；历史已销毁六篇新旧稿无法真实双审**，不得声称已经用了两个模型给原稿重新评分。
 - 工程最终全量回归以最新 `WriterForge Tests` 实际完成为准。此次只改评分证据/审计/未来评审门闩，不为漂亮分数再付费刷题。既有 first window `NOT_PASSED`、second `LOCKED`、文学人审不达标以及50完整作品要求不变。
 - **下轮正确重点**：实现将学习库的因果/人物知识正确抽象并复核，再让创作调用有独立证据支持的技能；经独立真人或不同模型对**同稿**复评，跨6→9新题先通过负例回归与绝对长度/因果/伏笔闸门。不能把提交更多提示词/运行更多模型/测试数量增加理解为真正写作能力成长。
+
+
+## 36. 【最新交接 V32 · 2026-10-17】用户亲自指定考官出题、WF学生作答、不作弊；真考试3题但0个有效文学成绩
+
+用户在WF自主学习V31只真实完成2/3轮后强调：“哎呀--死脑筋----题目--你来随机搞几个--把WF当成学生---你是考官--不允许作弊--开始”。立即冻结 [V32_EXAMINER_PRECOMMIT_20261017.md](V32_EXAMINER_PRECOMMIT_20261017.md)，执行完备复盘 [V32_REAL_EXAMINER_NO_CHEATING_RESULTS_20261017.md](V32_REAL_EXAMINER_NO_CHEATING_RESULTS_20261017.md)。本轮**不许考试中由WF自己出题，也不许给自己考试打分，考后不以失败为理由偷偷换题/重复付费**。
+
+- 六题原考官原创题库 `writerforge/v32_exam_bank.py`，提前 SHA(seed:topic_id) 抽3道：`pottery_market` 陶镇青瓷误会、`horse_school` 马场马鞍扣、`canal_doctor` 运河问诊，预注册manifest SHA `bb6a6fb13d9abbc94fac57102abba15ad79c942a1af9daedece9f2c5c80e65df`。不重用V28/29故事题目。
+- 考生不是新发明的WF：从私有R2精确重读V31第一轮真实自学规则快照SHA `cd9cfa1d6413ed84bb4d3bb18c9a77d873666df95cbcd5898d4745cfeb2e3c7c`，第二轮SHA `fbb06fc6a53d0708b99b813eeb4cd9c96d1152413b4880d69ddf0ad294e6b555`，严格校验第二轮继承同一实验记忆且未自主产生新规则。每题一份GLM5.3无记忆稿vs一份加载唯一真实实验记忆的GLM5.3稿；无原著进入考场、不得自学新规则或看对手稿。
+- 一次性真实 [Actions #39012732775](https://github.com/66tyu55/WriterForge/actions/runs/39012732775) 三题尝试、只读最终汇总**completed/success（审计完成）**：slot0生成两稿后长度 897/1172差23.46%>15%强制拒评，私有成功回执SHA `2d794d43ffc9c710b4b02310194614933b00f451c0a6351441f362b7a9278902`；slot1/2虽完成作文但两个不同评阅模型阶段未满足冻结JSON评语格式，分别失败代码 `EXAM_GRADER_REQUIRED_JSON_SCHEMA`，失败SHA `fec02bed409db5e4bbf1f3eb311002a7d6fae3bf69a168354f5f894f99437f1a` / `b6863ff80f3c81e905a6f6af41cd4bc167ca78f08b1eb3bb9c37f5625f34b92e`，两题各4次请求。slot0仅2次writer请求，共10次实际预留模型API请求（可能计费）。
+- 设计的评阅者是DeepSeek-V4-Pro和MiniMax-M3，两个模型彼此不同、均不等于WF内部Flash Planner/GLM5.3 Writer，匿名A/B二人顺序交换，不能接触WF实验规则或学习过程。但**没有任一题取得2个JSON结构通过的真实文学模型评语**，不得宣称真正完成客观阅卷，更不要将评分失败定性为WF文笔差。
+- 最终真实私有R2零模型汇总 `two_grader_valid_trials=0`，`all_exams_consensus_positive=false`，`literary_skill_promotion=false`，3试卷0有效成绩；工程预检505项测试通过。正文原作文没有长期保留，只存哈希、小型摘要和错误码；用户若要求人工文学逐句评测需要下批新题、提前授权加密存稿。旧试卷无法补读。
+- **真实判定**：V31“自己提炼并持久记忆1条实验规则”在V32考场被固定加载，但**没有证据可证明该规则提升文学水平**。slot0相对字数偏差属于写作协议质量问题，slot1/2评阅JSON不合格属于考试基础设施问题，应分别修复，不得求平均凑0/正分。失败不等于零分。
+- 后续优先考官端先进行真实网关**无小说小探针**修复格式可靠性，学员端绝对/相对篇幅控制；然后**全新预注册题目**进行同模型有/无记忆公平测试，保留负例、不加训学员作弊。正式 first `NOT_PASSED`, second `LOCKED`, 官方文学核心未晋级，不能用505项工程测试代替文学评分。
+
