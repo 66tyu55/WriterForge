@@ -67,7 +67,7 @@ class SkillV50CoreRepair(unittest.TestCase):
     "INSERT INTO character_state(project_id,character_id,state_json) VALUES(?,?,?)",
     (project,"测试角色",json.dumps({"knowledge":{
      "known":["clue-fact"] if known else ["previous-fact"],
-     "unknown":["clue-fact"]},ensure_ascii=False)))
+     "unknown":["clue-fact"]}},ensure_ascii=False)))
    self.db.conn.execute(
     "INSERT INTO causal_events(project_id,event_id,payload_json) VALUES(?,?,?)",
     (project,"event-01",json.dumps({
