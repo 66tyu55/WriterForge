@@ -98,6 +98,9 @@ class V36DebugTests(unittest.TestCase):
         self.assertEqual(report["transfer_trace"]["aftercheck_count"],2)
         self.assertEqual(report["transfer_trace"]["self_reported_not_followed"],1)
         self.assertEqual(report["transfer_trace"]["plan_decisions_referencing_source_lessons"],4)
+        self.assertEqual(report["transfer_trace"]["actual_literary_transfer_observability_status"],
+            "SOURCE_LINKED_DECISIONS_SELF_CHECKED_BUT_NOT_SEMANTICALLY_VERIFIED")
+        self.assertFalse(report["transfer_trace"]["learned_technique_literary_effect_verified"])
         self.assertEqual(report["transfer_trace"]["unexamined_prewrite_angles"],["knowledge","sensory"])
         self.assertTrue(report["verifications"]["prewrite_frozen_before_first_draft"])
         self.assertTrue(report["recovered_review_is_append_only_not_original_stage6"])
@@ -108,6 +111,17 @@ class V36DebugTests(unittest.TestCase):
         self.assertNotIn("石猴在高山",str(report))
         self.assertNotIn("人物的行动和早先",str(report))
         self.assertTrue(report["private_full_report_saved"])
+
+    def test_future_exam_rejects_self_check_that_skips_only_learned_angle(self):
+        from test_v35_xiyouji_observable import AFTER,PLAN,DRAFT
+        from writerforge.v35_observable_trace import validate_after,TraceContractError
+        with self.assertRaisesRegex(TraceContractError,
+                                    "LEARNED_LESSON_PREWRITE_NOT_REVIEWED"):
+            validate_after(AFTER,DRAFT,{"decisions":PLAN["decisions"]},
+                           required_lesson_angles={"sensory"})
+        accepted=validate_after(AFTER,DRAFT,{"decisions":PLAN["decisions"]},
+                                required_lesson_angles={"goal"})
+        self.assertEqual(len(accepted["checks"]),2)
 
     def test_forged_historical_snapshot_fails_closed(self):
         vault,hashes,after_hash,exam_hash=self.create_fixture()
