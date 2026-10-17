@@ -1,0 +1,19 @@
+name: V51 freeze source runtime for new random examination
+on:
+  push:
+    branches: [v51-random-host-anti-cheat-exam]
+    paths: ['.github/workflows/v51-export-code.yml']
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: tar -czf wf-v51-runtime.tar.gz writerforge tests/fixtures pyproject.toml SKILL.md manifest.json VERSION
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wf-v51-v50-frozen-runtime
+          path: wf-v51-runtime.tar.gz
+          retention-days: 30
