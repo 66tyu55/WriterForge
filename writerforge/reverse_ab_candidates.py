@@ -47,7 +47,7 @@ def derive_unverified_candidates(receipt: dict, *, receipt_sha256: str) -> dict:
         raise CandidateEvidenceError("report digest does not match immutable receipt")
     if (receipt.get("format") != "writerforge.cloud-ab-v1"
         or receipt.get("writer_prompt_source_prose_or_plot") is not False
-        or receipt.get("drafts_retained") is not False
+        or type(receipt.get("drafts_retained")) is not bool
         or receipt.get("second_unit_unlocked") is not False
         or receipt.get("core_automatically_promoted") is not False
         or receipt.get("human_blind_review_performed") is not False):
@@ -99,6 +99,26 @@ def derive_unverified_candidates(receipt: dict, *, receipt_sha256: str) -> dict:
             scores[label][dimension] = number
         if comparison.get("model_critic_score_unverified") != sum(scores[label].values()) // 5:
             raise CandidateEvidenceError("review mean mismatch")
+    encrypted_evidence=receipt.get("private_encrypted_manuscript_evidence")
+    retained=receipt["drafts_retained"]
+    if retained:
+        if (not isinstance(encrypted_evidence,dict)
+            or encrypted_evidence.get("format")!="writerforge.private-draft-receipt.v1"
+            or encrypted_evidence.get("encrypted") is not True
+            or encrypted_evidence.get("source_or_draft_plaintext_in_report") is not False
+            or encrypted_evidence.get("retention_needs_explicit_cleanup") is not True
+            or encrypted_evidence.get("source_unit_sha256")!=unit
+            or encrypted_evidence.get("draft_sha256")!={key:comps[key]["draft_sha256"]
+                                                      for key in ("baseline","skill")}
+            or not isinstance(encrypted_evidence.get("receipt_sha256"),str)
+            or not SHA.fullmatch(encrypted_evidence["receipt_sha256"])
+            or not isinstance(encrypted_evidence.get("task_sha256"),str)
+            or not SHA.fullmatch(encrypted_evidence["task_sha256"])
+            or encrypted_evidence.get("task_sha256")!=receipt.get("writing_task_sha256")
+            or type(encrypted_evidence.get("expires_unix")) is not int):
+            raise CandidateEvidenceError("private manuscript evidence not integrity-linked")
+    elif encrypted_evidence is not None:
+        raise CandidateEvidenceError("unexpected encrypted draft evidence in legacy record")
     if (gate.get("baseline_chars"), gate.get("skill_chars")) != tuple(counts):
         raise CandidateEvidenceError("length provenance mismatch")
     if abs(counts[0]-counts[1]) / max(counts) > 0.15:
@@ -132,6 +152,10 @@ def derive_unverified_candidates(receipt: dict, *, receipt_sha256: str) -> dict:
         "work": work, "edition_sha256": edition, "unit_sha256": unit,
         "writer_model": writer_model,
         "critic_source_blind": critic_source_blind is False,
+        "future_drafts_reviewable_with_separate_key":retained,
+        "encrypted_draft_receipt_sha256":(
+            encrypted_evidence["receipt_sha256"] if retained else None),
+        "draft_retention_does_not_verify_literary_quality":True,
         "ratings_provenance": "SINGLE_MODEL_UNCALIBRATED",
         "quality_reference_not_promotion": QUALITY_REFERENCE,
         "model_scores": scores, "model_deltas": deltas,
