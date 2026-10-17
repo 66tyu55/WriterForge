@@ -140,9 +140,6 @@ class StateDerivedExperience:
             return Decision("NOT_APPLICABLE",digest)
         events=self.conn.execute(
             "SELECT event_id,payload_json FROM causal_events "
-            "WHERE project=? LIMIT 1",("no-such-project",)
-        ).fetchall() if False else self.conn.execute(
-            "SELECT event_id,payload_json FROM causal_events "
             "WHERE project_id=? ORDER BY event_id LIMIT 129",(self.project,)
         ).fetchall()
         _require(len(events)<=128,"V45_STORY_EVENT_BUDGET_EXCEEDED")
