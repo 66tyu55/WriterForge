@@ -15,7 +15,7 @@ from writerforge.reverse_real_training import raw_hash
 from writerforge.reverse_later_window import later_chapter_diagnostic
 from writerforge.v29_fresh_holdout import chosen_ids,task,manifest,manifest_sha
 from writerforge.v29_old_new_trial import (
-    compare_old_vs_semantic,SemanticTrialAbstained,
+    compare_old_vs_semantic,SemanticTrialAbstained,LengthUnscorable,
     BUDGET_PROFILE,
 )
 from writerforge.reverse_discovery_models import (
@@ -151,6 +151,8 @@ def run(*,slot:int)->dict:
                 "model_calls":budget.calls,"calls_by_role":dict(budget.calls_by_role),
                 "observations":list(budget.response_observations),
                 "drafts_or_source_persisted":False,
+                "safe_length_diagnostics":(
+                    exc.safe_lengths if isinstance(exc,LengthUnscorable) else None),
                 "score":None,"promotable":False,
             }
             blob=_canonical(failure)
