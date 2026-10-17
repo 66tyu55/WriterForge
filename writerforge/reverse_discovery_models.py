@@ -61,7 +61,9 @@ class DiscoveryCallBudget:
 
     def reserve(self, request_bytes: int, requested: int, *, role: str = "unknown") -> None:
         self.last_requested_role=role
-        if not (1 <= self.max_calls <= 8 and
+        # Default remains seven. Only explicitly bounded newer examiner repair
+        # workflows can opt into ten, still capped by 50k reserved output.
+        if not (1 <= self.max_calls <= 10 and
                 0 <= self.calls < self.max_calls and
                 50 <= requested <= MAX_REQUESTED_OUTPUT_TOKENS and
                 request_bytes <= MAX_PROMPT_BYTES and
