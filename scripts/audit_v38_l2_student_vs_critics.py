@@ -98,12 +98,28 @@ def compare(vault,*,persist=True):
                 "same_sentence":(payoff is not None and payoff["id"] in
                                  {f"R{x:02d}" for x in (payoff_ids or [])}),
             },
+            "self_claim_setup_was_reviewer_payoff_candidate":{
+                "same_sentence":(setup is not None and setup["id"] in
+                                 {f"R{x:02d}" for x in (payoff_ids or [])}),
+                "valid_complete_literary_review":critic["draft_format_valid"],
+                "must_not_count_incomplete_model_as_approved":True,
+            },
             "external_reviewer_setup_earliest_pct":
                 critic["earliest_revised_setup_as_pct"],
             "external_reviewer_payoff_earliest_pct":
                 critic["earliest_payoff_as_pct"],
             "reviewer_original_judgment_not_overwritten":True,
         })
+    valid_role_conflicts=[
+        r["reviewer"] for r in rows
+        if (r["full_original_draft_review_format_valid"] is True
+            and r["self_claim_setup_was_reviewer_payoff_candidate"]["same_sentence"])
+    ]
+    incomplete_role_conflicts=[
+        r["reviewer"] for r in rows
+        if (r["full_original_draft_review_format_valid"] is False
+            and r["self_claim_setup_was_reviewer_payoff_candidate"]["same_sentence"])
+    ]
     result={
         "format":"writerforge.v38-self-vs-two-examiners-exact-sentence-crosswalk.v1",
         "self_review_report_sha256":SELF_SHA,
@@ -122,6 +138,13 @@ def compare(vault,*,persist=True):
         "self_payoff_after_two_thirds":(
             relative["payoff_after_two_thirds"] if relative else None),
         "examiner_overlap":rows,
+        "source_linked_learning_role_conflict":{
+            "valid_reviewers_who_label_self_setup_as_payoff":valid_role_conflicts,
+            "incomplete_reviewers_same_sentence_conflict":incomplete_role_conflicts,
+            "must_not_count_incomplete_review_as_second_vote":True,
+            "observed_role_conflict_requires_independent_semantic_resolution":
+                bool(valid_role_conflicts),
+        },
         "self_application_claim_was_generated_after_draft":True,
         "word_occurrence_and_sentence_overlap_not_semantic_causation":True,
         "independent_human_reading_not_performed":True,
@@ -146,6 +169,7 @@ def compare(vault,*,persist=True):
         "self_setup_pct":result["self_setup_pct"],
         "self_payoff_pct":result["self_payoff_pct"],
         "examiner_overlap":rows,
+        "source_linked_learning_role_conflict":result["source_linked_learning_role_conflict"],
         "no_literary_progress_conclusion":True,
         "model_calls":0,"formal_promotion":False,
     }
