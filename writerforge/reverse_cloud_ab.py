@@ -75,7 +75,8 @@ class CloudABTrial:
     Length mismatches fail closed; model score cannot promote literary skill.
     """
     def __init__(self, *, planner, writer, critic, evidence_first:bool=False,
-                 quarantined_pairs:tuple=(), transfer_policy:dict|None=None):
+                 quarantined_pairs:tuple=(), transfer_policy:dict|None=None,
+                 semantic_evidence_first:bool=False):
         if (writer.provider,writer.name)==(critic.provider,critic.name):
             raise ABTrialError("writer cannot critique same identity")
         self.planner,self.writer,self.critic=planner,writer,critic
@@ -83,6 +84,9 @@ class CloudABTrial:
         self.quarantined_pairs=quarantined_pairs
         if transfer_policy is not None and not evidence_first:
             raise ABTrialError("UNSAFE_POLICY_WITH_LEGACY_UNGUARDED_MODE")
+        if semantic_evidence_first and not evidence_first:
+            raise ABTrialError("SEMANTIC_GATE_MUST_BE_EVIDENCE_FIRST")
+        self.semantic_evidence_first=bool(semantic_evidence_first)
         self.transfer_policy=transfer_policy
 
     def run(self, first:str, second:str, *, source_sha:str, window_hash:str,
@@ -124,19 +128,37 @@ class CloudABTrial:
         # Source/plot only enters the planner; Writer and critic receive
         # only program-owned enum operations and the same neutral task.
         paragraphs=source_paragraphs(first)
+        semantic_note=None
+        if self.semantic_evidence_first:
+            from .reverse_semantic_evidence import (
+                semantic_proposal_prompt, validate_semantic_selections,
+            )
+            prompt=semantic_proposal_prompt(paragraphs,writing_task=writing_task)
+        else:
+            prompt=(guarded_proposal_prompt(paragraphs) if self.evidence_first
+                    else proposal_prompt(paragraphs))
         proposal=self.planner.ask(
-            "你负责原著证据选择，不负责替写作者写剧情提纲。"
-            "不能输出原著专名、事件描述或任意创作指令。"
-            "严格按宿主的 id/evidence_ids JSON 结构回复。",
-            guarded_proposal_prompt(paragraphs) if self.evidence_first
-            else proposal_prompt(paragraphs),num_predict=role_tokens[0])
-        if self.evidence_first:
+            "你负责原著证据与当前原创任务的关系判断，不得替写作者规划原著剧情。"
+            "严格按宿主给定的JSON协议作答；不要输出原著专名到创作通道。",
+            prompt,num_predict=role_tokens[0])
+        if self.semantic_evidence_first:
+            unfiltered,semantic_note=validate_semantic_selections(
+                proposal,paragraphs,writing_task=writing_task)
+            if unfiltered:
+                selections,decision=guarded_selections(
+                    {"selections":list(unfiltered)},paragraphs,
+                    source_window_sha256=window_hash,
+                    quarantined_pairs=self.quarantined_pairs)
+            else:
+                selections,decision=(),"ABSTAIN_SEMANTIC_EVIDENCE_UNSUPPORTED"
+            if not selections:
+                raise ABTrialError("NO_VERIFIED_TRANSFERABLE_MECHANISM")
+            decision="EXACT_SOURCE_ANCHORS_SEMANTIC_MODEL_HYPOTHESIS_ONLY"
+        elif self.evidence_first:
             selections,decision=guarded_selections(
                 proposal,paragraphs,source_window_sha256=window_hash,
                 quarantined_pairs=self.quarantined_pairs)
             if not selections:
-                # Preserve token budget, neutral baseline and existing craft
-                # registry: do not force a new technique into a wrong context.
                 raise ABTrialError("NO_VERIFIED_TRANSFERABLE_MECHANISM")
         else:
             selections=parse_selections(proposal,paragraphs)
@@ -259,6 +281,8 @@ class CloudABTrial:
             "critic_prompt_original_source_prose":False,
             "mechanism_registry":"host_static_only_v1",
             "planner_evidence_policy":decision,
+            "semantic_evidence_first_opt_in":self.semantic_evidence_first,
+            "semantic_evidence_candidate":semantic_note,
             "role_output_token_profile":list(role_tokens),
             "neutral_common_target_chars":common_target_chars,
             "manuscripts_cropped_or_padded":False,
