@@ -1,4 +1,4 @@
-name: WriterForge v29 semantic and encrypted private drafts corrected proof
+name: WriterForge v29 semantic and encrypted draft ledger integration proof
 on:
   push:
     branches: [main]
@@ -24,3 +24,5 @@ jobs:
           python -m unittest discover -s tests -p test_v29_private_draft_evidence.py -q
           python -m unittest discover -s tests -p test_v28_cloud_ab.py -q
           python -m unittest discover -s tests -p test_v28_story_context_evidence.py -q
+          python -m unittest discover -s tests -p test_v29_draft_review_marks.py -q
+          python -m unittest discover -s tests -p test_v28_reverse_ab_candidates.py -q
