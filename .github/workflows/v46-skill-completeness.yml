@@ -1,0 +1,30 @@
+name: V46 skill completeness read-only acceptance gate
+on:
+  push:
+    branches: [v46-skill-completeness-gate]
+    paths:
+      - '.github/workflows/v46-skill-completeness.yml'
+      - 'scripts/audit_v46_skill_completeness.py'
+      - 'tests/test_v46_skill_completeness_gate.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - name: Verify completeness criteria are honest (without remote models)
+        run: python -m unittest discover -s tests -p test_v46_skill_completeness_gate.py -v
+      - name: Generate unmodified evidence-based readiness report
+        run: python -m scripts.audit_v46_skill_completeness
+      - uses: actions/upload-artifact@v4
+        with:
+          name: V46_WriterForge_Skill_Completeness_Readiness
+          path: v46_skill_completeness_audit.json
+          retention-days: 30
