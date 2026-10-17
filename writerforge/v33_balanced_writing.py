@@ -16,7 +16,10 @@ def controlled_pair(writer,task:str,memory:tuple[dict,...])->tuple[dict,dict]:
     answers={}
     packets={}
     for arm,cards in (("control",()),("wf_memory",memory)):
-        packets[arm]=writer_instruction(task,cards)
+        packet=json.loads(writer_instruction(task,cards))
+        packet["requested_characters_including_punctuation"]=[MIN_CHARS,MAX_CHARS]
+        packet["exact_character_target_including_punctuation"]=TARGET
+        packets[arm]=json.dumps(packet,ensure_ascii=False,separators=(",",":"))
         value=writer.ask(
             "你是原创中文小说作家。严格写完所给题目的第一章，不要提纲、"
             "章节标题或结尾总结；正文含标点精确目标1120字符，"
