@@ -97,7 +97,9 @@ class TraceTests(unittest.TestCase):
     def test_separate_sha_linked_r2_records_cannot_modify_prewrite(self):
         vault=FakeVault();parent=None
         for i in range(5):
-            body={"index":i,"content":("original-story" if i==4 else "explicit-choices")}
+            body=({"plan":{"decisions":PLAN["decisions"]}} if i==3 else
+                  {"characters_including_punctuation":len(DRAFT)} if i==4 else
+                  {"index":i,"content":"explicit-choices"})
             item,parent=save_stage(vault,i,body,parent)
         self.assertEqual(len(vault.data),5)
         self.assertEqual(restore_stage(vault,3,
