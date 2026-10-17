@@ -9,7 +9,7 @@ This is a diagnostic anti-regression ledger, NOT independent literary review.
 from __future__ import annotations
 from hashlib import sha256
 import json,re
-from .v29_fresh_holdout import chosen_ids,manifest_sha
+from .v29_fresh_holdout import chosen_ids,manifest_sha,manifest
 from .reverse_mechanism_boundary import TECHNIQUES
 
 class SemanticRegressionEvidenceError(ValueError):
@@ -73,7 +73,7 @@ def candidate_from_audit(report:dict, *, report_sha256:str)->dict:
         entries.append({
             "slot":slot,"scenario":record["scenario"],
             "receipt_sha256":h,
-            "task_sha256_from_manifest_position":slot,
+            "writing_task_sha256":manifest()["task_sha256"][slot],
             "old_mechanisms":sorted(old),
             "semantic_mechanisms":sorted(new),
             "semantic_changed_operations":set(old)!=set(new),
