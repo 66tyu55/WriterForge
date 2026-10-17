@@ -89,7 +89,7 @@ class PilotTests(unittest.TestCase):
         self.assertEqual(f["with_memory_input_rule_hashes"],
                          [digest(canonical(x)) for x in d["memory"]])
         self.assertEqual(len(w.calls),5)
-        self.assertEqual(len(p.calls),7)
+        self.assertEqual(len(p.calls),8)
         self.assertIn("internal_experimental_rules",w.calls[1][1])
         self.assertIn(a["memory"][0]["operation"],w.calls[1][1])
         self.assertNotIn("外部专家提供了",w.calls[1][1])
