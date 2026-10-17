@@ -50,6 +50,25 @@ class V33Contracts(unittest.TestCase):
         self.assertNotIn(body(1172),str(writer.calls[2][1]))
         self.assertFalse(report["manuscripts_cropped_or_padded"])
         self.assertEqual(len(answers["control"]),1090)
+    def test_second_symmetric_revision_cycle_repairs_near_boundary_outlier(self):
+        # First repair still misses lower bound by 5 chars, just like
+        # genuine V33 salt_festival; second cycle must use latest own count.
+        writer=StubWriter([850,1400,1062,945,1099,1150])
+        answers,report=controlled_pair(
+            writer,TASK,(),max_revision_cycles=2,
+            initial_tokens=7000,revision_tokens=4300)
+        self.assertEqual(len(writer.calls),6)
+        self.assertEqual(report["symmetric_revision_calls"],4)
+        self.assertEqual(report["symmetric_revision_cycles"],2)
+        self.assertFalse(report["safe_revision_length_history"][0]["pass"])
+        self.assertTrue(report["safe_revision_length_history"][1]["pass"])
+        self.assertTrue(report["overall_eligible_for_blind_grading"])
+        self.assertEqual(writer.calls[4][1]["own_exact_characters_including_punctuation"],1062)
+        self.assertEqual(writer.calls[5][1]["own_exact_characters_including_punctuation"],945)
+        self.assertEqual(writer.calls[5][1]["required_self_change"],175)
+        self.assertTrue(report["no_one_sided_revision"])
+        self.assertEqual(len(answers["wf_memory"]),1150)
+
     def test_repair_failure_unscored_and_no_cropping(self):
         w=StubWriter([900,1280,900,1280])
         answers,r=controlled_pair(w,TASK,())
