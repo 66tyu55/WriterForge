@@ -508,3 +508,19 @@
 - **本次确实完成了3个原创题目的模型评分，但并未保存6篇完整练习稿供真人逐字盲评**。临时稿被删除，只留不可变文本SHA和短评，因此不能用本轮3个模型评分假称人类认可90%文学能力。未来若须真人细评，必须先制定私有、限量、哈希锁定的练习稿保留协议并再生新稿，不能恢复旧稿。
 - 后续策略：先验证“原著语义支持→创作任务适用→具体机制动作→读者可回查线索”的四层证据链；保留古杉林反例，跨新题目比较机制适用条件，避免仅追均分。**不自动重复付费训练；不放行第二课程窗口。**
 
+
+
+## 33. 【最新交接 V29 · 2026-10-17】六阶段改进计划获准：已实际修复语义证据协议、原创稿加密留证、真实R2上下文负例回填
+
+用户在V28三题随机原创首章（封矿+17.6，古杉-7.4五维全负，黑沙+13.8；平均+8.0）的完整复盘后确认“可以---允许计划”，授权此前提出的修复计划。**本轮已实际修改GitHub代码、测试、私有R2，未重新调用付费文学模型**；并非六阶段全部已被文学实践验收。完整详述： [V29_SEMANTIC_PRIVATE_DRAFT_REPAIR_20261017.md](V29_SEMANTIC_PRIVATE_DRAFT_REPAIR_20261017.md)。
+
+- **P0语义适配的可执行协议**：新模块 `writerforge/reverse_semantic_evidence.py`，新 opt-in `CloudABTrial(...,evidence_first=True,semantic_evidence_first=True)`。Planner现在必须给出来源中实际存在的12-48字符span、所属段落、角色已知未知、局部因果、新创作题目适合程度、误用风险和支持/弃权状态。结构不完整/原文证据杜撰直接拒绝；明确风险则Writer之前弃权以节省调用。只将原有HOST技巧ID送Writer，绝不送原著文本、解释和专名。**本层仅证明原句确存在，不能证明模型语义理解正确，依然标记 `independent_semantic_review=NOT_PERFORMED`**；默认旧训练行为不变。
+- **P1未来原创稿私有、可复评**：`writerforge/reverse_private_draft_evidence.py` 及 `pyproject.toml` 新增可选 `[evidence]` 依赖 `cryptography`。显式 `manuscript_sink=PrivateDraftEvidenceVault(...)` 时，仅在有效的匿名Critic和15%相对稿长闸门完成后，才将本次**两篇原创稿**以 AES-256-GCM、来源/任务AAD绑定加密写入私有 `writerforge-private-library` R2，内容寻址SHA + fresh GET；报告仅附密文哈希及到期信息，无小说明文。最大保留14天、默认7天，超过时间拒绝read；**R2对象不自动删除，需要独立的显式到期清理操作**。
+- 此加密保存**必须另行配置独立随机32字节base64密钥 `WF_PRIVATE_DRAFT_KEY_B64`**；当前未设置/未使用此密钥、没有在真实R2上传新草稿。不能将已有R2 access secret当作该密钥，不能在public GitHub上保存。此前V28六篇临时稿已销毁，无法复原。默认 `CloudABTrial` 仍不保留任何草稿。
+- **逐句缺陷标注基础**：新增 `writerforge/reverse_draft_review_marks.py`，0基起止字符区间+五维+错误种类+修改想法，最多32条；导出的只有span/说明哈希和长度位置，不泄露明文，不把未经认证的人/模型申明当作真人审评。尚未发生真实独立评审。
+- **旧候选账本兼容**：`writerforge/reverse_ab_candidates.py` 现在只允许来源、任务及两篇稿SHA都与加密R2回执一致的未来留存证据；普通旧报告的 `drafts_retained=False` 不变。伪造密文回执/缺key fail closed，仍不自动晋级。
+- **真实R2上实际完成零付费负例归档**：[一次性回填Actions #39005416238](https://github.com/66tyu55/WriterForge/actions/runs/39005416238) completed/success，源码三题原聚合SHA `2b2aea9c6563b402d0795fc1812e09d5d066e56a4ab51be045ddeabaae00b55d` fresh GET后，写入新不可变正反候选 SHA **`63cde6bacd51f7c655ec4eb6e6ccdab7e96c54c9f507512dfbfeaba73cf7d60f`**。内容只有封矿+17.6、古杉-7.4五维全负、黑沙+13.8、原始稿/来源 SHA 和宿主机制ID；`new_rules_promoted=false`；旧V28不可变凭证、正例及失败均未覆盖；真实模型调用0次，原著或旧草稿未下载。
+- 回归测试：`tests/test_v29_semantic_evidence.py`、`test_v29_private_draft_evidence.py`、`test_v29_draft_review_marks.py`、`test_v29_original_context_r2_import.py` 及旧V28测试。专门的**真实AES加密/错误密钥解密/到期删除/旧账本兼容**零模型测试 [#39005569114](https://github.com/66tyu55/WriterForge/actions/runs/39005569114) **completed/success**；请复核最新 `WriterForge Tests` 全量状态/数量，不要把合成测试成功当成文学质量90%。
+- **尚未完成**：不同模型/人类的独立原文-情境意义审核（目前只验证源span存在和解释字段完整）；实际带独立key的真实稿加密留存和真人逐句盲评；将一条“已确认古杉林为什么失败”的机制改进真正写入正式创作调度；3→6→9独立场景、50完整作品文学毕业条件。不能据此声称WF文学能力得到真提升。
+- **严格锁门**：第一课程窗口 `NOT_PASSED`，第二课程窗口 `LOCKED`；不得伪造30基准原始得分或拿模型90分突破真人验证闸门。未经新的实验指示不要重新付费刷题。
+
