@@ -1,0 +1,60 @@
+name: WF V29 failed holdout slots 1 and 2 only length-feedback recovery
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v29-failed-holdout-length-feedback-recovery-once.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wf-v29-failed-holdout-length-feedback-final
+  cancel-in-progress: false
+jobs:
+  recover-only-unscored:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        slot: [1,2]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      WF_HOLDOUT_SLOT: ${{ matrix.slot }}
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Prove slot0 cannot rerun and failure evidence is immutable
+        run: |
+          python -m unittest discover -s tests -p test_v29_holdout_recovery.py -q
+          python -m unittest discover -s tests -p test_v29_recovered_holdout_audit.py -q
+          python -m unittest discover -s tests -p test_v29_holdout_length_diagnostics.py -q
+      - name: One recovery A-B per previously unscorable slot, no other slots
+        run: python -m scripts.run_v29_old_new_length_recovery
+  audit-only:
+    needs: recover-only-unscored
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Source-pinned mixed-protocol audit with missing results unscored
+        run: python -m scripts.audit_v29_recovered_holdout
