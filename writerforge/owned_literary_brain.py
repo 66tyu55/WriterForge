@@ -36,6 +36,21 @@ def _bounded(s, min_chars=14, max_chars=240):
     return isinstance(s,str) and min_chars <= len(s.strip()) <= max_chars
 
 
+def _write_once(path: Path, data: bytes) -> None:
+    """Write each evidence stage only once; conflicting retries fail closed."""
+    _need(isinstance(data,bytes) and 0 < len(data) <= 20000,
+          "WF_OWNED_STAGE_RECORD_UNBOUNDED")
+    path.parent.mkdir(parents=True,exist_ok=True)
+    try:
+        with path.open("xb") as f:
+            f.write(data)
+    except FileExistsError:
+        if path.read_bytes() != data:
+            raise OwnedBrainError("WF_IMMUTABLE_PREWRITE_OR_DRAFT_CHANGED")
+    if path.read_bytes() != data:
+        raise OwnedBrainError("WF_OWNED_STAGE_WRITE_READBACK_MISMATCH")
+
+
 def _whole_file_sha(path: Path) -> str:
     h=sha256()
     with path.open("rb") as f:
@@ -63,6 +78,7 @@ class EmbeddedGGUF:
             raise OwnedBrainError("WF_EMBEDDED_INFERENCE_ENGINE_NOT_INSTALLED") from None
         self.model_sha256=expected_sha256
         self.seed=seed
+        self.ctx_size=ctx_size
         self.runtime=Llama(model_path=str(path),n_ctx=ctx_size,
                            n_gpu_layers=0,seed=seed,verbose=False)
         self.calls=0
@@ -71,6 +87,9 @@ class EmbeddedGGUF:
         _need(isinstance(content,str) and len(content)<=24000
               and isinstance(instructions,str) and len(instructions)<=2400
               and 100<=max_tokens<=4096,"WF_EMBEDDED_INPUT_NOT_BOUNDED")
+        tokens=self.runtime.tokenize((instructions+content).encode('utf-8'))
+        _need(len(tokens)+max_tokens+256<self.ctx_size,
+              'WF_EMBEDDED_CONTEXT_AND_OUTPUT_BUDGET_OVERFLOW')
         self.calls+=1
         response=self.runtime.create_chat_completion(
             messages=[
@@ -188,7 +207,7 @@ class WFOwnedLiteraryAuthor:
                 "semantic_literary_truth_proven":False}
 
     def compose(self, *, task: str, source_sha256: str,
-                memory_path: str | Path) -> dict:
+                memory_path: str | Path, receipt_dir: str | Path) -> dict:
         _need(_bounded(task,40,400),"WF_WRITING_TASK_INVALID")
         db=AutonomousLiteraryMemory(memory_path)
         try: lesson,lesson_sha=db.load(source_sha256)
@@ -208,6 +227,15 @@ class WFOwnedLiteraryAuthor:
         _need(set(plan)==fields and all(_bounded(plan[k],3,250) for k in fields),
               "WF_INDEPENDENT_PREWRITE_CAUSAL_PLAN_INCOMPLETE")
         prewrite_sha=_sha(_json(plan))
+        # Durable independent checkpoint BEFORE any model is asked for prose.
+        checkpoint=_json({
+            "format":"wf-own-locked-prewrite.v1",
+            "plan":plan,"plan_sha256":prewrite_sha,
+            "source_linked_memory_sha256":lesson_sha,
+            "model_weights_sha256":self.brain.model_sha256,
+        })
+        output_dir=Path(receipt_dir)
+        _write_once(output_dir / ("prewrite-"+prewrite_sha+".json"),checkpoint)
         # SAME internal model writes; no ChatGPT/manual fallback.
         story=self.brain.ask(
             "你是WF内置本地小说创作内核。只输出连贯原创中文小说正文，"
@@ -219,10 +247,13 @@ class WFOwnedLiteraryAuthor:
                         ensure_ascii=False),2400)
         _need(350<=len(story)<=4000 and not story.lstrip().startswith("{"),
               "WF_OWNED_WRITER_FAILED_TO_PRODUCE_FULL_PROSE")
+        _write_once(output_dir / ("draft-"+_sha(story)+".txt"),
+                    story.encode("utf-8"))
         return {
             "format":"wf-owned-brain-writing-result.v1",
             "story":story,"draft_sha256":_sha(story),
             "locked_prewrite_plan_sha256":prewrite_sha,
+            "prewrite_was_persisted_before_prose_call":True,
             "source_linked_memory_sha256":lesson_sha,
             "model_weights_sha256":self.brain.model_sha256,
             "writer_and_reader_are_same_embedded_core":True,
