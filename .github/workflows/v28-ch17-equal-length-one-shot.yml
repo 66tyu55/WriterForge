@@ -1,4 +1,4 @@
-name: V28 ch17 equal-length final A-B protocol one-shot
+name: V28 ch17 equal-length A-B after synthetic fixture correction
 on:
   push:
     branches: [main]
