@@ -471,3 +471,20 @@
 - **保持全部正式门闩：第1窗口 NOT_PASSED，第2课程窗口 LOCKED、90%文学能力未独立验证、3→6→9非重复迁移证据未齐，50部作品总评要求不变。** 第2章只做隔离诊断前读，未以模型高分放行正式课程；本轮真实模型共4调用且没有追加第二次收费复测。
 
 下次继续优先处理“机制无可靠证据也被强制选择”这类真正的语义底层漏洞，以及经验选择的禁用/回滚；不得覆盖原有反例和v5好例、不得让新章节的候选侵蚀旧功能。
+
+
+## 31. 【最新交接 2026-10-17】随机三章压力测试、模型技术失败与非破坏性长度底层修复
+
+本节为断线恢复后的实际结果。首读文件时先看本节及 [V28_RANDOM3_POST_DISCONNECT_FINAL_20261017.md](V28_RANDOM3_POST_DISCONNECT_FINAL_20261017.md)，不要重做原著R2归档、成功模型调用、随机选择或第二章旧实验。
+
+- 用户授权至少3个随机章节诊断，在《武动乾坤》钉住的私有原著 SHA `86a2fd859b424efe0500b4b36713ea8b05d551140650904ffc2ae02eb244ed28` 内，**事先用固定哈希规则选出第3、15、17章**，抽样身份SHA `1de5e123e70db078db63dd5cdab1230eab7ded135d101cfa2a3eb237179d3c54`，三章R2来源结构回读均通过 [#38997587245](https://github.com/66tyu55/WriterForge/actions/runs/38997587245)；不依新分数换章。
+- **真实文学生成已评分成功2章**：[三章最初one-shot Actions #38997659758](https://github.com/66tyu55/WriterForge/actions/runs/38997659758)。第3章无技能原始均分76.6 vs WF86.2（+9.6，新显示坐标30→39.6），模型机制 GOAL_FILTERS_ATTENTION + WITHHOLD_CAUSE_SHOW_CLUE；R2完成回执SHA `e4555c234444371cbf24c5d8c4bd5e114ccfee8a0aeb32403ce501d7ddba2d07`。第15章首次技术失败，限制仅失败 job 重试后成功：无技能80.0 vs WF90.6（+10.6，新显示30→40.6）；机制 COST_VISIBLE_IN_ACTION + EMOTIONAL_TURN_WITH_EVIDENCE；R2 SHA `6169c11a24fa19de9afab7150c8973ed4d930d72c1fdf2d4fba640636910b8ef`。两章成功由 [私有R2零模型只读审计 #38998637174](https://github.com/66tyu55/WriterForge/actions/runs/38998637174) 验证：number_scored=2/all_three_scored=false。
+- 第17章实际多次打到模型，但均**技术不合格、无合法原始五维评分**：V7最初连接/推理截断/预算失败R2 SHA `6fa81ad8f150d24522903688f61817489b7ed30755d091e60c44b869b8350086`；V7仅失败 job 的限定重试出现两次length且零可见正文，SHA `e038dc7cf07cc5d9b95ea99edbe93693b219cb8167a8604487e4bee947b4841e`。
+- 验证网关兼容 GLM5.3 `reasoning_effort=low` 的**无原著小型真实探针 #38999272334** 成功。V8 [#38999364460](https://github.com/66tyu55/WriterForge/actions/runs/38999364460) 改为低思考后成功生成两稿 1964/1329字符，但差约32.3%不满足15%闸门，失败 SHA `74f78fd2583a9e66f570c77d3f06bd73aaabc352facc34f63af903cccdeeb473`；没有批评分数。
+- V9 [#39000191094](https://github.com/66tyu55/WriterForge/actions/runs/39000191094) 在两组写作任务同时追加相同1100字符目标，两稿为1698/1433字符，差约15.6%，依旧**严格拒评**，失败 SHA `56f8a186a227dc01f26a1f85fbe7d1b46ab3063bc24d1e57e462223e675a48f6`。此前工作流首次被合成文本<300字的纯测试夹具阻断在付费前，修夹具后才发生上述一次真实模型尝试；不要把首次阻断算收费。
+- **本轮三章确实都调用真实模型，但只有2章完成真正公平A/B审评；不能说3章已全部评分，也不能拿第17章技术失败宣称WF文笔下降。** 两组有效模型评分都为正，故“随机章节仍全面下降”的预设条件没有成立；第2章历史相对负分-2.8仍在，不得忽略。只有单个Flash Critic及少量样本，无稳定因果证明。
+- 已有底层工程修复：在 `reverse_discovery_models.py` 增加对 GLM Writer 的可选、经无原著探针验证的low effort；在 `reverse_cloud_ab.py` 增加可选有限角色输出预算、同等 neutral `common_target_chars` 和**新可选 `symmetric_length_revision`**：首稿不等长时只对两组稿分别各做**一次**同目标的独立修订，不接触别组稿、原著剧情、不截稿、不补假文本；经过同样15%闸门和共享50k/7调用上限才允许给文学分。两个编辑机会须同时预留令牌；其可用性通过合成测试核对，但尚未用真实GLM长篇验证，不能虚构已修好真实文章长度。
+- 原 `CloudABTrial.run` 旧参数及默认行为不变，新增的全部能力为 opt-in；已通过对照、机制白名单和旧源解析器兼容回归，历史V5、V6、V7及第17章失败R2内容寻址记录永不覆盖。文学语义学习“原著证据ID存在≠真实因果解释”仍是未完成能力，不能以控制输出长度代替文学技能改进。
+- 工程最新测试应检查当前 main 最后一次 `WriterForge Tests` 的最终结论。报告 [V28_RANDOM3_POST_DISCONNECT_FINAL_20261017.md](V28_RANDOM3_POST_DISCONNECT_FINAL_20261017.md) 已保存到仓库。**禁止继续盲目收费重跑第17章**，先独立验证新对称修订算法，再征得用户明确的新付费试验指令。
+- **保持第一窗口 NOT_PASSED、正式第二课程窗口 LOCKED、模型权重未更新、未通过真人独立文学评审/3→6→9/50部完整作品总评。** 用户显示的baseline 30不是模型真实评分或大师达标指标。
+
