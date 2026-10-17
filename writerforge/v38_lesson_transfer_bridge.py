@@ -106,3 +106,53 @@ def verify_lesson_transfer_claims(*,story:str,plan:dict,lessons:dict,
         "independent_literary_improvement_proven":False,
         "formal_core_promoted":False,
     }
+
+
+def append_frozen_lesson_check(*,prior_validated_response:dict,
+                               additional_check:dict,transfer_claim:dict,
+                               story:str,plan:dict,lessons:dict)->dict:
+    """Append a separately timestamped/source-hashed later statement.
+
+    Important: this is NOT the author's prewriting thought, does not edit the
+    original postwrite statement, and must never replace the old R2 record.
+    The L2 check is added to the existing checks, which must be retained
+    *verbatim*. The original biggest_mistake is preserved unchanged.
+    """
+    if (not isinstance(prior_validated_response,dict)
+        or set(prior_validated_response)!={"checks","biggest_mistake"}
+        or not isinstance(prior_validated_response["checks"],list)
+        or not isinstance(additional_check,dict)
+        or set(additional_check)!={
+            "angle","actual_draft_quote","followed_prewrite_plan",
+            "observed_gap","possible_next_revision"
+        } or additional_check["angle"]!="foreshadowing"):
+        raise LearnedTransferGateError("APPEND_ONLY_SOURCE_LINKED_CHECK_INVALID")
+    if any(x.get("angle")=="foreshadowing"
+           for x in prior_validated_response["checks"]):
+        raise LearnedTransferGateError("APPEND_ONLY_WOULD_REPLACE_EXISTING_CHECK")
+    if not isinstance(transfer_claim,dict):
+        raise LearnedTransferGateError("APPEND_ONLY_TRANSFER_CLAIM_INVALID")
+    combined={
+        "checks":[*prior_validated_response["checks"],additional_check],
+        "biggest_mistake":prior_validated_response["biggest_mistake"],
+    }
+    # Use real legacy entry point. If the model guessed a quote or omitted
+    # the learned lesson, its new appended claim fails and stays unpromoted.
+    from .v35_observable_trace import validate_after
+    checked=validate_after(
+        combined,story,plan,
+        learned_lessons=lessons,
+        lesson_transfer_claims=[transfer_claim])
+    return {
+        "format":"writerforge.v38-append-only-L2-afterthought.v1",
+        "original_four_checks_sha256":_sha(_canonical(
+            prior_validated_response["checks"])),
+        "original_biggest_mistake_sha256":_sha(
+            prior_validated_response["biggest_mistake"]),
+        "additional_check_angle":"foreshadowing",
+        "original_review_untouched":True,
+        "generated_after_original_story_and_review":True,
+        "full_validated_aftercheck":checked,
+        "literary_quality_verified":False,
+        "formal_skill_promoted":False,
+    }
