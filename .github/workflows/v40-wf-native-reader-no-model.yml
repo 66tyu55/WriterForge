@@ -1,0 +1,38 @@
+name: V40 WF unassisted chapter examination (no language models)
+on:
+  push:
+    branches: [v40-wf-reader-no-model-exam]
+    paths:
+      - '.github/workflows/v40-wf-native-reader-no-model.yml'
+      - 'writerforge/source_study.py'
+      - 'scripts/run_v40_wf_native_reader_exam.py'
+      - 'tests/test_v40_native_reader_no_model_exam.py'
+      - 'exams/wf_v40_reader_ch07/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-reader-exam:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install local WriterForge code (no model plugins)
+        run: python -m pip install -e .
+      - name: Test pinned chapter, tamper rejection, and exact no-model stage boundaries
+        run: python -m unittest discover -s tests -p test_v40_native_reader_no_model_exam.py -q
+      - name: Run actual isolated WF chapter ingestion; do not invent literary response
+        run: python -m scripts.run_v40_wf_native_reader_exam | tee v40_unassisted_exam_receipt.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v40-unassisted-wf-exam-receipt
+          path: v40_unassisted_exam_receipt.json
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v40-wf-chapter-exam-source-pack
+          path: exams/wf_v40_reader_ch07/
+          retention-days: 30
