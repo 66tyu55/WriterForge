@@ -6,8 +6,8 @@ class CompletenessGateTests(unittest.TestCase):
     def test_package_metadata_matches_stable_not_experimental(self):
         report=assess()
         self.assertEqual(report["gates"]["G01_skill_package_entry"],"PASS")
-        self.assertEqual(report["observations"]["manifest_version"],"27.0.0")
-        self.assertEqual(report["observations"]["packaging_version"],"27.0.0")
+        self.assertEqual(report["observations"]["manifest_version"],"28.0.0rc1")
+        self.assertEqual(report["observations"]["packaging_version"],"28.0.0rc1")
         self.assertEqual(report["observations"]["last_experimental_generation_examined"],"V45")
 
     def test_old_learning_components_are_not_relabelled_as_independent_reader(self):
