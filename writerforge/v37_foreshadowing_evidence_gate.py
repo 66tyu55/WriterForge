@@ -62,6 +62,8 @@ def validate_transfer_claim(*,response,story,plan,lessons)->dict:
                  "V37_EVIDENCE_BOTH_SETUP_AND_PAYOFF_REQUIRED")
         p=story.find(setup);q=story.find(payoff)
         _require(p>=0 and q>=0,"V37_EVIDENCE_FABRICATED_DRAFT_QUOTE")
+        _require(story.count(setup)==1 and story.count(payoff)==1,
+                 "V37_EVIDENCE_AMBIGUOUS_DUPLICATED_CITATION")
         _require(p+len(setup)<q,"V37_EVIDENCE_PAYOFF_NOT_AFTER_SETUP")
         # Early/late is a diagnostic, not a universal literary axiom.
         times={"setup_offset":p,"payoff_offset":q,
