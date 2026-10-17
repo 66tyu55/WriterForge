@@ -1,4 +1,4 @@
-name: V38 original student L2 proof vs independent critics location zero-model crosswalk
+name: V38 strict self setup versus verified reviewer payoff role conflict
 on:
   push:
     branches: [main]
