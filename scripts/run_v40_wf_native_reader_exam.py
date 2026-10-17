@@ -38,13 +38,15 @@ def _load_package(root: Path):
     text = packet.decode("utf-8")
     if len(text) != m["integrity"]["characters"]:
         raise ReaderExamError("CHAPTER_PACKET_CHARACTERS_CHANGED")
-    ch = parse_original(text, require_hundred=False, expected_count=1)
-    if len(ch) != 1 or ch[0].number != 1 or len(ch[0].text) < 5000:
+    ch = parse_original(text, require_hundred=False, expected_count=1,
+                        sequence_start=7)
+    if len(ch) != 1 or ch[0].number != 7 or len(ch[0].text) < 5000:
         raise ReaderExamError("CHAPTER_PACKET_NOT_NATIVE_READABLE")
     if m["source"]["original_chapter_number"] != 7:
         raise ReaderExamError("CHAPTER_ORIGINAL_ID_CHANGED")
-    if not m["native_parser"]["slot_is_not_original_chapter_number"]:
-        raise ReaderExamError("EXAM_SLOT_MISREPRESENTED_AS_ORIGINAL_NUMBER")
+    if (m["native_parser"]["slot_chapter_number"] != 7 or
+        m["native_parser"].get("slot_is_not_original_chapter_number") is not False):
+        raise ReaderExamError("EXAM_SLOT_NOT_ORIGINAL_CHAPTER_NUMBER")
     return m, text, ch[0]
 
 
@@ -75,7 +77,7 @@ def run(*, root: Path = EXAM) -> dict:
                     text, work_id=work_id, title="老殘遊記第七回（试卷槽位一）",
                     source_uri=manifest["source"]["source_page"],
                     require_hundred=False, expected_count=1,
-                    wrapped_lines=True,
+                    wrapped_lines=True, source_sequence_start=7,
                 )
                 rows = db.conn.execute(
                     "SELECT COUNT(*) n FROM source_spans WHERE work_id=?",
@@ -115,7 +117,7 @@ def run(*, root: Path = EXAM) -> dict:
             "exam_id": manifest["exam_id"],
             "source_work": manifest["source"]["work_title"],
             "original_chapter": 7,
-            "internal_native_parse_slot": 1,
+            "internal_native_parse_slot": 7,
             "packet_sha256": digest,
             "original_body_sha256": chapter.fingerprint,
             "source_body_characters": len(chapter.text),
