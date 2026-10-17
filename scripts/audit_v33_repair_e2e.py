@@ -35,10 +35,8 @@ def audit(store):
             doc.get("precommitted_manifest")!=manifest() or
             doc.get("precommitted_manifest_sha")!=manifest_sha() or
             doc.get("question_sha256")!=sha256(question(slot).encode()).hexdigest() or
-            doc.get("frozen_student_memory_sha256")!=STAGE2_SHA or
-            doc.get("actual_memory_cards_used",1)==0 if False else False):
+            doc.get("frozen_student_memory_sha256")!=STAGE2_SHA):
             raise ValueError("V33_EXAM_SOURCE_IDENTITY_INVALID")
-        # The condition above intentionally doesn't coerce missing flags.
         if (not isinstance(doc.get("frozen_memory_card_sha256"),list) or
             len(doc["frozen_memory_card_sha256"])!=1 or
             doc.get("student_wrote_same_task_in_both_conditions") is not True or
