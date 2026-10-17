@@ -120,7 +120,8 @@ def validate_draft(text:str, source_windows:dict)->dict:
             "target":1120,"hard_minimum":950,"hard_maximum":1300,
             "within_absolute_length_bounds":950<=len(text)<=1300}
 
-def validate_after(response:dict,draft:str,plan:dict)->dict:
+def validate_after(response:dict,draft:str,plan:dict,*,
+                   required_lesson_angles:set[str]|None=None)->dict:
     if not isinstance(response,dict) or set(response)!={"checks","biggest_mistake"}:
         raise TraceContractError("RETROSPECT_SCHEMA_INVALID")
     records=response["checks"]
@@ -143,6 +144,17 @@ def validate_after(response:dict,draft:str,plan:dict)->dict:
             "observed_gap","possible_next_revision")):
             raise TraceContractError("RETROSPECT_NOT_EXPLANATORY")
         outputs.append(r)
+    # Optional for FUTURE exam contracts. Historical V35 can still be
+    # audited as-is, without rewriting or pretending its missing learned
+    # technique check was performed.
+    if required_lesson_angles is not None:
+        if not isinstance(required_lesson_angles,set) or not all(
+            isinstance(angle,str) and angle in angles
+            for angle in required_lesson_angles):
+            raise TraceContractError("INVALID_REQUIRED_LEARNED_PLAN_ANGLES")
+        observed={x["angle"] for x in outputs}
+        if not required_lesson_angles.issubset(observed):
+            raise TraceContractError("LEARNED_LESSON_PREWRITE_NOT_REVIEWED")
     if not _note(response["biggest_mistake"],14,280):
         raise TraceContractError("RETROSPECT_FAILURE_NOT_NAMED")
     return {"checks":outputs,
