@@ -21,7 +21,10 @@ FIELDS = {
     "observation", "decision", "decision_depends_on_clue",
     "later_reveal_target", "alternative_explanation", "uncertainty",
 }
-_ID = re.compile(r"[a-zA-Z0-9_-]{1,90}\Z")
+def _safe_key(value) -> bool:
+    return (isinstance(value, str) and 1 <= len(value) <= 90
+            and value.strip() == value and all(ch.isprintable() for ch in value)
+            and not any(ch in value for ch in ("\\\\", "/", "\\x00")))
 
 
 class ExperiencePolicyError(ValueError):
@@ -83,7 +86,7 @@ class ExperienceExecutor:
     """Opt-in only. DB is the EXISTING WriterForge database connection."""
 
     def __init__(self, connection: sqlite3.Connection, project_id: str):
-        _need(isinstance(project_id, str) and bool(_ID.fullmatch(project_id)),
+        _need(_safe_key(project_id),
               "EXPERIENCE_PROJECT_ID_INVALID")
         self.conn = connection
         self.project_id = project_id
@@ -131,7 +134,7 @@ class ExperienceExecutor:
 
     def before_write(self, *, scene_id: str, concerns: tuple[str, ...],
                      causal_plan: dict | None) -> PolicyDecision:
-        _need(isinstance(scene_id, str) and bool(_ID.fullmatch(scene_id)),
+        _need(_safe_key(scene_id),
               "EXPERIENCE_SCENE_ID_INVALID")
         _need(isinstance(concerns, tuple) and all(isinstance(x, str) for x in concerns),
               "EXPERIENCE_CONCERNS_INVALID")
