@@ -75,12 +75,15 @@ class CloudABTrial:
     Length mismatches fail closed; model score cannot promote literary skill.
     """
     def __init__(self, *, planner, writer, critic, evidence_first:bool=False,
-                 quarantined_pairs:tuple=()):
+                 quarantined_pairs:tuple=(), transfer_policy:dict|None=None):
         if (writer.provider,writer.name)==(critic.provider,critic.name):
             raise ABTrialError("writer cannot critique same identity")
         self.planner,self.writer,self.critic=planner,writer,critic
         self.evidence_first=bool(evidence_first)
         self.quarantined_pairs=quarantined_pairs
+        if transfer_policy is not None and not evidence_first:
+            raise ABTrialError("UNSAFE_POLICY_WITH_LEGACY_UNGUARDED_MODE")
+        self.transfer_policy=transfer_policy
 
     def run(self, first:str, second:str, *, source_sha:str, window_hash:str, writing_task:str=BASE_TASK):
         if not 300<=len(first)<=5500 or not second:
@@ -109,6 +112,11 @@ class CloudABTrial:
         else:
             selections=parse_selections(proposal,paragraphs)
             decision="LEGACY_EXPERIMENT_UNVERIFIED"
+        if self.evidence_first and self.transfer_policy is not None:
+            from .reverse_transfer_policy import should_withhold_opt_in
+            pair=[item["id"] for item in selections]
+            if should_withhold_opt_in(pair,self.transfer_policy):
+                raise ABTrialError("MULTI_WINDOW_NEGATIVE_MECHANISM_PAIR_QUARANTINED")
         abstract_evidence=report_evidence(selections,paragraphs)
         neutral=build_writer_packet(selections,enhanced=False,writing_task=writing_task)
         enhanced=build_writer_packet(selections,enhanced=True,writing_task=writing_task)
