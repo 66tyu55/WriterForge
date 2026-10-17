@@ -568,3 +568,17 @@
 - **真实判定**：V31“自己提炼并持久记忆1条实验规则”在V32考场被固定加载，但**没有证据可证明该规则提升文学水平**。slot0相对字数偏差属于写作协议质量问题，slot1/2评阅JSON不合格属于考试基础设施问题，应分别修复，不得求平均凑0/正分。失败不等于零分。
 - 后续优先考官端先进行真实网关**无小说小探针**修复格式可靠性，学员端绝对/相对篇幅控制；然后**全新预注册题目**进行同模型有/无记忆公平测试，保留负例、不加训学员作弊。正式 first `NOT_PASSED`, second `LOCKED`, 官方文学核心未晋级，不能用505项工程测试代替文学评分。
 
+
+
+## 37. 【最新V33/V34 2026-10-17】修复WF指定字数与MiniMax长文JSON，真实新题同时跑通；但记忆五维全负
+
+用户明确允许“可以---修补--必须控制WF指定的输出长度--然后json格式问题--一直没有处理--这次一起解决”。最终完整来源及根因详见 [V34_LENGTH_AND_JSON_REAL_REPAIR_RESULTS_20261017.md](V34_LENGTH_AND_JSON_REAL_REPAIR_RESULTS_20261017.md)；预注册真实考卷见 [V34_FIXED_LENGTH_AND_MINIMAX_JSON_FINAL_PROBE_PRECOMMIT_20261017.md](V34_FIXED_LENGTH_AND_MINIMAX_JSON_FINAL_PROBE_PRECOMMIT_20261017.md)。
+
+- **V33第一版真验证没有通过**。新题 `lake_ferry` 无记忆1036/WF1011字符，符合长度，但是Pro评分成功、MiniMax评分两次都结构非法（实际失败SHA `d6c7063023799cbea26159b28276c0a6eb9ff1e72b2f610b7c6279b1918ff7fb`）；`salt_festival` 初稿各一次对称重写之后无记忆1062/WF945，只差硬下限950五个字符仍按协议拒评，R2 `dc83b1c157a21fd9b86a8efe9a813ff6123dc3e209fb91d432dee0720ff33b3f`。不得将V33合成测试通过当作真实两题成功。
+- **找到MiniMax JSON反复失败的事实原因**：完全无原著和小说正文的真实长文本测试 [#39015256753](https://github.com/66tyu55/WriterForge/actions/runs/39015256753) 检测到MiniMax将完整`B`的五维评分及`uncertainty`嵌入完整`A`五维对象中，整个顶层只有`A`。旧严格parser误判`GRADER_JSON_WRAPPER_UNSUPPORTED`。新`writerforge/v33_exam_contracts.py`只接受`A→B→uncertainty`此结构（或对称镜像）、所有五维评分/评语原样重排，不修改数值、不发明数据；其它缺维、含混、非法仍Fail-Closed，非法格式至多一次等题等稿等匿名位置的限额修正。修复后真实MiniMax长文本测试 [#39015460941](https://github.com/66tyu55/WriterForge/actions/runs/39015460941)仅1次请求取得`json_validation=VALID`。此前单独Pro+Mini小样本两模型均一次合格 [#39014463006](https://github.com/66tyu55/WriterForge/actions/runs/39014463006)；小样本不等于长文可靠。
+- **真正输出长度硬门闩**：`writerforge/v33_balanced_writing.py` 对exam统一目标1120（含标点）、每稿绝对区间950–1300、相对≤15%。超范围或互相长度不公平→**双边各一次同条件自稿编辑**；新可选第二个对称编辑周期，两臂都只见自己刚生成文本与自己字数、至目标尚需加减的确切字符数，不见另一臂，绝不人工裁尾或塞标点。经过最多两轮仍不合格，拒评无分，不能靠平均分遮掩。业务层一般`CloudABTrial.run(... common_target_chars=N, absolute_char_bounds=(min,max), symmetric_length_revision=True)`额外接入通用字数硬门闩，明确指定时允许N至4500字符；默认历史接口行为不变。它不是保证语言模型天生每次都严格 obey，而是保证输出必须验证或Fail-Closed。
+- **调用硬上限**：扩展的V34试卷最大10次模型请求、50k预约输出token：初稿2×7000+最多4次编辑×4300+两名不同评审最多4调用×4600=**49,600**；transport自身重试也计入硬预算，不会无上限收费。旧Discovery default7调用未变，提升到10仅显式opt-in。
+- **完整真实修复验证成功**：[V34单道全新题真实端到端 #39015701423](https://github.com/66tyu55/WriterForge/actions/runs/39015701423) `completed/success`，从事先封存三题中抽中`dye_workshop` 蜡染作坊，不复考V32/V33旧失败题。WF自身真实V31 stage1/stage2冻结实验记忆与无记忆同一个GLM5.3 writer分别作答。初稿不合格→**双边各编辑一次，共两次编辑请求**，最终无记忆**1056**、WF记忆**1082**字符，950-1300绝对范围及15%相对差同时通过。两个不同阅卷模型DeepSeek V4 Pro/MiniMax M3 **都首次JSON即通过**，匿名A/B顺序交换、缺点分项分别保留。全流程仅**6个真实模型调用**（2 Writer初稿+2编辑+2 critic），新R2原报告SHA **`331663b6628b504bd59051d73c9d7c703c45b2012599109f4cdc50d5c5c46d81`**，只读独立R2审计`two_valid_grader_trials=1`、`user_goal_length_json_chain_fixed_in_real_runs=true`。原著正文和两篇练习全文不持久，历史R2/V32/V33失败快照都不覆盖。此次第一轮编辑已足够，不等于实际第二轮修订模型可靠性也经过真题验证。
+- **文学能力并未同时成功**，必须保留这个结论：V34真正两名不同评论模型均认为WF带自学规则稿五维**全面落后于无记忆控制稿**。Pro 的（感知/因果/信息/连续/语言）差 `-6/-4/-5/-3/-6`；MiniMax M3差 `-6/-4/-10/-2/-5`。一题模型评价不具备统计因果、人类文学真值资格，但绝不能据此升级WF那条真实自学技巧，更不可拿通道技术成功冒称作家技能变强。两名评阅者原始分数与负例留私有R2，不相互平均抵销。学海正式晋级 `NOT_PASSED`、第二课程窗口 `LOCKED`。
+- 新增重要回归：`tests/test_v33_exam_contracts.py`、`tests/test_v33_repair_e2e.py`、`tests/test_v34_complete_repair.py`、`tests/test_v34_general_absolute_length.py` 覆盖真实MiniMax已发现嵌套形态、缺漏/伪分数拒造、有限JSON重试、近边界945字二次公平校正、一般WF动态范围、不可改历史R2等。此节交接后应检查最新`WriterForge Tests`全量通过的最终结果。**单道V34真实通过，不代表未来每一篇都一次过**；禁止为提高WF成绩而重跑旧题。
+
