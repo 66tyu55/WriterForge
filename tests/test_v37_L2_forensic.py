@@ -135,7 +135,7 @@ class V37ForensicTests(unittest.TestCase):
         self.assertNotIn("少年在木桥",str(result))
         self.assertTrue(any("unvalidated-" in x for x in vault.data))
         self.assertTrue(any("result-" in x for x in vault.data))
-        self.assertFalse(any("first_draft" in result[k] for k in result))
+        self.assertNotIn(TEXT[:35],json.dumps(result,ensure_ascii=False))
     def test_no_model_output_contract_does_not_autofill(self):
         vault=Vault();exp=evidence()
         with patch.object(run,"frozen_evidence",return_value=exp):
