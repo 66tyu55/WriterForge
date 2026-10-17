@@ -597,3 +597,15 @@
 - 私有存储总共**9次模型API请求**（7首次+2补测），服务商结算与预留Token区分。由于用户要求“分别完整保存”，原著片段、WF读书观察、写前决策、两份原创全文、有效写后核查都存入现有R2私有桶**明文JSON对象**（仍有服务端存储权限管控，但未配置独立客户端AES密钥，**不能称端到端加密**）；公开Github日志只印SHA/长度/状态。若用户要在聊天里审阅全部正文，需要具备权限的安全查看/导出通道，不能发布到公共日志。
 - 核心观察：**Wf确实能保存自己的写前决定并在之后创作**；但是“自我复盘时凭空引用”是真实的底层思考忠实性问题，此次机械摘取真实正文引文的追加补测在一篇文章上纠正了证据位置问题，仍无独立人评文学因果与技巧合理性。未升级Skill，第一文学正式窗口`NOT_PASSED`、第二`LOCKED`。
 - 新模块 `writerforge/v35_xiyouji_exam.py`、`writerforge/v35_observable_trace.py`、`scripts/run_v35_xiyouji_decision_trace.py`、`scripts/recover_v35_afterdraft_only.py`，工程测试`tests/test_v35_xiyouji_observable.py`。后续打断点先审stage1原著观察→stage2抽象机理→stage3写前行动计划→stage4/5真实句子→追加写后4项引文，**不得只看模型自评高分、源码测试数或作文长度宣称已学会西游记文学手法**。
+
+
+## 39. 【最新交接 V36 · 2026-10-17】真实《西遊記》学习迁移链路断点回放：只有L2伏笔手法进入写前构思，写后却没有核验这一项
+
+用户V35连续学习、构思和写作试验因连接中断，指示“中断了--继续”。**本轮没有再付费模型训练，也没有篡改旧正文/写前决策**。新脚本 `scripts/debug_v36_xiyouji_learning_to_writing.py` 已对六个真实原始R2阶段（stage0–5）和独立追加的写后证据复盘/考官记录按**完整stage envelope SHA**重新GET，校验真正文章正文、来源索引、手法编号、预先冻结的写前原因及4条追加写后引文。详见 [V36_XIYOUJI_EXACT_SOURCE_LESSON_WRITING_TRACE_20261017.md](V36_XIYOUJI_EXACT_SOURCE_LESSON_WRITING_TRACE_20261017.md)。
+
+- **关键发现**：源文第1/2回各2000字符已读并引用核验，文学观察4项，提炼待验证手法 **L1、L2 两条**；写前计划共7个角度`goal/knowledge/causality/scene/sensory/dialogue/foreshadowing`，**只有`foreshadowing`明确绑定L2（源阅读观察索引1），其余六项没有来源lesson关联**。WF后来追加的4项有效写后核查仅针对`goal/knowledge/causality/scene`，**完全未核验唯一声称采用西游记学习手法的`foreshadowing`**。真实证据状态 `SOURCE_LINKED_DECISIONS_NOT_CHECKED_IN_POSTWRITE`。绝不能把4个“真实存在的句子”误称4次文学技巧应用验证；也不能据此证明WF没有使用L2，只能证明尚未记录其实际效果。
+- 原始904字，修订1136字，SHA与内容完全对齐；有**899字的原始文本处于两稿一致匹配块（约99.45%）**，新稿净增232字符。4个追加写后引用中的`causality`对应确切短句只在修订稿存在，而目标/知识/场景引用在原稿已有；“最初下笔 vs 修订后”不可混为一谈。
+- **零模型真实R2审计**：[V36 #39020574772](https://github.com/66tyu55/WriterForge/actions/runs/39020574772) completed/success，创建私有不可变审计SHA **`8a2aca0810c22fbca8a01519a1b573f87ccf38ee6ee3b8decaddb33dc91b1328`**。只输出角度、SHA、字符位置与真假布尔，不泄漏原著、完整原创新稿、实际构思文字或私人密钥。
+- **实际底层护栏**：`writerforge/v35_observable_trace.validate_after(...,required_lesson_angles={...})` 以可选参数新增对“写前绑定文学新课L1/L2的角度必须有对应写后正文引文”的校验，没有就`LEARNED_LESSON_PREWRITE_NOT_REVIEWED`；**旧实验原始写后失败和补测未被回写修改**，未来可选择强制启用。V36审计新字段`source_linked_prewrite_angles`、`source_linked_prewrite_angles_checked_after_drafting`避免平均掩盖学习手法漏检。只证明引用与流程，不证明文学因果已经独立验证。
+- **用户可审阅完整内容的办法**：新增本地只读`scripts/export_v35_full_trace_private_local.py --output <新建的本地私有文件夹>`，在用户本人电脑配置R2权限后可**在公共GitHub仓库之外**导出源文实际阅读片段、原文观察、两条提炼手法、七项完整写前决策及原因/弃用方案、904字第一稿、1136字完整修改稿、追加写后复盘、考官审计和V36逐角度详情。程序明确拒绝GitHub Actions、git工作目录以及覆盖已有文件夹；不会在公共日志或仓库公开正文。此导出接口已实现并经离线安全单测，**没有运行用户本地导出，也没有客户端AES加密R2文本**。
+- **后续最优先**：只针对这条 **L2伏笔手法** 做真正的写后对应引用及独立文学语义评价，不需要再读100回/刷三题/添加十个Skill；不许把WF写后理由冒充隐藏的模型推理。正式文学first `NOT_PASSED`，second `LOCKED`，V35原始失败永久保留。
