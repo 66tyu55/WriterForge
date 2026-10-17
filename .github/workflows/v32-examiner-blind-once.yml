@@ -1,0 +1,61 @@
+name: V32 Examiner authored random blind no cheating exam one-shot
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v32-examiner-blind-once.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wf-v32-examiner-frozen-study-stage2
+  cancel-in-progress: false
+jobs:
+  examiner-questions:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        slot: [0, 1, 2]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      WF_EXAM_SLOT: ${{ matrix.slot }}
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Verify no cheating, frozen memory, heldout questions and grading
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v32_examiner_blind.py -q
+          python -m unittest discover -s tests -p test_v32_exam_audit.py -q
+          python -m unittest discover -s tests -p test_v31_autonomous_wf.py -q
+      - name: WF writes examiner-selected question, two anonymous graders not trained by student
+        run: python -m scripts.run_v32_examiner_blind
+  final-audit:
+    needs: examiner-questions
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Read only SHA-proved genuine grades, no invented missing scores
+        run: python -m scripts.audit_v32_examiner_blind
