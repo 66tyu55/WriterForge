@@ -24,7 +24,7 @@ FIELDS = {
 def _safe_key(value) -> bool:
     return (isinstance(value, str) and 1 <= len(value) <= 90
             and value.strip() == value and all(ch.isprintable() for ch in value)
-            and not any(ch in value for ch in ("\\\\", "/", "\\x00")))
+            and all(ord(ch) not in (0, 47, 92) for ch in value))
 
 
 class ExperiencePolicyError(ValueError):
