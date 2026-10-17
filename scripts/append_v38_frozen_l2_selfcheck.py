@@ -151,6 +151,13 @@ def run(*,vault=None,model_factory=None):
         if sha(raw)!=h:raise L2SelfReportError("V38_SELF_COMPLETED_REPORT_TAMPERED")
         return {"status":"V38_SELF_REPORT_CACHED","sha256":h,"calls_now":0}
     data=_load(vault)
+    # Preflight the complete, real frozen quote catalog and model credential
+    # BEFORE writing a paid-attempt lock. Do not lock a literary experiment
+    # for a missing secret or an incomplete host-created sentence list.
+    requested=make_request(data)
+    key=os.environ.get("DISCOVERY_API_KEY","")
+    if model_factory is None and (not isinstance(key,str) or len(key)<12):
+        raise L2SelfReportError("V38_SELF_DISCOVERY_KEY_MISSING")
     started=f"{ROOT}/{SESSION}/started.json"
     if vault._head(started) is not None:
         raise L2SelfReportError("V38_SELF_REPORT_ALREADY_ATTEMPTED_NO_PAID_REPEAT")
@@ -159,14 +166,10 @@ def run(*,vault=None,model_factory=None):
     vault._put_small_immutable(started,start,sha(start))
     budget=DiscoveryCallBudget(max_calls=2,max_reserved_output_tokens=10800)
     if model_factory is None:
-        key=os.environ.get("DISCOVERY_API_KEY","")
-        if not isinstance(key,str) or len(key)<12:
-            raise L2SelfReportError("V38_SELF_DISCOVERY_KEY_MISSING")
         model=DiscoveryModel(name="deepseek-v4-flash-0731",
             role="planner",api_key=key,budget=budget)
     else:
         model=model_factory(budget)
-    requested=make_request(data)
     attempts=[];accepted=None;result_code=None
     try:
         for n in (1,2):
