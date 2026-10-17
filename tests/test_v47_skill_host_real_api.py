@@ -82,33 +82,21 @@ class HostSkillLiveAPITests(unittest.TestCase):
   b=pending(self.db,self.run)
   self.assertNotIn("从已锁定原文分析自动选取",b["host_prompt"])
   self.send(DRAFT1)
-  learned=pending(self.db,self.run)
-  self.assertEqual(learned["stage"],"learned")
-  self.assertIn("从已锁定原文分析自动选取",learned["host_prompt"])
-  self.assertNotEqual(learned["prompt_sha256"],b["prompt_sha256"])
-  self.assertTrue(learned["host_prompt"].startswith(b["host_prompt"]))
-  self.assertNotIn(quote,learned["host_prompt"])
-  self.send(DRAFT2)
-  review=pending(self.db,self.run)
-  self.assertEqual(review["stage"],"self_review")
-  self.assertIn("只是同一宿主自评",review["host_prompt"])
-  self.send(json.dumps({
-   "baseline_problem":"前段故事没有清楚写出关键的已知和未知信息",
-   "learned_problem":"后段的因果链仍有突兀的推进与真实动机不足",
-   "evidence_baseline":DRAFT1[:22],
-   "evidence_learned":DRAFT2[:22],
-  },ensure_ascii=False))
-  s=summary(self.db,self.run)
-  self.assertEqual(s["stage"],"complete")
-  self.assertEqual(len(s["events"]),5)
-  self.assertEqual(s["baseline_draft_sha256"],sha256(DRAFT1.encode()).hexdigest())
-  self.assertEqual(s["learned_draft_sha256"],sha256(DRAFT2.encode()).hexdigest())
-  self.assertTrue(s["learned_experience_recorded"])
-  self.assertFalse(s["skill_autonomous_literary_gain_proven"])
-  self.assertFalse(s["host_installation_proven"])
+  # New V50 rule: unreviewed source and missing story state must ABSTAIN.
+  blocked=pending(self.db,self.run)
+  self.assertEqual(blocked["stage"],"abstained")
+  self.assertEqual(blocked["experience_admission"]["state"],"ABSTAIN")
+  self.assertIsNone(blocked["host_prompt"])
+  summary_row=summary(self.db,self.run)
+  self.assertEqual(summary_row["stage"],"abstained")
+  self.assertEqual(len(summary_row["events"]),3)
+  self.assertEqual(summary_row["baseline_draft_sha256"],sha256(DRAFT1.encode()).hexdigest())
+  self.assertIsNone(summary_row["learned_draft_sha256"])
+  self.assertTrue(summary_row["learned_experience_recorded"])
+  self.assertFalse(summary_row["skill_autonomous_literary_gain_proven"])
   self.db.close()
   self.db=WriterForgeDB(Path(self.tmp.name)/"trial.sqlite")
-  self.assertEqual(summary(self.db,self.run)["stage"],"complete")
+  self.assertEqual(summary(self.db,self.run)["stage"],"abstained")
   with self.assertRaisesRegex(HostSkillError,"HOST_TRIAL_ALREADY_COMPLETE"):
    submit(self.db,run_id=self.run,model_id=MODEL,reply=DRAFT1,
           prompt_sha256="0"*64,output_dir=str(Path(self.tmp.name)/"runs"))
@@ -123,13 +111,7 @@ class HostSkillLiveAPITests(unittest.TestCase):
    "counterfactual":"如果先宣布所有信息人物的怀疑和随后选择便失去作用",
    "transfer_question":"新题中信息差是否真实改变角色决定和后续代价",
   }]},ensure_ascii=False)
-  self_review=json.dumps({
-    "baseline_problem":"这只是用于验证调用的合成旧稿，不代表有文学效果",
-    "learned_problem":"这只是用于验证调用的合成经验稿，不代表文学进步",
-    "evidence_baseline":DRAFT1[:22],
-    "evidence_learned":DRAFT2[:22],
-  },ensure_ascii=False)
-  replies=[FIRST,close,DRAFT1,DRAFT2,self_review]
+  replies=[FIRST,close,DRAFT1]
   seen=[]
   def synthetic_local_completion(packet,*,model,api_base,max_tokens):
    self.assertEqual(model,MODEL)
@@ -142,12 +124,12 @@ class HostSkillLiveAPITests(unittest.TestCase):
     self.db,run_id=self.run,source=str(self.source),goal=GOAL,
     model_id=MODEL,api_base="http://127.0.0.1:1234/v1",
     output_dir=str(Path(self.tmp.name)/"autonomous-wf"))
-  self.assertEqual(result["stage"],"complete")
-  self.assertEqual(result["loopback_completion_adapter_invocations"],5)
-  self.assertEqual(len(seen),5)
+  self.assertEqual(result["stage"],"abstained")
+  self.assertEqual(result["loopback_completion_adapter_invocations"],3)
+  self.assertEqual(len(seen),3)
   self.assertNotIn(scene.text[3200:3230],seen[0][1])
   self.assertIn(scene.text[3200:3230],seen[1][1])
-  self.assertNotEqual(seen[2][1],seen[3][1])
+  self.assertEqual(result["experience_admission"]["state"],"ABSTAIN")
   self.assertEqual(result["host_model_identity_cryptographically_attested"],False)
   self.assertFalse(result["skill_autonomous_literary_gain_proven"])
 

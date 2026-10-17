@@ -110,6 +110,7 @@ class VerifiedWritingFlow(WritingFlow):
         experience_experiment: bool = False,
         causal_plan: dict | None = None,
         v45_experience: bool = False,
+        evaluation_neutral: bool = False,
     ) -> GroundedDraftPacket:
         self.runtime.require(Mode.WRITE)
         if not goal.strip() or len(goal) > 2000 or not scene_id or len(scene_id)>128:
@@ -215,8 +216,8 @@ class VerifiedWritingFlow(WritingFlow):
             f"此前已接受的正文末尾（用于事实衔接，不代表优秀文风）：\n{continuation[:2900]}\n"
             f"作者明确提出的写作偏好：\n{explicit_preferences}\n"
             f"确需使用的已复核设定：\n{verified_fact_notes}\n"
-            "让人物根据已知信息、欲望和风险作出有后果的选择；"
-            "情绪、动作、声音和环境只在情节需要时自然出现。"
+            + ("" if evaluation_neutral else "让人物根据已知信息、欲望和风险作出有后果的选择；")
+            + "情绪、动作、声音和环境只在情节需要时自然出现。"
             "不强制对话比例、转折次数、修辞配额，也不解释写作方法。"
             "不要输出大纲、自评或教学说明；只写原创正文。"
             + ("\n来自WF自身持久故事状态的实验性写前因果约束：\n"

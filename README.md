@@ -1,6 +1,8 @@
-# WriterForge V27 — Source-grounded Faceted Literary Encyclopedia
+# WriterForge V28.0.0rc1 / V50 — Runtime core repair (literary self-improvement not proven)
 
 > **Current canonical project handoff:** [docs/CURRENT_HANDOFF.md](docs/CURRENT_HANDOFF.md). Check R2-verified book hashes, actual learning stages and live run links before starting any new work. Never treat archived books as model training.
+
+V49 third-strike literary self-improvement evaluation remains FAIL. V50 release-candidate defaults to withholding unreviewed literary experience, requires proven-scene-state eligibility, and logs abstention. This is an engineering release candidate, not a literary skills promotion.
 
 WriterForge is a long-form fiction system built around strict LEARN / WRITE separation, Reader-First source learning, Canon/Character/Knowledge/Promise memory, lean Craft routing, Literary Taste, Story Sense and controlled Evolution.
 

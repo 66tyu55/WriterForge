@@ -68,6 +68,10 @@ def _schema(db):
         stage TEXT NOT NULL, prompt_sha TEXT NOT NULL,
         response_sha TEXT NOT NULL, response_kind TEXT NOT NULL,
         PRIMARY KEY(run_id,ordinal))""")
+    db.conn.execute("""CREATE TABLE IF NOT EXISTS wf_host_skill_admissions(
+        run_id TEXT PRIMARY KEY, state TEXT NOT NULL,
+        cause TEXT NOT NULL, candidate_sha TEXT,
+        applicability_sha TEXT)""")
     db.conn.commit()
 
 
@@ -156,8 +160,9 @@ def start(db:WriterForgeDB, *, run_id:str, source:str, goal:str,
 def _packet(db,row,learned:bool):
     rt=RuntimeEngine();rt.enter_write(int(row["snapshot_id"]))
     base=VerifiedWritingFlow(db,rt,row["project_id"]).prepare(
-        row["scene_id"],  # same scene for honest A/B; only candidate memory differs
-        row["goal"],concerns=("setup_payoff","decision"),
+        row["scene_id"],  # same scene and same goal in both arms
+        row["goal"],concerns=(),  # do not prime BOTH arms with target craft tags
+        evaluation_neutral=True,
     )
     fixed="\n请写350至1200字的自然原创小说正文，不要编写写作说明或教学答案。"
     guidance=""
@@ -166,19 +171,13 @@ def _packet(db,row,learned:bool):
              "real_experience_applied_to_prompt":False,
              "literary_quality_verified":False}
     if learned:
-        lesson=json.loads(row["candidate_lesson_json"] or "null")
-        _check(isinstance(lesson,dict) and
-               {"hypothesis","counterfactual","transfer_question"}<=set(lesson),
-               "HOST_NO_SOURCE_LINKED_LEARNED_EXPERIENCE")
-        # THIS is an unreviewed host-derived candidate, not a verified skill.
-        guidance=(
-            "\nWF 从已锁定原文分析自动选取的一条未审定文学经验。"
-            "必须自行判断新场景是否适用，不准照搬旧人物与原句：\n"
-            +_json({k:lesson[k] for k in (
-                "hypothesis","counterfactual","transfer_question")})
-        )
+        from .experience_applicability import choose_experience
+        decision=choose_experience(db,row)
+        _check(decision.state=="ELIGIBLE_EXPERIMENT_ONLY",
+               "HOST_EXPERIENCE_NOT_APPLICABLE_"+decision.cause)
+        guidance=decision.guidance
+        receipt.update(decision.receipt())
         receipt["real_experience_applied_to_prompt"]=True
-        receipt["experience_source_quote_sha256"]=lesson["source_quote_sha256"]
     prompt=base.prompt+fixed+guidance
     _check(len(prompt)<=10000,"HOST_DRAFT_PROMPT_BUDGET")
     return replace(base,prompt=prompt,prompt_sha256=_sha(prompt),
@@ -187,8 +186,12 @@ def _packet(db,row,learned:bool):
 
 def pending(db:WriterForgeDB, run_id:str)->dict:
     row=_trial(db,run_id)
-    if row["stage"]=="complete":
-        return {"run_id":run_id,"stage":"complete","host_prompt":None,
+    if row["stage"] in ("complete","abstained"):
+        audit=db.conn.execute(
+            "SELECT state,cause FROM wf_host_skill_admissions WHERE run_id=?",
+            (run_id,)).fetchone()
+        return {"run_id":run_id,"stage":row["stage"],"host_prompt":None,
+                "experience_admission":dict(audit) if audit else None,
                 "independent_literary_approval":False}
     _,scene=_load(row)
     step=row["stage"]
@@ -255,7 +258,7 @@ def submit(db:WriterForgeDB, *, run_id:str, model_id:str,
     _check(isinstance(reply,str) and len(reply)<=14000 and len(reply)>0,
            "HOST_EMPTY_OR_UNBOUNDED_REPLY")
     request=pending(db,run_id)
-    _check(request["stage"]!="complete","HOST_TRIAL_ALREADY_COMPLETE")
+    _check(request["stage"] not in ("complete","abstained"),"HOST_TRIAL_ALREADY_COMPLETE")
     _check(request["prompt_sha256"]==prompt_sha256,
            "HOST_REPLY_FOR_DIFFERENT_PROMPT")
     _,scene=_load(row)
@@ -289,12 +292,23 @@ def submit(db:WriterForgeDB, *, run_id:str, model_id:str,
             packet=_packet(db,row,step=="learned")
             saved=save_candidate(
                 packet,reply,row["model_id"],Path(output_dir)/run_id)
+            next_stage=("learned" if step=="baseline" else "self_review")
+            admission=None
+            if step=="baseline":
+                from .experience_applicability import choose_experience
+                admission=choose_experience(db,row)
+                if admission.state!="ELIGIBLE_EXPERIMENT_ONLY":
+                    next_stage="abstained"
             with db.conn:
                 db.conn.execute(
                     "UPDATE wf_host_skill_runs SET stage=?, "+step+"_sha=?, "+step+"_manifest=? "
                     "WHERE run_id=?",
-                    ("learned" if step=="baseline" else "self_review",
-                     _sha(reply),saved["manifest"],run_id))
+                    (next_stage,_sha(reply),saved["manifest"],run_id))
+                if admission is not None:
+                    db.conn.execute(
+                        "INSERT INTO wf_host_skill_admissions VALUES(?,?,?,?,?)",
+                        (run_id,admission.state,admission.cause,
+                         admission.candidate_sha,admission.applicability_sha))
         else:
             data=json.loads(reply)
             required={"baseline_problem","learned_problem",
@@ -336,7 +350,12 @@ def summary(db:WriterForgeDB,run_id:str)->dict:
         "SELECT ordinal,stage,prompt_sha,response_sha FROM wf_host_skill_events "
         "WHERE run_id=? ORDER BY ordinal",(run_id,)
     ).fetchall()
+    evidence=db.conn.execute(
+        "SELECT state,cause,candidate_sha,applicability_sha "
+        "FROM wf_host_skill_admissions WHERE run_id=?",(run_id,)
+    ).fetchone()
     return {"run_id":run_id,"stage":row["stage"],
+            "experience_admission":dict(evidence) if evidence else None,
             "host_id_claimed_not_attested":row["model_id"],
             "source_sha256":row["source_sha"],
             "learned_experience_recorded":bool(row["candidate_lesson_json"]),
@@ -380,7 +399,7 @@ def run_with_local_host(db:WriterForgeDB, *, run_id:str, source:str,
     performed=[]
     for i in range(5):
         request=pending(db,run_id)
-        if request["stage"]=="complete":
+        if request["stage"] in ("complete","abstained"):
             break
         prompt=request["host_prompt"]
         packet=GroundedDraftPacket(

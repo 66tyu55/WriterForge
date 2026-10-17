@@ -1,16 +1,19 @@
 ---
-name: writer-forge-v27
+name: writer-forge-v28-rc1
 description: >
   Long-form fiction runtime with Reader-First source learning, reactive lane scheduling,
   dependency-driven context loading, controlled self-evolution, story-sense routing,
   embodied scene causality, and pairwise literary taste. Designed for novels, not generic copywriting.
 ---
 
-# WriterForge V27
+# WriterForge V28 RC1 — V50 runtime correctness (literary mastery NOT claimed)
 
 > **Read first before continuing WriterForge:** [docs/CURRENT_HANDOFF.md](docs/CURRENT_HANDOFF.md). It contains verified private-R2 sources, successful Actions runs, known blockers and the exact next stage. Do not repeat prior source uploads or claim unperformed literary training.
 
 WriterForge is a long-form fiction writer system. LEARN and WRITE remain mutually exclusive.
+
+**V50 core repair (28.0.0rc1):** V49's third-strike literary improvement verdict remains FAIL. Unreviewed experience is quarantined by default and NEVER automatically injected into a writing prompt. The host session requires a traceable source-review attestation, an actual typed character-choice event, an unknown fact in the character-state ledger, and absence of confirmed payoff conflict. Ambiguous/scenery/unsupported scenes ABSTAIN and stop rather than generate a fake experience draft. A/B evaluation uses an explicit neutral prompt to avoid preinstalling the target technique in the baseline; ordinary production drafting retains its previous guidance. These are execution integrity safeguards, not literary quality gains. See docs/V50_ENGINE_CORE_REPAIR_20261017.md.
+
 
 ## Runtime rule
 

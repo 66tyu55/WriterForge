@@ -1,0 +1,35 @@
+name: V50 kernel version repair (engineering only, no literary training)
+on:
+  push:
+    branches: [v50-engine-core-upgrade]
+    paths:
+      - '.github/workflows/v50-core-repair.yml'
+      - 'writerforge/experience_applicability.py'
+      - 'writerforge/skill_host_session.py'
+      - 'writerforge/verified_flow.py'
+      - 'tests/test_v47_skill_host_real_api.py'
+      - 'tests/test_v50_experience_applicability.py'
+      - 'VERSION'
+      - 'pyproject.toml'
+      - 'manifest.json'
+      - 'SKILL.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install WF and check version
+        run: python -m pip install -e .
+      - name: Source and applicability engineering regression with no model
+        run: python -m unittest discover -s tests -p 'test_v50_*.py' -v
+      - name: Existing host execution regressions
+        run: python -m unittest discover -s tests -p 'test_v47_*.py' -q
+      - name: Existing source-backed real entry regressions
+        run: python -m unittest discover -s tests -p 'test_v23_real_learning.py' -q

@@ -1,5 +1,15 @@
 # Changelog
 
+## v28.0.0rc1 — 2026-10-17 — V50 engineering candidate
+
+- Preserved immutable V49 third-strike FAIL and previous literary evidence; did not train models, run literary inference, or claim quality improvement.
+- Added read-only, bounded source-and-story-state experience admission; unreviewed or inapplicable candidate advice cannot enter normal story requests. No model is used by the gate.
+- Fixed host session to ABSTAIN and skip the second draft when candidate experience cannot be justified, rather than unconditionally adding the first hypothesis.
+- Introduced opt-in evaluation_neutral prompt path; previous standard production prompt remains unchanged.
+- Required original-source review attestation and typed character knowledge/event state for experimental memory eligibility; attestation is not independent literary truth.
+- Bumped VERSION / pyproject.toml / manifest.json / SKILL.md consistently to release-candidate version.
+
+
 ## v27.0.0 — 2026-10-10
 
 - Began small-scale graded literary-model practice instead of mistaking large sentence inventories for literary comprehension. Ordered levels: source-backed concise-unit understanding; one verified semantic category; two categories; three-plus; paragraph; causal scene.
