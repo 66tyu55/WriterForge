@@ -12,12 +12,12 @@ from writerforge.v45_state_experience import StateDerivedExperience,V45Experienc
 
 SOURCE=Path(__file__).parent/"fixtures"/"xiyouji_chapter_001_original_zh.txt"
 CASES=(
- ("storm-coast","海岸邮差发现渡船航次被改动"),
- ("snow-inn","雪镇旅店发现失踪客人的留言"),
- ("orchard","果园合伙人发现账目交接异常"),
- ("desert-watch","沙漠巡护员发现水箱封签破损"),
- ("canal","运河船工发现旧航标偏离河道"),
- ("theater","剧团服装师发现演出衣箱被调换"),
+ ("storm-coast","海岸邮差发现渡船航次被改动","海青","旧船票"),
+ ("snow-inn","雪镇旅店发现失踪客人的留言","霜白","铜钥匙"),
+ ("orchard","果园合伙人发现账目交接异常","柳橙","纸封"),
+ ("desert-watch","沙漠巡护员发现水箱封签破损","张莫","水痕"),
+ ("canal","运河船工发现旧航标偏离河道","丁荷","木牌"),
+ ("theater","剧团服装师发现演出衣箱被调换","杨絮","布扣"),
 )
 PROSE=("青禾在渡口看见那枚铜铃挂在门边。她尚未确定是谁重新挂起。"
        "青禾因此决定暂缓放行，把船票放回匣子。"
@@ -43,15 +43,15 @@ class ActualWFV45(unittest.TestCase):
   self.key=self.p.install(opt_in=True)
  def tearDown(self):
   self.db.close();self.tmp.cleanup()
- def seed(self,scene,known=None,unknown=None,role="setup",review="candidate",token="铜铃"):
+ def seed(self,scene,known=None,unknown=None,role="setup",review="candidate",token="铜铃",actor="青禾",fact="seal_origin"):
   known=["old_route"] if known is None else known
-  unknown=["seal_origin"] if unknown is None else unknown
+  unknown=[fact] if unknown is None else unknown
   with self.db.conn:
    self.db.conn.execute("INSERT OR REPLACE INTO character_state(project_id,character_id,state_json) VALUES(?,?,?)",
-    ("v45-audit","青禾",json.dumps({"knowledge":{"known":known,"unknown":unknown}},ensure_ascii=False)))
+    ("v45-audit",actor,json.dumps({"knowledge":{"known":known,"unknown":unknown}},ensure_ascii=False)))
    self.db.conn.execute("INSERT INTO causal_events(project_id,event_id,payload_json) VALUES(?,?,?)",
-    ("v45-audit",scene,json.dumps({"scene_id":scene,"actor_id":"青禾","clue_id":"id-"+scene,
-     "clue_token":token,"fact_id":"seal_origin",
+    ("v45-audit",scene,json.dumps({"scene_id":scene,"actor_id":actor,"clue_id":"id-"+scene,
+     "clue_token":token,"fact_id":fact,
      "observation":"渡口旧船门边的铜铃重新被挂在门前",
      "choice":"暂缓放行并核对旧铜铃与船期记录",
      "expected_consequence":"年轻船员因此错过了末班渡轮",
@@ -61,13 +61,14 @@ class ActualWFV45(unittest.TestCase):
  def prep(self,scene,goal="一个原创人物因果场景",enabled=True,concerns=("setup_payoff",)):
   return self.flow.prepare(scene,goal,concerns=concerns,v45_experience=enabled)
  def test_six_new_scenes_real_generation_prompt_changes(self):
-  for scene,goal in CASES:
-   self.seed(scene)
+  for scene,goal,actor,token in CASES:
+   self.seed(scene,actor=actor,token=token,fact=scene+"-origin")
    base=self.prep(scene,goal,False)
    learned=self.prep(scene,goal,True)
    self.assertNotEqual(base.prompt,learned.prompt)
-   self.assertNotIn("铜铃",base.prompt)
-   self.assertIn("铜铃",learned.prompt)
+   self.assertNotIn(token,base.prompt)
+   self.assertIn(token,learned.prompt)
+   self.assertIn(actor,learned.prompt)
    self.assertEqual(learned.strategy_receipt["state"],"APPLIED")
    self.assertFalse(learned.strategy_receipt["literary_semantics_verified"])
    self.assertEqual(self.db.conn.execute("SELECT COUNT(*) FROM wf_v45_prewrite WHERE project=? AND scene=?",
@@ -116,6 +117,31 @@ class ActualWFV45(unittest.TestCase):
     "昨夜的雨冲掉了山坡上的几片旧瓦","第二天有人发现书架上的画册早已虫蛀")))
   with self.assertRaisesRegex(WritingExecutionError,"V45_CLUE_IDENTITY"):
    save_candidate(p,story,"not-WF-prose",Path(self.tmp.name)/"out",postwrite_evidence=proof)
+
+ def test_holdout_same_clue_and_actor_but_false_cause_remains_unproven(self):
+  # More difficult than V44: matching actor and clue does not entail causality.
+  self.seed("false-causal-holdout")
+  packet=self.prep("false-causal-holdout")
+  story=(
+   "青禾望见旧码头的铜铃，决定等到天亮再上桥。"
+   "她仔细记下河上风向，却想起街口有人托她买盐。"
+   "青禾于是去镇上买了两斤盐，完全忘了渡船的事情。"
+   "当晚暴雨冲倒北坡上的几棵松树，守山人忙了一夜。"
+   "两日后青禾又看到了铜铃，那是旧船留下的记号。"
+  )
+  anchors={
+   "observation":"青禾望见旧码头的铜铃，决定等到天亮再上桥",
+   "actor_decision":"青禾于是去镇上买了两斤盐，完全忘了渡船的事情",
+   "causal_consequence":"当晚暴雨冲倒北坡上的几棵松树，守山人忙了一夜",
+   "later_reveal":"两日后青禾又看到了铜铃，那是旧船留下的记号",
+  }
+  # The lexical gate can still accept a wholly unrelated consequence.
+  result=save_candidate(packet,story,"static-red-team-not-WF",
+       Path(self.tmp.name)/"holdout",postwrite_evidence=anchors)
+  receipt=json.loads(Path(result["manifest"]).read_text(encoding="utf-8"))
+  self.assertFalse(receipt["experience_semantic_correctness_verified"])
+  self.assertFalse(receipt["v45_experience_postwrite_receipt"]["causal_semantics_verified"])
+
  def test_unverified_feedback_is_rejected_and_cannot_pause(self):
   self.seed("fake");self.prep("fake")
   receipt={"scene_id":"fake","policy_sha256":self.key,"reviewer_id":"forged-reviewer",
