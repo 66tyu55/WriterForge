@@ -72,7 +72,10 @@ def run(slot,*,store=None,model_factory=None):
         writer=model_factory("writer","glm-5.3")
         task=question(slot)
         texts,length_evidence=controlled_pair(writer,task,cards)
-        status=("READY_FOR_TWO_BLIND_CRITICS" if length_evidence["overall_eligible_for_blind_grading"]
+        status=("IDENTICAL_DRAFTS_NO_MEASURABLE_EFFECT"
+                if digest(texts["control"])==digest(texts["wf_memory"])
+                else "READY_FOR_TWO_BLIND_CRITICS"
+                if length_evidence["overall_eligible_for_blind_grading"]
                 else "UNSCORABLE_ABSOLUTE_OR_RELATIVE_LENGTH")
         if status=="READY_FOR_TWO_BLIND_CRITICS":
             for rank,name in enumerate(EXAMINERS):
