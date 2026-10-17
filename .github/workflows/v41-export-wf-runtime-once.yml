@@ -1,0 +1,22 @@
+name: V41 export actual WF runtime for same-host blind exam
+on:
+  push:
+    branches: [v41-chatgpt-host-blind-reader]
+    paths:
+      - '.github/workflows/v41-export-wf-runtime-once.yml'
+permissions:
+  contents: read
+jobs:
+  export-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bundle original unmodified runtime, sealed source and package manifest
+        run: |
+          tar -czf wf_v41_runtime.tar.gz writerforge scripts exams/wf_v41_ch16_sealed pyproject.toml README.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wf-v41-real-runtime-and-sealed-source
+          path: wf_v41_runtime.tar.gz
+          retention-days: 7
