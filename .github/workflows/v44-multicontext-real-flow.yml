@@ -1,0 +1,30 @@
+name: V44 six-context real WF behavior audit (no models)
+on:
+  push:
+    branches: [v44-multicontext-adversarial-ablation]
+    paths:
+      - '.github/workflows/v44-multicontext-real-flow.yml'
+      - 'scripts/run_v44_multicontext_real_flow.py'
+permissions:
+  contents: read
+jobs:
+  six-context-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install unchanged V43 package
+        run: python -m pip install -e .
+      - name: Reproduce all V43 production gate tests before experiment
+        run: python -m unittest discover -s tests -p test_v43_experience_actual_flow.py -q
+      - name: Exercise genuine published-source WF across six tasks and adversarial cases
+        run: python -m scripts.run_v44_multicontext_real_flow
+      - name: Retain exact zero-model findings, including false-positive cases
+        uses: actions/upload-artifact@v4
+        with:
+          name: V44_WF_Six_Context_Unmodified_V43_Results
+          path: v44_multicontext_adversarial_results.json
+          retention-days: 30
