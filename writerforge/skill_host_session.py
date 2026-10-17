@@ -161,7 +161,7 @@ def _packet(db,row,learned:bool):
     rt=RuntimeEngine();rt.enter_write(int(row["snapshot_id"]))
     base=VerifiedWritingFlow(db,rt,row["project_id"]).prepare(
         row["scene_id"],  # same scene and same goal in both arms
-        row["goal"],concerns=("setup_payoff","decision"),
+        row["goal"],concerns=(),  # do not prime BOTH arms with target craft tags
         evaluation_neutral=True,
     )
     fixed="\n请写350至1200字的自然原创小说正文，不要编写写作说明或教学答案。"
