@@ -73,13 +73,43 @@ def grade_prompt(task:str,anonymous:dict,*,correction:bool=False)->str:
                       "字段类型说明不是参考分数，分数必须独立依据正文评价。",
     },ensure_ascii=False,separators=(",",":"))
 
+def _strict_relocate_nested_ab(value:dict)->tuple[dict,str]|None:
+    """Repair exactly ONE witnessed MiniMax structural nesting mistake.
+
+    The real gateway returned A={five complete dimensions, B={five complete
+    dimensions, uncertainty=...}}, with no outer B. Rearranging PRESENT
+    fields is permitted, never synthesizing any scores/reasons. Mirror
+    B->A accepted solely when equally unambiguous. No fuzzy matching.
+    """
+    for outer,inner in (("A","B"),("B","A")):
+        if set(value)!={outer} or not isinstance(value[outer],dict):
+            continue
+        outer_data=value[outer]
+        if set(outer_data)!=set(DIMENSIONS)|{inner}:
+            continue
+        nested=outer_data[inner]
+        if not isinstance(nested,dict) or set(nested)!=set(DIMENSIONS)|{"uncertainty"}:
+            continue
+        repaired={
+            outer:{d:outer_data[d] for d in DIMENSIONS},
+            inner:{d:nested[d] for d in DIMENSIONS},
+            "uncertainty":nested["uncertainty"],
+        }
+        return repaired,"EXACT_NESTED_"+outer+"_"+inner+"_UNCERTAINTY_RELOCATION"
+    return None
+
 def strict_grade(value:dict)->tuple[dict,str]:
     if not isinstance(value,dict):
         raise ExamContractError("GRADER_JSON_OBJECT_REQUIRED")
     object_=value
     wrappers=[]
+    relocation=None
     for _ in range(2):
         if set(object_)=={"A","B","uncertainty"}:
+            break
+        relocated=_strict_relocate_nested_ab(object_)
+        if relocated is not None:
+            object_,relocation=relocated
             break
         if len(object_)!=1:
             raise ExamContractError("GRADER_JSON_TOP_LEVEL_KEYS_INVALID")
@@ -104,7 +134,10 @@ def strict_grade(value:dict)->tuple[dict,str]:
                 raise ExamContractError("GRADER_JSON_REASON_INVALID")
     if not isinstance(object_["uncertainty"],str) or not 4<=len(object_["uncertainty"].strip())<=180:
         raise ExamContractError("GRADER_JSON_UNCERTAINTY_INVALID")
-    return object_,("DIRECT_EXACT" if not wrappers else "UNAMBIGUOUS_ENVELOPE_"+"/".join(wrappers))
+    parse_path=("DIRECT_EXACT" if not wrappers else "UNAMBIGUOUS_ENVELOPE_"+"/".join(wrappers))
+    if relocation:
+        parse_path=(parse_path+"_"+relocation if wrappers else relocation)
+    return object_,parse_path
 
 def grade_with_one_repair(grader,task:str,anonymous:dict,*,budget_first:int=5300,
                           budget_retry:int=5300)->tuple[dict,dict]:
@@ -127,7 +160,8 @@ def grade_with_one_repair(grader,task:str,anonymous:dict,*,budget_first:int=5300
             normalized,parse_path=strict_grade(ans)
         except ExamContractError as e:
             errors.append(str(e))
-            if attempt:raise ExamContractError("GRADER_JSON_FAILED_AFTER_ONE_CORRECTION") from None
+            if attempt:
+                raise ExamContractError("GRADER_JSON_FAILED_AFTER_ONE_CORRECTION__"+str(e)) from None
             continue
         return normalized,{
             "attempted_calls":attempt+1,
