@@ -15,6 +15,7 @@ from hashlib import sha256
 import json
 import re
 import sqlite3
+import hmac
 
 V38_ROLE_CONFLICT_SHA="e2ed24abc352daef678165de8bee5f7c283f5709cf3a23c9fe99b9a876aeb0db"
 POLICY="V45_L2_STATE_DERIVED_HYPOTHESIS"
@@ -97,6 +98,10 @@ class StateDerivedExperience:
             project TEXT NOT NULL, scene TEXT NOT NULL,
             policy_sha TEXT NOT NULL, plan_sha TEXT NOT NULL,
             payload TEXT NOT NULL, PRIMARY KEY(project,scene))""")
+        self.conn.execute("""CREATE TABLE IF NOT EXISTS wf_v45_feedback(
+            project TEXT NOT NULL, scene TEXT NOT NULL,
+            reviewer TEXT NOT NULL, outcome TEXT NOT NULL,
+            receipt_sha TEXT NOT NULL, PRIMARY KEY(project,scene))""")
         self.conn.commit()
 
     def install(self,*,opt_in:bool):
@@ -232,6 +237,74 @@ class StateDerivedExperience:
         )
         _require(len(guidance)<1250,"V45_GUIDANCE_BUDGET_EXCEEDED")
         return Decision("APPLIED",digest,ph,guidance,actor,clue["clue_token"])
+
+    def accept_attested_feedback(self, *, receipt:dict, mac_hex:str,
+                                 verifier_shared_key:bytes)->dict:
+        """Authenticate receipt bytes, NOT literary truth or human independence.
+
+        The verifier secret must come from a separate trusted reviewer boundary
+        and must not be stored in the WF learning DB. If unavailable, do NOT
+        accept an independent-reviews claim or modify execution policy.
+        """
+        _require(isinstance(receipt,dict) and set(receipt)=={
+            "scene_id","policy_sha256","reviewer_id",
+            "review_report_sha256","outcome"
+        },"V45_FEEDBACK_RECEIPT_SCHEMA_INVALID")
+        _require(receipt["outcome"] in ("HELPED","HARMED","INCONCLUSIVE"),
+                 "V45_FEEDBACK_OUTCOME_INVALID")
+        _require(_note(receipt["scene_id"],1,128) and
+                 _note(receipt["reviewer_id"],3,80),
+                 "V45_FEEDBACK_ID_INVALID")
+        _require(isinstance(receipt["review_report_sha256"],str)
+                 and re.fullmatch("[0-9a-f]{64}",receipt["review_report_sha256"])
+                 and isinstance(verifier_shared_key,bytes)
+                 and len(verifier_shared_key)>=32
+                 and isinstance(mac_hex,str)
+                 and re.fullmatch("[0-9a-f]{64}",mac_hex),
+                 "V45_FEEDBACK_AUTHORITY_MISSING")
+        expected=hmac.new(verifier_shared_key,_canon(receipt),"sha256").hexdigest()
+        _require(hmac.compare_digest(expected,mac_hex),
+                 "V45_FEEDBACK_SIGNATURE_REJECTED")
+        policy=self.conn.execute(
+            "SELECT policy_sha FROM wf_v45_strategy WHERE project=?",
+            (self.project,)).fetchone()
+        _require(policy is not None and policy[0]==receipt["policy_sha256"],
+                 "V45_FEEDBACK_POLICY_SHA_MISMATCH")
+        row=self.conn.execute(
+            "SELECT plan_sha FROM wf_v45_prewrite WHERE project=? AND scene=?",
+            (self.project,receipt["scene_id"])).fetchone()
+        _require(row is not None,"V45_FEEDBACK_WITHOUT_LOCKED_PREWRITE")
+        digest=_hash(receipt)
+        prior=self.conn.execute(
+            "SELECT receipt_sha FROM wf_v45_feedback WHERE project=? AND scene=?",
+            (self.project,receipt["scene_id"])).fetchone()
+        if prior:
+            _require(prior[0]==digest,"V45_FEEDBACK_CANNOT_REWRITE_HISTORY")
+        else:
+            with self.conn:
+                self.conn.execute(
+                    "INSERT INTO wf_v45_feedback VALUES(?,?,?,?,?)",
+                    (self.project,receipt["scene_id"],receipt["reviewer_id"],
+                     receipt["outcome"],digest))
+        harms=self.conn.execute(
+            "SELECT COUNT(*) FROM wf_v45_feedback "
+            "WHERE project=? AND outcome='HARMED'",(self.project,)
+        ).fetchone()[0]
+        if harms>=2:
+            with self.conn:
+                self.conn.execute(
+                    "UPDATE wf_v45_strategy SET mode='PAUSED' "
+                    "WHERE project=? AND mode='ACTIVE_EXPERIMENT'",
+                    (self.project,))
+        return {
+            "receipt_sha256":digest,"feedback_integrity_authenticated":True,
+            "human_or_literary_accuracy_proven":False,
+            "harm_count":harms,
+            "strategy_mode":self.conn.execute(
+                "SELECT mode FROM wf_v45_strategy WHERE project=?",
+                (self.project,)).fetchone()[0],
+            "auto_promotion":False,
+        }
 
 
 def verify_afterdraft(story:str,receipt:dict,quotes:dict)->dict:
