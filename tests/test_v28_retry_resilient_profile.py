@@ -11,7 +11,7 @@ class RetryProfileTests(unittest.TestCase):
 
     def test_retry_profile_reserves_two_extra_writer_attempts(self):
         p,w,c=self.fake_roles()
-        source="纯合成的安全叙事片段。\\n"*30
+        source=("纯合成的安全叙事片段。"+chr(10))*30
         profile=(5500,8500,7000)
         trial=CloudABTrial(planner=p,writer=w,critic=c)
         result=trial.run(source,"合成下一段"*70,source_sha="a"*64,
