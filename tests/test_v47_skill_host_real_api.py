@@ -86,6 +86,7 @@ class HostSkillLiveAPITests(unittest.TestCase):
   self.assertEqual(learned["stage"],"learned")
   self.assertIn("从已锁定原文分析自动选取",learned["host_prompt"])
   self.assertNotEqual(learned["prompt_sha256"],b["prompt_sha256"])
+  self.assertTrue(learned["host_prompt"].startswith(b["host_prompt"]))
   self.assertNotIn(quote,learned["host_prompt"])
   self.send(DRAFT2)
   review=pending(self.db,self.run)
