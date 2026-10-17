@@ -11,7 +11,7 @@ class ExamReaderTests(unittest.TestCase):
     def test_pinned_original_chapter_packet_accepted(self):
         m, text, ch = _load_package(EXAM)
         self.assertEqual(m["source"]["original_chapter_number"], 7)
-        self.assertEqual(ch.number, 1)  # exam slot, NOT original chapter
+        self.assertEqual(ch.number, 7)  # actual original chapter, no remapping
         self.assertGreater(len(ch.text), 5000)
         self.assertIn("借箸代籌", ch.heading)
 
