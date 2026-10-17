@@ -24,9 +24,10 @@ class GeneralLengthGateTests(unittest.TestCase):
         c=FakeModel("critic",CRITIC,"c")
         return p,w,c
     def go(self,p,w,c,**kwargs):
+        requested_target=kwargs.pop("target",1120)
         return CloudABTrial(planner=p,writer=w,critic=c).run(
             SOURCE,"合成后续"*90,source_sha="a"*64,
-            window_hash=raw_hash(SOURCE),common_target_chars=1120,
+            window_hash=raw_hash(SOURCE),common_target_chars=requested_target,
             role_tokens=(5500,7500,7000),writing_task=TASK,**kwargs)
     def test_relative_equal_but_absolute_invalid_still_unscorable(self):
         p,w,c=self.models([1000,1010])
@@ -58,6 +59,14 @@ class GeneralLengthGateTests(unittest.TestCase):
             self.go(p,w,c,absolute_char_bounds=(1300,900))
         self.assertEqual(len(p.calls),0)
         self.assertEqual(len(w.calls),0)
+    def test_custom_larger_user_requested_target_hard_checked(self):
+        p,w,c=self.models([1920,2030])
+        r=self.go(p,w,c,target=2000,absolute_char_bounds=(1800,2200))
+        self.assertTrue(r["both_drafts_meet_absolute_bounds"])
+        self.assertEqual(r["neutral_common_target_chars"],2000)
+        self.assertEqual(r["absolute_char_bounds_opt_in"],[1800,2200])
+        self.assertEqual(len(c.calls),1)
+
     def test_old_default_relative_only_does_not_change(self):
         p,w,c=self.models([1000,1010])
         r=self.go(p,w,c)
