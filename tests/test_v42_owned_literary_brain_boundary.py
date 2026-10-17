@@ -6,7 +6,7 @@ import sqlite3
 import unittest
 from writerforge.owned_literary_brain import (
     EmbeddedGGUF, AutonomousLiteraryMemory, WFOwnedLiteraryAuthor,
-    OwnedBrainError,
+    OwnedBrainError, _write_once,
 )
 
 
@@ -23,6 +23,16 @@ class WFOwnedBrainBoundary(unittest.TestCase):
         with self.assertRaisesRegex(OwnedBrainError,
                                     "ONLY_EMBEDDED_GGUF_ALLOWED"):
             WFOwnedLiteraryAuthor(FakeHost())
+
+    def test_prewrite_record_is_immutable_once_sealed(self):
+        with TemporaryDirectory() as tmp:
+            path=Path(tmp)/"prewrite.json"
+            _write_once(path,b'{"stage":"prewrite"}')
+            _write_once(path,b'{"stage":"prewrite"}')
+            with self.assertRaisesRegex(OwnedBrainError,
+                                        "IMMUTABLE_PREWRITE_OR_DRAFT_CHANGED"):
+                _write_once(path,b'{"stage":"replaced"}')
+            self.assertEqual(path.read_bytes(),b'{"stage":"prewrite"}')
 
     def test_separate_literary_memory_is_not_skill_promotion(self):
         doc={
