@@ -33,7 +33,7 @@ class GLMEffortTests(unittest.TestCase):
         outbound=[]
         def wire(req):
             outbound.append(json.loads(req.data))
-            return json.dumps({"choices":[{"message":{"content":"{\\"valid\\":true}"},
+            return json.dumps({"choices":[{"message":{"content":json.dumps({"valid":True})},
                                             "finish_reason":"stop"}]}).encode()
         model=DiscoveryModel(name="deepseek-v4-flash-0731",role="planner",
              api_key="dummy-not-a-real-key",budget=DiscoveryCallBudget(),transport=wire)
