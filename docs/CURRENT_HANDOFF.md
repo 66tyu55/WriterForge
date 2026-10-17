@@ -582,3 +582,18 @@
 - **文学能力并未同时成功**，必须保留这个结论：V34真正两名不同评论模型均认为WF带自学规则稿五维**全面落后于无记忆控制稿**。Pro 的（感知/因果/信息/连续/语言）差 `-6/-4/-5/-3/-6`；MiniMax M3差 `-6/-4/-10/-2/-5`。一题模型评价不具备统计因果、人类文学真值资格，但绝不能据此升级WF那条真实自学技巧，更不可拿通道技术成功冒称作家技能变强。两名评阅者原始分数与负例留私有R2，不相互平均抵销。学海正式晋级 `NOT_PASSED`、第二课程窗口 `LOCKED`。
 - 新增重要回归：`tests/test_v33_exam_contracts.py`、`tests/test_v33_repair_e2e.py`、`tests/test_v34_complete_repair.py`、`tests/test_v34_general_absolute_length.py` 覆盖真实MiniMax已发现嵌套形态、缺漏/伪分数拒造、有限JSON重试、近边界945字二次公平校正、一般WF动态范围、不可改历史R2等。此节交接后应检查最新`WriterForge Tests`全量通过的最终结果。**单道V34真实通过，不代表未来每一篇都一次过**；禁止为提高WF成绩而重跑旧题。
 
+
+
+## 38. 【最新交接V35 · 2026-10-17】《西遊記》真原文读→候选手法→考官出题→7角度写前决策→原稿/修订稿，分别存R2；原自审失败，追加严格引文补测成功
+
+用户要求“这次训练西游记原著，要求WF完整记录思考、下笔分别保存；你当考官给题，分析从哪些角度思考和为什么用手法”。先提交 [V35_XIYOUJI_PREWRITE_TRACE_EXAM_PLAN_20261017.md](V35_XIYOUJI_PREWRITE_TRACE_EXAM_PLAN_20261017.md)，后真实执行：[V35_REAL_XIYOUJI_PREWRITE_TRACE_RESULTS_20261017.md](V35_REAL_XIYOUJI_PREWRITE_TRACE_RESULTS_20261017.md)。
+
+- 本轮是**首次实际将局部真实原著阅读/写前明确决策/真实原创正文分别持久保存、可串联检查**，不是下载100回原著就谎称模型已熟读。既有私有R2 `xiyouji-23962`完整100回经过SHA/SQLite恢复，模型实读**第1回与第2回各前2000字符**。Source stage0 SHA `125f8ce4305991beacdcfbdf36708b55adc523d62780a7bbd4f02e2dab1063b7`。
+- stage1 模型实际阅读后的源文短引文与人物认知/叙事功能有严格原文精确检查，SHA `3d7d951af61116b8bd68512f76bfb67654e7c7935c967171bccd8d0f7fdc12e8`；stage2源经验备选/使用或不用条件/为什么，SHA `c96c926c58481818538e2d8f5ed11b212394421ed21db6834cc2b30fed5d102e`。这些是**显式WF叙事决策文字**，不可称为真实不可见token级chain-of-thought、不能把quote存在等于语义正确。
+- 考官预先独立设计3个完全原创第一章题目，SHA固定抽到`mountain_market`山镇女药童误认药材，直到stage2记录已写R2才把题目交给WF，不能看原著情节抄写。stage3**写前**决策记录7种角度 `goal/knowledge/causality/scene/sensory/dialogue/foreshadowing`，每种含选择/原因/舍弃方案/预期读者效果/来源lesson ID，单独锁定SHA `a268aa596cf3c98328eeeb785ea026d65ba666ca41a226ef3b023e50d6894895`。
+- stage4原始GLM原创首章**904字符**、完整正文已存私有R2，SHA `9c3a671ed8c588019a0f46b0613641b59441282983bce4bb0882c20ebcfafe70`；stage5独立修订**1136字符**、完整修订稿额外保存，不覆盖原稿，SHA `605fc022f59a87e3eb4d199ed7ef0c9898c1ce52edfa03a2674a8db0d80d0acf`。WF writer**没有拿到西游记原文**。
+- **真正失败保留**：[原版一次性workflow #39018112434](https://github.com/66tyu55/WriterForge/actions/runs/39018112434) completed/failure，第一轮stage6模型写后自查引用一段不在真实小说正文里的短句`RETROSPECT_QUOTE_NOT_IN_DRAFT`，只有stage0..5成功。原版7次模型API调用，不得说8阶段全成功，也不得将坏自查改成满意的假记录。源文阅读/初步分析/写前计划/原稿/修订稿都可在私有R2读取，原版坏模型自查仅留下失败码，raw响应未保存不可恢复（后续应先储存无效原始回复）。
+- **只修复写后核查，完全不重做学习和写作**：[独立追加一轮 #39018718650](https://github.com/66tyu55/WriterForge/actions/runs/39018718650) completed/success。用stage3不可变写前决策和stage5冻结正文，考官程序从**真实正文**直接机械提取短句菜单，WF在其中选精确证据并解释计划与实际差别。2次模型API调用，追加记录包括未通过模型回复与复查记录，不触动原stage0..5；最终**4项实际原文引文通过**，新独立写后校验SHA **`412b6ceb09d8513c72d4df58d9792d483d5bb6b5b36a8ea955e74812afee595d`**、考官核验SHA **`910f2495624038194d7f020fd34eff4ccdf18033589ab70d137828d2152ab454`**。此成功是追加流程，不允许说原先错误没发生。
+- 私有存储总共**9次模型API请求**（7首次+2补测），服务商结算与预留Token区分。由于用户要求“分别完整保存”，原著片段、WF读书观察、写前决策、两份原创全文、有效写后核查都存入现有R2私有桶**明文JSON对象**（仍有服务端存储权限管控，但未配置独立客户端AES密钥，**不能称端到端加密**）；公开Github日志只印SHA/长度/状态。若用户要在聊天里审阅全部正文，需要具备权限的安全查看/导出通道，不能发布到公共日志。
+- 核心观察：**Wf确实能保存自己的写前决定并在之后创作**；但是“自我复盘时凭空引用”是真实的底层思考忠实性问题，此次机械摘取真实正文引文的追加补测在一篇文章上纠正了证据位置问题，仍无独立人评文学因果与技巧合理性。未升级Skill，第一文学正式窗口`NOT_PASSED`、第二`LOCKED`。
+- 新模块 `writerforge/v35_xiyouji_exam.py`、`writerforge/v35_observable_trace.py`、`scripts/run_v35_xiyouji_decision_trace.py`、`scripts/recover_v35_afterdraft_only.py`，工程测试`tests/test_v35_xiyouji_observable.py`。后续打断点先审stage1原著观察→stage2抽象机理→stage3写前行动计划→stage4/5真实句子→追加写后4项引文，**不得只看模型自评高分、源码测试数或作文长度宣称已学会西游记文学手法**。
