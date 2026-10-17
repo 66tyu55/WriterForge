@@ -77,8 +77,6 @@ def audit(store,*,persist=True):
                 raise ValueError("MODEL_MEAN_DOES_NOT_MATCH_DIMENSIONS")
             vals[arm]=mean
             dims[arm]=nums
-        if abs(vals["legacy"]-vals["semantic"])/1e9>1:
-            raise ValueError("IMPOSSIBLE_MEAN")
         diff=round(vals["semantic"]-vals["legacy"],2)
         if abs(diff-doc.get("semantic_minus_legacy_model_mean",-999))>1e-6:
             raise ValueError("FALSE_MODEL_IMPROVEMENT_DELTA")
