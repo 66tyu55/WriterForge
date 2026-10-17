@@ -186,6 +186,17 @@ def run(*,vault=None,model_factory=None):
                 "not_hidden_model_reasoning":True})
             try:
                 x=_unwrap(reply)
+                allowed={row["text"] for row in quote_catalog(data["story"])}
+                check=x.get("foreshadowing_check")
+                claim=x.get("transfer_claim")
+                if (not isinstance(check,dict)
+                    or check.get("actual_draft_quote") not in allowed):
+                    raise L2SelfReportError("V38_SELF_AFTERCHECK_QUOTE_NOT_FROM_FROZEN_MENU")
+                if (not isinstance(claim,dict)
+                    or (claim.get("application_status")=="CLAIMED_APPLIED"
+                        and (claim.get("setup_quote") not in allowed
+                             or claim.get("payoff_quote") not in allowed))):
+                    raise L2SelfReportError("V38_SELF_L2_QUOTES_NOT_FROM_FROZEN_MENU")
                 accepted=append_frozen_lesson_check(
                     prior_validated_response=data["prior"],
                     additional_check=x["foreshadowing_check"],
