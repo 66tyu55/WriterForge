@@ -108,7 +108,8 @@ class HostSkillLiveAPITests(unittest.TestCase):
   self.db=WriterForgeDB(Path(self.tmp.name)/"trial.sqlite")
   self.assertEqual(summary(self.db,self.run)["stage"],"complete")
   with self.assertRaisesRegex(HostSkillError,"HOST_TRIAL_ALREADY_COMPLETE"):
-   self.send(DRAFT1)
+   submit(self.db,run_id=self.run,model_id=MODEL,reply=DRAFT1,
+          prompt_sha256="0"*64,output_dir=str(Path(self.tmp.name)/"runs"))
  def test_frozen_source_refuses_edition_change(self):
   with self.assertRaisesRegex(HostSkillError,"HOST_RUN_ALREADY_EXISTS"):
    start(self.db,run_id=self.run,source=str(self.source),
