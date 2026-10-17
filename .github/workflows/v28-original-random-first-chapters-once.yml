@@ -1,0 +1,64 @@
+name: V28 three randomized original first chapter A-B real one-shot
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v28-original-random-first-chapters-once.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wf-v28-three-random-original-first-chapters
+  cancel-in-progress: false
+jobs:
+  three-original-first-chapters:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        slot: [0, 1, 2]
+    runs-on: ubuntu-latest
+    timeout-minutes: 38
+    env:
+      WF_SAMPLE_SLOT: ${{ matrix.slot }}
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Verify story seed, prompt isolation, both-arm length protocol and legacy regression
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v28_random_original_openings_v10.py -q
+          python -m unittest discover -s tests -p test_v28_three_random_openings_audit.py -q
+          python -m unittest discover -s tests -p test_v28_symmetric_length_revision.py -q
+          python -m unittest discover -s tests -p test_v28_cloud_ab.py -q
+          python -m unittest discover -s tests -p test_v28_discovery_models.py -q
+      - name: Real separate original first chapter A-B, fixed chapter3 source
+        run: python -m scripts.run_wf_three_random_openings_v10
+
+  audit-available-scores:
+    needs: three-original-first-chapters
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: R2 hash audit every available score, never invent missing scores
+        run: python -m scripts.audit_wf_three_random_openings_v10
