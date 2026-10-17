@@ -8,6 +8,7 @@ from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from contextlib import redirect_stdout
+from unittest.mock import patch
 import json
 import unittest
 
@@ -110,6 +111,45 @@ class HostSkillLiveAPITests(unittest.TestCase):
   with self.assertRaisesRegex(HostSkillError,"HOST_TRIAL_ALREADY_COMPLETE"):
    submit(self.db,run_id=self.run,model_id=MODEL,reply=DRAFT1,
           prompt_sha256="0"*64,output_dir=str(Path(self.tmp.name)/"runs"))
+ def test_wf_controls_all_local_completion_stages_without_examiner_hand_off(self):
+  # Synthetic local API responses verify CALL FLOW ONLY, not literary learning.
+  from writerforge.skill_host_session import _trial,_load
+  _,scene=_load(_trial(self.db,self.run))
+  excerpt=scene.text[310:360].strip()
+  close=json.dumps({"mechanisms":[{
+   "source_quote":excerpt,
+   "hypothesis":"人物预先受到有限信息影响并在选择后承担实际后果",
+   "counterfactual":"如果先宣布所有信息人物的怀疑和随后选择便失去作用",
+   "transfer_question":"新题中信息差是否真实改变角色决定和后续代价",
+  }]},ensure_ascii=False)
+  self_review=json.dumps({
+    "baseline_problem":"这只是用于验证调用的合成旧稿，不代表有文学效果",
+    "learned_problem":"这只是用于验证调用的合成经验稿，不代表文学进步",
+    "evidence_baseline":DRAFT1[:22],
+    "evidence_learned":DRAFT2[:22],
+  },ensure_ascii=False)
+  replies=[FIRST,close,DRAFT1,DRAFT2,self_review]
+  seen=[]
+  def synthetic_local_completion(packet,*,model,api_base,max_tokens):
+   self.assertEqual(model,MODEL)
+   self.assertTrue(api_base.startswith("http://127.0.0.1:"))
+   seen.append((packet.scene_id,packet.prompt))
+   return replies[len(seen)-1]
+  with patch("writerforge.verified_flow.local_chat_completion",
+             side_effect=synthetic_local_completion):
+   result=run_with_local_host(
+    self.db,run_id=self.run,source=str(self.source),goal=GOAL,
+    model_id=MODEL,api_base="http://127.0.0.1:1234/v1",
+    output_dir=str(Path(self.tmp.name)/"autonomous-wf"))
+  self.assertEqual(result["stage"],"complete")
+  self.assertEqual(result["loopback_completion_adapter_invocations"],5)
+  self.assertEqual(len(seen),5)
+  self.assertNotIn(scene.text[3200:3230],seen[0][1])
+  self.assertIn(scene.text[3200:3230],seen[1][1])
+  self.assertNotEqual(seen[2][1],seen[3][1])
+  self.assertEqual(result["host_model_identity_cryptographically_attested"],False)
+  self.assertFalse(result["skill_autonomous_literary_gain_proven"])
+
  def test_frozen_source_refuses_edition_change(self):
   with self.assertRaisesRegex(HostSkillError,"HOST_RUN_ALREADY_EXISTS"):
    start(self.db,run_id=self.run,source=str(self.source),
