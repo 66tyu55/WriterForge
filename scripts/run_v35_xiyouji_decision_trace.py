@@ -74,6 +74,29 @@ def save_stage(vault,index,detail,previous_sha):
         raise SessionError("STAGE_R2_FRESH_GET_INTEGRITY_FAILURE")
     return returned
 
+def save_unvalidated_output(vault,target_stage:int,response,parent_sha:str|None):
+    """Private, immutable raw model reply BEFORE judging it; never a skill."""
+    if type(target_stage) is not int or not 1<=target_stage<=6:
+        raise SessionError("INVALID_RAW_ATTEMPT_STAGE")
+    record={
+        "format":"writerforge.v35-model-output-before-validation.v1",
+        "session":SESSION,"target_stage":target_stage,
+        "parent_valid_stage_sha256":parent_sha,
+        "model_explicit_response":response,
+        "grammar_or_semantic_validity_not_assumed":True,
+        "do_not_promote_from_raw_attempt":True,
+        "hidden_reasoning_not_claimed":True,
+    }
+    blob=canonical(record)
+    if len(blob)>CAP:
+        raise SessionError("RAW_ATTEMPT_EXCEEDS_PRIVATE_R2_LIMIT")
+    h=sha(blob)
+    key=f"{ROOT}/{SESSION}/unvalidated/stage-{target_stage}/{h}.json"
+    vault._put_small_immutable(key,blob,h)
+    if vault._get_small(key,CAP)!=blob:
+        raise SessionError("RAW_ATTEMPT_R2_READBACK_FAILED")
+    return h
+
 def _request_models(token,budget):
     return {
         "reader":DiscoveryModel(
@@ -154,6 +177,7 @@ def run(vault,models_factory):
                 "possible_alternative_reading(另一种可能解释或未知限制)。"
                 "每章至少有一项。不要输出原著后续你没有在窗口读到的事实。",
                 num_predict=4700)
+            save_unvalidated_output(vault,1,read,parent)
             reading=validate_read(read,window)
             rec,parent=save_stage(vault,1,reading,parent)
             last_index=1
@@ -173,6 +197,7 @@ def run(vault,models_factory):
                 "verification_question(新故事里怎么验证它确实产生效果)。"
                 "每段解释清晰具体，不许夸称为文学通用真理。",
                 num_predict=4500)
+            save_unvalidated_output(vault,2,insights_raw,parent)
             insights=validate_lessons(insights_raw,len(reading["observations"]))
             rec,parent=save_stage(vault,2,insights,parent)
             last_index=2
@@ -198,6 +223,7 @@ def run(vault,models_factory):
                 "learned_lesson_id(L1/L2/NONE)，"
                 "至少有goal、knowledge、causality三种角度。",
                 num_predict=4600)
+            save_unvalidated_output(vault,3,plan_raw,parent)
             plan=validate_plan(plan_raw,{x["id"] for x in insights["lessons"]})
             prewrite={"exam":exam,"plan":plan,
                       "frozen_before_any_glm_writer_call":True}
@@ -213,12 +239,14 @@ def run(vault,models_factory):
                 "characters_including_punctuation_target":1120,
                 "hard_characters_including_punctuation":[950,1300],
             }
-            initial=writer.ask(
+            initial_response=writer.ask(
                 "你是WF自己的小说作家。根据已经锁定的考前构思写原创第一章。"
                 "不得照抄《西游记》的句子、角色、地名或事件，不要写分析。"
                 "950到1300个含标点字符，目标1120；情节完整，结尾自然收束"
                 "并留下从前文细节可回查的悬念。只输出真正小说正文。",
-                json.dumps(prompt,ensure_ascii=False),num_predict=8500)["scene"]
+                json.dumps(prompt,ensure_ascii=False),num_predict=8500)
+            save_unvalidated_output(vault,4,initial_response,parent)
+            initial=initial_response["scene"]
             draft=validate_draft(initial,window)
             rec,parent=save_stage(vault,4,draft,parent)
             last_index=4
@@ -233,8 +261,9 @@ def run(vault,models_factory):
                         "missing_or_excess_from_1120":1120-len(initial),
                         "target_characters":1120,"hard_bounds":[950,1300],
                         "frozen_plan_sha256":sha(canonical(prewrite))},
-                        ensure_ascii=False),num_predict=7200)["scene"]
-                revised=validate_draft(response,window)
+                        ensure_ascii=False),num_predict=7200)
+                save_unvalidated_output(vault,5,response,parent)
+                revised=validate_draft(response["scene"],window)
             current_text=revised["body"] if revised else initial
             edit_doc={
                 "edited":revised is not None,
@@ -264,6 +293,7 @@ def run(vault,models_factory):
                 "possible_next_revision(未来可试的修改)。"
                 "biggest_mistake为最关键且明确的失误，不得打分吹捧。",
                 num_predict=5400)
+            save_unvalidated_output(vault,6,after_raw,parent)
             after=validate_after(after_raw,current_text,plan)
             after["refers_to_final_body_sha256"]=sha(current_text)
             after["locked_preplan_stage_sha256"]=sha(canonical(prewrite))
