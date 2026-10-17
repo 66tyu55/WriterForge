@@ -87,7 +87,8 @@ class CloudABTrial:
 
     def run(self, first:str, second:str, *, source_sha:str, window_hash:str,
             writing_task:str=BASE_TASK, role_tokens:tuple[int,int,int]=(6500,11000,8000),
-            common_target_chars:int|None=None):
+            common_target_chars:int|None=None,
+            symmetric_length_revision:bool=False):
         if not 300<=len(first)<=5500 or not second:
             raise ABTrialError("source is not a real bounded first chapter window")
         if not isinstance(writing_task,str) or not 40<=len(writing_task)<=800:
@@ -114,6 +115,10 @@ class CloudABTrial:
                 +"，允许偏差不超过8%；只完成一篇完整场景，"
                 "不要增加附录、番外或第二幕。禁止凑字数重复叙述。"
             )
+        if symmetric_length_revision:
+            if (common_target_chars is None
+                or role_tokens[0]+4*role_tokens[1]+role_tokens[2]>50000):
+                raise ABTrialError("SYMMETRIC_LENGTH_REVISION_BUDGET_INVALID")
         if raw_hash(first)!=window_hash:
             raise ABTrialError("first window no longer matches R2 pin")
         # Source/plot only enters the planner; Writer and critic receive
@@ -161,8 +166,40 @@ class CloudABTrial:
         # Earlier actual A/B had a 49% length difference, a severe confound.
         baseline_chars=len(outputs["baseline"])
         skill_chars=len(outputs["skill"])
+        revision_calls=0
+        initial_chars={"baseline":baseline_chars,"skill":skill_chars}
         if (abs(baseline_chars-skill_chars)/max(baseline_chars,skill_chars))>0.15:
-            raise ABTrialError("AB_LENGTH_MISMATCH_NOT_COMPARABLE")
+            if not symmetric_length_revision:
+                raise ABTrialError("AB_LENGTH_MISMATCH_NOT_COMPARABLE")
+            # Two symmetric editing calls, never only one arm. Each editor
+            # sees only its own (ephemeral) draft and the same neutral target.
+            # The skill arm still receives only its HOST-defined operations.
+            edited={}
+            for kind,instruction in (("baseline",neutral),("skill",enhanced)):
+                response=self.writer.ask(
+                    "你是原创小说责任编辑。仅重写传入的一篇稿件，保留其"
+                    "人物目标、事件因果和完整结尾；字数控制必须优先于修饰。"
+                    "不允许参考另外一组稿件，不要提供解释、标题或Markdown。",
+                    json.dumps({
+                        "writing_instruction":instruction,
+                        "own_draft_to_rewrite":outputs[kind],
+                        "same_target_for_both_arms":common_target_chars,
+                        "aim_for_characters_including_punctuation":
+                            [int(common_target_chars*0.96),int(common_target_chars*1.04)],
+                        "rewrite_just_once":True,
+                    },ensure_ascii=False),
+                    num_predict=role_tokens[1])
+                new_text=response.get("scene")
+                if not isinstance(new_text,str) or not 220<=len(new_text)<=MAX_AB_DRAFT:
+                    raise ABTrialError("WRITER_SYMMETRIC_REVISION_INVALID")
+                _source_copy_guard(new_text,first)
+                edited[kind]=new_text
+                revision_calls+=1
+            outputs=edited
+            baseline_chars=len(outputs["baseline"])
+            skill_chars=len(outputs["skill"])
+            if abs(baseline_chars-skill_chars)/max(baseline_chars,skill_chars)>0.15:
+                raise ABTrialError("AB_LENGTH_MISMATCH_AFTER_SYMMETRIC_REVISION")
         # Blind ordering is fixed by *draft hashes* before seeing evaluation,
         # so the critic never receives which prompt included the learned rule.
         # The critic must not see the source novel. Quality is assessed
@@ -225,6 +262,9 @@ class CloudABTrial:
             "role_output_token_profile":list(role_tokens),
             "neutral_common_target_chars":common_target_chars,
             "manuscripts_cropped_or_padded":False,
+            "symmetric_length_revision_opt_in":bool(symmetric_length_revision),
+            "symmetric_revision_calls":revision_calls,
+            "initial_draft_chars_before_revision":initial_chars,
             "length_gate":{"max_relative_difference":0.15,
                            "baseline_chars":baseline_chars,
                            "skill_chars":skill_chars,
