@@ -623,3 +623,37 @@
 - **工程回归**：新 `writerforge/v38_lesson_transfer_bridge.py`、`writerforge/v37_foreshadowing_evidence_gate.py`、`scripts/append_v38_frozen_l2_selfcheck.py`、`scripts/audit_v38_actual_l2_gate.py`、`scripts/audit_v38_l2_student_vs_critics.py` 和新合成回归。最新全量 [#39025097922](https://github.com/66tyu55/WriterForge/actions/runs/39025097922) **568项通过**。只证明工程与证据链管线可靠，不能声称WF文学能力已改善。
 - **底层故障真实定位**：R2保存和写前思考存在，原著阅读抽象手法未得到一致独立评价（Pro`FAITHFUL`、MiniMax`PARTIAL`）；自审以前可以跳过来源绑定的唯一新手法，现在严格拒绝；补上证据之后仍发现**“先后真实句子”在文学语义上被WF可能误认为“伏笔铺垫→回收”**，作者自报与独立评论者意见冲突。真正有待改进的是`前置线索/人物有限知识/行为决策/后续信息回收`的**语义角色和因果状态判断**。不要事后硬加“必须前50%铺垫”的万能阈值，也不允许靠重复试题给L2晋级。
 - **下一步**：以这条角色冲突作为不可变负面经验进入实验候选区，设计未来WF创作时提前声明“线索出现→影响人物选择→后续回收”的自然因果链，盲评真稿验证。不得直接替WF改写L2或因一题负例全局删除它。正式文学学习first `NOT_PASSED`、second `LOCKED`，没有官方技能晋级或人类独立文学毕业验证。
+
+
+## 41. 【2026-10-17 交接封存】当前真实进度V38；下一窗口不重复训练、先定位L2伏笔叙事角色混淆
+
+用户在研究了V35原著学习、显式写前构思及V37的严格伏笔核验后明确要求“交接吧”。本节在此刻直接核实GitHub `main` 及实际Actions后封存，以便下一窗口**直接从第40/41节接手**。详细文学发现与证据见 [V38_XIYOUJI_L2_CAUSAL_ROLE_CONFLICT_FINAL_20261017.md](V38_XIYOUJI_L2_CAUSAL_ROLE_CONFLICT_FINAL_20261017.md)；前阶段真实证据参见第38、39节。**本次交接只更新文档，不发生新的付费模型调用，不重新生成原稿、复查评分或改写WF技巧。**
+
+### A. 实际完成，不能冒称文学晋级
+
+1. 真实公版中文《西游记》已存私有R2 `xiyouji-23962` 完整100回并可恢复；**V35模型实际阅读的是第一、二回各2000字符**，不是一次模型完整读完一百回。4条带原句的原文观察、2条未经独立证实的源学技巧`L1/L2`已SHA保存。
+2. 考官预注册原创题 `mountain_market`（山镇女药童误认草药）；WF写前明确给出7个角度`goal/knowledge/causality/scene/sensory/dialogue/foreshadowing`，**只有`foreshadowing`绑定从原著得出的L2**。904字符原始第一稿、1136字符修订稿完整原文分别储于私有R2；写前记录先于正文已锁定，均不能回写。V35原始写后自查曾引用不存在的句子而失败；后续附加4条成功自查针对goal/knowledge/causality/scene，**仍漏掉真正引用L2的foreshadowing**。
+3. 已实际在`writerforge/v35_observable_trace.validate_after`接入`writerforge/v38_lesson_transfer_bridge.py`：若写前明确关联新手法，写后必须覆盖其角度并附精确来源、前后可追溯正文引文、人物知识边界与因果解释；可以诚实返回`NOT_APPLIED/UNCERTAIN`，没有证据不予晋级。真历史负对照 [Actions #39024299243](https://github.com/66tyu55/WriterForge/actions/runs/39024299243) 返回`LEARNED_LESSON_PREWRITE_NOT_REVIEWED`，不可变私有R2 SHA `97914f6c8442ff7d7884b6a1c6cfae8e6fb6924c421e8bf4d03a63535fa6ec13`。
+4. WF仅在**冻结的1136字符修订稿上**额外做了**一次**有界模型自查 [Actions #39024752169](https://github.com/66tyu55/WriterForge/actions/runs/39024752169)：它自报L2 `CLAIMED_APPLIED`，从真实文章选出R39(79.93%)作为“铺垫”、R43(89.35%)作为“回收”，字符串存在/唯一/顺序已核实；新追加R2 SHA `a9d5d521b2e0adbeb416f9325b0adabaad408abb728bd978099effe328488a62`。**不能把事后说明倒灌为写前真正思考，也不能说文学效果通过。**
+5. 独立DeepSeek V4 Pro**结构完整的模型评语**把R39认作**回收**候选而非铺垫，认为更早的R34/R35(约69.19%/71.39%)承担铺垫；MiniMax原始意见也把R39认作回收，但因`uncertainty=[]`导致完整评审协议不合格，只能当参考线索。此前Pro原著L2抽象判`FAITHFUL`、MiniMax判`PARTIAL`，这进一步反映语义解释不稳定。真R2句子角色交叉核对 [#39025097935](https://github.com/66tyu55/WriterForge/actions/runs/39025097935) completed/success，SHA `e2ed24abc352daef678165de8bee5f7c283f5709cf3a23c9fe99b9a876aeb0db`；**跨模型观点分歧是观察，不是人类文学真值**。
+6. 最新确认GitHub `main` **`c9664e1bf7de27f3fe63e1b3d30aa2f20e691922`** 对应 [WriterForge Tests #39025294257](https://github.com/66tyu55/WriterForge/actions/runs/39025294257) **completed/success，568 tests passed**。不能拿工程测试或自评说明WF文学能力已进步、正式学习通过或模型权重更新。
+
+### B. 当前最可信的失败定位
+
+- 不是R2“写入/读回失效”：真实来源、WF明确表示的构思、完整原稿和写后说明都有SHA、按时序存档。
+- 真正值得修的是**“显式文学经验→在创作阶段规划前置线索→影响人物有限信息与行动→后续回收”之间的语义角色判断与因果验证**。仅找到两句实际存在、时间先后的文字，不足以证明“一句是真铺垫、下一句是真回收”。
+- 之前审评接口亦曾发生JSON解释过长/不确定性数组等技术失败；历史完整有效与格式无效的评论必须分开使用，绝不能拼凑或平均成更有利WF的分数。
+- 当前**只有一篇**真实文章的L2角色冲突，不能据此全局删除L2、给全部题材硬编码“前50%才算伏笔”，也不能宣称已经独立证明具体手法必然有害。
+
+### C. 下一窗口唯一优先工作：源码和正文角色定位（不要先重训）
+
+1. 先打开本文件第40/41节和完整 [V38真实复盘](V38_XIYOUJI_L2_CAUSAL_ROLE_CONFLICT_FINAL_20261017.md)，检查`main`状态；复用私有R2已存在的R39/R43自查和R34/R35/R37–R43独立考官回执，**不重新付费阅读西游记、改写904/1136字原稿或重复评分**。
+2. 对真实冻结修订稿**只在私有环境中**检验具体伏笔因果：R39出现前，相关物件/线索是否已登场、人物当时实际知道什么、R39是否改变了人物目标或可作的决定、R43后来揭示的是R39还是更早细节。结论允许`铺垫`、`回收`、`重复提示`、`两种功能兼有`或`无法确认`，**不应预先强选一种**。
+3. 对`writerforge/v38_lesson_transfer_bridge.py`的未来实验设计一个**人物知识状态与线索身份的时间序列记录**，让WF在写正文之前就明确规划“谁看到哪个线索→引发什么判断与行为→何时回收”，写完由同一稿真实句子核验，避免只靠写后即席解释。先纯合成/零模型单测，确保原有Skill和历史证据不被删除。
+4. 若之后允许真实独立文学盲审，需先定义/保存审稿合同及严格预算，再使用**新的预注册题目**比较学习前后；旧稿用于故障剖析而非反复刷高分。任何仍不确定的文学判断单独归档，零晋级。
+
+### D. 资料、安全和停止条件
+
+- 实际代码路径：`writerforge/v35_observable_trace.py`、`writerforge/v37_foreshadowing_evidence_gate.py`、`writerforge/v38_lesson_transfer_bridge.py`、`scripts/append_v38_frozen_l2_selfcheck.py`、`scripts/audit_v38_l2_student_vs_critics.py`、`scripts/debug_v36_xiyouji_learning_to_writing.py`。所有旧原稿、原文窗口及详细WF思考仍只在Cloudflare**私有**R2中，尚未使用独立客户端AES加密；不要把完整原著、原创全文、思考记录或API密钥打印到公开GitHub日志。
+- 既有测试/证据SHA必须原样保留；新调试记录要内容寻址、不可变、可读回。反作弊：不让WF自己当独立考官，不把模型意见当客观文学真值，不拿正例均分抵消R39具体负面争议。
+- **当前状态**：第一课程窗口`NOT_PASSED`，第二`LOCKED`，实验L2未成为已验证的稳定正式技巧；下一窗口从**R39/R43和更早的真实线索/人物知识状态**开始，而不是重做整个西游记训练流程。
