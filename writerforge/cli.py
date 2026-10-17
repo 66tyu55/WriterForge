@@ -227,7 +227,67 @@ def main(argv: list[str] | None = None):
         help="restore SHA-pinned abstract core checkpoint from private R2 to NEW DB")
     reverse_restore.add_argument("--project",required=True)
     reverse_restore.add_argument("--snapshot",required=True)
+    # V47 opt-in host Skill adapter. Does not call any model itself; the
+    # installed host Skill must execute next/submit and retain same model ID.
+    local_run=sub.add_parser("skill-host-run-local",
+        help="let WF itself drive one REAL loopback host for reading and writing")
+    local_run.add_argument("--run-id",required=True)
+    local_run.add_argument("--source",required=True)
+    local_run.add_argument("--goal",required=True)
+    local_run.add_argument("--model-id",required=True)
+    local_run.add_argument("--chapter",type=int,default=1)
+    local_run.add_argument("--api-base",default="http://127.0.0.1:1234/v1")
+    local_run.add_argument("--output-dir",default="writing_runs/host")
+    skill_start=sub.add_parser("skill-host-start",
+        help="start a bounded blind-reading then same-host writing trial")
+    skill_start.add_argument("--run-id",required=True)
+    skill_start.add_argument("--source",required=True)
+    skill_start.add_argument("--goal",required=True)
+    skill_start.add_argument("--model-id",required=True)
+    skill_start.add_argument("--chapter",type=int,default=1)
+    skill_next=sub.add_parser("skill-host-next",
+        help="return next WF-generated instruction, never a completed answer")
+    skill_next.add_argument("--run-id",required=True)
+    skill_submit=sub.add_parser("skill-host-submit",
+        help="submit a real host response to frozen WF prompt")
+    skill_submit.add_argument("--run-id",required=True)
+    skill_submit.add_argument("--model-id",required=True)
+    skill_submit.add_argument("--prompt-sha256",required=True)
+    skill_submit.add_argument("--reply-file",required=True)
+    skill_submit.add_argument("--output-dir",default="writing_runs/host")
+    skill_status=sub.add_parser("skill-host-status",
+        help="report actual trial stages, frozen evidence and blockers")
+    skill_status.add_argument("--run-id",required=True)
     args=p.parse_args(argv)
+    if args.cmd in ("skill-host-start","skill-host-next",
+                    "skill-host-submit","skill-host-status","skill-host-run-local"):
+        from .skill_host_session import start, pending, submit, summary, run_with_local_host
+        db=WriterForgeDB(Path(args.db))
+        try:
+            if args.cmd=="skill-host-run-local":
+                _emit(run_with_local_host(db,run_id=args.run_id,
+                      source=args.source,goal=args.goal,model_id=args.model_id,
+                      chapter=args.chapter,api_base=args.api_base,
+                      output_dir=args.output_dir))
+            elif args.cmd=="skill-host-start":
+                _emit(start(db,run_id=args.run_id,source=args.source,
+                            goal=args.goal,model_id=args.model_id,
+                            chapter=args.chapter))
+            elif args.cmd=="skill-host-next":
+                _emit(pending(db,args.run_id))
+            elif args.cmd=="skill-host-submit":
+                path=Path(args.reply_file)
+                if not path.is_file() or path.stat().st_size>32*1024:
+                    raise ValueError("host reply file missing or unbounded")
+                _emit(submit(db,run_id=args.run_id,model_id=args.model_id,
+                             reply=path.read_text(encoding="utf-8"),
+                             prompt_sha256=args.prompt_sha256,
+                             output_dir=args.output_dir))
+            else:
+                _emit(summary(db,args.run_id))
+        finally:
+            db.close()
+        return
     if args.cmd in ("reverse-core-init","reverse-core-status","reverse-core-restore"):
         from .reverse_craft import ReverseCraftCoordinator, WORK, EDITION
         from .reverse_core_vault import ReverseCoreVault
