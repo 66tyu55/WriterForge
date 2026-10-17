@@ -7,7 +7,7 @@ from writerforge.v35_observable_trace import (
 )
 from writerforge.v35_xiyouji_exam import task,manifest,manifest_sha
 from test_v35_xiyouji_observable import FakeVault,WINDOWS,READ,LESSONS,PLAN
-from scripts.run_v35_xiyouji_decision_trace import save_stage,stage_key
+from scripts.run_v35_xiyouji_decision_trace import save_stage,stage_key,restore_stage
 from scripts.recover_v35_afterdraft_only import _quote_menu
 import scripts.debug_v36_xiyouji_learning_to_writing as dbg
 
@@ -64,11 +64,12 @@ class V36DebugTests(unittest.TestCase):
             "checks":checks,
             "biggest_mistake":"写完后发现人物的选择与环境线索联系不够可靠。",
             "source_manifest_sha256":manifest_sha(),
-            "original_frozen_prewrite_sha256":sha(canonical({"format":"writerforge.v35-observable-stage.v1","index":3,"session":"20261017-xiyouji-first-real-reading-prewrite-locked-v1","label":"03-frozen-prewriting-decisions","parent_sha256":hashes[2],"payload":p3,"full_explicit_stage_record_saved":True,"hidden_internal_reasoning_not_claimed":True,"formal_skill_promoted":False})),
             "original_frozen_final_draft_sha256":sha(FINAL),
             "original_v35_bad_quote_attempt_already_recorded":True,
             "repair_did_not_change_story_or_preplan":True,
         }
+        prewrite_envelope=restore_stage(vault,3,hashes[2])[0]
+        valid["original_frozen_prewrite_sha256"]=sha(canonical(prewrite_envelope))
         after_hash=sha(canonical(valid))
         exam={
             "new_visible_retrospective_record_sha256":after_hash,
