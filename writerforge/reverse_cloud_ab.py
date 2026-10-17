@@ -76,7 +76,8 @@ class CloudABTrial:
     """
     def __init__(self, *, planner, writer, critic, evidence_first:bool=False,
                  quarantined_pairs:tuple=(), transfer_policy:dict|None=None,
-                 semantic_evidence_first:bool=False):
+                 semantic_evidence_first:bool=False,
+                 manuscript_sink=None):
         if (writer.provider,writer.name)==(critic.provider,critic.name):
             raise ABTrialError("writer cannot critique same identity")
         self.planner,self.writer,self.critic=planner,writer,critic
@@ -87,6 +88,9 @@ class CloudABTrial:
         if semantic_evidence_first and not evidence_first:
             raise ABTrialError("SEMANTIC_GATE_MUST_BE_EVIDENCE_FIRST")
         self.semantic_evidence_first=bool(semantic_evidence_first)
+        if manuscript_sink is not None and not callable(getattr(manuscript_sink,"save_pair",None)):
+            raise ABTrialError("INVALID_PRIVATE_MANUSCRIPT_SINK")
+        self.manuscript_sink=manuscript_sink
         self.transfer_policy=transfer_policy
 
     def run(self, first:str, second:str, *, source_sha:str, window_hash:str,
@@ -267,6 +271,19 @@ class CloudABTrial:
             "model_critic_score_unverified":mean("A" if ordered[0]==label else "B"),
             "dimension_review":review["A" if ordered[0]==label else "B"],
         } for label in ("baseline","skill")}
+        manuscript_receipt=None
+        if self.manuscript_sink is not None:
+            # Only after the valid anonymous Critic and length comparison.
+            # No source prose or planner explanation enters the private vault.
+            manuscript_receipt=self.manuscript_sink.save_pair(
+                outputs,source_unit_sha256=window_hash,
+                task_sha256=raw_hash(writing_task))
+            if (not isinstance(manuscript_receipt,dict)
+                or manuscript_receipt.get("encrypted") is not True
+                or manuscript_receipt.get("source_or_draft_plaintext_in_report") is not False
+                or manuscript_receipt.get("draft_sha256")!={
+                    k:raw_hash(v) for k,v in outputs.items()}):
+                raise ABTrialError("PRIVATE_MANUSCRIPT_RECEIPT_INVALID")
         return {
             "format":"writerforge.cloud-ab-v1",
             "source_work":"wudongqiankun","edition_sha256":source_sha,
@@ -296,7 +313,9 @@ class CloudABTrial:
             "comparisons":display,
             **neutral_note,
             "model_call_count_nominal":4,
-            "drafts_retained":False,"human_blind_review_performed":False,
+            "drafts_retained":bool(manuscript_receipt),
+            "private_encrypted_manuscript_evidence":manuscript_receipt,
+            "human_blind_review_performed":False,
             "literal_master_quality_90pct_verified":False,
             "second_unit_unlocked":False,"core_automatically_promoted":False,
         }
