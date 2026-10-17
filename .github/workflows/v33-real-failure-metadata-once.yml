@@ -1,0 +1,25 @@
+name: V33 failed full-exam JSON metadata root cause once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v33-real-failure-metadata-once.yml'
+permissions:
+  contents: read
+jobs:
+  read-only-metadata:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - run: python -m scripts.diagnose_v33_failed_exam_metadata
