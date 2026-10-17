@@ -86,7 +86,8 @@ class CloudABTrial:
         self.transfer_policy=transfer_policy
 
     def run(self, first:str, second:str, *, source_sha:str, window_hash:str,
-            writing_task:str=BASE_TASK, role_tokens:tuple[int,int,int]=(6500,11000,8000)):
+            writing_task:str=BASE_TASK, role_tokens:tuple[int,int,int]=(6500,11000,8000),
+            common_target_chars:int|None=None):
         if not 300<=len(first)<=5500 or not second:
             raise ABTrialError("source is not a real bounded first chapter window")
         if not isinstance(writing_task,str) or not 40<=len(writing_task)<=800:
@@ -102,6 +103,17 @@ class CloudABTrial:
             # Two writer transport/visible retry attempts must still leave
             # enough reservation for the other Writer and Critic stages.
             raise ABTrialError("RETRY_RESILIENT_STAGE_BUDGET_INSUFFICIENT")
+        if common_target_chars is not None:
+            if type(common_target_chars) is not int or not 850<=common_target_chars<=1350:
+                raise ABTrialError("INVALID_COMMON_AB_LENGTH_TARGET")
+            # Identical neutral length constraint for both arms. Never truncate
+            # a generated manuscript or manufacture comparable scores.
+            writing_task += (
+                "\n本次A/B两组共同严格篇幅要求：含标点字符数目标"
+                +str(common_target_chars)
+                +"，允许偏差不超过8%；只完成一篇完整场景，"
+                "不要增加附录、番外或第二幕。禁止凑字数重复叙述。"
+            )
         if raw_hash(first)!=window_hash:
             raise ABTrialError("first window no longer matches R2 pin")
         # Source/plot only enters the planner; Writer and critic receive
@@ -211,6 +223,8 @@ class CloudABTrial:
             "mechanism_registry":"host_static_only_v1",
             "planner_evidence_policy":decision,
             "role_output_token_profile":list(role_tokens),
+            "neutral_common_target_chars":common_target_chars,
+            "manuscripts_cropped_or_padded":False,
             "length_gate":{"max_relative_difference":0.15,
                            "baseline_chars":baseline_chars,
                            "skill_chars":skill_chars,
