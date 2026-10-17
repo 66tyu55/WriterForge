@@ -112,7 +112,8 @@ def analyze(vault, *, persist:bool=True)->dict:
     _require(rebuilt["body_sha256"]==correction["final_body_sha256"]
              and rebuilt["characters_including_punctuation"]==
                  correction["final_characters"] and
-             correction["final_valid_absolute_length"] is True,
+             correction["final_valid_absolute_length"] is True and
+             rebuilt["within_absolute_length_bounds"] is True,
              "FINAL_MANUSCRIPT_PROVENANCE_OR_BOUNDS_CHANGED")
     after=_read_exact(vault,_after_key("valid-retrospective",AFTER_SHA),
                       AFTER_SHA,36000)
@@ -128,15 +129,21 @@ def analyze(vault, *, persist:bool=True)->dict:
              "POSTWRITE_QUOTE_NOT_IN_MECHANICAL_MENU")
     _require(after["original_frozen_final_draft_sha256"]==sha(final)
              and after["source_manifest_sha256"]==manifest_sha()
-             and after["repair_did_not_change_story_or_preplan"] is True
+             and after["original_frozen_prewrite_sha256"]==
+                 sha(canonical(stages[3])) and
+             after["repair_did_not_change_story_or_preplan"] is True
              and after["original_v35_bad_quote_attempt_already_recorded"] is True
              and examiner["new_visible_retrospective_record_sha256"]==AFTER_SHA
              and examiner["frozen_original_essay_sha256"]==sha(final)
-             and examiner["real_source_and_draft_quotes_machine_verified"] is True
+             and examiner["frozen_prewrite_sha256"]==
+                 sha(canonical(stages[3])) and
+             examiner["real_source_and_draft_quotes_machine_verified"] is True
              and examiner["official_core_promoted"] is False,
              "RECOVERED_AFTERCHECK_NOT_LINKED_TO_FROZEN_DRAFT")
 
     observed={row["angle"]:row for row in checked["checks"]}
+    _require(len(observed)==len(checked["checks"]),
+             "DUPLICATE_AFTERCHECK_ANGLE_NOT_UNIQUELY_TRACEABLE")
     lesson_by_id={x["id"]:x for x in learned["lessons"]}
     decisions=[]
     for decision in plan["decisions"]:
