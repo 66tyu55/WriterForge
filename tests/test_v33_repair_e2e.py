@@ -6,6 +6,7 @@ from unittest.mock import patch
 from test_v32_examiner_blind import FakeStore
 import scripts.run_v32_examiner_blind as v32
 import scripts.run_v33_repair_e2e as runner
+import scripts.audit_v33_repair_e2e as auditor
 from writerforge.v33_repair_topics import ids,manifest_sha,question
 from writerforge.v33_exam_contracts import DIMENSIONS
 
@@ -41,6 +42,7 @@ class V33RealisticTests(unittest.TestCase):
             patch.object(v32,"STAGE1_SHA",self.store.sha1),
             patch.object(v32,"STAGE2_SHA",self.store.sha2),
             patch.object(runner,"STAGE2_SHA",self.store.sha2),
+            patch.object(auditor,"STAGE2_SHA",self.store.sha2),
         ]
         for p in self.patches:
             p.start();self.addCleanup(p.stop)
@@ -77,6 +79,11 @@ class V33RealisticTests(unittest.TestCase):
         self.assertEqual(receipt["two_critic_individual_results"][1]["format_validation"]["attempted_calls"],2)
         self.assertFalse(receipt["formal_skill_core_promoted"])
         self.assertNotIn("少年在清晨",str(receipt))
+        audited=auditor.audit(self.store)
+        self.assertEqual(audited["two_valid_grader_trials"],1)
+        self.assertEqual(audited["results"][0]["status"],
+                         "TWO_INDEPENDENT_MODELS_JSON_SCORED")
+        self.assertFalse(audited["official_skill_promoted"])
     def test_unrepairable_pair_never_invokes_critic(self):
         log=[]
         writer=Writer(log,[800,1400,800,1400])
