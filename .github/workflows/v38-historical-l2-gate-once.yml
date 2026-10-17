@@ -1,4 +1,4 @@
-name: V38 genuine L2 postwriting learning-transfer missing-evidence R2 audit
+name: V38 actual L2 original review missing-evidence negative control
 on:
   push:
     branches: [main]
@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -e '.[r2]'
-      - name: Regression: existing final review gate now checks every learned source-linked angle
+      - name: "Regression - existing final review gate checks each learned source-linked angle"
         run: |
           set -euo pipefail
           python -m unittest discover -s tests -p test_v38_lesson_transfer_bridge.py -q
