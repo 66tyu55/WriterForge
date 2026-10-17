@@ -40,3 +40,12 @@ def commit_stage(vault,index:int,payload:dict):
     if check is None or check[1]!=record_sha(raw):
         raise ValueError("SELF_MEMORY_VERIFICATION_FAILED")
     return check
+
+def claim_stage(vault,index:int):
+    key=stage_path(index).replace(".json",".started.json")
+    if vault._head(key) is not None:
+        raise ValueError("SELF_STAGE_ALREADY_ATTEMPTED_NO_PAID_RETRY")
+    raw=record_bytes({"index":index,"single_attempt":True})
+    vault._put_small_immutable(key,raw,record_sha(raw))
+    if vault._get_small(key,1024)!=raw:
+        raise ValueError("SELF_STAGE_CLAIM_NOT_RECOVERABLE")
