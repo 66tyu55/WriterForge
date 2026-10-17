@@ -68,6 +68,10 @@ class FakeWriter:
         self.calls=[]
     def ask(self,system,user,*,num_predict):
         self.calls.append((system,user,num_predict))
+        instructions=json.loads(user)
+        if instructions["internal_experimental_rules"]:
+            return {"scene":PROSE.replace(
+                "他先看见一处不对劲的灯光","他先瞥见一处不对劲的灯光")}
         return {"scene":PROSE}
 
 class PilotTests(unittest.TestCase):
@@ -99,6 +103,19 @@ class PilotTests(unittest.TestCase):
         second=run(vault,models)
         self.assertEqual(before,(len(w.calls),len(p.calls),vault.writes))
         self.assertEqual(result,second)
+
+    def test_identical_self_transfer_is_not_given_fake_improvement(self):
+        class IdenticalWriter(FakeWriter):
+            def ask(self,system,user,*,num_predict):
+                self.calls.append((system,user,num_predict))
+                return {"scene":PROSE}
+        vault=FakeVault();p=FakePlanner();w=IdenticalWriter()
+        r=run(vault,lambda budget:(p,w))
+        self.assertTrue(r["completed_all_stages"])
+        probe=get_stage(vault,4)[0]
+        self.assertEqual(probe["phase"],"IDENTICAL_TRANSFER_DRAFTS_NO_GAIN")
+        self.assertTrue(probe["identical_drafts_not_scorable_for_improvement"])
+        self.assertFalse(probe["literary_improvement_verified"])
 
     def test_self_rejection_means_no_artificial_evolution(self):
         vault=FakeVault();p=FakePlanner(reject=True);w=FakeWriter()
