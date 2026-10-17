@@ -155,6 +155,27 @@ class ExperienceExecutor:
         _need(causal_plan is not None,
               "EXPERIENCE_PREWRITE_KNOWLEDGE_AND_CAUSAL_TRACE_REQUIRED")
         valid = validate_causal_plan(causal_plan)
+        # Consult the EXISTING durable story event state before allowing a
+        # previously resolved clue to be presented as a fresh setup. This
+        # catches role-ID contradictions, NOT subjective literary meaning.
+        events = self.conn.execute(
+            "SELECT event_id,payload_json FROM causal_events "
+            "WHERE project_id=? ORDER BY event_id LIMIT 129",
+            (self.project_id,),
+        ).fetchall()
+        _need(len(events) <= 128, "EXPERIENCE_STORY_EVENT_SCAN_BUDGET_EXCEEDED")
+        for event in events:
+            try:
+                payload = json.loads(event["payload_json"])
+            except (TypeError, ValueError):
+                raise ExperiencePolicyError("EXPERIENCE_STORY_EVENT_RECORD_UNTRUSTED") from None
+            if not isinstance(payload, dict):
+                raise ExperiencePolicyError("EXPERIENCE_STORY_EVENT_RECORD_UNTRUSTED")
+            if (payload.get("clue_id") == valid["clue_id"]
+                and payload.get("narrative_role") == "payoff"
+                and payload.get("review_status") == "confirmed"):
+                raise ExperiencePolicyError(
+                    "EXPERIENCE_ALREADY_RESOLVED_CLUE_CANNOT_BE_NEW_SETUP")
         digest = _sha(valid)
         existing = self.conn.execute(
             "SELECT policy_sha,plan_sha,plan_json FROM wf_experience_prewrite "
