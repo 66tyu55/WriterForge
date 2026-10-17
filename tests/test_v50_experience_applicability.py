@@ -40,6 +40,8 @@ class SkillV50CoreRepair(unittest.TestCase):
   self.db.close();self.tmp.cleanup()
  def new(self,n,goal):
   name=f"v50-check-{n}"
+  if len(goal)<35:
+   goal=goal+"。请保持题目原有的叙事限制，不要复制过去作品中的人物和句子。"
   start(self.db,run_id=name,source=str(self.src),goal=goal,model_id="TEST_HOST_NOT_REAL")
   return name
  def finish_learning(self,name):
