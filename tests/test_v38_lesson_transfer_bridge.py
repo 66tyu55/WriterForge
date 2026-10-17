@@ -73,6 +73,12 @@ class StrictTransferBridgeTests(unittest.TestCase):
         incomplete=deepcopy(CHECK)
         incomplete["checks"]=[x for x in incomplete["checks"]
                               if x["angle"]!="foreshadowing"]
+        incomplete["checks"].append({
+            "angle":"knowledge","actual_draft_quote":FILL[:25],
+            "followed_prewrite_plan":False,
+            "observed_gap":"在人物知识限制上没有体现原先设计的必要认知边界。",
+            "possible_next_revision":"需要进一步明确人物在这段情节里能够观察到的真实事实。",
+        })
         with self.assertRaisesRegex(
                 LearnedTransferGateError,"LEARNED_LESSON_PREWRITE_NOT_REVIEWED"):
             self.do(response=incomplete)
