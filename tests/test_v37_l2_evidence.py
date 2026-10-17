@@ -21,7 +21,7 @@ class V37EvidenceTests(unittest.TestCase):
         # To keep the fixture immutable after initialization, verify only
         # host-made exact segment boundaries and anti-leakage here. Genuine
         # L2 source/path identity is validated by real private-R2 workflow.
-        text="少年的脚步先停下。"*35+"他后来回头检查石桥。"*35
+        text="少年的脚步先停下。"*10+"他后来回头检查石桥。"*10
         segments=v37._clip_sentences(text,"D")
         self.assertTrue(segments)
         self.assertEqual(segments[0]["offset"],0)
