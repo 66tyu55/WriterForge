@@ -1,0 +1,37 @@
+name: V28 ch17 equal-length final A-B protocol one-shot
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v28-ch17-equal-length-one-shot.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wf-v28-random3-final-length-v9
+  cancel-in-progress: false
+jobs:
+  chapter17-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      WF_SAMPLE_SLOT: '2'
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Enforce legacy compatibility, same-arm target, and no repeat of successful chapters
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v28_equal_length_target.py -q
+          python -m unittest discover -s tests -p test_v28_random3_v9_length_recovery.py -q
+          python -m unittest discover -s tests -p test_v28_retry_resilient_profile.py -q
+      - name: One chapter17 A-B only, 15 percent gate unchanged
+        run: python -m scripts.run_wudong_random3_v9_length_ch17
