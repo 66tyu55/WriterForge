@@ -49,6 +49,7 @@ class GroundedDraftPacket:
     encyclopedia_refs: tuple[dict,...] = ()
     prose_reference_text: str | None = None
     prose_reference_sha256: str | None = None
+    strategy_receipt: dict | None = None
 
     def manifest(self) -> dict:
         return {
@@ -73,6 +74,7 @@ class GroundedDraftPacket:
             "study_level": "deterministic_structural_unverified",
             "review_status": "pending_external_review",
             "accepted": False,
+            "experience_execution": self.strategy_receipt,
             "unreviewed_source_excerpts_shown_to_model": False,
             "craft_labels_shown_to_model": False,
             "prose_style": {
@@ -105,10 +107,26 @@ class VerifiedWritingFlow(WritingFlow):
         language: str = "简体中文", genre: str = "古代白话",
         reference_category: str | None = None,
         reference_name: str | None = None,
+        experience_experiment: bool = False,
+        causal_plan: dict | None = None,
     ) -> GroundedDraftPacket:
         self.runtime.require(Mode.WRITE)
         if not goal.strip() or len(goal) > 2000 or not scene_id or len(scene_id)>128:
             raise WritingExecutionError("scene_id and bounded specific writing goal required")
+        if causal_plan is not None and not experience_experiment:
+            raise WritingExecutionError("causal plan needs explicit experimental experience execution")
+        decision = None
+        if experience_experiment:
+            # Actual production entry point: a learned candidate can BLOCK a
+            # draft until the prewriting actor/knowledge/causal plan is frozen.
+            # No experimental candidate is globally activated and the
+            # previously passing default behavior stays unchanged.
+            from .experience_executor import ExperienceExecutor, ExperiencePolicyError
+            try:
+                decision = ExperienceExecutor(self.db.conn, self.project_id).before_write(
+                    scene_id=scene_id, concerns=concerns, causal_plan=causal_plan)
+            except ExperiencePolicyError as exc:
+                raise WritingExecutionError(str(exc)) from None
         # CraftEngine accepts fine-grained scene signals, but Companion
         # accepts author preference categories only. Never send Craft signal
         # identifiers into Companion's strict validation API.
@@ -195,6 +213,7 @@ class VerifiedWritingFlow(WritingFlow):
             tuple(facet_refs),
             style.text if style else None,
             style.sha256 if style else None,
+            decision.audit() if decision else None,
         )
 
 
@@ -251,10 +270,32 @@ def _is_loopback_ip(host: str) -> bool:
 
 
 def save_candidate(packet: GroundedDraftPacket, body: str, model: str,
-                   output_dir: str | Path) -> dict:
+                   output_dir: str | Path, *,
+                   postwrite_evidence: dict | None = None) -> dict:
     """Never auto-commit or label the model text as author-written."""
     if not body.strip() or len(body)>MAX_GENERATED_CHARS:
         raise WritingExecutionError("invalid candidate prose")
+    policy = (packet.strategy_receipt or {})
+    required = policy.get("postwrite_evidence_required", [])
+    verified = {}
+    if required:
+        if not isinstance(postwrite_evidence, dict) or set(postwrite_evidence) != set(required):
+            raise WritingExecutionError("EXPERIENCE_POSTWRITE_FOUR_CAUSAL_ANCHORS_REQUIRED")
+        last_end = -1
+        for key in required:
+            quote = postwrite_evidence[key]
+            if not isinstance(quote, str) or not 8 <= len(quote) <= 100:
+                raise WritingExecutionError("EXPERIENCE_POSTWRITE_QUOTE_BOUNDS_INVALID")
+            if body.count(quote) != 1:
+                raise WritingExecutionError("EXPERIENCE_POSTWRITE_QUOTE_NOT_UNIQUE_IN_DRAFT")
+            pos = body.find(quote)
+            if pos <= last_end:
+                raise WritingExecutionError("EXPERIENCE_POSTWRITE_CAUSAL_ORDER_INVALID")
+            last_end = pos + len(quote)
+            verified[key] = {"quote_sha256": sha256(quote.encode("utf-8")).hexdigest(),
+                             "offset": pos}
+    elif postwrite_evidence is not None:
+        raise WritingExecutionError("EXPERIENCE_POSTWRITE_UNREQUESTED")
     out = Path(output_dir)
     out.mkdir(parents=True,exist_ok=True)
     slug = re.sub(r"[^a-zA-Z0-9_-]+","_",packet.scene_id)[:72] or "scene"
@@ -264,6 +305,8 @@ def save_candidate(packet: GroundedDraftPacket, body: str, model: str,
     path = folder / "candidate.md"
     path.write_text(body,encoding="utf-8")
     manifest = packet.manifest()
+    manifest["experience_postwrite_anchors"] = verified
+    manifest["experience_semantic_correctness_verified"] = False
     manifest.update(
         model=model,
         candidate_file="candidate.md",
