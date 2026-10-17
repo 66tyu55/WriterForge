@@ -12,14 +12,15 @@
   },
   "native_parser": {
     "source_path": "reader_packet.txt",
-    "slot_chapter_number": 1,
-    "slot_is_not_original_chapter_number": true,
+    "slot_chapter_number": 7,
+    "slot_is_not_original_chapter_number": false,
     "requires_hundred": false,
     "expected_count": 1,
-    "wrapped_lines": true
+    "wrapped_lines": true,
+    "sequence_start": 7
   },
   "integrity": {
-    "reader_packet_git_blob_sha1": "d91d51fc71dcd5b3d1d87780f0a3d98903fe75a2",
+    "reader_packet_git_blob_sha1": "52253bab138935018397b859d6e24cbed1ea1efe",
     "characters": 6342
   },
   "isolation": {
