@@ -132,7 +132,7 @@ def analyze(vault, *, persist:bool=True)->dict:
              "RECOVERED_REVIEW_REFERENCES_DIFFERENT_MANUSCRIPT")
     _require(after.get("source_manifest_sha256")==manifest_sha(),
              "RECOVERED_REVIEW_QUESTION_MANIFEST_CHANGED")
-    _require(after.get("original_frozen_prewrite_sha256")==sha(canonical(stages[3])),
+    _require(after.get("original_frozen_prewrite_sha256")==EXPECTED_ORIGINAL_SHA[3],
              "RECOVERED_REVIEW_PREWRITE_SNAPSHOT_CHANGED")
     _require(after.get("repair_did_not_change_story_or_preplan") is True,
              "RECOVERED_REVIEW_CLAIMS_TO_HAVE_REWRITTEN_HISTORY")
@@ -142,7 +142,7 @@ def analyze(vault, *, persist:bool=True)->dict:
              "EXAMINER_REVIEW_POINTER_CHANGED")
     _require(examiner.get("frozen_original_essay_sha256")==sha(final),
              "EXAMINER_REFERENCES_DIFFERENT_MANUSCRIPT")
-    _require(examiner.get("frozen_prewrite_sha256")==sha(canonical(stages[3])),
+    _require(examiner.get("frozen_prewrite_sha256")==EXPECTED_ORIGINAL_SHA[3],
              "EXAMINER_REFERENCES_DIFFERENT_PREWRITE")
     _require(examiner.get("real_source_and_draft_quotes_machine_verified") is True,
              "EXAMINER_QUOTE_CHECK_MISSING")
