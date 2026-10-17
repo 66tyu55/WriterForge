@@ -1,0 +1,31 @@
+name: V37 L2 frozen source to two draft evidence no-model audit once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v37-l2-frozen-evidence-once.yml'
+permissions:
+  contents: read
+jobs:
+  verify-source-and-draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Verify strict historical trace, source quotes, bounded anchor offsets
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v37_l2_evidence.py -q
+          python -m unittest discover -s tests -p test_v36_real_trace_debugger.py -q
+      - name: Inspect immutable genuine L2/source/plan/first-and-revised manuscripts (metadata only in logs)
+        run: python -m scripts.prepare_v37_l2_frozen_evidence
