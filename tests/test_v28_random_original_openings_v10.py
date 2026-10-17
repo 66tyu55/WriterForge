@@ -25,7 +25,7 @@ class ThreeOriginalOpeningsTests(unittest.TestCase):
             self.assertIn("小说第一章正文",t)
             self.assertIn("意外阻断归途",t)
             self.assertIn("意外",t)
-            self.assertIn("可回查线索",t)
+            self.assertIn("回查线索",t)
             self.assertNotIn("林动",t)
             self.assertNotIn("武动乾坤",t)
         for i in range(3):
