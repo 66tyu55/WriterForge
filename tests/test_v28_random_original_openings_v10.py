@@ -23,9 +23,9 @@ class ThreeOriginalOpeningsTests(unittest.TestCase):
         for t in tasks:
             self.assertTrue(60<=len(t)<=800)
             self.assertIn("小说第一章正文",t)
-            self.assertIn("无法",t if "无法" in t else "无法"+"在规定时间返回")
+            self.assertIn("意外阻断归途",t)
             self.assertIn("意外",t)
-            self.assertIn("首章",t)
+            self.assertIn("可回查线索",t)
             self.assertNotIn("林动",t)
             self.assertNotIn("武动乾坤",t)
         for i in range(3):
