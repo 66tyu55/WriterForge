@@ -1,0 +1,36 @@
+name: V38 one limited WF L2 selfcheck on frozen Xi You Ji manuscript
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v38-append-only-frozen-l2-selfcheck-once.yml'
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-v38-actual-l2-one-appendonly-selfcheck-no-reruns
+  cancel-in-progress: false
+jobs:
+  author-self-reconciles-one-frozen-technique:
+    runs-on: ubuntu-latest
+    timeout-minutes: 21
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Validate same unchanged manuscript, no claimed application without actual evidence
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v38_append_only_l2_selfcheck.py -q
+          python -m unittest discover -s tests -p test_v38_lesson_transfer_bridge.py -q
+          python -m unittest discover -s tests -p test_v37_foreshadowing_evidence_gate.py -q
+      - name: WF appends only a grounded foreshadowing self-review on original frozen prose
+        run: python -m scripts.append_v38_frozen_l2_selfcheck
