@@ -55,8 +55,11 @@ def exam_root(slot:int)->str:
     return f"{PREFIX}/{SESSION}/{slot}-{selected()[slot]}/"+_sha_bytes(_canonical(config))
 
 def frozen_memory(vault)->tuple[dict,...]:
-    one=get_stage(vault,1)
-    two=get_stage(vault,2)
+    try:
+        one=get_stage(vault,1)
+        two=get_stage(vault,2)
+    except (ValueError,TypeError,KeyError,UnicodeDecodeError):
+        raise ExamError("FROZEN_SELF_TRAINING_R2_HISTORY_NOT_VERIFIED") from None
     if one is None or two is None or one[1]!=STAGE1_SHA or two[1]!=STAGE2_SHA:
         raise ExamError("FROZEN_SELF_TRAINING_R2_HISTORY_NOT_VERIFIED")
     a=one[0];b=two[0]
