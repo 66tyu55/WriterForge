@@ -94,6 +94,15 @@ class PrivateDraftEvidenceTests(unittest.TestCase):
         self.assertNotIn("陌生的山雨",str(out))
         self.assertEqual(len(store.objects),1)
         self.assertFalse(out["core_automatically_promoted"])
+        from writerforge.reverse_ab_candidates import (
+            derive_unverified_candidates,_canonical,CandidateEvidenceError,
+        )
+        raw_digest=sha256(_canonical(out)).hexdigest()
+        candidate=derive_unverified_candidates(out,receipt_sha256=raw_digest)
+        self.assertTrue(candidate["future_drafts_reviewable_with_separate_key"])
+        self.assertEqual(candidate["encrypted_draft_receipt_sha256"],
+                         out["private_encrypted_manuscript_evidence"]["receipt_sha256"])
+        self.assertFalse(candidate["promotable"])
         p2=FakeModel("planner",PLANNER,"p")
         w2=FakeModel("writer",{},"w")
         c2=FakeModel("critic",CRITIC,"c")
