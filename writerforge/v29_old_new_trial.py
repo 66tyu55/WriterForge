@@ -26,6 +26,20 @@ COMMON_TARGET=1080
 LENGTH_GATE=.15
 LIMIT=4500
 
+class LengthUnscorable(ABTrialError):
+    """No literary score; bounded numeric diagnostics only, never raw prose."""
+    def __init__(self,first_lengths:dict,final_lengths:dict):
+        super().__init__("OLD_NEW_AB_LENGTH_MISMATCH_UNSCORABLE")
+        self.safe_lengths={
+            "initial":{name:int(first_lengths[name]) for name in ("legacy","semantic")},
+            "after_symmetric_revision":{
+                name:int(final_lengths[name]) for name in ("legacy","semantic")},
+            "relative_final_difference":round(
+                abs(final_lengths["legacy"]-final_lengths["semantic"])
+                /max(final_lengths.values()),5),
+            "no_literary_score":True,
+        }
+
 class SemanticTrialAbstained(ABTrialError):
     def __init__(self,reason:str,*,candidate:dict):
         super().__init__(reason)
@@ -109,7 +123,7 @@ def compare_old_vs_semantic(*,planner,writer,critic,first:str,second:str,
         outputs=edited
     chars={arm:len(text) for arm,text in outputs.items()}
     if abs(chars["legacy"]-chars["semantic"])/max(chars.values())>LENGTH_GATE:
-        raise ABTrialError("OLD_NEW_AB_LENGTH_MISMATCH_UNSCORABLE")
+        raise LengthUnscorable(before,chars)
     # Deterministic blinding by draft SHA, before reviewer is called.
     ordered=sorted(outputs,key=lambda arm:raw_hash(outputs[arm]))
     anon={chr(65+i):outputs[arm] for i,arm in enumerate(ordered)}
