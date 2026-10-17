@@ -121,7 +121,9 @@ def validate_draft(text:str, source_windows:dict)->dict:
             "within_absolute_length_bounds":950<=len(text)<=1300}
 
 def validate_after(response:dict,draft:str,plan:dict,*,
-                   required_lesson_angles:set[str]|None=None)->dict:
+                   required_lesson_angles:set[str]|None=None,
+                   learned_lessons:dict|None=None,
+                   lesson_transfer_claims:list[dict]|None=None)->dict:
     if not isinstance(response,dict) or set(response)!={"checks","biggest_mistake"}:
         raise TraceContractError("RETROSPECT_SCHEMA_INVALID")
     records=response["checks"]
@@ -157,7 +159,19 @@ def validate_after(response:dict,draft:str,plan:dict,*,
             raise TraceContractError("LEARNED_LESSON_PREWRITE_NOT_REVIEWED")
     if not _note(response["biggest_mistake"],14,280):
         raise TraceContractError("RETROSPECT_FAILURE_NOT_NAMED")
-    return {"checks":outputs,
+    result={"checks":outputs,
             "biggest_mistake":response["biggest_mistake"],
             "not_allowed_to_rewrite_frozen_preplan":True,
             "self_assessment_not_independent":True}
+    # Opt-in only: old V35 remains immutable and its missing L2 check cannot
+    # retroactively pass. Real future transfer audits must give both original
+    # learned lessons and host-verifiable setup/payoff claims.
+    if learned_lessons is not None or lesson_transfer_claims is not None:
+        if learned_lessons is None or lesson_transfer_claims is None:
+            raise TraceContractError("LEARNED_TRANSFER_INPUTS_INCOMPLETE")
+        from .v38_lesson_transfer_bridge import verify_lesson_transfer_claims
+        result["learned_transfer_evidence"]=verify_lesson_transfer_claims(
+            story=draft,plan=plan,lessons=learned_lessons,
+            postwrite_angles={x["angle"] for x in outputs},
+            claims=lesson_transfer_claims)
+    return result
