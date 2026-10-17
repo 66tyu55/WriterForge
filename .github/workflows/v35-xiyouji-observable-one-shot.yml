@@ -1,0 +1,38 @@
+name: V35 Xi You Ji observe reading prewriting decisions and complete writing once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v35-xiyouji-observable-one-shot.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wf-v35-xiyouji-trace-one-shot
+  cancel-in-progress: false
+jobs:
+  source-first-observable-literature:
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: First validate exact source quotes and immutable thought-before-draft separation
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v35_xiyouji_observable.py -q
+          python -m unittest discover -s tests -p test_v33_exam_contracts.py -q
+      - name: Genuine full 100-chapter provenance then limited 2-chapter reading prewrite original draft and aftercheck
+        run: python -m scripts.run_v35_xiyouji_decision_trace
+      - name: Read saved stages (metadata only), including failures
+        if: ${{ always() }}
+        run: python -m scripts.audit_v35_xiyouji_decision_trace
