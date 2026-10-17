@@ -1,0 +1,21 @@
+name: MiniMax long-form JSON structure one-call privacy-safe diagnosis
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v33-minimax-long-shape-probe-once.yml'
+permissions:
+  contents: read
+jobs:
+  long-json-structure-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - run: python -m scripts.probe_v33_minimax_long_shape
