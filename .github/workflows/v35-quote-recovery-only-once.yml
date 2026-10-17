@@ -1,0 +1,35 @@
+name: V35 append-only frozen manuscript explicit afterthought quote salvage once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v35-quote-recovery-only-once.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wf-v35-original-stage5-no-replay-one-afterthought-recovery
+  cancel-in-progress: false
+jobs:
+  only-frozen-after-draft-rationale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Verify original/source/prewrite/first-draft quote link rules, no guessing
+        run: python -m unittest discover -s tests -p test_v35_xiyouji_observable.py -q
+      - name: Only original WF postwriting observations from immutable draft and candidate plan
+        run: python -m scripts.recover_v35_afterdraft_only
+      - name: Verify original six R2 stages untouched and readable
+        if: ${{ always() }}
+        run: python -m scripts.audit_v35_xiyouji_decision_trace
