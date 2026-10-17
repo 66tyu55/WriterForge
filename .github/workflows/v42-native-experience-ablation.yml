@@ -5,7 +5,9 @@ on:
     paths:
       - '.github/workflows/v42-native-experience-ablation.yml'
       - 'writerforge/native_experience_engine.py'
+      - 'writerforge/owned_literary_brain.py'
       - 'tests/test_v42_native_experience.py'
+      - 'tests/test_v42_owned_literary_brain_boundary.py'
       - 'scripts/run_v42_native_experience_ablation.py'
 permissions:
   contents: read
@@ -21,7 +23,7 @@ jobs:
       - name: Install WF itself, no extra models
         run: python -m pip install -e .
       - name: True original source, no human response; negative gates and ablation
-        run: python -m unittest discover -s tests -p test_v42_native_experience.py -q
+        run: python -m unittest discover -s tests -p 'test_v42_*.py' -q
       - name: Run self-contained WF on three fresh tasks and export native-authored prose
         run: python -m scripts.run_v42_native_experience_ablation
       - name: Archive generated output and provenance for independent reading
