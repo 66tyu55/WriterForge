@@ -524,3 +524,19 @@
 - **尚未完成**：不同模型/人类的独立原文-情境意义审核（目前只验证源span存在和解释字段完整）；实际带独立key的真实稿加密留存和真人逐句盲评；将一条“已确认古杉林为什么失败”的机制改进真正写入正式创作调度；3→6→9独立场景、50完整作品文学毕业条件。不能据此声称WF文学能力得到真提升。
 - **严格锁门**：第一课程窗口 `NOT_PASSED`，第二课程窗口 `LOCKED`；不得伪造30基准原始得分或拿模型90分突破真人验证闸门。未经新的实验指示不要重新付费刷题。
 
+
+
+## 34. 【最新 2026-10-17】新版WF与旧版WF：三题真盲测验证完成，但尚不能宣称文学能力已经进步
+
+用户明确委托自主制定改进方案，并要求实测“WF到底进步了吗”。**已经实际执行真实模型对照，得出不取悦人的混合结果**。详见 [V29_REAL_OLD_NEW_SEMANTIC_HOLDOUT_FINAL_20261017.md](V29_REAL_OLD_NEW_SEMANTIC_HOLDOUT_FINAL_20261017.md)；提前预注册协议见 [V29_REAL_OLD_NEW_HOLDOUT_PRECOMMIT_20261017.md](V29_REAL_OLD_NEW_HOLDOUT_PRECOMMIT_20261017.md)。
+
+- 一次性 SHA 按固定种子从5个**未参与之前改进的原创题目**抽中 `bridge_debt` 石桥旧债、`desert_well` 沙漠旧井、`lantern_town` 春汛灯牌。保持完全相同的钉住私有R2原著第3章第1连续窗口，Writer GLM-5.3/Planner和Critic Flash，首稿来源隔离，匿名 A/B，最多7调用/50k预留输出token每题；旧WF使用老机制选择器，新WF使用已实现的source_span精确原文引用+认知/因果/新任务适配/误用风险证据门槛。
+- [第一次真实旧vs新 #39006533808](https://github.com/66tyu55/WriterForge/actions/runs/39006533808) 仅1个有效文学A/B：石桥旧债旧85.0 vs 新92.8、**+7.8**，新旧所选技巧不同（旧 GOAL+COST、新 GOAL+WITHHOLD），五维 +7/+7/+8/+8/+9；不可变R2回执 `8368176072491c04fb17dba6fa80d3590c9106a9fd3c43c7552e629da467d651`。另外沙漠和春汛两题初稿加各一次公平独立修订仍有长度差>15%，按规定**没有文学评分**，失败回执SHA `fac3bb0a6c64d7a80ff00543eb916edd45f909550891e1e69c31abe582bd73fc` / `6ec824bdbd3c368424ec8efa7baad5bbc1eb1427f0cc6d05da24df08f8b562c2`，不能把未评分当成低分。
+- 修复比较协议而**没有修改文学分数、放宽15%闸门或裁剪稿**：`writerforge/v29_old_new_trial.py` 改为有界 `LengthUnscorable`（只记录双方首稿/修订后字符数与差比）和对称编辑器给每稿自身实际字符数、距共同1080目标的字数差，不见对方草稿。保护性测试通过。
+- [只重试失败slot 1/2 #39007227522](https://github.com/66tyu55/WriterForge/actions/runs/39007227522) 完整 success，slot0不重复写；R2新独立前缀、两题仍同题同模型匿名盲评，最终 **沙漠旧井旧87.2 vs 新82.2 = -5.0（五维-4/-8/-5/-4/-4，旧GOAL+WITHHOLD、新GOAL+COST）**，SHA `827c6ccf7dbe5b739f8dff02599b69758cb6d5ecfef9362edd094af550c0bb9f`；**春汛灯牌旧82.8 vs 新89.0 = +6.2（五维+4/+8/+6/+7/+6），但新旧都选GOAL+WITHHOLD**，说明这个正分差不能归因机制选择改善，SHA `3620cf259aa2a458c36367371f9209f6270cf3132cc98fa0cfaec2f134778864`。
+- **三题均真正有原始模型五维评分**，三题新版减旧版+7.8/-5.0/+6.2，**均值+3.0**。此3题slot0与技术恢复的slot1/2编辑提示协议有区别，真实聚合 `49ae267ebbc15be5f0350015ad610f994be277339471c4e72f27792d7f37683e` 标记 `mixed_length_protocol_between_slot0_and_recovery_slots=true`、`causal_improvement_proven=false`。Planner/Critic都是同一个Flash模型且缺真正人类全文评审，不能以+3.0声称WF稳定文学能力进步。此次两次实际模型运行调用：17+10=**27**，失败模型消耗也计数。
+- 真实零付费只读模型短评 [#39007323924](https://github.com/66tyu55/WriterForge/actions/runs/39007323924) 说明：石桥新版更用早先的衣物/腕布细节自然揭示旧债；沙漠新版对行动代价描写并未弥补结尾蹄印/青苔线索与前文的脱节；春汛五维相对较好但机制完全一样，无法归因。均为模型点评假设，不是独立人审。
+- 新增 `writerforge/v29_semantic_regression_candidates.py` 将每题按任务SHA/来源SHA/选择技巧/实际分差5维/真实R2回执分隔为 `POSITIVE_CHANGED_MECHANISMS_UNVERIFIED`、`TASK_SCOPED_ALL_FIVE_REGRESSION_CANDIDATE`、`POSITIVE_BUT_SAME_MECHANISMS_NOT_CAUSAL`。不能据一正全局升级机制、也不因一负删旧机制。
+- [私有R2真实零模型候选回填 #39007504129](https://github.com/66tyu55/WriterForge/actions/runs/39007504129) success，从已保存的真三题SHA快照fresh GET后新增不可变候选SHA **`bcf5be72abe50d1076653d7211f77df5e941fb3e8213466cdef45c0d0d440f49`**。历史正例、负例、原著和失败均不覆盖；额外模型调用0。
+- **核心结论：尚未证明WF已稳定进步**。这次比较的是“旧Planner vs 新语义Planner即席挑选四项宿主预置技巧”，并不是从中国文学原著中学出、独立审核、以学习库保存后在创作阶段闭卷迁移的真正完整文学技能。当前下一步须分离学习/创作阶段、独立语义证据审核与严格跨题回归，而非加长提示词或无止境刷同一章。
+- 尚未提升正式Skill、无模型权重更新、真实加密稿留存另需独立Secret配置。**第一课程窗口NOT_PASSED、第二课程窗口LOCKED、文学90%真人独立审评/3→6→9和50完整作品门闩未解。** 此轮已进行两次有硬上限授权付费试验；没有接续第三次收费训练，优先验收新证据。
