@@ -2,6 +2,7 @@
 from hashlib import sha256
 from types import SimpleNamespace
 import unittest,json
+from unittest.mock import patch
 from writerforge.r2_storage import _canonical
 from test_v28_three_random_openings_audit import FakeR2
 from scripts.audit_wf_three_random_openings_v10 import collect
@@ -20,7 +21,7 @@ class CandidateR2Test(unittest.TestCase):
         return store,h
     def test_private_immutable_candidates_no_critical_overwrites(self):
         store,h=self.prepare()
-        with unittest.mock.patch.object(importer,"AGGREGATE_SHA",h):
+        with patch.object(importer,"AGGREGATE_SHA",h):
             result=import_candidates(store)
             again=import_candidates(store)
         self.assertEqual(result,again)
@@ -36,7 +37,7 @@ class CandidateR2Test(unittest.TestCase):
         store,h=self.prepare()
         original=f"{PREFIX}/three-original-openings-audit/{h}.json"
         store.store[original]+=b"corruption"
-        with unittest.mock.patch.object(importer,"AGGREGATE_SHA",h):
+        with patch.object(importer,"AGGREGATE_SHA",h):
             with self.assertRaisesRegex(ValueError,"SHA_MISMATCH"):
                 import_candidates(store)
 
