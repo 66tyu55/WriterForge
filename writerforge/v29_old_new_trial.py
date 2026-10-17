@@ -111,9 +111,16 @@ def compare_old_vs_semantic(*,planner,writer,critic,first:str,second:str,
             result=writer.ask(
                 "你是原创小说编辑。只对你收到的这一份草稿进行一次独立修订，"
                 "保持主角动机、行动因果和真实悬念，不接触另一稿。"
-                "本次精确目标为约1080个含标点字符，不要提纲或说明。",
+                "本次精确目标为约1080个含标点字符。宿主已计算你的本稿真实"
+                "长度与目标差值，请依据数字缩写或补写，以完整新章节正文收尾。"
+                "不可简单截断结尾、堆积形容词或补无关事件，不要提纲或说明。",
                 json.dumps({"writing_instruction":packets[arm],
-                    "own_draft":outputs[arm],"target_chars":COMMON_TARGET},
+                    "own_draft":outputs[arm],
+                    "own_draft_characters_including_punctuation":len(outputs[arm]),
+                    "target_chars":COMMON_TARGET,
+                    "characters_to_change":COMMON_TARGET-len(outputs[arm]),
+                    "valid_target_range":[int(COMMON_TARGET*.94),int(COMMON_TARGET*1.06)],
+                    "other_arm_text_or_length_shared":False},
                     ensure_ascii=False),num_predict=BUDGET_PROFILE[1]).get("scene")
             if not isinstance(result,str) or not 220<=len(result)<=LIMIT:
                 raise ABTrialError("SYMMETRIC_MANUSCRIPT_REVISION_INVALID")
