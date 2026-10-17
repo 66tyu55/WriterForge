@@ -96,7 +96,8 @@ class CloudABTrial:
     def run(self, first:str, second:str, *, source_sha:str, window_hash:str,
             writing_task:str=BASE_TASK, role_tokens:tuple[int,int,int]=(6500,11000,8000),
             common_target_chars:int|None=None,
-            symmetric_length_revision:bool=False):
+            symmetric_length_revision:bool=False,
+            absolute_char_bounds:tuple[int,int]|None=None):
         if not 300<=len(first)<=5500 or not second:
             raise ABTrialError("source is not a real bounded first chapter window")
         if not isinstance(writing_task,str) or not 40<=len(writing_task)<=800:
@@ -123,6 +124,14 @@ class CloudABTrial:
                 +"，允许偏差不超过8%；只完成一篇完整场景，"
                 "不要增加附录、番外或第二幕。禁止凑字数重复叙述。"
             )
+        if absolute_char_bounds is not None:
+            if (not isinstance(absolute_char_bounds,tuple)
+                or len(absolute_char_bounds)!=2
+                or any(type(n) is not int for n in absolute_char_bounds)
+                or not 220<=absolute_char_bounds[0]<=absolute_char_bounds[1]<=MAX_AB_DRAFT
+                or common_target_chars is None
+                or not absolute_char_bounds[0]<=common_target_chars<=absolute_char_bounds[1]):
+                raise ABTrialError("INVALID_ABSOLUTE_CHAR_BOUNDS")
         if symmetric_length_revision:
             if (common_target_chars is None
                 or role_tokens[0]+4*role_tokens[1]+role_tokens[2]>50000):
@@ -194,9 +203,15 @@ class CloudABTrial:
         skill_chars=len(outputs["skill"])
         revision_calls=0
         initial_chars={"baseline":baseline_chars,"skill":skill_chars}
-        if (abs(baseline_chars-skill_chars)/max(baseline_chars,skill_chars))>0.15:
+        hard_length_failure=(absolute_char_bounds is not None and
+            any(not absolute_char_bounds[0]<=len(d)<=absolute_char_bounds[1]
+                for d in outputs.values()))
+        relative_length_failure=(
+            abs(baseline_chars-skill_chars)/max(baseline_chars,skill_chars)>0.15)
+        if relative_length_failure or hard_length_failure:
             if not symmetric_length_revision:
-                raise ABTrialError("AB_LENGTH_MISMATCH_NOT_COMPARABLE")
+                raise ABTrialError("AB_ABSOLUTE_LENGTH_VIOLATION" if hard_length_failure
+                                   else "AB_LENGTH_MISMATCH_NOT_COMPARABLE")
             # Two symmetric editing calls, never only one arm. Each editor
             # sees only its own (ephemeral) draft and the same neutral target.
             # The skill arm still receives only its HOST-defined operations.
@@ -210,6 +225,10 @@ class CloudABTrial:
                         "writing_instruction":instruction,
                         "own_draft_to_rewrite":outputs[kind],
                         "same_target_for_both_arms":common_target_chars,
+                        "own_actual_character_count":len(outputs[kind]),
+                        "characters_to_add_or_remove":common_target_chars-len(outputs[kind]),
+                        "absolute_char_bounds":list(absolute_char_bounds) if
+                            absolute_char_bounds is not None else None,
                         "aim_for_characters_including_punctuation":
                             [int(common_target_chars*0.96),int(common_target_chars*1.04)],
                         "rewrite_just_once":True,
@@ -226,6 +245,10 @@ class CloudABTrial:
             skill_chars=len(outputs["skill"])
             if abs(baseline_chars-skill_chars)/max(baseline_chars,skill_chars)>0.15:
                 raise ABTrialError("AB_LENGTH_MISMATCH_AFTER_SYMMETRIC_REVISION")
+            if (absolute_char_bounds is not None and
+                (not absolute_char_bounds[0]<=baseline_chars<=absolute_char_bounds[1]
+                 or not absolute_char_bounds[0]<=skill_chars<=absolute_char_bounds[1])):
+                raise ABTrialError("AB_ABSOLUTE_LENGTH_AFTER_SYMMETRIC_REVISION")
         # Blind ordering is fixed by *draft hashes* before seeing evaluation,
         # so the critic never receives which prompt included the learned rule.
         # The critic must not see the source novel. Quality is assessed
@@ -302,6 +325,12 @@ class CloudABTrial:
             "semantic_evidence_candidate":semantic_note,
             "role_output_token_profile":list(role_tokens),
             "neutral_common_target_chars":common_target_chars,
+            "absolute_char_bounds_opt_in":(
+                list(absolute_char_bounds) if absolute_char_bounds is not None else None),
+            "both_drafts_meet_absolute_bounds":(
+                True if absolute_char_bounds is None else
+                all(absolute_char_bounds[0]<=len(x)<=absolute_char_bounds[1]
+                    for x in outputs.values())),
             "manuscripts_cropped_or_padded":False,
             "symmetric_length_revision_opt_in":bool(symmetric_length_revision),
             "symmetric_revision_calls":revision_calls,
