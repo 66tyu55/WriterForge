@@ -64,6 +64,24 @@ class V33Contracts(unittest.TestCase):
         self.assertEqual(path,"UNAMBIGUOUS_ENVELOPE_result/review")
         direct,path=strict_grade(actual)
         self.assertEqual(path,"DIRECT_EXACT")
+    def test_real_minimax_nested_ab_uncertainty_is_relocated_without_changing_scores(self):
+        original=grade(83)
+        A=dict(original["A"])
+        A["B"]={**original["B"],"uncertainty":original["uncertainty"]}
+        malformed={"A":A}
+        restored,path=strict_grade(malformed)
+        self.assertEqual(restored,original)
+        self.assertEqual(path,"EXACT_NESTED_A_B_UNCERTAINTY_RELOCATION")
+        mirror={"B":{**original["B"],
+                      "A":{**original["A"],"uncertainty":original["uncertainty"]}}}
+        mirrored,path=strict_grade(mirror)
+        self.assertEqual(mirrored,original)
+        self.assertEqual(path,"EXACT_NESTED_B_A_UNCERTAINTY_RELOCATION")
+        # No uncertain guesswork: an unexpected extra key invalidates it.
+        malformed["A"]["notes"]="maybe"
+        with self.assertRaises(ExamContractError):
+            strict_grade(malformed)
+
     def test_missing_scores_or_bad_reason_never_invented(self):
         x=grade()
         x["A"]["language"].pop("score")
