@@ -163,3 +163,22 @@ Verbatim copying from the style example is blocked; no claim of literary quality
 without independently blind-read same-model baseline comparison.
 See [docs/PROSE_FIRST_STYLE_BASELINE.md](docs/PROSE_FIRST_STYLE_BASELINE.md).
 
+
+## Experimental V47 host-executed Skill entry (NOT stable literary mastery)
+
+When WriterForge is installed in a terminal-capable host, the host may invoke the REAL WF CLI below. Reading this GitHub file alone is NOT proof the Skill is installed.
+
+With ONE real, running loopback LLM, the autonomous WF controller drives source ingest, spoiler-blind reading, locked close reading, unreviewed learning, same-model baseline/learned drafting, and read-only self-review:
+
+    writerforge --db project.sqlite skill-host-run-local --run-id unique-trial-01 --source trusted-chapter.txt --chapter 1 --goal "A new, precise fictional task with characters and meaningful choices" --model-id local-loaded-model --api-base http://127.0.0.1:1234/v1
+
+The controller uses the already existing WF OriginalStudy, SceneLiteraryStudy and VerifiedWritingFlow. It does not call a second reader/writer model, accept examiner-provided literary answers, auto-promote learned methods, or auto-accept its prose. Without a REAL loopback model, fail closed rather than record completion.
+
+Alternatively, if the host itself provides the only language inference, the guarded start / next / submit / status CLI commands can be used with a pinned host model identity and exact per-stage prompt SHA. Every such response is labelled HOST-GENERATED, never independent WF cognition. Do not use this mode when the user explicitly forbids host-authored literary answers.
+
+    writerforge --db project.sqlite skill-host-start --run-id unique-trial-01 --source trusted-chapter.txt --chapter 1 --goal "A new, precise fictional task with characters and meaningful choices" --model-id host-model
+    writerforge --db project.sqlite skill-host-next --run-id unique-trial-01
+    writerforge --db project.sqlite skill-host-submit --run-id unique-trial-01 --model-id host-model --prompt-sha256 HASH_FROM_NEXT --reply-file actual-model-answer.txt
+    writerforge --db project.sqlite skill-host-status --run-id unique-trial-01
+
+Truthful completion rules: synthetic unit-test replies prove only the engineering contract. The learned method is an UNREVIEWED source-linked hypothesis and must never be assumed literary truth. The paired outputs are not a true independent blinded literary quality A/B; no Skill promotion or version bump is authorized until fresh real literary evidence is independently reviewed. Preserve all prior V35-V46 receipts.
