@@ -142,7 +142,12 @@ class PrivateDraftEvidenceVault:
             raise DraftEvidenceError("MISSING_EXPIRATION_TIME")
         if self.clock()>=receipt["expires_unix"]:
             raise DraftEvidenceError("DRAFT_EVIDENCE_EXPIRED")
-        blob=self.store._get_small(key,MAX_BLOB_BYTES)
+        try:
+            blob=self.store._get_small(key,MAX_BLOB_BYTES)
+        except Exception:
+            # A forged receipt must fail with a private-protocol error rather
+            # than exposing storage keys, bucket details or backend traceback.
+            raise DraftEvidenceError("ENCRYPTED_RECORD_NOT_ACCESSIBLE") from None
         if _sha(blob)!=receipt["receipt_sha256"]:
             raise DraftEvidenceError("ENCRYPTED_BLOB_DIGEST_MISMATCH")
         env=json.loads(blob)
