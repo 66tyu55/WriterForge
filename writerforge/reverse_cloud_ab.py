@@ -114,7 +114,12 @@ class CloudABTrial:
             # enough reservation for the other Writer and Critic stages.
             raise ABTrialError("RETRY_RESILIENT_STAGE_BUDGET_INSUFFICIENT")
         if common_target_chars is not None:
-            if type(common_target_chars) is not int or not 850<=common_target_chars<=1350:
+            # Legacy experiment remains bounded at 1350. Explicit hard
+            # character bounds let a caller request a longer (up to 4500)
+            # complete scene without silently clipping its output.
+            maximum=(MAX_AB_DRAFT if absolute_char_bounds is not None else 1350)
+            if (type(common_target_chars) is not int
+                or not 850<=common_target_chars<=maximum):
                 raise ABTrialError("INVALID_COMMON_AB_LENGTH_TARGET")
             # Identical neutral length constraint for both arms. Never truncate
             # a generated manuscript or manufacture comparable scores.
