@@ -488,3 +488,23 @@
 - 工程最新测试应检查当前 main 最后一次 `WriterForge Tests` 的最终结论。报告 [V28_RANDOM3_POST_DISCONNECT_FINAL_20261017.md](V28_RANDOM3_POST_DISCONNECT_FINAL_20261017.md) 已保存到仓库。**禁止继续盲目收费重跑第17章**，先独立验证新对称修订算法，再征得用户明确的新付费试验指令。
 - **保持第一窗口 NOT_PASSED、正式第二课程窗口 LOCKED、模型权重未更新、未通过真人独立文学评审/3→6→9/50部完整作品总评。** 用户显示的baseline 30不是模型真实评分或大师达标指标。
 
+
+
+## 32. 【最新事实交接】三个随机**原创第一章题目**的真实完整 A/B：两正一负（2026-10-17）
+
+**用户这次要求随机题目，而非再随机原著章节。** 以“安全聚落、夜间传说、少年意外滞留、诡异升级、逃跑、认知转折、悬念留白”为共同故事骨架，先独立创作六套自洽题目，`writerforge/random_original_openings.py` 以固定哈希seed预注册抽中 `copper_valley`（封矿峡谷）、`cedar_night`（古杉林）、`black_tide`（黑沙盐湾）。最终完整复盘见 [V28_THREE_RANDOM_ORIGINAL_FIRST_CHAPTERS_REAL_REVIEW_20261017.md](V28_THREE_RANDOM_ORIGINAL_FIRST_CHAPTERS_REAL_REVIEW_20261017.md)。
+
+- 来源**固定而不换章**：同一份私有原著 `wudongqiankun` 钉住原文 SHA `86a2fd859b424efe0500b4b36713ea8b05d551140650904ffc2ae02eb244ed28`，第3章第一个连续1132字符窗口 `96b6363d40be7b99d5635af1346da0c04e44556fc06e32d1aab04e419e4942fa`，只供 Planner 分析；Writer/Critic 不见原著情节。正式第1窗口仍 NOT_PASSED、第二课程窗口 LOCKED。
+- [**真实三题 A/B Actions #39003570775**](https://github.com/66tyu55/WriterForge/actions/runs/39003570775) 三个任务及最后 R2 审计全部 **completed/success**；真实固定模型 Planner/Critic `deepseek-v4-flash-0731`、Writer `glm-5.3`；每题4次API，共 **12**。服务端报告总输入14464/输出9132，共23596 tokens，未把预算保留额冒充真实消耗。三组稿长差都 ≤15%，对称修订各0次，故本轮没发生补写反复收费。
+- 三个不同题材原始模型评分：**封矿峡谷baseline69.0 vs WF86.6，+17.6**（稿长1422/1323）；**古杉林baseline86.2 vs WF78.8，-7.4**（1273/1142）；**黑沙盐湾baseline72.4 vs WF86.2，+13.8**（1499/1722）。三组均分基线75.87，WF83.87，真正均分差+8.0。用户30显示标尺分别30→47.6、30→22.6、30→43.8，不能将30伪称原始文学质量评分。
+- 五维差额封矿谷 perception+16/causality+15/information+22/continuity+21/language+14；古杉林 **-8/-7/-7/-8/-7五维全降**；黑沙盐湾 +14/+15/+14/+18/+8。三组全部选用了**完全相同的宿主预置** `GOAL_FILTERS_ATTENTION`+`WITHHOLD_CAUSE_SHOW_CLUE`。说明跨不同原创新情境模型给出正负不一致，暂不能归因为某一技巧必然有害或有效，更不能由2/3正例“冲掉”一负例。
+- 不可变私有 R2 真回执：
+  - 封矿 `a6f1ddb22abab1635ca277fff659b8c44259229ab0c1f0065d18470a23be39f2`
+  - 古杉 `8ef29fd600c5c6efbe295b95564408509e6d98a10bef4cf09f9bf9dfe12e45dc`
+  - 黑沙 `5a630f2313e4e18104575bd0874ac38ec532c12b92dff6b91aacd632f06642d7`
+  - **三组读回聚合新摘要 SHA `2b2aea9c6563b402d0795fc1812e09d5d066e56a4ab51be045ddeabaae00b55d`**。聚合只含数值、场景/文本SHA、角色与机制ID，旧实验与失败证据一律不覆盖。
+- 主要真正缺点：代码只检验Planner选中技巧ID存在及引用的来源段落编号有效，不核验原文语义确实支持该技巧在**新的首章题材**中适用；并且总在四种预置技巧中强制选1–2项，尚非从作品自动学习并校准的文学规律。这是根因候选，未经独立真人全文审稿不能认定为已证实因果。绝对篇幅900-1300汉字仍经常没有严格遵守，尽管相对15%比较全部合格。
+- 新增 `writerforge/reverse_story_context_evidence.py` + `tests/test_v28_story_context_evidence.py`：纯离线地验证真实R2后审计报告SHA，将三组正负模型观察**按 story_id / 创作任务SHA / 学习来源SHA**形成未审核候选；古杉林标记 `NEGATIVE_ALL_FIVE_NEEDS_INDEPENDENT_REVIEW`，另外两组 `MODEL_POSITIVE_UNVERIFIED`。**不改写生产Writer提示、不禁用整套技巧、不晋级、不覆盖历史快照。** 三组真实聚合R2已存储；此派生候选另存R2的操作**未执行**，不能声称额外云端归档已发生。回归见最新 WriterForge Tests。
+- **本次确实完成了3个原创题目的模型评分，但并未保存6篇完整练习稿供真人逐字盲评**。临时稿被删除，只留不可变文本SHA和短评，因此不能用本轮3个模型评分假称人类认可90%文学能力。未来若须真人细评，必须先制定私有、限量、哈希锁定的练习稿保留协议并再生新稿，不能恢复旧稿。
+- 后续策略：先验证“原著语义支持→创作任务适用→具体机制动作→读者可回查线索”的四层证据链；保留古杉林反例，跨新题目比较机制适用条件，避免仅追均分。**不自动重复付费训练；不放行第二课程窗口。**
+
