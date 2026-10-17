@@ -1,4 +1,4 @@
-name: V36 actual Xi You Ji prewrite versus draft read-only breakpoint audit
+name: V36 source-learned craft coverage read-only breakpoint audit
 on:
   push:
     branches: [main]
