@@ -1,4 +1,4 @@
-name: V28 GLM53 Discovery low reasoning source-free one-shot probe
+name: V28 GLM53 Discovery low reasoning source-free probe corrected
 on:
   push:
     branches: [main]
