@@ -1,0 +1,62 @@
+name: V29 holdout old WF versus semantic WF three real blind comparisons
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v29-old-vs-semantic-three-holdout-once.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wf-v29-old-vs-semantic-holdout-once
+  cancel-in-progress: false
+jobs:
+  blind-comparison:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        slot: [0,1,2]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      WF_HOLDOUT_SLOT: ${{ matrix.slot }}
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Enforce independent holdout, 7-call maximum and source-blind critic
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v29_old_new_holdout.py -q
+          python -m unittest discover -s tests -p test_v29_holdout_r2_audit.py -q
+          python -m unittest discover -s tests -p test_v29_semantic_evidence.py -q
+          python -m unittest discover -s tests -p test_v28_cloud_ab.py -q
+      - name: Real old WF vs new semantic WF blind creative A-B
+        run: python -m scripts.run_v29_old_new_holdout
+  audit-three:
+    needs: blind-comparison
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Zero-model private-R2 audit, preserve abstentions and failures as unscored
+        run: python -m scripts.audit_v29_old_new_holdout
