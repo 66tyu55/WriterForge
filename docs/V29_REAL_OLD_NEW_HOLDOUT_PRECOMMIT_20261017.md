@@ -29,3 +29,20 @@ V29新增不与上述六题重合的题目池，固定 `writerforge/v29_fresh_ho
 此文创建时工作流已提交且正在运行；不能预测新版得分。如果最后三题不足3个可评分样本，必须说明未满足真正的“3次对照”验收而保留部分结果；用户批准继续迭代，但不能以大量重试刷出正向结论。
 
 正式文学门闩仍为 `NOT_PASSED`、第二窗口 `LOCKED`；不自动提升新核心或修改GLM模型权重。
+
+
+## 第一次真实测试的核验结果（在补测之前保留）
+
+[第一次 3 任务 Actions #39006533808](https://github.com/66tyu55/WriterForge/actions/runs/39006533808) 完成、后审计 success，但只获得**1个有效文学双稿模型评分**：
+
+- `bridge_debt` 石桥旧债：旧WF **85.0**、新语义WF **92.8**、差 **+7.8**；五维新版减旧版分别 perception+7/causality+7/information+8/continuity+8/language+9。新旧机制**确实变化**：旧 `GOAL_FILTERS_ATTENTION+COST_VISIBLE_IN_ACTION`，新 `GOAL_FILTERS_ATTENTION+WITHHOLD_CAUSE_SHOW_CLUE`。稿长1238/1318字符，5次模型请求；私有R2完成SHA `8368176072491c04fb17dba6fa80d3590c9106a9fd3c43c7552e629da467d651`。这是一个鼓舞性的单例，但非统计性因果证明。
+- `desert_well` 沙漠旧井：生成并做过双边各一次修订，但最终稿长仍>15%，不能进入Critic阶段，按规则记 **UNSCORABLE**，非文学负分；失败R2 SHA `fac3bb0a6c64d7a80ff00543eb916edd45f909550891e1e69c31abe582bd73fc`，6次模型调用。
+- `lantern_town` 春汛灯牌：同样完成两次Writer修订，但稿长仍不合格，非文学负分；失败R2 SHA `6ec824bdbd3c368424ec8efa7baad5bbc1eb1427f0cc6d05da24df08f8b562c2`，6次模型调用。
+
+原一次性R2审计返回 `valid_graded_scenarios=1`、`overall_status=INSUFFICIENT_OR_MIXED_MODEL_EVIDENCE`，摘要SHA `4747ac2ef06513f497d65dfdb0eb64b30acbc325a3a11bf4cbcf032eba9a0f13`，没把缺成绩的2题凑成0或90。**实际总17次模型调用**，仅首题有文学评分。严格不能说WF整体已提高。
+
+### 技术原因与版本化有限补测
+
+对双边等长策略进行了非文学分数导向的工程修复：若再出现稿长问题，内部`LengthUnscorable`只保存各自修订前后长度和最终相对差，绝不写文学稿全文或虚假评语。对称编辑器现在分别告知**自己那稿**的字符数、与共同1080字符目标的增减差和相同有效区间，不会看到另一稿长度和文本。默认 old-vs-new 对照源、语义证据门槛、两稿批评及之前真实R2记录均未修改。
+
+一次性 [仅失败两slot的有限补测 #39007227522](https://github.com/66tyu55/WriterForge/actions/runs/39007227522) 新增独立R2协议 `v29-sourceblind-old-vs-semantic-two-arm-length-feedback-recovery`，只对原未评分的 slot1/2，绝不重复 slot0。两组之间仍公平，**但 slot0与slot1/2的篇幅修订协议可能不同**，后审计会明确标明不能当作三组完全同协议的严格因果实验。补测不得覆盖首轮任何结果，最终以真实R2 fresh GET为准。
