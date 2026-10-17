@@ -196,6 +196,44 @@ class ExperienceActualWritingTests(unittest.TestCase):
         self.assertEqual(self.db.conn.execute(
             "SELECT COUNT(*) FROM wf_experience_feedback").fetchone()[0],0)
 
+    def test_v38_type_role_conflict_rejects_confirmed_payoff_as_new_setup(self):
+        self.setup_rule()
+        # Real durable WF story-state table, not a prompt or post-hoc self-vote.
+        with self.db.conn:
+            self.db.conn.execute(
+                "INSERT INTO causal_events(project_id,event_id,payload_json) "
+                "VALUES(?,?,?)",
+                ("v43-study","early-payoff-39", json.dumps({
+                    "clue_id":"seal-01","narrative_role":"payoff",
+                    "review_status":"confirmed","text_ref":"earlier-verified-scene"
+                },ensure_ascii=False)),
+            )
+        with self.assertRaisesRegex(
+                WritingExecutionError,"ALREADY_RESOLVED_CLUE"):
+            self.prep("role-conflict-r39",enabled=True,intent=plan())
+        # A genuinely separate clue ID is not banned by an arbitrary
+        # early/late percentage threshold.
+        different={**plan(),"clue_id":"new-clue-02"}
+        packet=self.prep("new-distinct-setup",enabled=True,intent=different)
+        self.assertEqual(packet.strategy_receipt["status"],
+                         "CAUSAL_PREFLIGHT_VERIFIED_STRUCTURALLY")
+
+    def test_unreviewed_reviewer_opinion_cannot_be_forced_into_truth(self):
+        self.setup_rule()
+        with self.db.conn:
+            self.db.conn.execute(
+                "INSERT INTO causal_events(project_id,event_id,payload_json)"
+                " VALUES(?,?,?)",
+                ("v43-study","disputed",json.dumps({
+                    "clue_id":"seal-01","narrative_role":"payoff",
+                    "review_status":"disputed"},ensure_ascii=False)),
+            )
+        # A disputed model opinion is not independent literary fact.
+        packet=self.prep("unresolved-role",enabled=True,intent=plan())
+        self.assertEqual(packet.strategy_receipt["status"],
+                         "CAUSAL_PREFLIGHT_VERIFIED_STRUCTURALLY")
+        self.assertFalse(packet.strategy_receipt["semantic_quality_proven"])
+
     def test_project_isolation_and_no_auto_evolution(self):
         self.setup_rule()
         second=ExperienceExecutor(self.db.conn,"another-project")
