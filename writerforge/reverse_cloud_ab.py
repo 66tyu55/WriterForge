@@ -85,11 +85,23 @@ class CloudABTrial:
             raise ABTrialError("UNSAFE_POLICY_WITH_LEGACY_UNGUARDED_MODE")
         self.transfer_policy=transfer_policy
 
-    def run(self, first:str, second:str, *, source_sha:str, window_hash:str, writing_task:str=BASE_TASK):
+    def run(self, first:str, second:str, *, source_sha:str, window_hash:str,
+            writing_task:str=BASE_TASK, role_tokens:tuple[int,int,int]=(6500,11000,8000)):
         if not 300<=len(first)<=5500 or not second:
             raise ABTrialError("source is not a real bounded first chapter window")
         if not isinstance(writing_task,str) or not 40<=len(writing_task)<=800:
             raise ABTrialError("invalid new original writing task")
+        if (not isinstance(role_tokens,tuple) or len(role_tokens)!=3
+            or any(type(n) is not int for n in role_tokens)
+            or not (2500<=role_tokens[0]<=6500
+                    and 6000<=role_tokens[1]<=11000
+                    and 4000<=role_tokens[2]<=8000)):
+            raise ABTrialError("invalid bounded role token reservation")
+        if role_tokens!=(6500,11000,8000) and (
+            role_tokens[0]+4*role_tokens[1]+role_tokens[2]>50000):
+            # Two writer transport/visible retry attempts must still leave
+            # enough reservation for the other Writer and Critic stages.
+            raise ABTrialError("RETRY_RESILIENT_STAGE_BUDGET_INSUFFICIENT")
         if raw_hash(first)!=window_hash:
             raise ABTrialError("first window no longer matches R2 pin")
         # Source/plot only enters the planner; Writer and critic receive
@@ -100,7 +112,7 @@ class CloudABTrial:
             "不能输出原著专名、事件描述或任意创作指令。"
             "严格按宿主的 id/evidence_ids JSON 结构回复。",
             guarded_proposal_prompt(paragraphs) if self.evidence_first
-            else proposal_prompt(paragraphs),num_predict=6500)
+            else proposal_prompt(paragraphs),num_predict=role_tokens[0])
         if self.evidence_first:
             selections,decision=guarded_selections(
                 proposal,paragraphs,source_window_sha256=window_hash,
@@ -127,7 +139,7 @@ class CloudABTrial:
                 "不要代码块、标题或解释性说明。"
                 "不得使用参考作品人物、世界观、对话和情节。",
                 json.dumps(instruction,ensure_ascii=False),
-                num_predict=11000)
+                num_predict=role_tokens[1])
             draft=response.get("scene")
             if not isinstance(draft,str) or not 220<=len(draft)<=MAX_AB_DRAFT:
                 raise ABTrialError("writer failed to produce bounded original scene")
@@ -158,7 +170,7 @@ class CloudABTrial:
             "不能视为专家90分证明。",
             json.dumps({"task":writing_task,
                         "A":masked["A"],"B":masked["B"]},ensure_ascii=False),
-            num_predict=8000)
+            num_predict=role_tokens[2])
         if not isinstance(comparison,dict) or set(comparison)!={
             "A","B","uncertainty","learned_mechanism"
         }:
@@ -198,6 +210,7 @@ class CloudABTrial:
             "critic_prompt_original_source_prose":False,
             "mechanism_registry":"host_static_only_v1",
             "planner_evidence_policy":decision,
+            "role_output_token_profile":list(role_tokens),
             "length_gate":{"max_relative_difference":0.15,
                            "baseline_chars":baseline_chars,
                            "skill_chars":skill_chars,
