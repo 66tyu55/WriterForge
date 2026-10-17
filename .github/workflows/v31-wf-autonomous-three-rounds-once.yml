@@ -1,0 +1,39 @@
+name: V31 WF autonomous three self-iterations no outside reviewer one-shot
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v31-wf-autonomous-three-rounds-once.yml'
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-v31-single-autonomous-experiment
+  cancel-in-progress: false
+jobs:
+  autonomous-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: WF verifies autonomous loop and legacy isolation before inference
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v31_autonomous_wf.py -q
+          python -m unittest discover -s tests -p test_v29_semantic_evidence.py -q
+          python -m unittest discover -s tests -p test_v30_failure_first_adversarial.py -q
+      - name: WF self-generates 3 tasks and updates its own experimental skill memory
+        run: python -m scripts.run_v31_autonomous_wf
+      - name: Even on failure read actual persisted WF self-learning stages only
+        if: ${{ always() }}
+        run: python -m scripts.audit_v31_autonomous_wf_r2
