@@ -93,7 +93,7 @@ class V37ForensicTests(unittest.TestCase):
             self.assertEqual(excerpt["original_draft"][row["start"]:row["end"]],
                              row["text"])
             self.assertEqual(row["text_sha256"],sha(row["text"]))
-        valid=run.Critic("critic").ask("ignored",run.prompt(excerpt,rows,
+        valid=Critic("critic").ask("ignored",run.prompt(excerpt,rows,
                                 run.sentence_menu(excerpt["revised_draft"],"R")),
                                 num_predict=5400)
         grade=run.validate_review(valid,{
@@ -104,7 +104,7 @@ class V37ForensicTests(unittest.TestCase):
         exp=evidence()
         menus={"first":run.sentence_menu(exp["original_draft"],"I"),
                "revised":run.sentence_menu(exp["revised_draft"],"R")}
-        record=run._unwrap(run.Critic("a").ask("test",run.prompt(
+        record=run._unwrap(Critic("a").ask("test",run.prompt(
             exp,menus["first"],menus["revised"]),num_predict=5400))
         record["revised_setup_ids"]=[]
         record["foreshadow_payoff"]="GROUNDED"
