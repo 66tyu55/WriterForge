@@ -1,0 +1,20 @@
+name: V48 export real WriterForge runtime for actual host literary test
+on:
+  push:
+    branches: [v48-real-host-literature-ab]
+    paths: ['.github/workflows/v48-export-runtime.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  frozen-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: tar -czf v48-source.tar.gz writerforge tests/fixtures pyproject.toml SKILL.md manifest.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wf-v48-exact-code-original-fixture
+          path: v48-source.tar.gz
+          retention-days: 30
