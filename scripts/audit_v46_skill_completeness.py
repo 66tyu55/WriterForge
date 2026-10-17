@@ -42,7 +42,7 @@ def assess() -> dict:
     declared=manifest.get("version")
     entry_ok=(bool(header) and bool(name) and
               actual_entry=="writerforge.cli:main" and
-              declared==main_version=="27.0.0")
+              declared==main_version==(ROOT / "VERSION").read_text(encoding="utf-8").strip())
     link_errors=_check_links(skill)
     mode_source=inspect.getsource(RuntimeEngine)
     source_source=inspect.getsource(_structural_analysis)
@@ -71,7 +71,7 @@ def assess() -> dict:
         "skill_frontmatter_name":name.group(1).strip() if name else None,
         "manifest_version":declared,
         "packaging_version":main_version,
-        "current_stable_skill_generation":"V27",
+        "current_stable_skill_generation":"V27-main" if main_version=="27.0.0" else "V50-engineering-release-candidate",
         "last_experimental_generation_examined":"V45",
         "missing_local_skill_document_links":link_errors,
         "console_entry_point":actual_entry,
