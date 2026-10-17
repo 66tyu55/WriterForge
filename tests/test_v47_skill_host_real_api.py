@@ -12,7 +12,7 @@ import json
 import unittest
 
 from writerforge import WriterForgeDB
-from writerforge.skill_host_session import start,pending,submit,summary,HostSkillError
+from writerforge.skill_host_session import start,pending,submit,summary,run_with_local_host,HostSkillError
 from writerforge.cli import main
 
 REAL=Path(__file__).resolve().parent/"fixtures"/"xiyouji_chapter_001_original_zh.txt"
@@ -125,6 +125,23 @@ class HostSkillLiveAPITests(unittest.TestCase):
   self.assertEqual(s["stage"],"first")
   self.assertEqual(s["failed_submissions"],1)
   self.assertEqual(len(s["events"]),0)
+
+ def test_single_local_host_route_rejects_remote_and_never_fakes_completion(self):
+  from writerforge.verified_flow import WritingExecutionError
+  with self.assertRaisesRegex(WritingExecutionError,
+                              "model endpoint must be a local HTTP loopback"):
+   run_with_local_host(self.db,run_id=self.run,
+                       source=str(self.source),goal=GOAL,model_id=MODEL,
+                       api_base="https://api.openai.com/v1",
+                       output_dir=str(Path(self.tmp.name)/"runs"))
+  self.assertEqual(summary(self.db,self.run)["stage"],"first")
+  self.assertEqual(len(summary(self.db,self.run)["events"]),0)
+  with self.assertRaisesRegex(HostSkillError,"HOST_MODEL_CHANGED"):
+   run_with_local_host(self.db,run_id=self.run,
+                       source=str(self.source),goal=GOAL,
+                       model_id="ANOTHER_HOST_MODEL",
+                       output_dir=str(Path(self.tmp.name)/"runs"))
+
  def test_cli_exposes_actual_skill_subcommands(self):
   cli_db=Path(self.tmp.name)/"cli.sqlite"
   with redirect_stdout(StringIO()) as out:
