@@ -54,7 +54,7 @@ class HostSkillLiveAPITests(unittest.TestCase):
  def test_original_learner_gate_to_same_host_writing_and_readback(self):
   p1=pending(self.db,self.run)
   self.assertEqual(p1["stage"],"first")
-  self.assertNotIn("毕竟不知向后修些甚么道果",p1["host_prompt"])
+  self.assertNotIn("不许事后改写这些推测",p1["host_prompt"])
   self.assertTrue(self.init["source_ingested_into_existing_WF_Xuehai"])
   with self.assertRaisesRegex(HostSkillError,"HOST_MODEL_CHANGED"):
    self.send(FIRST,model="ANOTHER_MODEL")
@@ -64,7 +64,7 @@ class HostSkillLiveAPITests(unittest.TestCase):
   self.assertEqual(first["next_stage"],"close")
   p2=pending(self.db,self.run)
   self.assertEqual(p2["stage"],"close")
-  self.assertIn("毕竟不知向后修些甚么道果",p2["host_prompt"])
+  self.assertIn("不许事后改写这些推测",p2["host_prompt"])
   # Pick a real verbatim quote programmatically; no examiner-supplied lesson.
   from writerforge.skill_host_session import _trial,_load
   row=_trial(self.db,self.run)
