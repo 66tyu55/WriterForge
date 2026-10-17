@@ -37,6 +37,11 @@ def export_private(vault,*,output:Path)->dict:
         raise PrivateExportError("EXPORT_DIRECTORY_ALREADY_EXISTS")
     if not output.parent.is_dir():
         raise PrivateExportError("PARENT_DIRECTORY_DOES_NOT_EXIST")
+    # A public repository is not an appropriate destination for private
+    # manuscripts or the user's explicit prewriting notes.
+    if any((parent/".git").exists() for parent in
+           (output.parent,*output.parent.parents)):
+        raise PrivateExportError("REFUSE_TO_EXPORT_PRIVATE_PROSE_INSIDE_GIT")
     oldmask=os.umask(0o077)
     try:
         # Verify all model-output and stage hashes BEFORE allocating files.
