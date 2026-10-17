@@ -199,6 +199,17 @@ def analyze(vault, *, persist:bool=True)->dict:
     self_claims=Counter(
         "followed" if x["followed_prewrite_plan"] else "not_followed"
         for x in checked["checks"])
+    learned_linked={d["angle"] for d in decisions
+                    if d["source_learned_lesson_id"]!="NONE"}
+    learned_checked=learned_linked.intersection(observed)
+    # An exact quote from a non-source-linked angle does not show the WF
+    # applied its newly extracted Xi You Ji craft lesson in the novel.
+    learned_coverage_status=(
+        "NO_LEARNED_TECHNIQUE_REFERENCED_IN_PREWRITE"
+        if not learned_linked else
+        "SOURCE_LINKED_DECISIONS_NOT_CHECKED_IN_POSTWRITE"
+        if not learned_checked else
+        "SOURCE_LINKED_DECISIONS_SELF_CHECKED_BUT_NOT_SEMANTICALLY_VERIFIED")
     report={
         "format":"writerforge.v36-xiyouji-trace-debugger.v1",
         "source_original_stage_sha256":list(EXPECTED_ORIGINAL_SHA),
@@ -229,6 +240,13 @@ def analyze(vault, *, persist:bool=True)->dict:
             "lesson_ids_referenced_in_prewrite":sorted({
                 d["source_learned_lesson_id"] for d in decisions
                 if d["source_learned_lesson_id"]!="NONE"}),
+            "source_linked_prewrite_angles":sorted(learned_linked),
+            "source_linked_prewrite_angles_checked_after_drafting":
+                sorted(learned_checked),
+            "source_linked_angles_missing_postwrite_evidence":
+                sorted(learned_linked-set(observed)),
+            "actual_literary_transfer_observability_status":learned_coverage_status,
+            "learned_technique_literary_effect_verified":False,
             "aftercheck_count":len(checked["checks"]),
             "self_reported_followed":self_claims["followed"],
             "self_reported_not_followed":self_claims["not_followed"],
