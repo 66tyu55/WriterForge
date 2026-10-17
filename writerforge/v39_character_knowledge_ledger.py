@@ -61,8 +61,9 @@ def validate_prewrite(ledger: dict) -> dict:
                 and clue_id not in ids,
                 "V39_PREWRITE_CUE_ID_INVALID_OR_DUPLICATE")
         ids.add(clue_id)
-        require(all(bounded_text(value) for key, value in cue.items()
-                    if key != "clue_id"),
+        require(bounded_text(cue["actor_id"], 1, 40)
+                and all(bounded_text(value) for key, value in cue.items()
+                        if key not in ("clue_id", "actor_id")),
                 "V39_PREWRITE_CHARACTER_STATE_NOT_BOUNDED")
     return {
         "format": "writerforge.v39-knowledge-action-prewrite.v1",
