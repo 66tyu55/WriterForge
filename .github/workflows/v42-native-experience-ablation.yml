@@ -1,0 +1,32 @@
+name: V42 WF native experience-memory-writing ablation (no models)
+on:
+  push:
+    branches: [v42-native-experience-ablation]
+    paths:
+      - '.github/workflows/v42-native-experience-ablation.yml'
+      - 'writerforge/native_experience_engine.py'
+      - 'tests/test_v42_native_experience.py'
+      - 'scripts/run_v42_native_experience_ablation.py'
+permissions:
+  contents: read
+jobs:
+  unassisted-writer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install WF itself, no extra models
+        run: python -m pip install -e .
+      - name: True original source, no human response; negative gates and ablation
+        run: python -m unittest discover -s tests -p test_v42_native_experience.py -q
+      - name: Run self-contained WF on three fresh tasks and export native-authored prose
+        run: python -m scripts.run_v42_native_experience_ablation
+      - name: Archive generated output and provenance for independent reading
+        uses: actions/upload-artifact@v4
+        with:
+          name: v42-wf-native-writing-ablation
+          path: v42_native_experience_results.json
+          retention-days: 30
