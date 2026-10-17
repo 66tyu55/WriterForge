@@ -55,6 +55,11 @@ def derive_story_context_candidates(report:dict,*,report_sha256:str)->dict:
             raise StoryContextEvidenceError("INVALID_MODEL_SCORES")
         if abs(sum(item.values())/5-delta)>0.00001:
             raise StoryContextEvidenceError("DIMENSION_DELTA_MISMATCH")
+        base=row.get("baseline_raw_mean")
+        wf=row.get("writerforge_raw_mean")
+        if (type(base) not in (int,float) or type(wf) not in (int,float)
+            or abs((wf-base)-delta)>0.00001):
+            raise StoryContextEvidenceError("AB_GROUP_MEANS_DO_NOT_MATCH_DIMENSIONS")
         pair=row.get("mechanisms_unreviewed")
         if (not isinstance(pair,list) or not 1<=len(pair)<=2
             or len(set(pair))!=len(pair)
