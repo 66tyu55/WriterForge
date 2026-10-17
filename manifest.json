@@ -1,7 +1,7 @@
 {
   "name": "WriterForge",
-  "version": "27.0.0",
-  "phase": "graded-literary-training-pilot",
+  "version": "28.0.0rc1",
+  "phase": "runtime-correctness-release-candidate",
   "principle": "actual source -> ordered study -> durable snapshot -> source-grounded local model generation -> explicit author acceptance; external critique read-only",
   "runtime": {
     "lanes": [
@@ -200,5 +200,15 @@
     "per_project_trial_cap": 400,
     "cross_work_assessment_threshold": 50,
     "cross_work_assessment_performed": false
+  },
+  "experience_admission_v50": {
+    "enabled_in_experimental_host_session": true,
+    "source_review_is_attestation_not_literary_truth": true,
+    "story_state_required": true,
+    "abstain_when_unrelated": true,
+    "skip_inapplicable_experience_generation": true,
+    "neutral_writing_control": true,
+    "literary_quality_gain_proven": false,
+    "third_strike_v49": "FAILED_ARCHIVED_NO_REWRITE"
   }
 }
