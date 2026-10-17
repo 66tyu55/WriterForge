@@ -189,6 +189,11 @@ class ExperienceExecutor:
                   and existing[2].encode("utf-8") == _canonical(valid),
                   "EXPERIENCE_FROZEN_PREWRITE_CANNOT_BE_REWRITTEN")
         else:
+            count = self.conn.execute(
+                "SELECT COUNT(*) FROM wf_experience_prewrite WHERE project=?",
+                (self.project_id,),
+            ).fetchone()[0]
+            _need(count < 128, "EXPERIENCE_PREWRITE_MEMORY_BUDGET_EXCEEDED")
             with self.conn:
                 self.conn.execute(
                     "INSERT INTO wf_experience_prewrite VALUES(?,?,?,?,?)",
