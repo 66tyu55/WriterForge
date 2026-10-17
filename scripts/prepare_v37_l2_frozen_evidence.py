@@ -96,7 +96,12 @@ def verified_material(vault)->dict:
     ensure(l2 is not None,"L2_LESSON_MISSING")
     index=l2["source_observation_index"]
     obs=reading["observations"][index]
-    ensure(obs["source_quote"] in windows[obs["chapter"]],
+    # V35 validated the authentic source quote after removing whitespace
+    # induced by source line wrapping. Enforce that SAME historic contract,
+    # never reject a verified original only because of typography.
+    compact_quote="".join(obs["source_quote"].split())
+    compact_source="".join(windows[obs["chapter"]].split())
+    ensure(compact_quote in compact_source,
            "L2_SOURCE_QUOTE_NOT_IN_ORIGINAL")
     plan=validate_plan({"decisions":prewrite["plan"]["decisions"]},{"L1","L2"})
     selected=[x for x in plan["decisions"] if x["learned_lesson_id"]=="L2"]
@@ -133,7 +138,7 @@ def verified_material(vault)->dict:
         "candidate_l2":l2,
         "origin_observation":obs,
         "actual_chapter_source":windows[obs["chapter"]],
-        "source_quote_offset":windows[obs["chapter"]].find(obs["source_quote"]),
+        "source_quote_offset":compact_source.find(compact_quote),
         "foreshadowing_plan":selected[0],
         "first_draft":first_story,
         "final_draft":final_story,
