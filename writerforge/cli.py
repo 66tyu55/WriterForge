@@ -229,6 +229,15 @@ def main(argv: list[str] | None = None):
     reverse_restore.add_argument("--snapshot",required=True)
     # V47 opt-in host Skill adapter. Does not call any model itself; the
     # installed host Skill must execute next/submit and retain same model ID.
+    local_run=sub.add_parser("skill-host-run-local",
+        help="let WF itself drive one REAL loopback host for reading and writing")
+    local_run.add_argument("--run-id",required=True)
+    local_run.add_argument("--source",required=True)
+    local_run.add_argument("--goal",required=True)
+    local_run.add_argument("--model-id",required=True)
+    local_run.add_argument("--chapter",type=int,default=1)
+    local_run.add_argument("--api-base",default="http://127.0.0.1:1234/v1")
+    local_run.add_argument("--output-dir",default="writing_runs/host")
     skill_start=sub.add_parser("skill-host-start",
         help="start a bounded blind-reading then same-host writing trial")
     skill_start.add_argument("--run-id",required=True)
@@ -251,11 +260,16 @@ def main(argv: list[str] | None = None):
     skill_status.add_argument("--run-id",required=True)
     args=p.parse_args(argv)
     if args.cmd in ("skill-host-start","skill-host-next",
-                    "skill-host-submit","skill-host-status"):
-        from .skill_host_session import start, pending, submit, summary
+                    "skill-host-submit","skill-host-status","skill-host-run-local"):
+        from .skill_host_session import start, pending, submit, summary, run_with_local_host
         db=WriterForgeDB(Path(args.db))
         try:
-            if args.cmd=="skill-host-start":
+            if args.cmd=="skill-host-run-local":
+                _emit(run_with_local_host(db,run_id=args.run_id,
+                      source=args.source,goal=args.goal,model_id=args.model_id,
+                      chapter=args.chapter,api_base=args.api_base,
+                      output_dir=args.output_dir))
+            elif args.cmd=="skill-host-start":
                 _emit(start(db,run_id=args.run_id,source=args.source,
                             goal=args.goal,model_id=args.model_id,
                             chapter=args.chapter))
