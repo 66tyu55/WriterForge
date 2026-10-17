@@ -1,0 +1,41 @@
+name: V34 final real hard-length and nested MiniMax JSON single unseen exam
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v34-final-length-nested-json-real-once.yml'
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-v34-one-frozen-exam-no-reruns
+  cancel-in-progress: false
+jobs:
+  genuine-one-exam:
+    runs-on: ubuntu-latest
+    timeout-minutes: 38
+    env:
+      WF_V34_SLOT: 0
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Reprove strict JSON and bounded second own-length revision
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v33_exam_contracts.py -q
+          python -m unittest discover -s tests -p test_v34_complete_repair.py -q
+          python -m unittest discover -s tests -p test_v33_repair_e2e.py -q
+          python -m unittest discover -s tests -p test_v28_discovery_models.py -q
+      - name: WriterForge one frozen fresh prompt with two-pass length controller and honest two-critic review
+        run: python -m scripts.run_v34_repair_e2e
+      - name: Independent SHA verified R2 exam audit even when model stage fails
+        if: ${{ always() }}
+        run: python -m scripts.audit_v34_repair_e2e
