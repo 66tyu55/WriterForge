@@ -1,7 +1,7 @@
 """Balanced manuscript length controller for WF's fixed examiner questions.
 
 Targets 1120 characters including punctuation, BOTH arms within 950..1300
-and each other within 15%. Only one symmetric edit pass: no truncation,
+and each other within 15%. Bounded symmetric edit passes: no truncation,
 padding, one-sided rewriting, scores or access to the opposite arm's text.
 """
 from __future__ import annotations
@@ -12,7 +12,14 @@ from .v31_autonomous_core import writer_instruction
 INITIAL_TOKENS=7500
 REVISION_TOKENS=6000
 
-def controlled_pair(writer,task:str,memory:tuple[dict,...])->tuple[dict,dict]:
+def controlled_pair(writer,task:str,memory:tuple[dict,...],*,
+                    max_revision_cycles:int=1,
+                    initial_tokens:int=INITIAL_TOKENS,
+                    revision_tokens:int=REVISION_TOKENS)->tuple[dict,dict]:
+    if (type(max_revision_cycles) is not int or max_revision_cycles not in (1,2)
+        or type(initial_tokens) is not int or not 4000<=initial_tokens<=8500
+        or type(revision_tokens) is not int or not 3500<=revision_tokens<=8500):
+        raise ExamContractError("WRITER_LENGTH_RECOVERY_BUDGET_INVALID")
     answers={}
     packets={}
     for arm,cards in (("control",()),("wf_memory",memory)):
@@ -25,18 +32,22 @@ def controlled_pair(writer,task:str,memory:tuple[dict,...])->tuple[dict,dict]:
             "章节标题或结尾总结；正文含标点精确目标1120字符，"
             "950至1300字符是不可放宽的范围。"
             "开头与结尾都应完整，必须有可回查的伏笔和人物实际行动代价。",
-            packets[arm],num_predict=INITIAL_TOKENS)
+            packets[arm],num_predict=initial_tokens)
         result=value.get("scene") if isinstance(value,dict) else None
         if not isinstance(result,str):
             raise ExamContractError("WRITER_INITIAL_RESPONSE_NOT_PROSE")
         answers[arm]=result
     initial=fair_pair(answers)
     revision_count=0
-    if not initial["pass"]:
+    revision_history=[]
+    for cycle in range(max_revision_cycles):
+        before=fair_pair(answers)
+        if before["pass"]:
+            break
         revised={}
         for arm in ("control","wf_memory"):
             old=answers[arm]
-            count=initial["arms"][arm]["chars"]
+            count=before["arms"][arm]["chars"]
             info={
                 "question_and_own_writing_instruction":packets[arm],
                 "own_first_draft_only":old,
@@ -47,28 +58,34 @@ def controlled_pair(writer,task:str,memory:tuple[dict,...])->tuple[dict,dict]:
                 "hard_maximum":MAX_CHARS,
                 "other_answer_is_never_available":True,
                 "no_cropping_or_padding":True,
+                "revision_cycle":cycle+1,
+                "hard_character_count_is_enforced_after_rewrite":True,
             }
             response=writer.ask(
-                "你是这篇原创小说的责任编辑。你只见自己的草稿，不知道另一稿。"
-                "重新写成950-1300个含标点字符，目标1120，正文自然完整。"
-                "必须保留人物目标、关键决策、实际代价和可回查的结尾伏笔。"
-                "按给出的当前真实字符数缩写或补足，不许直接截断结尾、"
-                "复制重复句子、用标题/说明/标点填空。"
-                "仅输出完整修订后的小说正文。",
+                "你是原创小说责任编辑。只看到自己的本轮稿，不知道另一稿。"
+                "重新写成950至1300个含标点字符，尽量接近1120。"
+                "尤其注意保证足够余量，不要恰好贴住950或1300的边缘。"
+                "上一次稿件的精确字符数已给出，请按目标所需差值补写"
+                "或缩写自然段，保持人物目标、实际代价、伏笔及完整结尾。"
+                "不能用重复句子、标题、标点或生硬截断来凑字数。"
+                "只输出完整修订后的小说正文。",
                 json.dumps(info,ensure_ascii=False,separators=(",",":")),
-                num_predict=REVISION_TOKENS)
+                num_predict=revision_tokens)
             result=response.get("scene") if isinstance(response,dict) else None
             if not isinstance(result,str):
                 raise ExamContractError("WRITER_SYMMETRIC_REVISION_NO_PROSE")
             revised[arm]=result
             revision_count+=1
         answers=revised
+        revision_history.append(fair_pair(answers))
     final=fair_pair(answers)
     receipt={
         "format":"writerforge.v33-balanced-length-control.v1",
         "initial":initial,"final":final,
         "symmetric_revision_calls":revision_count,
-        "no_one_sided_revision":revision_count in (0,2),
+        "symmetric_revision_cycles":revision_count//2,
+        "safe_revision_length_history":revision_history,
+        "no_one_sided_revision":revision_count in (0,2,4),
         "hard_length_pass":final["absolute_both_valid"],
         "relative_fairness_pass":final["relative_valid"],
         "overall_eligible_for_blind_grading":final["pass"],
