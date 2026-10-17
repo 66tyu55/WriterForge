@@ -136,6 +136,19 @@ def final_challenge(vault,models):
             "你是WF内部创作模块。独立写全新小说第一章。"
             "只输出正文，不谈是否使用内部记忆，不依赖外部专家。",
             writer_instruction(new_task,cards),num_predict=8500))
+    if digest(drafts["without_memory"])==digest(drafts["with_memory"]):
+        return commit_stage(vault,index,{
+            "phase":"IDENTICAL_TRANSFER_DRAFTS_NO_GAIN",
+            "parent_sha256":parent,
+            "task_hashes":history+[digest(new_task)],
+            "memory":list(before),
+            "fresh_task_sha256":digest(new_task),
+            "draft_sha256":digest(drafts["with_memory"]),
+            "candidate_transfer_test_done":True,
+            "identical_drafts_not_scorable_for_improvement":True,
+            "literary_improvement_verified":False,
+            "usage":_usage(budget),
+        })
     order=sorted(drafts,key=lambda x:digest(drafts[x]))
     anon={"A":drafts[order[0]],"B":drafts[order[1]]}
     review=validate_self_comparison(
