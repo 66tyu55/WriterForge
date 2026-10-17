@@ -75,11 +75,16 @@ class DiscoveryModel:
     provider = "discovery"
 
     def __init__(self, *, name: str, role: str, api_key: str,
-                 budget: DiscoveryCallBudget, transport=None):
+                 budget: DiscoveryCallBudget, transport=None,
+                 reasoning_effort: str | None = None):
         if role not in ROLE_MODELS or name not in MODELS:
             raise DiscoveryError("UNSUPPORTED_DISCOVERY_ROLE_OR_MODEL")
         if not isinstance(api_key,str) or not api_key or len(api_key)>512:
             raise DiscoveryError("DISCOVERY_API_KEY_UNAVAILABLE")
+        if reasoning_effort is not None and not (
+            name=="glm-5.3" and role=="writer" and reasoning_effort=="low"):
+            raise DiscoveryError("UNVERIFIED_REASONING_EFFORT_COMBINATION")
+        self.reasoning_effort=reasoning_effort
         self.name=name
         self.role=role
         self.budget=budget
@@ -129,6 +134,11 @@ class DiscoveryModel:
                 "stream":False,"max_tokens":requested,
                 "temperature":1 if self.name=="kimi-k2.6" else (0.2 if turn else 0.4),
             }
+            if self.reasoning_effort is not None:
+                # Optional GLM-5.3 feature gate. Default behavior unchanged.
+                # Explicit opt-in only after separate gateway compatibility
+                # probe; cannot disable thinking on GLM-5.3.
+                request_data["reasoning_effort"]=self.reasoning_effort
             if self.name in ("deepseek-v4-flash-0731","deepseek-v4-pro-0813"):
                 # Verified on Discovery gateway: both give visible text with
                 # OpenAI-compatible thinking.type=disabled. Planning needs
