@@ -24,15 +24,17 @@ def _hash(text: str) -> str:
 def later_chapter_diagnostic(path: str | Path, encoding: str, *, 
                              expected_source_sha256: str,
                              chapter: int = 2,
-                             min_unit_chars: int = 300) -> tuple[dict, tuple[str,str]]:
+                             min_unit_chars: int = 300,
+                             sampled_diagnostic: bool = False) -> tuple[dict, tuple[str,str]]:
     """Read chapter N only, in physical order, and pin both contiguous halves.
 
     Supports small forward diagnostics (chapters 2..3), not any skip-ahead.
     This does NOT certify a semantic boundary or unlock further study.
     Caller must first verify full original bytes/SHA256 against private R2.
     """
-    if type(chapter) is not int or chapter not in (2,3):
-        raise LaterWindowError("ONLY_CONTIGUOUS_LATER_DIAGNOSTIC_CHAPTERS_2_OR_3")
+    if type(chapter) is not int or (not (3<=chapter<=24)
+        if sampled_diagnostic else chapter not in (2,3)):
+        raise LaterWindowError("UNSUPPORTED_DIAGNOSTIC_CHAPTER_SCOPE")
     if not isinstance(expected_source_sha256,str) or not re.fullmatch(
         r"[a-f0-9]{64}",expected_source_sha256):
         raise LaterWindowError("INVALID_SOURCE_SHA_PIN")
@@ -104,6 +106,7 @@ def later_chapter_diagnostic(path: str | Path, encoding: str, *,
         "full_body_reconstructed":left+right==body,
         "semantic_boundary_verified":False,
         "diagnostic_only_no_mastery_progress":True,
+        "sampled_diagnostic_only": bool(sampled_diagnostic),
         "first_window_literary_gate":"NOT_PASSED",
         "next_curriculum_window":"LOCKED",
     }
