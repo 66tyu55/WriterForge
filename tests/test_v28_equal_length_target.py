@@ -9,7 +9,7 @@ class NeutralLengthTests(unittest.TestCase):
         p=FakeModel("planner",PLANNER,"p")
         w=FakeModel("writer",{},"w")
         c=FakeModel("critic",CRITIC,"c")
-        source=("第一段合成材料。"+chr(10))*32
+        source=("第一段合成材料。"+chr(10))*50
         trial=CloudABTrial(planner=p,writer=w,critic=c)
         report=trial.run(source,"下一段合成材料"*48,
             source_sha="a"*64,window_hash=raw_hash(source),
@@ -25,7 +25,7 @@ class NeutralLengthTests(unittest.TestCase):
         p=FakeModel("planner",PLANNER,"p")
         w=FakeModel("writer",{},"w")
         c=FakeModel("critic",CRITIC,"c")
-        source=("第二个合成段落。"+chr(10))*36
+        source=("第二个合成段落。"+chr(10))*50
         report=CloudABTrial(planner=p,writer=w,critic=c).run(
             source,"下一段合成材料"*42,source_sha="a"*64,
             window_hash=raw_hash(source))
