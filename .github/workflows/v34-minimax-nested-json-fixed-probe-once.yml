@@ -1,0 +1,26 @@
+name: V34 MiniMax real long JSON nested-layout fix probe
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v34-minimax-nested-json-fixed-probe-once.yml'
+permissions:
+  contents: read
+jobs:
+  one-external-critic-format-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - name: Test real observed MiniMax A-B nesting and two-cycle writer
+        run: |
+          python -m unittest discover -s tests -p test_v33_exam_contracts.py -q
+          python -m unittest discover -s tests -p test_v28_discovery_models.py -q
+      - name: Repeat only one synthetic long input on real MiniMax, no literary score claims
+        run: python -m scripts.probe_v33_minimax_long_shape
