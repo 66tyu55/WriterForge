@@ -1,0 +1,26 @@
+name: V33 real limited JSON contract probe Pro and MiniMax
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v33-json-gateway-probe-once.yml'
+permissions:
+  contents: read
+jobs:
+  two-schema-probes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - name: Offline exact schema and both-arm length contract
+        run: |
+          python -m unittest discover -s tests -p test_v33_exam_contracts.py -q
+          python -m unittest discover -s tests -p test_v28_discovery_models.py -q
+      - name: Two real short JSON probes; no creative novel texts or score claims
+        run: python -m scripts.probe_v33_json_gateway
