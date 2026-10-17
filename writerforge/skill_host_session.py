@@ -400,8 +400,9 @@ def run_with_local_host(db:WriterForgeDB, *, run_id:str, source:str,
         performed.append({"stage":request["stage"],
                           "response_sha256":receipt["response_sha256"]})
     result=summary(db,run_id)
-    result["real_local_model_invoked_in_this_call"]=len(performed)
-    result["responses_are_from_locally_configured_host_not_chat_assistant"]=True
+    result["loopback_completion_adapter_invocations"]=len(performed)
+    result["host_model_identity_cryptographically_attested"]=False
+    result["response_provider_expected"]="configured_localhost_only"
     result["independent_literary_judgement_done"]=False
     result["same_seed_blind_literary_quality_AB_proven"]=False
     return result
