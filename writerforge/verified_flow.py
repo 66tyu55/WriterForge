@@ -109,13 +109,30 @@ class VerifiedWritingFlow(WritingFlow):
         reference_name: str | None = None,
         experience_experiment: bool = False,
         causal_plan: dict | None = None,
+        v45_experience: bool = False,
     ) -> GroundedDraftPacket:
         self.runtime.require(Mode.WRITE)
         if not goal.strip() or len(goal) > 2000 or not scene_id or len(scene_id)>128:
             raise WritingExecutionError("scene_id and bounded specific writing goal required")
+        if v45_experience and experience_experiment:
+            raise WritingExecutionError("V45_AND_V43_EXPERIMENTS_CANNOT_BOTH_RUN")
+        if causal_plan is not None and v45_experience:
+            raise WritingExecutionError("V45_REJECTS_EXAMINER_SUPPLIED_CAUSAL_PLAN")
         if causal_plan is not None and not experience_experiment:
             raise WritingExecutionError("causal plan needs explicit experimental experience execution")
         decision = None
+        v45_guidance = ""
+        if v45_experience:
+            from .v45_state_experience import StateDerivedExperience, V45ExperienceError
+            try:
+                state_decision = StateDerivedExperience(self.db.conn, self.project_id).choose(
+                    scene_id, concerns)
+            except V45ExperienceError as exc:
+                raise WritingExecutionError(str(exc)) from None
+            if state_decision.state == "UNINSTALLED":
+                raise WritingExecutionError("V45_EXPERIENCE_POLICY_NOT_INSTALLED")
+            decision = state_decision
+            v45_guidance = state_decision.compiled_guidance
         if experience_experiment:
             # Actual production entry point: a learned candidate can BLOCK a
             # draft until the prewriting actor/knowledge/causal plan is frozen.
@@ -202,6 +219,8 @@ class VerifiedWritingFlow(WritingFlow):
             "情绪、动作、声音和环境只在情节需要时自然出现。"
             "不强制对话比例、转折次数、修辞配额，也不解释写作方法。"
             "不要输出大纲、自评或教学说明；只写原创正文。"
+            + ("\n来自WF自身持久故事状态的实验性写前因果约束：\n"
+               + v45_guidance if v45_guidance else "")
             + prose_tail
         )
         if len(prompt) > MAX_PROMPT_CHARS:
@@ -213,7 +232,8 @@ class VerifiedWritingFlow(WritingFlow):
             tuple(facet_refs),
             style.text if style else None,
             style.sha256 if style else None,
-            decision.audit() if decision else None,
+            (decision.receipt() if v45_experience
+             else decision.audit()) if decision else None,
         )
 
 
@@ -278,7 +298,15 @@ def save_candidate(packet: GroundedDraftPacket, body: str, model: str,
     policy = (packet.strategy_receipt or {})
     required = policy.get("postwrite_evidence_required", [])
     verified = {}
-    if required:
+    v45_summary = None
+    if policy.get("format") == "WF.v45.execution.v1" and policy.get("state") == "APPLIED":
+        from .v45_state_experience import verify_afterdraft, V45ExperienceError
+        try:
+            v45_summary = verify_afterdraft(body, policy, postwrite_evidence)
+        except V45ExperienceError as exc:
+            raise WritingExecutionError(str(exc)) from None
+        verified = v45_summary["roles"]
+    elif required:
         if not isinstance(postwrite_evidence, dict) or set(postwrite_evidence) != set(required):
             raise WritingExecutionError("EXPERIENCE_POSTWRITE_FOUR_CAUSAL_ANCHORS_REQUIRED")
         last_end = -1
@@ -306,6 +334,7 @@ def save_candidate(packet: GroundedDraftPacket, body: str, model: str,
     path.write_text(body,encoding="utf-8")
     manifest = packet.manifest()
     manifest["experience_postwrite_anchors"] = verified
+    manifest["v45_experience_postwrite_receipt"] = v45_summary
     manifest["experience_semantic_correctness_verified"] = False
     manifest.update(
         model=model,

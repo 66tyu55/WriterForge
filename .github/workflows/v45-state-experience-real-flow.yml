@@ -1,0 +1,28 @@
+name: V45 state-derived experience integrated production tests (no models)
+on:
+  push:
+    branches: [v45-state-derived-experience-trial]
+    paths:
+      - '.github/workflows/v45-state-experience-real-flow.yml'
+      - 'writerforge/v45_state_experience.py'
+      - 'writerforge/verified_flow.py'
+      - 'tests/test_v45_real_flow_adversarial.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bounded-real-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - name: V45 six fresh scenarios, true WF source, state, actual WRITE path, no LLM
+        run: python -m unittest discover -s tests -p test_v45_real_flow_adversarial.py -v
+      - name: V43 and V23 existing source/writer compatibility
+        run: |
+          python -m unittest discover -s tests -p test_v43_experience_actual_flow.py -q
+          python -m unittest discover -s tests -p test_v23_real_learning.py -q
