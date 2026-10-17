@@ -1,4 +1,4 @@
-name: WriterForge v29 semantic and encrypted draft evidence offline proof
+name: WriterForge v29 semantic and encrypted private drafts corrected proof
 on:
   push:
     branches: [main]
