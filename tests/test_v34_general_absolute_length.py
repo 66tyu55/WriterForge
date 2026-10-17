@@ -45,7 +45,9 @@ class GeneralLengthGateTests(unittest.TestCase):
         self.assertIn("own_actual_character_count",w.calls[2][1])
         self.assertNotIn(SOURCE,w.calls[2][1])
     def test_fail_after_symmetry_never_grades_out_of_bounds(self):
-        p,w,c=self.models([1000,1005,900,1080])
+        # After symmetric edit the drafts are relatively comparable but
+        # both remain below the enforced 1100 hard minimum.
+        p,w,c=self.models([1000,1005,1050,1080])
         with self.assertRaisesRegex(ABTrialError,"AB_ABSOLUTE_LENGTH_AFTER_SYMMETRIC_REVISION"):
             self.go(p,w,c,absolute_char_bounds=(1100,1300),
                     symmetric_length_revision=True)
