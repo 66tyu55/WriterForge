@@ -1,0 +1,26 @@
+name: V29 authentic old-new critic reasons read-only after technical recovery
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v29-holdout-recovered-critic-reasons-once.yml'
+permissions:
+  contents: read
+jobs:
+  no-model-private-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Read genuine blind-review short notes from SHA-verified R2, no inference
+        run: python -m scripts.audit_v29_recovered_short_reasons
