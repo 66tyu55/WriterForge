@@ -30,7 +30,7 @@ class V42NativeReaderToWriter(unittest.TestCase):
 
     def test_no_source_evidence_refuses_to_learn(self):
         self.assertIsNone(discover_experience("他缓缓走过河道，站住。"*30))
-        self.assertIsNone(discover_experience("他因為忙碌。" * 12 + "所以去见人。"))
+        self.assertIsNone(discover_experience("他因為忙碌。" * 24 + "所以去见人。"))
         with self.assertRaisesRegex(NativeExperienceError, "SOURCE_OUTSIDE_BOUNDS"):
             discover_experience("a")
 
