@@ -1,0 +1,26 @@
+name: WriterForge v29 semantic and encrypted draft evidence offline proof
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v29-semantic-evidence-offline-once.yml'
+permissions:
+  contents: read
+jobs:
+  proof-without-model-or-r2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install optional client-side AES-GCM evidence tests
+        run: python -m pip install -e '.[evidence]'
+      - name: Semantic source/role isolation + encrypted real-cipher roundtrip
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v29_semantic_evidence.py -q
+          python -m unittest discover -s tests -p test_v29_private_draft_evidence.py -q
+          python -m unittest discover -s tests -p test_v28_cloud_ab.py -q
+          python -m unittest discover -s tests -p test_v28_story_context_evidence.py -q
