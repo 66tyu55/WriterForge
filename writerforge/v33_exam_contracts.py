@@ -45,9 +45,11 @@ def grade_prompt(task:str,anonymous:dict,*,correction:bool=False)->str:
         raise ExamContractError("INVALID_BLIND_ARMS")
     for text in anonymous.values():
         length_state(text)
-    examples={d:{"score":75,"reason":"明确说明该项的具体文本优缺点，但不要引用正文长句。"}
+    # Field placeholders rather than numerical example grades: no score anchor
+    # is given to a critic. Actual scores must come from the anonymous drafts.
+    examples={d:{"score":"<integer from 0 to 100>",
+                 "reason":"<specific evidence-based brief explanation>"}
               for d in DIMENSIONS}
-    # Example numbers are ONLY schema demonstrations; not a hint to assign 75.
     return json.dumps({
         "task":task,"anonymous_drafts":anonymous,
         "rubric":{
@@ -63,12 +65,12 @@ def grade_prompt(task:str,anonymous:dict,*,correction:bool=False)->str:
         "score_type":"integer 0..100",
         "reason_type":"4..180 characters",
         "uncertainty_type":"4..180 characters",
-        "json_example_shape":{ "A":examples,"B":examples,
+        "json_field_schema_not_score_reference":{ "A":examples,"B":examples,
             "uncertainty":"评阅存在模型主观偏差，不代表真实读者的文学认证。"},
         "json_retry_if_previous_format_was_invalid":correction,
         "instruction":"严格返回一个JSON对象；不要markdown、解释、统计均分、"
                       "角色标签、scores包装、章节内容或其他多余字段。"
-                      "json_example_shape是输出字段示例，分数必须独立依据正文评价。",
+                      "字段类型说明不是参考分数，分数必须独立依据正文评价。",
     },ensure_ascii=False,separators=(",",":"))
 
 def strict_grade(value:dict)->tuple[dict,str]:
