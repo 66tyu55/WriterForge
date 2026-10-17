@@ -1,0 +1,33 @@
+name: V30 authentic bias-free failure-first R2 audit once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v30-failure-first-r2-once.yml'
+permissions:
+  contents: read
+jobs:
+  no-model-defect-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install R2 metadata client
+        run: python -m pip install -e '.[r2]'
+      - name: Adversarial no-score-inflation tests
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v30_failure_first_adversarial.py -q
+          python -m unittest discover -s tests -p test_v30_failure_first_r2.py -q
+          python -m unittest discover -s tests -p test_v29_semantic_anti_regression.py -q
+      - name: Fresh GET true prior R2, immutable weakness-first report
+        run: python -m scripts.audit_v30_failure_first_real_r2
