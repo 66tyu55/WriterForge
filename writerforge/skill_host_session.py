@@ -348,3 +348,60 @@ def summary(db:WriterForgeDB,run_id:str)->dict:
             "events":[dict(e) for e in events],
             "skill_autonomous_literary_gain_proven":False,
             "host_installation_proven":False}
+
+
+
+def run_with_local_host(db:WriterForgeDB, *, run_id:str, source:str,
+                        goal:str, model_id:str, output_dir:str,
+                        chapter:int=1, api_base:str="http://127.0.0.1:1234/v1")->dict:
+    """One WF-controlled execution, ONE explicitly configured loopback LLM.
+
+    NOT an assistant answering its own test. WF builds each exact prompt, the
+    same local host computes each response, then WF validates/persists it.
+    Fail without retry or fallback when the real model is not running.
+    In GitHub CI there is no model so this path is deliberately NOT a
+    completed literary-generation proof.
+    """
+    from .verified_flow import GroundedDraftPacket, local_chat_completion
+    _check(isinstance(output_dir,str) and bool(output_dir.strip()),
+           "HOST_OUTPUT_DIR_INVALID")
+    _schema(db)
+    old=db.conn.execute(
+        "SELECT run_id,model_id,source_file FROM wf_host_skill_runs WHERE run_id=?",
+        (run_id,)).fetchone()
+    if old is None:
+        start(db,run_id=run_id,source=source,goal=goal,
+              model_id=model_id,chapter=chapter)
+    else:
+        _check(old["model_id"]==model_id,
+               "HOST_MODEL_CHANGED_BETWEEN_STAGES")
+        _check(Path(old["source_file"]).resolve()==Path(source).resolve(),
+               "HOST_RESTART_SOURCE_DIFFERENT")
+    performed=[]
+    for i in range(5):
+        request=pending(db,run_id)
+        if request["stage"]=="complete":
+            break
+        prompt=request["host_prompt"]
+        packet=GroundedDraftPacket(
+            scene_id=run_id+"-"+request["stage"],project_id=run_id,
+            snapshot_id=0,evidence=(),craft_ids=(),prompt=prompt,
+            prompt_sha256=request["prompt_sha256"],
+        )
+        # The *real* local completion is the only author; no host-chat
+        # assistant, second model, examiner answer or mocked fallback.
+        reply=local_chat_completion(
+            packet,model=model_id,api_base=api_base,
+            max_tokens=3000 if request["stage"] in ("baseline","learned") else 1700,
+        )
+        receipt=submit(db,run_id=run_id,model_id=model_id,
+                       reply=reply,prompt_sha256=request["prompt_sha256"],
+                       output_dir=output_dir)
+        performed.append({"stage":request["stage"],
+                          "response_sha256":receipt["response_sha256"]})
+    result=summary(db,run_id)
+    result["real_local_model_invoked_in_this_call"]=len(performed)
+    result["responses_are_from_locally_configured_host_not_chat_assistant"]=True
+    result["independent_literary_judgement_done"]=False
+    result["same_seed_blind_literary_quality_AB_proven"]=False
+    return result
