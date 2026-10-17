@@ -127,20 +127,27 @@ def analyze(vault, *, persist:bool=True)->dict:
     _require(all(x["actual_draft_quote"] in menu.values()
                  for x in checked["checks"]),
              "POSTWRITE_QUOTE_NOT_IN_MECHANICAL_MENU")
-    _require(after["original_frozen_final_draft_sha256"]==sha(final)
-             and after["source_manifest_sha256"]==manifest_sha()
-             and after["original_frozen_prewrite_sha256"]==
-                 sha(canonical(stages[3])) and
-             after["repair_did_not_change_story_or_preplan"] is True
-             and after["original_v35_bad_quote_attempt_already_recorded"] is True
-             and examiner["new_visible_retrospective_record_sha256"]==AFTER_SHA
-             and examiner["frozen_original_essay_sha256"]==sha(final)
-             and examiner["frozen_prewrite_sha256"]==
-                 sha(canonical(stages[3])) and
-             examiner["real_source_and_draft_quotes_machine_verified"] is True
-             and examiner["official_core_promoted"] is False,
-             "RECOVERED_AFTERCHECK_NOT_LINKED_TO_FROZEN_DRAFT")
-
+    # Independent explicit assertions isolate exactly which bridge is broken.
+    _require(after.get("original_frozen_final_draft_sha256")==sha(final),
+             "RECOVERED_REVIEW_REFERENCES_DIFFERENT_MANUSCRIPT")
+    _require(after.get("source_manifest_sha256")==manifest_sha(),
+             "RECOVERED_REVIEW_QUESTION_MANIFEST_CHANGED")
+    _require(after.get("original_frozen_prewrite_sha256")==sha(canonical(stages[3])),
+             "RECOVERED_REVIEW_PREWRITE_SNAPSHOT_CHANGED")
+    _require(after.get("repair_did_not_change_story_or_preplan") is True,
+             "RECOVERED_REVIEW_CLAIMS_TO_HAVE_REWRITTEN_HISTORY")
+    _require(after.get("original_v35_bad_quote_attempt_already_recorded") is True,
+             "ORIGINAL_POSTWRITE_QUOTE_FAILURE_NOT_ACKNOWLEDGED")
+    _require(examiner.get("new_visible_retrospective_record_sha256")==AFTER_SHA,
+             "EXAMINER_REVIEW_POINTER_CHANGED")
+    _require(examiner.get("frozen_original_essay_sha256")==sha(final),
+             "EXAMINER_REFERENCES_DIFFERENT_MANUSCRIPT")
+    _require(examiner.get("frozen_prewrite_sha256")==sha(canonical(stages[3])),
+             "EXAMINER_REFERENCES_DIFFERENT_PREWRITE")
+    _require(examiner.get("real_source_and_draft_quotes_machine_verified") is True,
+             "EXAMINER_QUOTE_CHECK_MISSING")
+    _require(examiner.get("official_core_promoted") is False,
+             "UNVERIFIED_LEARNING_PROMOTED")
     observed={row["angle"]:row for row in checked["checks"]}
     _require(len(observed)==len(checked["checks"]),
              "DUPLICATE_AFTERCHECK_ANGLE_NOT_UNIQUELY_TRACEABLE")
