@@ -54,7 +54,7 @@ class V39CausalTimelineTests(unittest.TestCase):
     def test_invalid_offset_does_not_guess_sentence(self):
         with self.assertRaisesRegex(ValueError, "UNIQUE_REAL_SENTENCE"):
             structural_timeline(
-                self.original, self.revised, self.p, len(self.revised)-1)
+                self.original, self.revised + "\n", self.p, len(self.revised))
         with self.assertRaisesRegex(CausalAuditError,
                                     "V39_OFFSETS_NOT_INTEGERS"):
             structural_timeline(
