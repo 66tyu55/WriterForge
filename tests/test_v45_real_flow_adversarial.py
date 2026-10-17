@@ -107,7 +107,9 @@ class ActualWFV45(unittest.TestCase):
   self.assertFalse(metadata["experience_semantic_correctness_verified"])
  def test_old_disconnected_four_sentences_no_longer_pass(self):
   self.seed("attack");p=self.prep("attack")
-  story=("村口晒着四个未收走的空竹篮。少女走到城中买了两斤盐和一尺麻绳。"
+  story=("远处的街巷不断有人穿行，店铺依次亮起了灯。"
+         "有人从河边回来，还在谈论过去几年的旧事。"
+         "村口晒着四个未收走的空竹篮。少女走到城中买了两斤盐和一尺麻绳。"
          "昨夜的雨冲掉了山坡上的几片旧瓦。第二天有人发现书架上的画册早已虫蛀。")
   proof=dict(zip(("observation","actor_decision","causal_consequence","later_reveal"),
    ("村口晒着四个未收走的空竹篮","少女走到城中买了两斤盐和一尺麻绳",
