@@ -7,13 +7,14 @@ from writerforge.v35_observable_trace import (
 )
 from writerforge.v35_xiyouji_exam import task,manifest,manifest_sha
 from test_v35_xiyouji_observable import FakeVault,WINDOWS,READ,LESSONS,PLAN
-from scripts.run_v35_xiyouji_decision_trace import save_stage
+from scripts.run_v35_xiyouji_decision_trace import save_stage,stage_key
 from scripts.recover_v35_afterdraft_only import _quote_menu
 import scripts.debug_v36_xiyouji_learning_to_writing as dbg
 
-FIRST=("少年在暮色里拿着一张旧账单，试着询问守桥的人。"
-       "他误把雨声当作脚步，急于求助却错失渡船。")*17
-FINAL=FIRST+"少年后来检查旧账单上的墨迹，察觉此事与他原先猜测并不完全相同。"
+RAW=("少年在暮色里拿着一张旧账单，试着询问守桥的人。"
+       "他误把雨声当作脚步，急于求助却错失渡船。")
+FIRST=(RAW*35)[:904]
+FINAL=(RAW*40)[:1136]
 WINDOWS_REAL={1:(WINDOWS[1]*3)[:2000],2:(WINDOWS[2]*3)[:2000]}
 
 class V36DebugTests(unittest.TestCase):
@@ -63,6 +64,7 @@ class V36DebugTests(unittest.TestCase):
             "checks":checks,
             "biggest_mistake":"写完后发现人物的选择与环境线索联系不够可靠。",
             "source_manifest_sha256":manifest_sha(),
+            "original_frozen_prewrite_sha256":sha(canonical({"format":"writerforge.v35-observable-stage.v1","index":3,"session":"20261017-xiyouji-first-real-reading-prewrite-locked-v1","label":"03-frozen-prewriting-decisions","parent_sha256":hashes[2],"payload":p3,"full_explicit_stage_record_saved":True,"hidden_internal_reasoning_not_claimed":True,"formal_skill_promoted":False})),
             "original_frozen_final_draft_sha256":sha(FINAL),
             "original_v35_bad_quote_attempt_already_recorded":True,
             "repair_did_not_change_story_or_preplan":True,
@@ -71,6 +73,7 @@ class V36DebugTests(unittest.TestCase):
         exam={
             "new_visible_retrospective_record_sha256":after_hash,
             "frozen_original_essay_sha256":sha(FINAL),
+            "frozen_prewrite_sha256":valid["original_frozen_prewrite_sha256"],
             "real_source_and_draft_quotes_machine_verified":True,
             "official_core_promoted":False,
         }
@@ -107,8 +110,7 @@ class V36DebugTests(unittest.TestCase):
 
     def test_forged_historical_snapshot_fails_closed(self):
         vault,hashes,after_hash,exam_hash=self.create_fixture()
-        vault.data[dbg.stage_key(3) if hasattr(dbg,"stage_key") else
-                   "writerforge/v1/examiner/v35-xiyouji-observable-prewriting/20261017-xiyouji-first-real-reading-prewrite-locked-v1/03-03-frozen-prewriting-decisions.json"]+=b"tampered"
+        vault.data[stage_key(3)]+=b"tampered"
         with patch.object(dbg,"EXPECTED_ORIGINAL_SHA",tuple(hashes)), \
              patch.object(dbg,"AFTER_SHA",after_hash), \
              patch.object(dbg,"AFTER_EXAMINER_SHA",exam_hash):
