@@ -840,3 +840,18 @@
 4. Railway一次性无原文验收入口 `wf_railway_library_start.py`，只输出版本、study单库计数、读量、耗时、是否通过校验；**不能提前拿它当考试答案**。纯离线Fake Worker测试文件 `tests/test_v67_worker_readonly_library.py` 已写入GitHub，但没有跑Python Actions/生产实测；在受限JS模拟中检查了认证401、越权403、合法GET/HEAD 200、范围206、无界400、DELETE405、原inventory200；模拟≠Cloudflare实测。
 5. **剩余执行门槛**：用户只需对Cloudflare**原Worker**正式部署一次此候选JS（事先备份旧代码，保留WF_R2绑定和WF_API_TOKEN Secret，不提供任何secret值）；随后助手通过已连接的Railway插件把**原服务**指向V67新精确commit，改启动命令为 `python -u wf_railway_library_start.py`，执行并复核一次真实日志。如果Worker路由404、鉴权失败、下载不完整、源hash错，必须清楚报告失败且不得开考。线上只读恢复成功后，才另实现并验证WF**自己制定检索计划→搜书→定位原文→尝试文学判断或诚实ABSTAIN**的正式考试执行器；考官的题目不应被硬编码在检索逻辑中。
 6. 详细文件：`docs/V67_WORKER_READONLY_LIBRARY_PENDING_DEPLOY_20261018.md`。原 `V49 THIRD_STRIKE_FAILED` / 文学课程第二窗口 `LOCKED` 不变。没有整桶复制、R2写入、原著仓库公开、真实自主考试成绩或文学能力晋级。
+
+
+## 55. 【2026-10-18 V68】用户本地约400本直传私有R2；原Key保留/稳定自动编号/后补分书SQL
+
+**用户最新优先级**：先扩容至少50本，分类新增目标古典4、玄幻20、仙侠10、科幻10、历史10，总计计划新增54本。用户本地约400部原资源，绝不能经GPT转运；自己从Windows电脑直接上传到私有R2。旧《老残游记》正式考题暂封存。完整设计 [V68 原始入库与延迟SQL索引](V68_BULK_R2_INBOX_SQL_INDEX_PLAN_20261018.md)。
+
+1. V67已真实通过单本资料通道：Railway部署575f6b1b-452f-4d1a-ae3e-5bf0f2dff190固定V67提交33cf56ea；成功从R2恢复《老残游记》20回、4857来源单元、4647检索条目、7400356传输字节、约10.15秒、原R2零写、SQLite只读、退出码0。尚未做文学考题。
+2. 新隔离开发分支 v68-bulk-inbox-catalog-sql-index 从V67分出；不改正式main、Cloudflare线上Worker、Railway配置、R2原档；不触发GitHub Actions，不调用文学模型，未接触用户本地小说正文。
+3. 推荐原Key：writerforge/v1/inbox/20261018/原分类目录/原文件名.txt。用户无需改名；R2对象Key不应通过copy+delete物理重命名。类别和category display_no是后补SQL目录字段；同类编号首次按Key稳定排序、后续只追加；book_id由完整来源SHA256前32位形成，完整哈希另存，重复同文多路径合并为一个索引ID。缩写标题保留、待核对，禁止猜完整书名。
+4. 新代码 writerforge/bulk_inbox.py、scripts/wf_bulk_inbox.py、tests/test_v68_bulk_inbox.py：R2元数据批量登记、类别自动识别、拒绝同Key意外替换、源SHA去重、TXT/MD按需逐书流式解析为独立SQLite及有界FFS5 trigram短句索引（如不支持回退有界扫描），按类别/书/章查位置+来源哈希；UTF8、UTF16 BOM支持，GB18030需人工显式指定。EPUB、RAR、7z当前列为待安全解析，上传≠索引完成。所有查询是词面，不证明文学语义。
+5. 本地同接口试验8/8离线合成用例通过；400个合成元数据对象成功登记，400个极短合成文本独立建SQLite约3.69秒，shards合计15.62MiB。这仅是测试夹具，不能当400本真实小说完整索引或真实R2吞吐；分支上的Python测试未触发Actions回归。
+6. 尚未补齐的硬门槛：当前线上Worker仅可GET旧单本库，/r2/inventory只有对象总量而无详细Key。用户上传新资源后需在原Worker新增安全认证只读inbox分页LIST与Range GET，再做一次正式部署；以后由WF Railway真实获取R2对象并逐本后补SQL。当前Railway没有持久卷，生成的SQL还须受控持久卷或独立按最小权限存回私有R2，不能将读Token偷偷改成写Token。失败和重试需要内容SHA的永久checkpoint。
+7. 50本门槛须统计确证不重复完整来源与可索引状态，不等于文件夹数/对象数/阅读深度/文学质量。原 V49 THIRD_STRIKE_FAILED 和第二课程窗口 LOCKED 原样保留。
+
+**恢复时只向用户询问已上传的R2对象前缀与文件格式/是否解压**，不要求提供正文、密钥、截图密码，不重新创建云项目；先完成metadata-only扫描，再做真实分书索引。
