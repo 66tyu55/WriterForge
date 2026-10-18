@@ -57,11 +57,24 @@ class SkillRegistry:
     this API security boundary; this is not a privilege sandbox.
     """
     def __init__(self, db=None, scope: str="__system__",
-                 bootstrap_verifier_key:bytes|None=None):
+                 bootstrap_verifier_key:bytes|None=None,
+                 promotion_verifier_key:bytes|None=None):
         self._skills: dict[str, CapabilityContract] = {}
         self.db=db
         self.scope=scope
-        self._trusted_promotion_key=None
+        if promotion_verifier_key is None:
+            raw_promotion=os.environ.get("WRITERFORGE_PROMOTION_VERIFY_KEY_HEX")
+            if raw_promotion is not None:
+                try:
+                    promotion_verifier_key=bytes.fromhex(raw_promotion)
+                except ValueError as exc:
+                    raise ValueError("SKILL_PROMOTION_VERIFIER_INVALID") from exc
+        if promotion_verifier_key is not None and (
+            not isinstance(promotion_verifier_key,bytes)
+            or len(promotion_verifier_key)<16):
+            raise ValueError("SKILL_PROMOTION_VERIFIER_INVALID")
+        self._trusted_promotion_key=promotion_verifier_key
+        self._verified_promotions=set()
         if bootstrap_verifier_key is None:
             raw=os.environ.get("WRITERFORGE_SKILL_BOOTSTRAP_VERIFY_KEY_HEX")
             if raw is not None:
@@ -86,11 +99,19 @@ class SkillRegistry:
                     json.loads(row["dependencies_json"]),
                     SkillStatus(row["status"]),int(row["revision"]))
                 if c.level>1:
+                    promoted=self.db.conn.execute(
+                        "SELECT receipt_sha FROM skill_promotion_receipts "
+                        "WHERE scope=? AND skill_name=? AND new_level=?",
+                        (self.scope,c.name,c.level)).fetchone()
                     receipt=self.db.conn.execute(
                         "SELECT * FROM skill_bootstrap_receipts "
                         "WHERE scope=? AND skill_name=?",
                         (self.scope,c.name)).fetchone()
-                    if receipt is not None and self._bootstrap_key is not None:
+                    if promoted is not None and self._trusted_promotion_key is not None:
+                        self._verify_promotion_chain(c)
+                        self._verified_promotions.add(c.name)
+                    elif (promoted is None and receipt is not None
+                          and self._bootstrap_key is not None):
                         self._validate_bootstrap(c,{
                             "source_sha256":receipt["source_sha"],
                             "reviewer_id":receipt["reviewer_id"],
@@ -99,8 +120,8 @@ class SkillRegistry:
                             receipt=receipt)
                         self._verified_initial_grades.add(c.name)
                     else:
-                        # Fail closed in the *read model*: never rewrite
-                        # uncertain historical grades or silently promote.
+                        # Old grades without a verifiable chain remain
+                        # SHADOW in the read model; do not rewrite SQLite.
                         self._legacy_unverified.add(c.name)
                         c=replace(c,status=SkillStatus.SHADOW)
                 self._skills[c.name]=c
@@ -159,12 +180,18 @@ class SkillRegistry:
             separators=(",",":"),allow_nan=False).encode("utf-8")).hexdigest()
         if receipt is not None and (
                 receipt["contract_sha"]!=contract_sha or
-                receipt["receipt_sha"]!=receipt_sha):
+                receipt["receipt_sha"]!=receipt_sha or
+                (receipt["payload_json"] and
+                 receipt["payload_json"]!=body.decode("utf-8"))):
             raise PermissionError("SKILL_BOOTSTRAP_RECEIPT_TAMPERED")
         return contract_sha,receipt_sha
 
     def bootstrap_verified(self,name:str)->bool:
         return name in self._verified_initial_grades
+
+    def grade_verified(self,name:str)->bool:
+        return (name in self._verified_initial_grades or
+                name in self._verified_promotions)
 
     def _bind_promotion_verifier(self,key:bytes|None):
         if key is None:
@@ -196,7 +223,14 @@ class SkillRegistry:
                 bootstrap_attestation["source_sha256"],
                 bootstrap_attestation["reviewer_id"],
                 bootstrap_attestation["review_id"],
-                bootstrap_attestation["signature"],receipt_sha)
+                bootstrap_attestation["signature"],receipt_sha,
+                json.dumps(self.bootstrap_attestation_payload(
+                    proposed,
+                    source_sha256=bootstrap_attestation["source_sha256"],
+                    reviewer_id=bootstrap_attestation["reviewer_id"],
+                    review_id=bootstrap_attestation["review_id"]),
+                    sort_keys=True,ensure_ascii=False,
+                    separators=(",",":"),allow_nan=False))
         elif bootstrap_attestation is not None:
             raise ValueError("SKILL_BOOTSTRAP_NOT_REQUIRED_FOR_LEVEL_ONE")
         old=self._skills.get(proposed.name)
@@ -231,8 +265,9 @@ class SkillRegistry:
                     conn.execute(
                         "INSERT INTO skill_bootstrap_receipts("
                         "scope,skill_name,contract_sha,source_sha,"
-                        "reviewer_id,review_id,signature,receipt_sha)"
-                        " VALUES(?,?,?,?,?,?,?,?)",bootstrap_meta)
+                        "reviewer_id,review_id,signature,receipt_sha,"
+                        "payload_json)"
+                        " VALUES(?,?,?,?,?,?,?,?,?)",bootstrap_meta)
                 conn.commit()
             except Exception:
                 if conn.in_transaction:
