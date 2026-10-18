@@ -21,8 +21,7 @@ print("WF_V69_OFFLINE_REAL_PYTHON_TESTS_STARTED",flush=True)
 suite=unittest.TestSuite()
 loader=unittest.defaultTestLoader
 for pattern in ("test_v68_bulk_inbox.py","test_v69_private_reading.py"):
-    suite.addTests(loader.discover(str(ROOT/"tests"),pattern=pattern,
-                                   top_level_dir=str(ROOT)))
+    suite.addTests(loader.discover(str(ROOT/"tests"),pattern=pattern))
 res=unittest.TextTestRunner(stream=sys.stdout,verbosity=1).run(suite)
 print("WF_V69_OFFLINE_SUMMARY "+str({
     "tests_run":res.testsRun,
