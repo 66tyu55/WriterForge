@@ -21,22 +21,17 @@ KEY=b"synthetic-V63-diagnostic-only-key"
 
 
 class RemainingTrustBoundaries(unittest.TestCase):
-    def test_unreviewed_new_level_ten_can_still_be_bootstrapped(self):
-        """Registration is a trusted initial declaration, NOT earned grade."""
+    def test_unreviewed_new_level_ten_now_rejected(self):
+        """V64 fixes the old intentionally-green bootstrap diagnostic."""
         reg=SkillRegistry()
-        reg.register(CapabilityContract(
-            "synthetic_level_ten",10,
-            "not validated against any real literary evidence",
-            status=SkillStatus.ACTIVE))
-        self.assertEqual(reg.get("synthetic_level_ten").level,10)
-        self.assertEqual(reg.get("synthetic_level_ten").status,
-                         SkillStatus.ACTIVE)
-        # Note: SkillRegistry.promote() is separately correctly denied.
-        with self.assertRaises(PermissionError):
-            reg.promote("synthetic_level_ten",new_level=11,
-                        statement="self judged",evidence_id="nothing")
+        with self.assertRaisesRegex(PermissionError,"BOOTSTRAP"):
+            reg.register(CapabilityContract(
+                "synthetic_level_ten",10,
+                "not validated against real literary evidence",
+                status=SkillStatus.ACTIVE))
+        self.assertEqual(reg.all(),[])
 
-    def test_trusted_low_level_storycommit_is_not_an_authentication_boundary(self):
+    def test_low_level_model_origin_requires_verified_candidate(self):
         with TemporaryDirectory() as t:
             db=WriterForgeDB(Path(t)/"synthetic.db")
             try:
@@ -87,17 +82,17 @@ class RemainingTrustBoundaries(unittest.TestCase):
                 # permit by default. User-authored drafts legitimately use
                 # this route, but an untrusted plugin must never be handed it.
                 flow=WritingFlow(db,mode,"syntheticproj")
-                saved=flow.accept_draft(
-                    "commit99","scene99",
-                    "synthetic original human/host provided text",
-                    origin="assistant_generated")
-                self.assertTrue(saved.committed)
+                with self.assertRaisesRegex(PermissionError,"ASSISTANT_ORIGIN"):
+                    flow.accept_draft(
+                        "commit99","scene99",
+                        "synthetic original human/host provided text",
+                        origin="assistant_generated")
                 self.assertEqual(db.conn.execute(
                     "SELECT COUNT(*) FROM experience_decisions"
                     ).fetchone()[0],0)
                 self.assertEqual(db.conn.execute(
                     "SELECT COUNT(*) FROM story_commit_receipts"
-                    ).fetchone()[0],1)
+                    ).fetchone()[0],0)
             finally:
                 db.close()
 
