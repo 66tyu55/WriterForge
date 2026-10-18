@@ -35,7 +35,7 @@ V60在真实正式入口查到：`VerifiedWritingFlow.prepare()` 更换学海检
 - `decide`：先要求 WRITE 模式+已发布快照，写入不可变的`project_id/attempt_id/request_sha/plan_sha`。确认需要标签为True、禁用标签为False才 SELECT；明确违反为 SKIP；缺失/未知则 UNCERTAIN；最多8个批准候选、最多2个本轮SELECT。
 - `read_decision`：只回放已冻结快照，支持重启后按SHA核对；相同attempt换场景事实/目标会拒绝。
 - `validate_live_decision`：历史可读不表示再执行许可；同一attempt再次生成前，重新核实来源SHA、已签审核、快照未改。
-- `report_postwrite`：仅选中过的经验可声称使用，`CLAIMED_APPLIED`必须引用实稿中的唯一精确短引文；保存引文SHA、正文SHA和状态，仍写明`literary_effect_verified=False`。失败与修改不能覆盖已写的同一记录。
+- `report_postwrite`：仅选中过的经验可声称使用，`CLAIMED_APPLIED`必须引用实稿中确实存在的精确短引文；保存引文SHA、正文SHA和状态，仍写明`literary_effect_verified=False`。失败与修改不能覆盖已写的同一记录。
 
 最小抽象动作只包括`CHECK_KNOWLEDGE`、`TRACE_CONSEQUENCE`、`DEFER_REVELATION`、`TRACK_PROMISE`、`VERIFY_FALSE_BELIEF`。它们是受限执行原语，不是模型训练出来的文学技巧，不允许来自未经审查的来源段落直接成为文本提示词。
 
