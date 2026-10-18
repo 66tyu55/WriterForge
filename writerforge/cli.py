@@ -184,6 +184,8 @@ def main(argv: list[str] | None = None):
     fact_view.add_argument("--fact",required=True)
     fact_view.add_argument("--story-tick",required=True,type=int)
     fact_view.add_argument("--recorded-seq",type=int)
+    fact_view.add_argument("--ledger-seq",type=int,
+        help="V59 global write order of facts, chapter identity and disclosure")
     fact_view.add_argument("--story-id",
         help="require explicit story registration; include that story's other chapters")
     fact_page=sub.add_parser("fact-page",
@@ -196,6 +198,7 @@ def main(argv: list[str] | None = None):
     fact_page.add_argument("--story-tick",required=True,type=int)
     fact_page.add_argument("--story-id")
     fact_page.add_argument("--recorded-seq",type=int)
+    fact_page.add_argument("--ledger-seq",type=int)
     fact_page.add_argument("--limit",type=int,default=64)
     fact_page.add_argument("--cursor")
     fact_graph=sub.add_parser("fact-graph",
@@ -203,6 +206,10 @@ def main(argv: list[str] | None = None):
     fact_graph.add_argument("--journal",required=True)
     fact_graph.add_argument("--event",required=True)
     fact_graph.add_argument("--depth",type=int,default=2)
+    fact_graph.add_argument("--ledger-seq",type=int)
+    ledger_head=sub.add_parser("fact-ledger-head",
+        help="read unified SQLite mutation-order head (no R2 or models)")
+    ledger_head.add_argument("--journal",required=True)
     offline=sub.add_parser("corpus-find",
         help="strictly local/offline indexed term match, NO network and NO source prose in output")
     offline.add_argument("--library",required=True)
@@ -414,7 +421,7 @@ def main(argv: list[str] | None = None):
                     "fact-candidate","fact-candidate-status",
                     "fact-claim","fact-view","fact-graph",
                     "fact-story-bind","fact-subject-bind","fact-flashback",
-                    "fact-disclosure","fact-page"):
+                    "fact-disclosure","fact-page","fact-ledger-head"):
         from .fact_journal import FactJournal
         journal=FactJournal(args.journal)
         try:
@@ -447,6 +454,10 @@ def main(argv: list[str] | None = None):
                 result=journal.bind_subject(
                     scene_id=args.scene,scope=args.scope,
                     subject_id=args.subject,canonical_id=args.canonical_id)
+            elif args.cmd=="fact-ledger-head":
+                result={"format":"writerforge.v59-ledger-head.v1",
+                        "global_seq":journal.ledger_head(),
+                        "novel_semantics_verified":False}
             elif args.cmd=="fact-state":
                 result=journal.state(scene=args.scene,actor=args.actor,
                                      fact=args.fact,at_tick=args.at_tick)
@@ -458,15 +469,18 @@ def main(argv: list[str] | None = None):
                     scene=args.scene,scope=args.scope,subject=args.subject,
                     fact=args.fact,story_tick=args.story_tick,
                     as_of_recorded_seq=args.recorded_seq,
-                    story_id=args.story_id)
+                    story_id=args.story_id,as_of_ledger_seq=args.ledger_seq)
             elif args.cmd=="fact-page":
                 result=journal.temporal_claim_page(
                     scene=args.scene,scope=args.scope,subject=args.subject,
                     fact=args.fact,story_tick=args.story_tick,
                     story_id=args.story_id,as_of_recorded_seq=args.recorded_seq,
+                    as_of_ledger_seq=args.ledger_seq,
                     limit=args.limit,cursor=args.cursor)
             elif args.cmd=="fact-graph":
-                result=journal.graph_neighbors(args.event,depth=args.depth)
+                result=journal.graph_neighbors(
+                    args.event,depth=args.depth,
+                    as_of_ledger_seq=args.ledger_seq)
             else:
                 result=journal.latest_candidate(args.candidate_id)
             _emit(result)

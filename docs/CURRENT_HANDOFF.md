@@ -2,7 +2,9 @@
 
 > **本文件是新对话的唯一首读交接入口。** 每次继续项目前，先检查本文件并复核有关 GitHub Actions 运行结果；不要重建已完成的原文归档，不要将用户的聊天结论冒充 R2 中的真实数据。本文报告的是截至 **2026-10-16 06:08 UTC** 核实的状态，而不是当前实时桶扫描结果。
 
-> **最新更新（2026-10-18）：V57修复分支请先看第43节；V55/V56关系网络原始中断证据见第42节；第1—41节是不可覆盖的历史记录。** 本次不训练、不修改原始失败证据。\n\n## 1. 已完成：六本现代小说的私有 R2 原文归档
+> **最新更新（2026-10-18）：V59源码对照和全局时间修复请先看第45节；V58红队在第44节，V57在第43节，V56原始失败在第42节。历史记录与原始运行报告均不可覆盖。** 本轮不训练、不修改原始失败证据。
+
+## 1. 已完成：六本现代小说的私有 R2 原文归档
 
 目标存储桶：`writerforge-private-library`（**私有**）。
 
@@ -708,3 +710,15 @@
 4. 代码修复：显式 `bind_subject` 规范身份；READER/KNOWN 必须通过独立HMAC签名披露验证（不认证文学语义）；时间/受众与证据事件绑定；游标改为每数据库持久随机HMAC密钥；记录序号快照分页；V58 CLI 接入 `fact-subject-bind`、`fact-disclosure`、`fact-page`。V55/V57分支的旧测试不动，本分支正向夹具透明迁移以满足新签名契约。
 5. 最新真实CI：[Actions #39103469679](https://github.com/66tyu55/WriterForge/actions/runs/39103469679)：V54 12/12、V55 9/9、V57 12/12、V58 12/12，合计**45/45合成结构测试**。验证8,193条历史：完整状态计算超8192拒绝，129页元数据可无损遍历。新JSON SHA `482bb71d6253a06d5414cd4fb9c275eb650fbc2d45d7fa7807de82e76e2d946e`，artifact ID `12127497908`；全部代码/test SHA见V58完整报告。
 6. **严禁夸大**：身份与叙事披露的可信来源目前仍依赖受控输入/验证者。SQLite DB所有者可篡改本地HMAC游标密钥。尤其`as_of_recorded_seq`目前未覆盖“身份绑定/披露授权发生在何时”的统一登记时钟——未来补绑有可能改变旧历史的投影范围，下一轮优先专测此项。不能声称语义因果、真实角色解析、完整双时轴或文学自主写作已经完成。V49 `THIRD_STRIKE_FAILED` 不变。
+
+## 45. 【2026-10-18 V59】GitHub源码对照→失败反例→统一全局登记时钟→58项回归
+
+**最新入口仅在V59隔离分支**：[V59 Github源码机制对照、原始失败与最终SHA](V59_GITHUB_SOURCE_COMPARISON_GLOBAL_CLOCK_20261018.md)。V56—V58所有旧运行证据不覆盖；正式 `main` 仍不合并。此前第42节/V56及第43—44节/V57—V58均为历史记录，不许回写伪造新成功。
+
+1. **先读他人源码再开始**：已实际读取 GitHub [eventsourcing SQLite事务及通知日志](https://github.com/pyeventsourcing/eventsourcing/blob/9.5/eventsourcing/sqlite.py)、[django-simple-history历史关联投影](https://github.com/django-commons/django-simple-history/blob/master/simple_history/manager.py)、[SQLAlchemy按实体版本存历史](https://github.com/sqlalchemy/sqlalchemy/blob/main/examples/versioned_history/history_meta.py)。记录blob SHA、优点、缺陷与为什么不直接引入框架，全部见V59文档。没有Copy外部实现。
+2. 新反例**先红**：[Actions #39105219080](https://github.com/66tyu55/WriterForge/actions/runs/39105219080) 旧回归45/45，新7项0/7；旧图跨章人物后绑定使过去分页错误改变的失败已重现；原始JSON SHA `c1eedd3e8a8a509000bdda4a6ece69554e06aca813b766961d9b1c38ef4e17fb`，证据artifact ID `12127911793`。随后图/CLI新反例第二次红色 [Actions #39105648147](https://github.com/66tyu55/WriterForge/actions/runs/39105648147)，V59 8/11，原始JSON SHA `b941c70f013fe8d76c2c966712244e5e9359e896482c7adfaea48152ea1eef72`，artifact ID `12128161845`。都保存，不能把旧红色改成绿色。
+3. V59生产修复：`writerforge/fact_journal.py` 增统一递增 `ledger_operations`（事件、作品/章节、人物身份、读者披露、主张、边）；SQLite触发器与事实插入同事务；`temporal_view`、`temporal_claim_page`、`graph_neighbors` 共享 **`as_of_ledger_seq`**，在历史回放过滤未来才登记的身份/披露/边；旧 `recorded_seq` 不删。HMAC游标v2固定全局账本快照。CLI `fact-ledger-head` 和 `--ledger-seq` 已接通。
+4. 初次升级旧库时，用 `BEGIN IMMEDIATE` 把历史回填、迁移标记和触发器创建放在**同一写事务**；不在事务中调用会隐式提交的 `executescript()`。新测试证明第二连接不能从回填与触发器之间插入“没有全局登记时钟的事实”，失败事务的时钟与事实原子回滚。迁移前原本丢失跨表先后的老SQLite数据，以 `legacy_unordered` 标记并拒绝不可靠的历史快照，不能人为制造旧登记顺序。
+5. 最终真实绿灯：[Actions #39105993899](https://github.com/66tyu55/WriterForge/actions/runs/39105993899) 原有V54 12、V55 9、V57 12、V58 12，新V59 13，合计**58/58 合成事实软件结构测试通过**。最终JSON SHA `0b395c14bf9b997cc637b10cded46338db037ddf9915b2522943afdd63653cc4`；artifact `12127897818`；源程序和测试SHA见完整V59文档。
+6. **未完成绝不可漏**：这不是文学理解、因果或知识来源真值证明；原V49 `THIRD_STRIKE_FAILED`、`NO_PROMOTION` 不变。旧V58写入进程必须在升级前停止，否则跨版本热迁移有风险；HMAC/数据库原始访问边界不等于外部公证；8192状态扫描和图邻域预算仍有效；更大历史规模、原始SHA可信来源与多节点同步未验证。本轮没有下载R2，没有模型训练，没有覆盖私有原文或旧原始证据。
+7. 下一轮先复核上述两张红色artifact和最终绿色，优先审查安全迁移部署、源证据授权、全局时钟数据量增长/冷库恢复；对照GitHub现成实现后才扩展，不复制代码。

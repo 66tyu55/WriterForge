@@ -170,6 +170,134 @@ class FactJournal:
              "FACT_TEMPORAL_CURSOR_KEY_INVALID")
         self._cursor_key=bytes.fromhex(record[0])
         self.db.commit()
+        self._initialize_global_clock()
+
+    def _initialize_global_clock(self):
+        """One SQLite write transaction covers bootstrap AND trigger install.
+
+        Inspired by event-sourcing recorder atomicity. An old database has no
+        provable cross-table record order, so bootstrap is marked UNORDERED;
+        it is NOT silently fabricated into a valid historical sequence.
+
+        Deploy with existing legacy writers stopped: code older than V59
+        cannot participate in the new schema migration contract.
+        """
+        # BEGIN IMMEDIATE acquires the writer reservation before checking
+        # migration state. Do NOT use executescript() inside this transaction:
+        # Python sqlite3.executescript() can commit an open transaction first.
+        self.db.execute("BEGIN IMMEDIATE")
+        try:
+            for ddl in (
+                "CREATE TABLE IF NOT EXISTS ledger_operations("
+                "global_seq INTEGER PRIMARY KEY AUTOINCREMENT,"
+                "operation TEXT NOT NULL,ref TEXT NOT NULL,"
+                "UNIQUE(operation,ref))",
+                "CREATE TABLE IF NOT EXISTS ledger_bootstrap("
+                "singleton INTEGER PRIMARY KEY CHECK(singleton=1),"
+                "legacy_unordered INTEGER NOT NULL,"
+                "bootstrap_seq INTEGER NOT NULL,"
+                "legacy_claim_max INTEGER NOT NULL)",
+                "CREATE INDEX IF NOT EXISTS ledger_op_ref "
+                "ON ledger_operations(operation,ref,global_seq)",
+            ):
+                self.db.execute(ddl)
+            marker=self.db.execute(
+                "SELECT 1 FROM ledger_bootstrap WHERE singleton=1"
+            ).fetchone()
+            if marker is None:
+                sources=(
+                    ("EVENT","SELECT event_id FROM fact_events ORDER BY rowid"),
+                    ("SCENE","SELECT scene_id FROM story_scenes ORDER BY rowid"),
+                    ("SUBJECT","SELECT binding_sha FROM story_subjects ORDER BY rowid"),
+                    ("DISCLOSURE","SELECT receipt_sha FROM reader_disclosures ORDER BY rowid"),
+                    ("CLAIM","SELECT claim_id FROM temporal_claims ORDER BY recorded_seq"),
+                    ("LINK","SELECT link_sha FROM fact_links ORDER BY rowid"),
+                )
+                legacy_rows=0
+                for operation, query in sources:
+                    for row in self.db.execute(query):
+                        self.db.execute(
+                            "INSERT OR IGNORE INTO ledger_operations(operation,ref)"
+                            " VALUES(?,?)",(operation,row[0]))
+                        legacy_rows+=1
+                last=self.ledger_head()
+                max_claim=self.db.execute(
+                    "SELECT COALESCE(MAX(recorded_seq),0) FROM temporal_claims"
+                ).fetchone()[0]
+                self.db.execute(
+                    "INSERT INTO ledger_bootstrap VALUES(1,?,?,?)",
+                    (int(legacy_rows>0),last,max_claim))
+
+            # Constant specifications, never caller-controlled SQL. A failed
+            # DDL or backfill rolls back the entire migration, not half of it.
+            specs=(
+                ("wf_clock_event_insert","fact_events","EVENT","NEW.event_id"),
+                ("wf_clock_scene_insert","story_scenes","SCENE","NEW.scene_id"),
+                ("wf_clock_subject_insert","story_subjects","SUBJECT","NEW.binding_sha"),
+                ("wf_clock_disclosure_insert","reader_disclosures","DISCLOSURE","NEW.receipt_sha"),
+                ("wf_clock_claim_insert","temporal_claims","CLAIM","NEW.claim_id"),
+                ("wf_clock_link_insert","fact_links","LINK","NEW.link_sha"),
+            )
+            for name, table, operation, reference in specs:
+                self.db.execute(
+                    f"CREATE TRIGGER IF NOT EXISTS {name} "
+                    f"AFTER INSERT ON {table} BEGIN "
+                    f"INSERT INTO ledger_operations(operation,ref) "
+                    f"VALUES('{operation}',{reference}); END;")
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
+    def ledger_head(self):
+        return self.db.execute(
+            "SELECT COALESCE(MAX(global_seq),0) FROM ledger_operations"
+        ).fetchone()[0]
+
+    def _operation_seq(self, operation, ref):
+        row=self.db.execute(
+            "SELECT global_seq FROM ledger_operations "
+            "WHERE operation=? AND ref=?",(operation,ref)).fetchone()
+        need(row is not None,"FACT_GLOBAL_OPERATION_MISSING")
+        return row[0]
+
+    def _visible_operation(self, operation, ref, at_ledger_seq):
+        return self.db.execute(
+            "SELECT 1 FROM ledger_operations WHERE operation=? "
+            "AND ref=? AND global_seq<=?",
+            (operation,ref,at_ledger_seq)).fetchone() is not None
+
+    def _global_cutoff(self, *, ledger_seq, recorded_seq, story_id):
+        """Convert old claim-only as_of to new full recording clock.
+
+        The old SQLite DB's pre-V59 inter-table order is unrecoverable, so
+        reject historical identity projections instead of backdating it.
+        """
+        info=self.db.execute(
+            "SELECT * FROM ledger_bootstrap WHERE singleton=1"
+        ).fetchone()
+        need(info is not None,"FACT_GLOBAL_LEDGER_BOOTSTRAP_MISSING")
+        explicit=ledger_seq is not None
+        if ledger_seq is not None:
+            need(type(ledger_seq) is int and
+                 0<=ledger_seq<=self.ledger_head(),
+                 "FACT_GLOBAL_LEDGER_TIME_INVALID")
+        elif recorded_seq is not None:
+            latest=self.db.execute(
+                "SELECT claim_id FROM temporal_claims "
+                "WHERE recorded_seq<=? ORDER BY recorded_seq DESC LIMIT 1",
+                (recorded_seq,)).fetchone()
+            ledger_seq=self._operation_seq("CLAIM",latest[0]) if latest else 0
+        else:
+            ledger_seq=self.ledger_head()
+        need(not (info["legacy_unordered"] and explicit and
+                  ledger_seq<info["bootstrap_seq"]),
+             "FACT_GLOBAL_LEGACY_ORDER_UNPROVABLE")
+        need(not (info["legacy_unordered"] and story_id is not None and
+                  recorded_seq is not None and
+                  recorded_seq<=info["legacy_claim_max"]),
+             "FACT_GLOBAL_LEGACY_ORDER_UNPROVABLE")
+        return ledger_seq
 
     def close(self):
         self.db.close()
@@ -189,12 +317,14 @@ class FactJournal:
         if prior:
             self._verify_story_binding(prior)
             need(prior["binding_sha"] == proof, "FACT_STORY_BINDING_IMMUTABLE")
-            return {"binding_sha256": proof, "replayed": True}
+            return {"binding_sha256": proof, "replayed": True,
+                    "recorded_global_seq":self._operation_seq("SCENE",scene_id)}
         with self.db:
             self.db.execute(
                 "INSERT INTO story_scenes VALUES(?,?,?,?)",
                 (scene_id, story_id, chapter_index, proof))
-        return {"binding_sha256": proof, "replayed": False}
+        return {"binding_sha256": proof, "replayed": False,
+                "recorded_global_seq":self._operation_seq("SCENE",scene_id)}
 
     @staticmethod
     def _verify_story_binding(row):
@@ -236,12 +366,14 @@ class FactJournal:
         if prior:
             self._verify_subject_binding(prior)
             need(prior["binding_sha"] == h, "FACT_SUBJECT_IDENTITY_IMMUTABLE")
-            return {"binding_sha256":h,"replayed":True}
+            return {"binding_sha256":h,"replayed":True,
+                    "recorded_global_seq":self._operation_seq("SUBJECT",h)}
         with self.db:
             self.db.execute(
                 "INSERT INTO story_subjects VALUES(?,?,?,?,?)",
                 (scene_id,scope,subject_id,canonical_id,h))
-        return {"binding_sha256":h,"replayed":False}
+        return {"binding_sha256":h,"replayed":False,
+                "recorded_global_seq":self._operation_seq("SUBJECT",h)}
 
     @staticmethod
     def _verify_subject_binding(row):
@@ -317,6 +449,7 @@ class FactJournal:
             self._verify_reader_disclosure(ev,reader_subject,disclosure_tick)
             need(prior["receipt_sha"]==h,"FACT_READER_DISCLOSURE_IMMUTABLE")
             return {"receipt_sha256":h,"replayed":True,
+                    "recorded_global_seq":self._operation_seq("DISCLOSURE",h),
                     "story_truth_verified":False}
         with self.db:
             self.db.execute(
@@ -324,9 +457,11 @@ class FactJournal:
                 (event_id,reader_subject,disclosure_tick,ev["event_sha"],
                  signature,h))
         return {"receipt_sha256":h,"replayed":False,
+                "recorded_global_seq":self._operation_seq("DISCLOSURE",h),
                 "story_truth_verified":False}
 
-    def _verify_reader_disclosure(self, ev, reader_subject, at_tick):
+    def _verify_reader_disclosure(self, ev, reader_subject, at_tick, *,
+                                  as_of_ledger_seq=None):
         row = self.db.execute(
             "SELECT * FROM reader_disclosures "
             "WHERE event_id=? AND reader_subject=?",
@@ -342,6 +477,10 @@ class FactJournal:
              "FACT_READER_ATTESTATION_TAMPERED")
         self._check_disclosure_signature(
             ev,reader_subject,row["disclosure_tick"],row["signature"])
+        if as_of_ledger_seq is not None:
+            need(self._visible_operation(
+                "DISCLOSURE",row["receipt_sha"],as_of_ledger_seq),
+                "FACT_READER_ATTESTATION_NOT_AVAILABLE_AS_OF")
         need(at_tick >= row["disclosure_tick"],
              "FACT_READER_KNOWS_BEFORE_DISCLOSURE")
 
@@ -608,6 +747,7 @@ class FactJournal:
             need(existing["claim_sha"] == h, "FACT_TEMPORAL_CLAIM_IMMUTABLE")
             return {"claim_id": record["claim_id"],
                     "recorded_seq": existing["recorded_seq"],
+                    "recorded_global_seq":self._operation_seq("CLAIM",record["claim_id"]),
                     "claim_sha256": h, "replayed": True,
                     "semantic_truth_verified": False}
         evidence = self.db.execute(
@@ -674,6 +814,7 @@ class FactJournal:
             raise FactLedgerError("FACT_TEMPORAL_CONCURRENT_WRITE_CONFLICT") from exc
         return {"claim_id":record["claim_id"],
                 "recorded_seq":cursor.lastrowid,"claim_sha256":h,
+                "recorded_global_seq":self._operation_seq("CLAIM",record["claim_id"]),
                 "replayed":False,"semantic_truth_verified":False}
 
     @staticmethod
@@ -688,7 +829,7 @@ class FactJournal:
             "supersedes_id":row["supersedes_id"],
         }
 
-    def _verify_claim_row(self,row):
+    def _verify_claim_row(self,row, *, as_of_ledger_seq=None):
         need(digest(canonical(self._claim_as_record(row))) == row["claim_sha"],
              "FACT_TEMPORAL_STORED_CLAIM_TAMPERED")
         event = self.db.execute(
@@ -698,18 +839,28 @@ class FactJournal:
         self._assert_record_integrity(event)
         if row["subject_scope"] == "READER" and row["knowledge_state"] == "KNOWN":
             self._verify_reader_disclosure(
-                event,row["subject_id"],row["story_from"])
+                event,row["subject_id"],row["story_from"],
+                as_of_ledger_seq=as_of_ledger_seq)
 
-    def _temporal_source(self, *, scene, scope, subject, fact, story_id):
-        """Shared SQL filter: identical identity rules for views and pages."""
+    def _temporal_source(self, *, scene, scope, subject, fact, story_id,
+                         as_of_ledger_seq):
+        """Apply the SAME immutable recording cutoff to claims and identity.
+
+        Never project an old claim through a relationship registered later.
+        Raw SQLite insert triggers record an atomic global sequence.
+        """
+        base = (
+            "FROM temporal_claims c JOIN ledger_operations claim_clock "
+            "ON claim_clock.operation='CLAIM' AND "
+            "claim_clock.ref=c.claim_id AND claim_clock.global_seq<=? ")
         if story_id is None:
-            return ("FROM temporal_claims c WHERE c.scene=? AND "
-                    "c.subject_scope=? AND c.subject_id=? AND c.fact=?",
-                    [scene,scope,subject,fact])
+            return (base+"WHERE c.scene=? AND c.subject_scope=? AND "
+                    "c.subject_id=? AND c.fact=?",
+                    [as_of_ledger_seq,scene,scope,subject,fact])
         need(key(story_id) and self._bound_story(scene) == story_id,
              "FACT_TEMPORAL_STORY_SCOPE_NOT_REGISTERED")
-        # Check complete scope bindings before projection; do not silently
-        # trust a modified SHA in another chapter's local identity map.
+        # Check ALL current bindings against tampering. Their historical
+        # visibility is separately checked with the operation clock.
         for row in self.db.execute(
                 "SELECT * FROM story_scenes WHERE story_id=?",(story_id,)):
             self._verify_story_binding(row)
@@ -719,18 +870,34 @@ class FactJournal:
                 (story_id,)):
             self._verify_subject_binding(row)
         canonical_id = self._bound_subject(scene,scope,subject)
-        if canonical_id is None:
-            # Fail closed: a matching local display name is not identity.
-            return ("FROM temporal_claims c WHERE 0=1", [])
+        if (canonical_id is None or
+                not self._visible_operation("SCENE",scene,as_of_ledger_seq)):
+            return (base+"WHERE 0=1",[as_of_ledger_seq])
+        current_binding=self.db.execute(
+            "SELECT binding_sha FROM story_subjects "
+            "WHERE scene_id=? AND subject_scope=? AND subject_id=?",
+            (scene,scope,subject)).fetchone()
+        need(current_binding is not None,"FACT_SUBJECT_IDENTITY_MISSING")
+        if not self._visible_operation(
+                "SUBJECT",current_binding[0],as_of_ledger_seq):
+            return (base+"WHERE 0=1",[as_of_ledger_seq])
         return (
-            "FROM temporal_claims c "
+            base+
             "JOIN story_scenes sc ON sc.scene_id=c.scene "
+            "JOIN ledger_operations scene_clock ON "
+            "scene_clock.operation='SCENE' AND "
+            "scene_clock.ref=sc.scene_id AND scene_clock.global_seq<=? "
             "JOIN story_subjects sb ON sb.scene_id=c.scene AND "
             "sb.subject_scope=c.subject_scope AND "
             "sb.subject_id=c.subject_id "
+            "JOIN ledger_operations subject_clock ON "
+            "subject_clock.operation='SUBJECT' AND "
+            "subject_clock.ref=sb.binding_sha AND "
+            "subject_clock.global_seq<=? "
             "WHERE sc.story_id=? AND sb.canonical_id=? AND "
             "c.subject_scope=? AND c.fact=?",
-            [story_id,canonical_id,scope,fact])
+            [as_of_ledger_seq,as_of_ledger_seq,as_of_ledger_seq,
+             story_id,canonical_id,scope,fact])
 
     @staticmethod
     def _temporal_query_validate(scene, scope, subject, fact, story_tick,
@@ -754,29 +921,38 @@ class FactJournal:
     def temporal_view(self, *, scene: str, scope: str, subject: str,
                       fact: str, story_tick: int,
                       as_of_recorded_seq: int | None = None,
-                      story_id: str | None = None):
-        """Bounded complete state, independent story/recorded clocks.
+                      story_id: str | None = None,
+                      as_of_ledger_seq: int | None = None):
+        """Read only state facts AND relationships recorded by the same time.
 
-        A cross-chapter identity must be explicitly bound in EACH chapter.
-        Return a result only if every relevant claim was checked; otherwise
-        raise instead of creating a false 'KNOWN' from an incomplete subset.
+        story_tick: fictional time. recorded_seq: V55 claim-only order,
+        retained for compatibility. ledger_seq: V59 authoritative, atomic
+        sequence covering story bindings, entities, disclosures and claims.
         """
         self._temporal_query_validate(
             scene,scope,subject,fact,story_tick,as_of_recorded_seq)
+        cutoff=self._global_cutoff(
+            ledger_seq=as_of_ledger_seq,recorded_seq=as_of_recorded_seq,
+            story_id=story_id)
         as_of_recorded_seq=self._recorded_snapshot(as_of_recorded_seq)
         source, bind = self._temporal_source(
-            scene=scene,scope=scope,subject=subject,
-            fact=fact,story_id=story_id)
+            scene=scene,scope=scope,subject=subject,fact=fact,
+            story_id=story_id,as_of_ledger_seq=cutoff)
         query = (
-            "SELECT c.*, EXISTS(SELECT 1 FROM temporal_claims successor "
+            "SELECT c.*, EXISTS("
+            "SELECT 1 FROM temporal_claims successor "
+            "JOIN ledger_operations successor_clock "
+            "ON successor_clock.operation='CLAIM' AND "
+            "successor_clock.ref=successor.claim_id AND "
+            "successor_clock.global_seq<=? "
             "WHERE successor.supersedes_id=c.claim_id AND "
             "successor.recorded_seq<=?) AS was_superseded " + source +
             " AND c.story_from<=? AND "
             "(c.story_until IS NULL OR c.story_until>?) "
             "AND c.recorded_seq<=? ORDER BY c.recorded_seq")
         cursor = self.db.execute(
-            query,[as_of_recorded_seq,*bind,story_tick,story_tick,
-                   as_of_recorded_seq])
+            query,[cutoff,as_of_recorded_seq,*bind,
+                   story_tick,story_tick,as_of_recorded_seq])
         states=set()
         active_ids,superseded_ids=[],[]
         active_count=superseded_count=scanned=0
@@ -787,7 +963,7 @@ class FactJournal:
             scanned+=len(batch)
             need(scanned<=8192,"FACT_TEMPORAL_SCAN_BUDGET_EXCEEDED")
             for claim in batch:
-                self._verify_claim_row(claim)
+                self._verify_claim_row(claim,as_of_ledger_seq=cutoff)
                 if claim["was_superseded"]:
                     superseded_count+=1
                     if len(superseded_ids)<64:
@@ -804,10 +980,12 @@ class FactJournal:
         else:
             resolution="UNRECORDED"
         return {
-            "format":"writerforge.v58-bitemporal-knowledge.v1",
+            "format":"writerforge.v59-bitemporal-knowledge.v1",
             "scene_id":scene,"story_id":story_id,
             "scope":scope,"subject_id":subject,"fact_id":fact,
-            "story_tick":story_tick,"as_of_recorded_seq":as_of_recorded_seq,
+            "story_tick":story_tick,
+            "as_of_recorded_seq":as_of_recorded_seq,
+            "as_of_ledger_seq":cutoff,
             "state":resolution,
             "active_claim_ids":active_ids,
             "superseded_claim_ids":sorted(superseded_ids),
@@ -830,14 +1008,13 @@ class FactJournal:
                             fact: str, story_tick: int,
                             story_id: str | None = None,
                             as_of_recorded_seq: int | None = None,
+                            as_of_ledger_seq: int | None = None,
                             limit: int = 64,
                             cursor: str | None = None):
-        """Stable keyset replay of claim metadata, NOT a full state result.
+        """Keyset projection pins BOTH claim and relationship recording axes.
 
-        Output never includes the source text. A cursor is tied to the exact
-        query, row limit and immutable recorded-sequence snapshot. Its HMAC
-        prevents outside callers from forging offsets; it is NOT authorization,
-        and anyone with raw SQLite write access controls the local journal.
+        Cursor HMAC protects the client from forging the position. It does not
+        authenticate the underlying SQLite owner or certify literary truth.
         """
         self._temporal_query_validate(
             scene,scope,subject,fact,story_tick,as_of_recorded_seq)
@@ -853,40 +1030,57 @@ class FactJournal:
                     cursor+"="*((-len(cursor))%4)).decode("utf-8"))
             except (ValueError,UnicodeError,TypeError) as exc:
                 raise FactLedgerError("FACT_TEMPORAL_CURSOR_INVALID") from exc
-            need(isinstance(token,dict) and set(token)=={
-                 "v","fingerprint","last_seq","asof","tag"} and
-                 type(token["v"]) is int and token["v"]==1 and
+            need(isinstance(token,dict),"FACT_TEMPORAL_CURSOR_INVALID")
+            need(token.get("v")==2, "FACT_TEMPORAL_CURSOR_VERSION_UNSUPPORTED")
+            need(set(token)=={
+                 "v","fingerprint","last_seq","asof","ledger_seq","tag"} and
                  type(token["last_seq"]) is int and token["last_seq"]>=0 and
                  type(token["asof"]) is int and token["asof"]>=0 and
+                 type(token["ledger_seq"]) is int and token["ledger_seq"]>=0 and
                  type(token["fingerprint"]) is str and
                  type(token["tag"]) is str,
                  "FACT_TEMPORAL_CURSOR_INVALID")
-            prior_asof=token["asof"]
             need(as_of_recorded_seq is None or
-                 as_of_recorded_seq==prior_asof,
+                 as_of_recorded_seq==token["asof"],
                  "FACT_TEMPORAL_CURSOR_SNAPSHOT_MISMATCH")
-            as_of_recorded_seq=prior_asof
-            proof=self._cursor_tag({
-                "v":1,"fingerprint":token["fingerprint"],
-                "last_seq":token["last_seq"],"asof":prior_asof})
-            need(hmac.compare_digest(proof,token["tag"]),
+            need(as_of_ledger_seq is None or
+                 as_of_ledger_seq==token["ledger_seq"],
+                 "FACT_TEMPORAL_CURSOR_SNAPSHOT_MISMATCH")
+            expected=self._cursor_tag({
+                "v":2,"fingerprint":token["fingerprint"],
+                "last_seq":token["last_seq"],"asof":token["asof"],
+                "ledger_seq":token["ledger_seq"]})
+            need(hmac.compare_digest(expected,token["tag"]),
                  "FACT_TEMPORAL_CURSOR_INVALID")
+            recorded_cutoff=token["asof"]
+            ledger_cutoff=self._global_cutoff(
+                ledger_seq=token["ledger_seq"],recorded_seq=None,
+                story_id=story_id)
             after_seq=token["last_seq"]
         else:
-            as_of_recorded_seq=self._recorded_snapshot(as_of_recorded_seq)
+            ledger_cutoff=self._global_cutoff(
+                ledger_seq=as_of_ledger_seq,recorded_seq=as_of_recorded_seq,
+                story_id=story_id)
+            recorded_cutoff=self._recorded_snapshot(as_of_recorded_seq)
             after_seq=0
         fingerprint=digest(canonical({
             "scene":scene,"scope":scope,"subject":subject,"fact":fact,
             "story_id":story_id,"story_tick":story_tick,
-            "asof":as_of_recorded_seq,"limit":limit}))
+            "asof":recorded_cutoff,"ledger_seq":ledger_cutoff,
+            "limit":limit}))
         if cursor is not None:
             need(token["fingerprint"]==fingerprint,
                  "FACT_TEMPORAL_CURSOR_SCOPE_MISMATCH")
         source,bind=self._temporal_source(
             scene=scene,scope=scope,subject=subject,
-            fact=fact,story_id=story_id)
+            fact=fact,story_id=story_id,as_of_ledger_seq=ledger_cutoff)
         query=(
-            "SELECT c.*, EXISTS(SELECT 1 FROM temporal_claims successor "
+            "SELECT c.*, EXISTS("
+            "SELECT 1 FROM temporal_claims successor "
+            "JOIN ledger_operations successor_clock "
+            "ON successor_clock.operation='CLAIM' AND "
+            "successor_clock.ref=successor.claim_id AND "
+            "successor_clock.global_seq<=? "
             "WHERE successor.supersedes_id=c.claim_id AND "
             "successor.recorded_seq<=?) AS was_superseded " + source +
             " AND c.story_from<=? AND "
@@ -894,12 +1088,13 @@ class FactJournal:
             "AND c.recorded_seq>? AND c.recorded_seq<=? "
             "ORDER BY c.recorded_seq LIMIT ?")
         rows=self.db.execute(
-            query,[as_of_recorded_seq,*bind,story_tick,story_tick,
-                   after_seq,as_of_recorded_seq,limit+1]).fetchall()
+            query,[ledger_cutoff,recorded_cutoff,*bind,
+                   story_tick,story_tick,after_seq,
+                   recorded_cutoff,limit+1]).fetchall()
         page=rows[:limit]
         claims=[]
         for row in page:
-            self._verify_claim_row(row)
+            self._verify_claim_row(row,as_of_ledger_seq=ledger_cutoff)
             claims.append({
                 "claim_id":row["claim_id"],
                 "scene_id":row["scene"],
@@ -915,31 +1110,43 @@ class FactJournal:
         more=len(rows)>limit
         next_cursor=None
         if more:
-            next_data={"v":1,"fingerprint":fingerprint,
+            next_data={"v":2,"fingerprint":fingerprint,
                        "last_seq":page[-1]["recorded_seq"],
-                       "asof":as_of_recorded_seq}
+                       "asof":recorded_cutoff,
+                       "ledger_seq":ledger_cutoff}
             next_data["tag"]=self._cursor_tag(next_data)
             next_cursor=base64.urlsafe_b64encode(
                 canonical(next_data).encode("utf-8")).decode("ascii").rstrip("=")
-        return {"format":"writerforge.v58-temporal-claim-page.v1",
+        return {"format":"writerforge.v59-temporal-claim-page.v1",
                 "story_id":story_id,"scene_id":scene,"scope":scope,
                 "subject_id":subject,"fact_id":fact,"story_tick":story_tick,
-                "as_of_recorded_seq":as_of_recorded_seq,
+                "as_of_recorded_seq":recorded_cutoff,
+                "as_of_ledger_seq":ledger_cutoff,
                 "page_count":len(claims),"has_more":more,
                 "next_cursor":next_cursor,"claims":claims,
                 "literary_truth_verified":False,
                 "source_text_included":False}
 
-    def graph_neighbors(self,event_id: str, *, depth: int = 2):
-        """Bounded fact-event adjacency; potential causality NEVER proof."""
+    def graph_neighbors(self,event_id: str, *, depth: int = 2,
+                        as_of_ledger_seq: int | None = None):
+        """Bounded graph query using the same global recording cutoff.
+
+        BEFORE/POTENTIAL_CAUSE remain typed, UNVERIFIED relationships;
+        a future link or future scene registration cannot appear in the
+        historical graph. Does not parse prose or infer literary motives.
+        """
         need(key(event_id),"FACT_GRAPH_EVENT_ID_INVALID")
         need(type(depth) is int and 1<=depth<=3,
              "FACT_GRAPH_DEPTH_INVALID")
+        cutoff=self._global_cutoff(
+            ledger_seq=as_of_ledger_seq,recorded_seq=None,story_id=None)
         source=self.db.execute(
             "SELECT * FROM fact_events WHERE event_id=?",(event_id,)
         ).fetchone()
         need(source is not None,"FACT_GRAPH_SOURCE_EVENT_MISSING")
         self._assert_record_integrity(source)
+        need(self._visible_operation("EVENT",event_id,cutoff),
+             "FACT_GRAPH_EVENT_NOT_AVAILABLE_AS_OF")
         frontier={event_id}
         seen={event_id}
         links=[]
@@ -947,26 +1154,40 @@ class FactJournal:
             new=set()
             for node in sorted(frontier):
                 rows=self.db.execute(
-                    "SELECT * FROM fact_links WHERE source_event=? "
-                    "OR target_event=? ORDER BY link_sha LIMIT 49",(node,node)
-                ).fetchall()
+                    "SELECT edge.* FROM fact_links edge "
+                    "JOIN ledger_operations relation_clock "
+                    "ON relation_clock.operation='LINK' AND "
+                    "relation_clock.ref=edge.link_sha AND "
+                    "relation_clock.global_seq<=? "
+                    "WHERE (edge.source_event=? OR edge.target_event=?) "
+                    "ORDER BY edge.link_sha LIMIT 49",
+                    (cutoff,node,node)).fetchall()
                 need(len(rows)<=48,"FACT_GRAPH_EDGE_QUERY_BUDGET_EXCEEDED")
                 for edge in rows:
-                    proof = digest(canonical({
+                    proof=digest(canonical({
                         "source":edge["source_event"],
                         "target":edge["target_event"],
                         "relation":edge["relation"]}))
                     need(proof==edge["link_sha"],
                          "FACT_GRAPH_RELATION_TAMPERED")
-                    counterpart = (edge["target_event"] if
-                                   edge["source_event"]==node else edge["source_event"])
+                    counterpart=(edge["target_event"] if
+                                 edge["source_event"]==node
+                                 else edge["source_event"])
                     record=self.db.execute(
                         "SELECT * FROM fact_events WHERE event_id=?",
                         (counterpart,)).fetchone()
                     need(record is not None,"FACT_GRAPH_LINK_TO_MISSING_EVENT")
                     self._assert_record_integrity(record)
+                    need(self._visible_operation("EVENT",counterpart,cutoff),
+                         "FACT_GRAPH_EVENT_NOT_AVAILABLE_AS_OF")
                     need(self._same_story(record["scene"],source["scene"]),
                          "FACT_GRAPH_CROSS_SCENE_RELATION")
+                    if record["scene"] != source["scene"]:
+                        need(self._visible_operation(
+                            "SCENE",record["scene"],cutoff) and
+                            self._visible_operation(
+                                "SCENE",source["scene"],cutoff),
+                            "FACT_GRAPH_SCOPE_NOT_AVAILABLE_AS_OF")
                     if not any(v["link_sha256"]==edge["link_sha"] for v in links):
                         links.append({"link_sha256":edge["link_sha"],
                                       "from":edge["source_event"],
@@ -979,9 +1200,11 @@ class FactJournal:
             frontier=new
             need(len(seen)<=64 and len(links)<=64,
                  "FACT_GRAPH_NEIGHBORHOOD_TOO_LARGE")
-            if not frontier: break
-        return {"format":"writerforge.v55-event-graph-neighborhood.v1",
+            if not frontier:
+                break
+        return {"format":"writerforge.v59-event-graph-neighborhood.v1",
                 "root_event_id":event_id,"visited_event_ids":sorted(seen),
+                "as_of_ledger_seq":cutoff,
                 "relations":links,"relation_count":len(links),
                 "narrative_causality_verified":False,
                 "model_calls":0,"prose_included":False}
