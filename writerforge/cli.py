@@ -44,6 +44,17 @@ def _load_text(path: Path) -> str:
     return path.read_text(encoding="utf-8-sig")
 
 
+def _small_experience_json(path: str, *, limit: int = 8192):
+    """Read bounded local metadata. Never print or sync it to private R2."""
+    file=Path(path)
+    if not file.is_file() or not 0<file.stat().st_size<=limit:
+        raise ValueError("EXPERIENCE_METADATA_FILE_MISSING_OR_TOO_LARGE")
+    doc=json.loads(file.read_text(encoding="utf-8"))
+    if not isinstance(doc,dict):
+        raise ValueError("EXPERIENCE_METADATA_MUST_BE_OBJECT")
+    return doc
+
+
 def _emit(data) -> None:
     print(json.dumps(data,ensure_ascii=False,indent=2))
 
@@ -675,7 +686,72 @@ def main(argv: list[str] | None = None):
         return
     db=WriterForgeDB(Path(args.db))
     try:
-        if args.cmd=="init":
+        if args.cmd in ("experience-stage","experience-approve",
+                        "experience-decide","experience-read",
+                        "experience-postwrite"):
+            from .experience_decision import ExperienceDecisionBridge
+            rt=RuntimeEngine()
+            if args.cmd in ("experience-stage","experience-approve"):
+                rt.enter_learn()
+            elif args.cmd=="experience-decide":
+                rt.enter_write(args.snapshot)
+            elif args.cmd=="experience-postwrite":
+                probe=ExperienceDecisionBridge(db,rt)
+                frozen=probe.read_decision(
+                    project_id=args.project,attempt_id=args.attempt_id)
+                rt.enter_write(frozen["source_snapshot_id"])
+            verifier_hex=os.environ.get(
+                "WRITERFORGE_EXPERIENCE_REVIEW_VERIFY_KEY_HEX")
+            if verifier_hex is None:
+                verifier_key=None
+            else:
+                try:
+                    verifier_key=bytes.fromhex(verifier_hex)
+                except ValueError as exc:
+                    raise ValueError("EXPERIENCE_VERIFIER_KEY_INVALID") from exc
+            bridge=ExperienceDecisionBridge(db,rt,reviewer_key=verifier_key)
+            if args.cmd=="experience-stage":
+                doc=_small_experience_json(args.file)
+                if set(doc)!={"source_ref","required_tags","forbidden_tags",
+                              "operation_code"}:
+                    raise ValueError("EXPERIENCE_STAGE_FIELDS_INVALID")
+                result=bridge.stage_candidate(
+                    project_id=args.project,experience_id=args.experience_id,
+                    snapshot_id=args.snapshot,**doc)
+            elif args.cmd=="experience-approve":
+                doc=_small_experience_json(args.file)
+                if set(doc)!={"reviewer_id","review_id","signature"}:
+                    raise ValueError("EXPERIENCE_APPROVAL_FIELDS_INVALID")
+                result=bridge.approve_candidate(
+                    project_id=args.project,experience_id=args.experience_id,
+                    **doc)
+            elif args.cmd=="experience-decide":
+                values=_small_experience_json(args.signals_file,limit=4096)
+                result=bridge.decide(
+                    project_id=args.project,scene_id=args.scene,
+                    attempt_id=args.attempt_id,goal=args.goal,
+                    scene_signals=values,enabled=not args.disabled)
+            elif args.cmd=="experience-read":
+                result=bridge.read_decision(
+                    project_id=args.project,attempt_id=args.attempt_id)
+            else:
+                draft_path=Path(args.draft_file)
+                if (not draft_path.is_file() or
+                    not 0<draft_path.stat().st_size<=300000):
+                    raise ValueError("EXPERIENCE_DRAFT_FILE_INVALID")
+                draft_body=draft_path.read_text(encoding="utf-8")
+                quote=None
+                if args.quote_file is not None:
+                    p=Path(args.quote_file)
+                    if not p.is_file() or not 0<p.stat().st_size<=1024:
+                        raise ValueError("EXPERIENCE_QUOTE_FILE_INVALID")
+                    quote=p.read_text(encoding="utf-8")
+                result=bridge.report_postwrite(
+                    project_id=args.project,attempt_id=args.attempt_id,
+                    draft=draft_body,experience_id=args.experience_id,
+                    outcome=args.outcome,quote=quote)
+            _emit(result)
+        elif args.cmd=="init":
             _emit({"ok":True,"db":str(args.db)})
         elif args.cmd=="learn":
             rt=RuntimeEngine()
@@ -886,12 +962,17 @@ def main(argv: list[str] | None = None):
             rt.enter_write(int(row["id"]))
             flow=VerifiedWritingFlow(db,rt,args.project)
             concerns=tuple(x.strip() for x in args.concerns.split(",") if x.strip())
+            signals=(_small_experience_json(args.experience_signals_file,limit=4096)
+                     if args.experience_signals_file else None)
             packet=flow.prepare(
                 args.scene,args.goal,concerns=concerns,genre=args.genre,
                 reference_category=args.reference_category,
                 reference_name=args.reference_name,
                 r2_library=args.r2_library,r2_snapshot=args.r2_snapshot,
                 r2_terms=tuple(args.r2_term),r2_cache_dir=args.r2_cache_dir,
+                experience_attempt_id=args.experience_attempt_id,
+                scene_signals=signals,
+                experience_enabled=not args.experience_disabled,
             )
             if args.cmd=="draft-context":
                 # Preview only: does NOT claim a model was called or produce prose.
