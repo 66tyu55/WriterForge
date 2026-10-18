@@ -53,7 +53,7 @@ def main():
         "registry_schema_sha256":digest("writerforge/db.py"),
         "verified_flow_sha256":digest("writerforge/verified_flow.py"),
         "cli_sha256":digest("writerforge/cli.py"),
-        "new_test_sha256":digest("tests/test_v63_experience_negative_transfer.py"),
+        "new_test_sha256":digest("tests/test_v63_authority_concurrency.py"),
         "total":result.testsRun,
         "passed":len([x for x in result.case_results if x["status"]=="PASS"]),
         "cases":result.case_results,
