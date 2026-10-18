@@ -1,0 +1,44 @@
+name: V62 negative experience and historical reference audit (no models/R2)
+on:
+  push:
+    branches: [v62-experience-negative-transfer]
+    paths:
+      - 'writerforge/experience_decision.py'
+      - 'writerforge/evolution.py'
+      - 'writerforge/db.py'
+      - 'writerforge/cli.py'
+      - 'tests/test_v62_experience_negative_transfer.py'
+      - 'scripts/audit_v62_experience.py'
+      - '.github/workflows/v62-negative-experience.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  model-free-experience:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - name: V62 independent adversarial evidence
+        run: python -m scripts.audit_v62_experience
+      - name: V61 previous bridge tests unchanged
+        run: python -m unittest discover -s tests -p 'test_v61_experience_decision.py' -v
+      - name: Existing complete repository suite
+        run: python -m unittest discover -s tests -q
+      - name: Save code/test/report SHA
+        if: always()
+        run: |
+          sha256sum tests/test_v62_experience_negative_transfer.py scripts/audit_v62_experience.py writerforge/experience_decision.py writerforge/db.py
+          if [ -f v62_relation_regression_receipt.json ]; then sha256sum v62_relation_regression_receipt.json; fi
+      - name: Freeze original red/green machine report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: V62_Negative_Experience_FailFirst_Receipt
+          path: v62_relation_regression_receipt.json
+          if-no-files-found: warn
+          retention-days: 90
