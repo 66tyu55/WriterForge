@@ -47,7 +47,7 @@ def main():
         "passed":len([x for x in result.case_results if x["status"]=="PASS"]),
         "cases":result.case_results,
     }
-    raw=json.dumps(report,ensure_ascii=False,indent=2,sort_keys=True)+"\\n"
+    raw=json.dumps(report,ensure_ascii=False,indent=2,sort_keys=True)+"\n"
     file=Path("v57_relation_regression_receipt.json")
     file.write_text(raw,encoding="utf-8")
     print(json.dumps({
