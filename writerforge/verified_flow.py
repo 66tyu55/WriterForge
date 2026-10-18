@@ -50,6 +50,8 @@ class GroundedDraftPacket:
     prose_reference_text: str | None = None
     prose_reference_sha256: str | None = None
     strategy_receipt: dict | None = None
+    r2_verified_sources: tuple[dict, ...] = ()
+    r2_snapshot_sha256: str | None = None
 
     def manifest(self) -> dict:
         return {
@@ -75,6 +77,14 @@ class GroundedDraftPacket:
             "review_status": "pending_external_review",
             "accepted": False,
             "experience_execution": self.strategy_receipt,
+            "r2_source_lookup": {"snapshot_sha256":self.r2_snapshot_sha256,
+                "references":[{"work_id":x["work_id"],
+                    "work_original_sha256":x["work_original_sha256"],
+                    "source_unit_sha256":x["source_unit_sha256"],
+                    "location":x["location"],
+                    "evidence_class":x["evidence_class"]}
+                    for x in self.r2_verified_sources],
+                "literary_method_verified":False},
             "unreviewed_source_excerpts_shown_to_model": False,
             "craft_labels_shown_to_model": False,
             "prose_style": {
@@ -111,10 +121,27 @@ class VerifiedWritingFlow(WritingFlow):
         causal_plan: dict | None = None,
         v45_experience: bool = False,
         evaluation_neutral: bool = False,
+        r2_library: str | None = None,
+        r2_snapshot: str | None = None,
+        r2_terms: tuple[str,...] = (),
+        r2_cache_dir: str | Path = "corpus/r2-readonly-cache",
     ) -> GroundedDraftPacket:
         self.runtime.require(Mode.WRITE)
         if not goal.strip() or len(goal) > 2000 or not scene_id or len(scene_id)>128:
             raise WritingExecutionError("scene_id and bounded specific writing goal required")
+        if r2_library is None and (r2_snapshot is not None or r2_terms):
+            raise WritingExecutionError("R2_LOOKUP_NEEDS_EXPLICIT_LIBRARY")
+        r2_result=None
+        if r2_library is not None:
+            if not r2_snapshot:
+                raise WritingExecutionError("R2_WRITING_REQUIRES_PINNED_SNAPSHOT")
+            from .r2_retrieval import R2SourceGateway
+            r2_result=R2SourceGateway.from_environment().search(
+                library=r2_library,snapshot=r2_snapshot,
+                terms=r2_terms,cache_dir=r2_cache_dir,limit=4)
+            if not r2_result.matches:
+                raise WritingExecutionError("R2_NO_EXACT_SOURCE_EVIDENCE_MATCH")
+
         if v45_experience and experience_experiment:
             raise WritingExecutionError("V45_AND_V43_EXPERIMENTS_CANNOT_BOTH_RUN")
         if causal_plan is not None and v45_experience:
@@ -207,6 +234,18 @@ class VerifiedWritingFlow(WritingFlow):
         # Absent approval => free-model prose. No "best first chapter" guesses.
         style = ProseStyleStore(self.db, self.project_id).load()
         prose_tail = format_prose_reference(style.text) if style else ""
+        # R2 restored sources are verified facts about the original text,
+        # NEVER preapproved literary techniques.
+        r2_context = ""
+        if r2_result:
+            r2_context = (
+                "\nR2已验证原著出处（词面检索，非经审文学经验；禁止照搬）：\n"
+                + "\n".join(
+                    "- "+x["work_id"]+" 位置 "+",".join(map(str,x["location"]))+
+                    "；短引 "+x["source_excerpt"][:45]
+                    for x in r2_result.matches
+                )
+            )
         prompt = (
             f"请创作原创{language}小说正文。体裁：{genre}。\n"
             "原著学习档案里的关键词与第几章标签仅作来源审计，不是文笔范例，"
@@ -222,6 +261,7 @@ class VerifiedWritingFlow(WritingFlow):
             "不要输出大纲、自评或教学说明；只写原创正文。"
             + ("\n来自WF自身持久故事状态的实验性写前因果约束：\n"
                + v45_guidance if v45_guidance else "")
+            + r2_context
             + prose_tail
         )
         if len(prompt) > MAX_PROMPT_CHARS:
@@ -235,6 +275,8 @@ class VerifiedWritingFlow(WritingFlow):
             style.sha256 if style else None,
             (decision.receipt() if v45_experience
              else decision.audit()) if decision else None,
+            tuple(r2_result.matches) if r2_result else (),
+            r2_result.snapshot if r2_result else None,
         )
 
 
