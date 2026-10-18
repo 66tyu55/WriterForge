@@ -391,7 +391,11 @@ class SkillRegistry:
         for skill in self._skills.values():
             for dep,minimum in skill.depends_on.items():
                 actual=self._skills.get(dep)
-                if actual is None or actual.level<minimum:
+                # An unverified legacy L9/SHADOW is not a valid
+                # level-5 dependency. Trust status must participate in
+                # capability planning, not only the numeric label.
+                if (actual is None or actual.status!=SkillStatus.ACTIVE
+                    or actual.level<minimum):
                     out.append(CapabilityLag(
                         skill.name,dep,minimum,
                         None if actual is None else actual.level))
