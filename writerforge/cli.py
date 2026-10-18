@@ -512,9 +512,13 @@ def main(argv: list[str] | None = None):
                     snapshot_id=0,evidence=(),craft_ids=(),
                     prompt=instructions,
                     prompt_sha256=sha256(instructions.encode("utf-8")).hexdigest())
-                raw=local_chat_completion(packet,model=args.model,
-                                          api_base=args.api_base,
-                                          max_tokens=2500)
+                raw=local_chat_completion(
+                    packet,model=args.model,
+                    api_base=args.api_base,max_tokens=2500,
+                    system_role_instruction=(
+                        "你是WriterForge自己的场景语义诊断器。"
+                        "只根据已经明确的事实分析情节适用性，仅输出JSON。"
+                        "不编写正文，不代替人物猜测未知秘密。"))
                 try:
                     profile=json.loads(raw)
                 except (ValueError,TypeError) as exc:
