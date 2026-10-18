@@ -185,7 +185,10 @@ class PersistenceRecoveryTests(unittest.TestCase):
                 tags=("dialogue",),
             ))
             reg=SkillRegistry(db,"project-a")
-            reg.register(CapabilityContract("dialogue",2,"line as action"))
+            # V64: old high-grade claim survives restore as SHADOW, not mastery.
+            reg.import_legacy_capability(
+                CapabilityContract("dialogue",2,"line as action"),
+                provenance="test_v23_original_baseline")
             evol=EvolutionEngine(db=db,scope="project-a")
             for n in range(3):
                 evol.record_failure(FailureEvent("dialogue","EMPTY_DIALOGUE",f"chapter-{n}"))
@@ -195,6 +198,7 @@ class PersistenceRecoveryTests(unittest.TestCase):
                 len(TasteMemory(db,"project-a").query(tags=("dialogue",))),1
             )
             self.assertEqual(SkillRegistry(db,"project-a").get("dialogue").level,2)
+            self.assertEqual(SkillRegistry(db,"project-a").get("dialogue").status.value,"shadow")
             self.assertEqual(EvolutionEngine(db=db,scope="project-a")
                              .failure_clusters()[0].count,3)
             self.assertEqual(TasteMemory(db,"project-b").query(),[])
