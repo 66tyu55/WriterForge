@@ -15,7 +15,7 @@ import unittest
 
 from writerforge.db import WriterForgeDB
 from writerforge.runtime import RuntimeEngine, Mode
-from writerforge.verified_flow import VerifiedWritingFlow
+from writerforge.verified_flow import VerifiedWritingFlow, WritingExecutionError
 from writerforge.evolution import (
     SkillRegistry, CapabilityContract, EvolutionEngine, UpgradeCandidate,
     PromotionEvidence
@@ -235,7 +235,7 @@ class V61ExperienceDecisionTests(unittest.TestCase):
         fake=[{"entry_id":1,"work_id":"synthetic_work",
                "location":[1,1,1],"function":"narration","effect":"unverified"}]
         with patch.object(flow.xuehai,"query",return_value=fake):
-            with self.assertRaisesRegex(ValueError,"EXPERIENCE_DECISION_REQUIRED"):
+            with self.assertRaisesRegex(WritingExecutionError,"EXPERIENCE_DECISION_REQUIRED"):
                 flow.prepare("scene01","synthetic investigation")
             packet=flow.prepare(
                 "scene01","synthetic investigation",
