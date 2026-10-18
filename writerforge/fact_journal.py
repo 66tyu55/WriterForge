@@ -17,6 +17,7 @@ import hmac
 import json
 import os
 import re
+import secrets
 import sqlite3
 
 ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{1,79}\Z")
@@ -151,7 +152,23 @@ class FactJournal:
             recorded_seq INTEGER PRIMARY KEY AUTOINCREMENT,
             event_id TEXT NOT NULL UNIQUE, ingest_kind TEXT NOT NULL,
             event_sha TEXT NOT NULL);
+        -- Private per-journal cursor signing secret; protects API clients
+        -- from forging page offset. A DB owner can still alter the journal.
+        CREATE TABLE IF NOT EXISTS journal_cursor_keys(
+            key_id INTEGER PRIMARY KEY CHECK(key_id=1),
+            secret_hex TEXT NOT NULL);
         """)
+        with self.db:
+            self.db.execute(
+                "INSERT OR IGNORE INTO journal_cursor_keys VALUES(1,?)",
+                (secrets.token_hex(32),))
+        record=self.db.execute(
+            "SELECT secret_hex FROM journal_cursor_keys WHERE key_id=1"
+        ).fetchone()
+        need(record is not None and isinstance(record[0],str) and
+             SHA.fullmatch(record[0]) is not None,
+             "FACT_TEMPORAL_CURSOR_KEY_INVALID")
+        self._cursor_key=bytes.fromhex(record[0])
         self.db.commit()
 
     def close(self):
@@ -804,6 +821,11 @@ class FactJournal:
             "language_model_calls":0,"eligible_to_direct_writing":False,
         }
 
+    def _cursor_tag(self, data):
+        return hmac.new(
+            self._cursor_key,canonical(data).encode("utf-8"),
+            "sha256").hexdigest()
+
     def temporal_claim_page(self, *, scene: str, scope: str, subject: str,
                             fact: str, story_tick: int,
                             story_id: str | None = None,
@@ -813,8 +835,9 @@ class FactJournal:
         """Stable keyset replay of claim metadata, NOT a full state result.
 
         Output never includes the source text. A cursor is tied to the exact
-        query, row limit and immutable recorded-sequence snapshot. Its hash
-        detects accidental mutation but is NOT a user-authentication token.
+        query, row limit and immutable recorded-sequence snapshot. Its HMAC
+        prevents outside callers from forging offsets; it is NOT authorization,
+        and anyone with raw SQLite write access controls the local journal.
         """
         self._temporal_query_validate(
             scene,scope,subject,fact,story_tick,as_of_recorded_seq)
@@ -843,9 +866,9 @@ class FactJournal:
                  as_of_recorded_seq==prior_asof,
                  "FACT_TEMPORAL_CURSOR_SNAPSHOT_MISMATCH")
             as_of_recorded_seq=prior_asof
-            proof=digest(canonical({
+            proof=self._cursor_tag({
                 "v":1,"fingerprint":token["fingerprint"],
-                "last_seq":token["last_seq"],"asof":prior_asof}))
+                "last_seq":token["last_seq"],"asof":prior_asof})
             need(hmac.compare_digest(proof,token["tag"]),
                  "FACT_TEMPORAL_CURSOR_INVALID")
             after_seq=token["last_seq"]
@@ -895,7 +918,7 @@ class FactJournal:
             next_data={"v":1,"fingerprint":fingerprint,
                        "last_seq":page[-1]["recorded_seq"],
                        "asof":as_of_recorded_seq}
-            next_data["tag"]=digest(canonical(next_data))
+            next_data["tag"]=self._cursor_tag(next_data)
             next_cursor=base64.urlsafe_b64encode(
                 canonical(next_data).encode("utf-8")).decode("ascii").rstrip("=")
         return {"format":"writerforge.v58-temporal-claim-page.v1",
