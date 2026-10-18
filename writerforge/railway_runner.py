@@ -35,11 +35,21 @@ def main() -> int:
               "no_github_actions": True})
         return 0
     emit({**label, "status": "WF_HTTP_REQUEST_STARTED", "token_present": True, "token_printed": False})
+    client = None
     try:
-        result = WFWorkerR2Client(endpoint=ENDPOINT).inventory()
+        client = WFWorkerR2Client(endpoint=ENDPOINT)
+        result = client.inventory()
     except WFWorkerAPIError as exc:
+        diagnostic = getattr(exc, "metadata", None)
+        # Run just one token-free comparison request if an initial
+        # inventory call was refused with HTTP 403.
+        if isinstance(diagnostic, dict) and diagnostic.get("http_status") == 403 and client:
+            diagnostic = {**diagnostic,
+                          "without_token_health": client.probe_public_health_unauthenticated()}
         emit({**label, "status": "WF_R2_HTTP_FAILED",
-              "error_code": str(exc), "token_printed": False})
+              "error_code": str(exc),
+              "safe_http_diagnostic": diagnostic,
+              "token_printed": False})
         return 1
     except Exception:
         emit({**label, "status": "WF_R2_HTTP_UNEXPECTED_ERROR",
