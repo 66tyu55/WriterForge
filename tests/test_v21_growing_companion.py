@@ -37,6 +37,12 @@ class GrowingCompanionTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.path = Path(self.temp.name) / "novel.sqlite3"
         self.db = WriterForgeDB(self.path)
+        # V64: even synthetic assistant-generated companion samples must
+        # be bound to a published test snapshot, not just a mode ID.
+        self.db.conn.execute(
+            "INSERT INTO snapshots(id,status,layout,note) "
+            "VALUES(1,'published','full','V64 synthetic origin')")
+        self.db.conn.commit()
         self.coordinator = StoryCommitCoordinator(self.db, runtime())
 
     def tearDown(self):
