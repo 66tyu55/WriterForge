@@ -319,7 +319,8 @@ class VerifiedWritingFlow(WritingFlow):
 
 def local_chat_completion(packet: GroundedDraftPacket, *, model: str,
                           api_base: str = "http://127.0.0.1:1234/v1",
-                          timeout: int = 120, max_tokens: int = 1600) -> str:
+                          timeout: int = 120, max_tokens: int = 1600,
+                          system_role_instruction: str | None = None) -> str:
     """OpenAI-compatible local LM Studio/Ollama endpoint; no implicit cloud use."""
     parsed = urlsplit(api_base)
     host = parsed.hostname or ""
@@ -332,9 +333,17 @@ def local_chat_completion(packet: GroundedDraftPacket, *, model: str,
     if not model or not 1 <= max_tokens <= 6000:
         raise WritingExecutionError("model and bounded max_tokens are required")
     endpoint = api_base.rstrip("/") + "/chat/completions"
+    # Only the built-in scene diagnosis may override the generic novelist
+    # system role; it uses the same loopback, timeout and byte restrictions.
+    if system_role_instruction is not None and (
+            not isinstance(system_role_instruction,str) or
+            not 12<=len(system_role_instruction)<=180):
+        raise WritingExecutionError("LOCAL_MODEL_SYSTEM_ROLE_INVALID")
+    role=system_role_instruction or (
+        "你是原创中文小说作者；不要模仿或逐字复制参考原著。")
     payload = json.dumps({
         "model":model,
-        "messages":[{"role":"system","content":"你是原创中文小说作者；不要模仿或逐字复制参考原著。"},
+        "messages":[{"role":"system","content":role},
                     {"role":"user","content":packet.prompt}],
         "temperature":0.8,"max_tokens":max_tokens,
         "stream":False,
