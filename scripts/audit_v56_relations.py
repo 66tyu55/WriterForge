@@ -137,8 +137,7 @@ def case_cross_chapter_memory(db):
 def case_out_of_order_import(db):
     db.append(ev("late-revealed-event",20,"KNOWN"))
     # Novel reading may import a flashback after an episode from later time.
-    return rejects(lambda: db.append(ev("retroactive-flashback",3,"UNKNOWN")),
-                   "FLASHBACK_ACCEPTED") if False else _out_of_order(db)
+    return _out_of_order(db)
 
 
 def _out_of_order(db):
@@ -215,7 +214,7 @@ def case_supersession_audit(db):
     db.append_temporal_claim(cl("claim-new",2,"FALSE","correcting-entry",
                                end=6,supersedes="claim-old"))
     return rejects(lambda:db.append_temporal_claim(
-        cl("forked-correction",2,"KNOWN","correcting-entry",
+        cl("forked-correction",2,"FALSE","correcting-entry",
            end=6,supersedes="claim-old")),
         "FACT_TEMPORAL_SUPERSESSION_ALREADY_USED")
 
