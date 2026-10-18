@@ -186,6 +186,124 @@ class SkillRegistry:
             raise PermissionError("SKILL_BOOTSTRAP_RECEIPT_TAMPERED")
         return contract_sha,receipt_sha
 
+    @staticmethod
+    def _canonical_receipt(obj):
+        return json.dumps(obj,ensure_ascii=False,sort_keys=True,
+                          separators=(",",":"),allow_nan=False)
+
+    @staticmethod
+    def _contract_from_record(raw):
+        if not isinstance(raw,dict):
+            raise PermissionError("SKILL_PROMOTION_RECEIPT_TAMPERED")
+        try:
+            return CapabilityContract(
+                name=raw["name"],level=raw["level"],
+                statement=raw["statement"],depends_on=raw["depends_on"],
+                status=SkillStatus(raw["status"]),revision=raw["revision"])
+        except (KeyError,TypeError,ValueError) as exc:
+            raise PermissionError(
+                "SKILL_PROMOTION_RECEIPT_TAMPERED") from exc
+
+    def _verify_promotion_chain(self, latest):
+        """Replay at most nine signed steps; do not invent legacy history.
+
+        Each promotion seals the WHOLE before/after capability and the
+        reviewer's original approved metrics, with a prior-receipt pointer.
+        A signed L1 -> L2 receipt or signed initial L4 -> L5 can restart
+        without being mislabeled as an unverifiable legacy high grade.
+        """
+        if self._trusted_promotion_key is None:
+            raise PermissionError("SKILL_PROMOTION_VERIFIER_KEY_REQUIRED")
+        current=latest
+        visited=set()
+        for _ in range(10):
+            row=self.db.conn.execute(
+                "SELECT * FROM skill_promotion_receipts "
+                "WHERE scope=? AND skill_name=? AND new_level=?",
+                (self.scope,current.name,current.level)).fetchone()
+            if row is None or row["receipt_sha"] in visited:
+                raise PermissionError("SKILL_PROMOTION_LINEAGE_MISSING")
+            visited.add(row["receipt_sha"])
+            try:
+                proof=json.loads(row["payload_json"])
+                raw=self._canonical_receipt(proof).encode("utf-8")
+                expected=hmac.new(
+                    self._trusted_promotion_key,raw,"sha256").hexdigest()
+                signature=row["signature"]
+                digest=sha256(self._canonical_receipt({
+                    "payload":proof,
+                    "signature":signature}).encode("utf-8")).hexdigest()
+                before=self._contract_from_record(proof["before"])
+                after=self._contract_from_record(proof["after"])
+                reviewer=proof["reviewer_id"]
+                review_id=proof["review_id"]
+                attested=proof["attested_request"]
+                original_signature=proof["original_signature"]
+                attested_signature=hmac.new(
+                    self._trusted_promotion_key,
+                    self._canonical_receipt(attested).encode("utf-8"),
+                    "sha256").hexdigest()
+            except (KeyError,TypeError,ValueError) as exc:
+                raise PermissionError(
+                    "SKILL_PROMOTION_RECEIPT_TAMPERED") from exc
+            if (not isinstance(signature,str)
+                or not hmac.compare_digest(expected,signature)
+                or digest!=row["receipt_sha"]
+                or not isinstance(original_signature,str)
+                or not hmac.compare_digest(
+                    original_signature,attested_signature)
+                or row["scope"]!=self.scope
+                or row["skill_name"]!=latest.name
+                or row["new_level"]!=after.level
+                or row["old_level"]!=before.level
+                or row["reviewer_id"]!=reviewer
+                or row["review_id"]!=review_id
+                or proof.get("scope")!=self.scope
+                or proof.get("skill_name")!=latest.name
+                or attested.get("skill")!=latest.name
+                or attested.get("new_level")!=after.level
+                or attested.get("capability_statement")!=after.statement
+                or before.level+1!=after.level
+                or after!=current):
+                raise PermissionError("SKILL_PROMOTION_RECEIPT_TAMPERED")
+            prev=proof.get("prior_receipt_sha256")
+            if prev=="BASELINE_L1":
+                if before.level!=1:
+                    raise PermissionError(
+                        "SKILL_PROMOTION_LINEAGE_MISSING")
+                return True
+            bootstrap=self.db.conn.execute(
+                "SELECT * FROM skill_bootstrap_receipts "
+                "WHERE scope=? AND skill_name=? AND receipt_sha=?",
+                (self.scope,latest.name,prev)).fetchone()
+            if bootstrap is not None:
+                if self._bootstrap_key is None or not bootstrap["payload_json"]:
+                    raise PermissionError(
+                        "SKILL_PROMOTION_BOOTSTRAP_PROOF_REQUIRED")
+                try:
+                    signed=json.loads(bootstrap["payload_json"])
+                    old=self._contract_from_record(signed["capability"])
+                except (TypeError,ValueError,KeyError) as exc:
+                    raise PermissionError(
+                        "SKILL_PROMOTION_BOOTSTRAP_PROOF_TAMPERED") from exc
+                self._validate_bootstrap(old,{
+                    "source_sha256":bootstrap["source_sha"],
+                    "reviewer_id":bootstrap["reviewer_id"],
+                    "review_id":bootstrap["review_id"],
+                    "signature":bootstrap["signature"]},receipt=bootstrap)
+                if old!=before:
+                    raise PermissionError(
+                        "SKILL_PROMOTION_BOOTSTRAP_STATE_MISMATCH")
+                return True
+            predecessor=self.db.conn.execute(
+                "SELECT new_level FROM skill_promotion_receipts "
+                "WHERE scope=? AND skill_name=? AND receipt_sha=?",
+                (self.scope,latest.name,prev)).fetchone()
+            if predecessor is None or predecessor["new_level"]!=before.level:
+                raise PermissionError("SKILL_PROMOTION_LINEAGE_MISSING")
+            current=before
+        raise PermissionError("SKILL_PROMOTION_HISTORY_BUDGET_EXCEEDED")
+
     def bootstrap_verified(self,name:str)->bool:
         return name in self._verified_initial_grades
 
