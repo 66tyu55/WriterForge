@@ -4,6 +4,7 @@ on:
     branches: [v57-relation-evidence-foundation]
     paths:
       - 'writerforge/fact_journal.py'
+      - 'writerforge/cli.py'
       - 'tests/test_v57_relation_foundation.py'
       - 'scripts/audit_v57_relations.py'
       - '.github/workflows/v57-relation-foundation.yml'
