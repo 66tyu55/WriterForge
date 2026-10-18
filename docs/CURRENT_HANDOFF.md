@@ -828,3 +828,15 @@
 5. **考试设计与诚实边界**：优先由WF自己检索回答《老残游记》声音或景物营造紧张感的实证题，要求其自行选择证据与解释；如当前没有语义模型能力，先明确标注地进行独立关键词出处定位子题（如「黃河」是否出现及回/段/句），不得把字面命中冒充文学理解。V52旧 `老殘` 六命中不准复制成新的测试。记录题目、WF自发检索过程、证据SHA/定位、真实答案和失败。V49 `THIRD_STRIKE_FAILED`、第二窗口 `LOCKED` 持续有效。
 6. Railway服务**固定旧代码commit** `f2c6d3377c307ce225a60be8c7e3226075a34911`；新增GitHub文档提交不会自动改变正在运行的WF。实际部署新功能必须通过Railway连接服务的新精确commit再读部署日志。**禁止GitHub Actions、GitHub Secrets、用户本地PowerShell重新安装、捏造文学成功成绩。**
 
+
+
+## 54. 【2026-10-18 V67】Worker→单本学习库只读资料通道代码已就绪；待Cloudflare正式部署；《老残游记》文学考题未开始
+
+用户明确确定**正式考题**：「《老残游记》中，作者有没有利用声音或环境变化营造紧张感？请你自己检索资料，找到至少一处原文证据，指出回、段、句的位置，解释你的判断。如果证据不足，就明确回答证据不足。」考官必须**不替 WF 提供原文、检索关键词或答案**。顺序不可倒置：先通道→WF实际取出并验证学习库→自主检索→证据和文学判断独立留痕。绝对不能把V52旧“老殘”检索结果回填为新考卷。
+
+1. **可靠的历史起点**：V66 Railway `wf-python-r2` 已真实发送HTTP成功读出R2的233个对象、1,673,579,609字节、WF端717.28ms，但那只是目录元数据；实际部署ID `5243f688-3955-42d3-ab14-b229b3263c50`，固定commit `f2c6d3377c307ce225a60be8c7e3226075a34911`。生产Cloudflare尚无已证实可用的 `/r2/object` 路由，之前确认为404。保留旧生产运行状态、旧失败记录和原始R2。
+2. **新隔离分支**：`v67-worker-readonly-library-bridge`，从V66继承，不改main；本轮没有PR、没有GitHub Actions触发、没有文学模型调用。文件 `cloudflare/wf-r2-worker-readonly.js` 是用户对**现有** `wf-r2-api` Worker的候选更新：兼容原health/status/inventory，增加需要现有Bearer认证的 `GET/HEAD /r2/object`，限定单一原书库 `laocanyouji-25124` 的latest/manifest/blob，元数据至多128KiB、blob最大256MiB、单次4MiB范围GET，拒绝跨库和写方法；不披露密钥或文稿到日志。**当前没有Cloudflare管理员操作接口，代码已经上传GitHub并不等于云端已部署。**
+3. **WF读取端**：`writerforge/worker_readonly_library.py`，一套在WF进程内凭既有Railway `WF_API_TOKEN` 打 Worker 的只读客户端：按需取latest、SHA256核验manifest、依manifest提取仅这一书库的SQLite和source.txt（内存有界块，**临时下载非零**）、每文件SHA256和版本Git blob SHA1、源全SHA256/SQLite章数与统计交叉验证、`mode=ro`+`PRAGMA query_only=ON`只读SQL。在一次性tempdir退出删除；不动作者电脑/R2。 `VerifiedStudy.locate` 可有界检索字面原文位置与来源SHA，**没有独立的自然语言策略规划或文学语义理解证明**。
+4. Railway一次性无原文验收入口 `wf_railway_library_start.py`，只输出版本、study单库计数、读量、耗时、是否通过校验；**不能提前拿它当考试答案**。纯离线Fake Worker测试文件 `tests/test_v67_worker_readonly_library.py` 已写入GitHub，但没有跑Python Actions/生产实测；在受限JS模拟中检查了认证401、越权403、合法GET/HEAD 200、范围206、无界400、DELETE405、原inventory200；模拟≠Cloudflare实测。
+5. **剩余执行门槛**：用户只需对Cloudflare**原Worker**正式部署一次此候选JS（事先备份旧代码，保留WF_R2绑定和WF_API_TOKEN Secret，不提供任何secret值）；随后助手通过已连接的Railway插件把**原服务**指向V67新精确commit，改启动命令为 `python -u wf_railway_library_start.py`，执行并复核一次真实日志。如果Worker路由404、鉴权失败、下载不完整、源hash错，必须清楚报告失败且不得开考。线上只读恢复成功后，才另实现并验证WF**自己制定检索计划→搜书→定位原文→尝试文学判断或诚实ABSTAIN**的正式考试执行器；考官的题目不应被硬编码在检索逻辑中。
+6. 详细文件：`docs/V67_WORKER_READONLY_LIBRARY_PENDING_DEPLOY_20261018.md`。原 `V49 THIRD_STRIKE_FAILED` / 文学课程第二窗口 `LOCKED` 不变。没有整桶复制、R2写入、原著仓库公开、真实自主考试成绩或文学能力晋级。
