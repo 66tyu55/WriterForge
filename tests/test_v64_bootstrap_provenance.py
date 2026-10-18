@@ -161,6 +161,92 @@ class TrustedBootstrapTests(unittest.TestCase):
             finally:
                 db.close()
 
+    def test_legitimate_signed_level_one_promotion_survives_restart(self):
+        from writerforge.evolution import EvolutionEngine,UpgradeCandidate,PromotionEvidence
+        key=b"synthetic-V64-verified-promotion-recovery"
+        with TemporaryDirectory() as folder:
+            db=WriterForgeDB(Path(folder)/"promotion.db")
+            try:
+                reg=SkillRegistry(db=db,scope="recovery",
+                                  promotion_verifier_key=key)
+                reg.register(CapabilityContract("genuine01",1,"L1 baseline"))
+                engine=EvolutionEngine(registry=reg,promotion_verifier_key=key)
+                candidate=UpgradeCandidate(
+                    skill="genuine01",new_level=2,
+                    capability_statement="synthetic verified L2 transition",
+                    evidence_id="proof01",requires_human_anchor=True,
+                    evidence=PromotionEvidence(
+                        capability_statement="synthetic measured change",
+                        heldout_success=.95,transfer_success=.85,
+                        regression_success=.98,judge_stability=.97,
+                        repeated_failure_reduction=.5,runtime_regression=.01,
+                        human_anchor_count=1))
+                signed=engine.promotion_attestation_payload(
+                    candidate,reviewer_id="external64",review_id="review64")
+                engine.apply_upgrade(
+                    candidate,policy="manual",approved=True,
+                    attestation={"reviewer_id":"external64",
+                                 "review_id":"review64",
+                                 "signature":sign(signed,key)})
+                self.assertEqual(reg.get("genuine01").status,
+                                 SkillStatus.ACTIVE)
+                db.close()
+                db=WriterForgeDB(Path(folder)/"promotion.db")
+                revived=SkillRegistry(
+                    db=db,scope="recovery",promotion_verifier_key=key)
+                self.assertEqual(revived.get("genuine01").level,2)
+                self.assertEqual(revived.get("genuine01").status,
+                                 SkillStatus.ACTIVE)
+                self.assertTrue(revived.grade_verified("genuine01"))
+            finally:
+                db.close()
+
+    def test_signed_high_bootstrap_then_promotion_preserves_lineage_on_reopen(self):
+        from writerforge.evolution import EvolutionEngine,UpgradeCandidate,PromotionEvidence
+        key=b"synthetic-V64-verified-promotion-lineage"
+        with TemporaryDirectory() as folder:
+            db=WriterForgeDB(Path(folder)/"lineage.db")
+            try:
+                reg=SkillRegistry(
+                    db=db,scope="lineage",bootstrap_verifier_key=BOOT_KEY,
+                    promotion_verifier_key=key)
+                original=CapabilityContract("priorL4",4,"inherited certified fixture")
+                raw=reg.bootstrap_attestation_payload(
+                    original,source_sha256=SOURCE_SHA,
+                    reviewer_id="bootstrapIssuer",review_id="boot64")
+                reg.register(original,bootstrap_attestation={
+                    "source_sha256":SOURCE_SHA,
+                    "reviewer_id":"bootstrapIssuer","review_id":"boot64",
+                    "signature":sign(raw,BOOT_KEY)})
+                engine=EvolutionEngine(registry=reg,promotion_verifier_key=key)
+                cand=UpgradeCandidate(
+                    skill="priorL4",new_level=5,
+                    capability_statement="synthetic verified progression",
+                    evidence_id="manual64",requires_human_anchor=True,
+                    evidence=PromotionEvidence(
+                        capability_statement="synthetic progression fixture",
+                        heldout_success=.95,transfer_success=.85,
+                        regression_success=.98,judge_stability=.97,
+                        repeated_failure_reduction=.5,runtime_regression=.01,
+                        human_anchor_count=1))
+                p=engine.promotion_attestation_payload(
+                    cand,reviewer_id="external64",review_id="review64")
+                engine.apply_upgrade(
+                    cand,policy="manual",approved=True,
+                    attestation={"reviewer_id":"external64",
+                                 "review_id":"review64","signature":sign(p,key)})
+                db.close()
+                db=WriterForgeDB(Path(folder)/"lineage.db")
+                loaded=SkillRegistry(
+                    db=db,scope="lineage",bootstrap_verifier_key=BOOT_KEY,
+                    promotion_verifier_key=key)
+                self.assertEqual(loaded.get("priorL4").level,5)
+                self.assertEqual(loaded.get("priorL4").status,
+                                 SkillStatus.ACTIVE)
+                self.assertTrue(loaded.grade_verified("priorL4"))
+            finally:
+                db.close()
+
     def test_level_one_baseline_is_not_mistaken_for_verified_literary_mastery(self):
         reg=SkillRegistry()
         reg.register(CapabilityContract("baseline01",1,"untrained minimum"))
