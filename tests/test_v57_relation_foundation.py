@@ -106,11 +106,11 @@ class V57RelationFoundationTests(unittest.TestCase):
                                chapter_index=1)
         self.db.register_scene(story_id="novelB",scene_id="different03",
                                chapter_index=3)
-        self.db.append(event("a",4,state="KNOWN"))
-        self.db.append(event("b",5,state="KNOWN",scene="different03"))
-        self.db.append_temporal_claim(claim("a-knows",4,"KNOWN","a"))
+        self.db.append(event("event-a",4,state="KNOWN"))
+        self.db.append(event("event-b",5,state="KNOWN",scene="different03"))
+        self.db.append_temporal_claim(claim("a-knows",4,"KNOWN","event-a"))
         with self.assertRaisesRegex(FactLedgerError,"CROSS_SCENE"):
-            self.db.link("a","b","BEFORE")
+            self.db.link("event-a","event-b","BEFORE")
         self.assertEqual(self.view(scene="different03",story_id="novelB")["state"],
                          "UNRECORDED")
         with self.assertRaisesRegex(FactLedgerError,"STORY_SCOPE"):
