@@ -2,7 +2,7 @@
 
 > **本文件是新对话的唯一首读交接入口。** 每次继续项目前，先检查本文件并复核有关 GitHub Actions 运行结果；不要重建已完成的原文归档，不要将用户的聊天结论冒充 R2 中的真实数据。本文报告的是截至 **2026-10-16 06:08 UTC** 核实的状态，而不是当前实时桶扫描结果。
 
-> **最新更新（2026-10-18）：V65用户授权直接教授WF的“情境适用性/场景文笔”见第51节。V64第50节、V63第49节、V62第48节、V61第47节、V60第46节，旧R2、原始文学失败和GitHub机器证据一律不得覆盖。** 当前重心是适用性与实际文学改善，不再新增信任权限框架。
+> **最新更新（2026-10-18）：V66让WF程序自身通过Cloudflare Worker HTTPS API调用既有私有R2，见第52节；V65文学情境经验课第51节；V64第50节、V63第49节。最新用户强调不要再靠GitHub Actions/Cloudflare测试面板手工执行数据调用。** 绝不把用户早先在Worker控制台的成功响应冒充WF本机真实运行。
 
 ## 1. 已完成：六本现代小说的私有 R2 原文归档
 
@@ -799,3 +799,17 @@
 5. **实际CI**：[Actions #39119151016](https://github.com/66tyu55/WriterForge/actions/runs/39119151016) `completed/success`：V65新增情境判断/反例/可选WF本地模型接口模拟/正式写作接线/A-B相对字数合同**21/21**通过；全项目 **711/711** 合成结构测试通过。相关SHA在该GitHub CI日志：card pack `f5e1143baf415c99021a06fc39284166e258f7d80247f1e0e3ab97088ee5ae92`、选择器 `8306d49e1dcdbc6444dae20b1d7fee2193aba9ab8356483d143ff631c95855de`、`verified_flow.py` `47f89be9aaba42ad0bd5a02309828139d7bec39401d5c10aadb93507cee81a3f`、CLI `a598629c9ba9979455ccdf14ef8a71e57aadd656e56bde7552e36b60596966ac`、测试 `4aa44a17c4f735c2892b3a2f0f6934cd817429520694979c5d0c7535aee84654`。最初缺少选择器引起的红色 CI在[#39118337377](https://github.com/66tyu55/WriterForge/actions/runs/39118337377)保留，但它是新能力接口未实现的失败，不等于文学写作漏洞。
 6. **最关键未完成**：当前4份演示情境与大多数测试的场景事实都是教师合成，实际“WF是否自行正确理解场景”还没用真实模型检验；生成的WF诊断接口只是模拟local completion，不能自称WF已经学会独立文学判读。V65本轮没产生一篇由WF自己写的真实新稿，文学质量改善尚无评分，原V29三场真实 +7.8/-5.0/+6.2 混合且第三场机制相同、V38 R39“铺垫与回收”争议均不得改成成功。V49 `THIRD_STRIKE_FAILED`与第二窗口LOCKED继续有效。
 7. **下一步而不是再增功能**：拿一个WF自己拟定且旧V29/V38未出现的新场景，让WF本地Planner真正产生JSON事实剖面；同一剖面、同一Writer/任务/长度边界写【禁用经验】与【启用选中经验】两稿；五维匿名比较因果、人物行动、知识信息、情绪作用、语言节奏，**遇到任何严重下降保留反例并收窄该经验适用范围**，而不删掉失败或宣布“模型理解了文学”。经验是外部教的，文学改善仍必须由WF自己在新稿上展现。
+
+
+## 52. 【2026-10-18 V66】WF原生HTTP客户端→用户已经部署的Cloudflare Worker→R2
+
+用户在Cloudflare控制台成功创建 `wf-r2-api`、Secret `WF_API_TOKEN`及既有私有桶 `writerforge-private-library` 的 `WF_R2` 绑定，并已经手工获取无token的401、有token的200、R2/status真实联通、`/r2/inventory`全域元数据233对象/1,673,579,609 bytes/305ms。**这些是用户手工Cloudflare调用的结果，不是WF进程主动调用。**
+
+用户最新要求：“no---别测试了--有了接口--目标是WF--不是我和你--让WF调用接口我看看”。于是V66独立分支 `v66-wf-direct-worker-http` 从V65继承，实现：
+
+- `writerforge/r2_worker_http.py`：WF代码通过标准库HTTPS向用户的Worker `GET /r2/inventory`发送Bearer token（从本地进程`WF_API_TOKEN`读取），检查完整遍历，自己测量HTTP端到端时间，将Worker返回的R2对象列表耗时单独记录；没有SQL、源码正文、模型调用或远端修改。
+- `writerforge/cli.py`：新增不创建默认DB、不借助GitHub Actions的`r2-http-inventory --endpoint https://wf-r2-api.3227482831.workers.dev` CLI。
+- `scripts/run_wf_r2_worker.ps1`：Windows PowerShell掩码输入Token，由本机WF子进程直接请求；运行结束删除本进程环境变量。
+- 完整操作与安全范围见 [V66 WF HTTP连R2交接](V66_WF_DIRECT_R2_WORKER_HTTP_20261018.md)。
+- **这一步只写入WF代码。尚无真实带认证的本机WF新运行结果，不能因为CLI存在就宣称连接成功。** 当前聊天没有Cloudflare Secret，也不能直接访问用户PC。本轮没有触发新的GitHub Actions，`main`未变。
+- 用户本地仅需在WF仓库`git fetch origin v66-wf-direct-worker-http`、`git switch v66-wf-direct-worker-http`、`.\\scripts\\run_wf_r2_worker.ps1`并掩码输入自己保存的Token，获得真正的WF程序输出。后续若要WF全书SQL，需要Worker部署实际对象下载/查询接口；当前`/r2/inventory`只能枚举元数据。
