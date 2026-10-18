@@ -2,7 +2,7 @@
 
 > **本文件是新对话的唯一首读交接入口。** 每次继续项目前，先检查本文件并复核有关 GitHub Actions 运行结果；不要重建已完成的原文归档，不要将用户的聊天结论冒充 R2 中的真实数据。本文报告的是截至 **2026-10-16 06:08 UTC** 核实的状态，而不是当前实时桶扫描结果。
 
-> **最新更新（2026-10-18）：V62失败经验影响未来写作的修复见第48节；V61见第47节、V60第46节、V59第45节、V58第44节、V57第43节、V56第42节。旧R2、文学原稿和原始失败回执不可覆盖。** V62未进行文学训练、正式技能晋级。
+> **最新更新（2026-10-18）：V63全仓权限审计、晋级SQLite原子化和撤销竞态修复见第49节；V62第48节、V61第47节、V60第46节、V59第45节、V58第44节、V57第43节、V56第42节。所有R2文学原文、V49失败与历史机器证据不可覆盖。** V63无新文学训练或文学能力晋级。
 
 ## 1. 已完成：六本现代小说的私有 R2 原文归档
 
@@ -760,3 +760,16 @@
 5. 最新真实绿灯：[Actions #39111498188](https://github.com/66tyu55/WriterForge/actions/runs/39111498188) V62新增14/14、全仓库**670/670**，全部临时SQLite、无模型文学调用。最终JSON SHA `667bad7454472c151fd3403c262d433dd65736505349762bc210bc1db69455ca`，artifact ID `12130229092`，ZIP SHA `c2cdbc6efb4f50b8170d0273ad4d86e6a5174659792e4d2feece36072afe4d71`；源码/测试SHA见V62完整文档。
 6. **不许吹成文学理解**：该负反馈是WF写后`NOT_APPLIED`自述触发保守停用，还没独立语义真值审核；旧V38 R39“自认铺垫vs独立Pro认为回收”仍有争议，模型意见不等于真人文学真值。`SkillRegistry.promote`低层写入口、SQLite双连接并发撤销竞争、读者评论身份认证和私有R2哈希真实性仍需核查；别用临时SQLite测试绿色宣告书写能力晋级。
 7. **下次开工先审`SkillRegistry.promote`直接调用与真正权限边界，之后对两个写连接同时决定/撤销做失败先行试验；V31/V38如需升级任何经验，先有只读R2原件SHA和外部可信审核，不能从本报告里抄标题直接通过。** 继续保留原先未通过的文学课程阶段，绝不重复旧题刷分。
+
+
+## 49. 【2026-10-18 V63】全仓仔细检查：SkillRegistry直接晋级、双连接撤销竞态和StoryCommit最后一刻重新验权
+
+**本节只在 `v63-skill-authority-and-concurrency` 研发分支，基于V62。不是正式main发布。** 完整源码对照、真实断点、机器SHA、整仓8项剩余风险详见：[V63完整全仓权限/并发/架构报告](V63_WHOLE_WF_SKILL_AUTHORITY_RACE_AUDIT_20261018.md)。旧V49、V56—V62从不篡改。零付费模型、零R2网络、零文学重训。
+
+1. 先冻结真实红色：[Actions #39112500068](https://github.com/66tyu55/WriterForge/actions/runs/39112500068)9项测试真实FAIL，但报告生成器脚本初版指错文件而没有完整JSON，不许以其冒充机器回执。随后**只修报告脚本、不修生产代码**，重新执行 [Actions #39112554685](https://github.com/66tyu55/WriterForge/actions/runs/39112554685)：9项独立行为断言**9/9 FAIL**，包括可直接绕过EvolutionEngine.promote、同名注册覆盖L1、可变对象回写、不可信revalidate恢复、数据库升级半提交、两个陈旧注册表同时晋级、两独立SQLite连接在决定/撤销与决定/NOT_APPLIED间竞态、accept_candidate首次核验后遭撤销仍能接受。原始JSON SHA `6647b93f1b6ffe867fd3429309d92b3213855891fabc3ee879a67799d44ad4e3`，artifact #`12130976557`，ZIP SHA `c43edd86df5922db1b98d1fa223762d61782e8c138d15aaed65d486b01757a48`。
+2. `evolution.py`现将`CapabilityContract`变成不可变快照、返回时复制依赖表；`register`同名覆盖改为拒绝；公共`SkillRegistry.promote`未签名直接调用一律拒绝；`revalidate(passed=True)`不再凭主观bool激活。经过可信签名、`manual/approved=True`的`EvolutionEngine`才可调用持久化`_promote_verified`，它在DB层重复验签、`BEGIN IMMEDIATE`+revision/level CAS、一次性写入目标/依赖技能及日志，若任一失败则所有SQLite和内存全部回滚。旧V12“可直接注册表晋级”的正向测试仅在V63新分支透明迁移，新旧失败证据保留。
+3. `experience_decision.py`现在在首次读撤销/负反馈**之前**`BEGIN IMMEDIATE`，并在锁内生成`SELECT/SKIP`收据。同一SQLite文件另一进程的撤销或NOT_APPLIED不能在这个检查到commit的间隙写入。合法撤销可在其后写入，下次决定SKIP。
+4. `story_commit.py`、`writing_flow.py`、`verified_flow.py`将原本的`precommit_check`在StoryCommit自己的`BEGIN IMMEDIATE`内部执行；第一遍经验验证后发生的合法撤销，会在最终接受前被发现并拒绝，避免旧许可被当新许可使用。人工直接写作路径没有被强行废掉。
+5. GitHub实际 [Actions #39113189833](https://github.com/66tyu55/WriterForge/actions/runs/39113189833)：**V63新增9/9、全仓679/679结构测试绿色**。修复后JSON SHA `6997eb0d1eb60131d1f83440298cc6644d161cc00e26ebcc337f2e5e5e19416e`；另有全仓静态调用审计报告 SHA `2960c9f396b4cf142ad818a82f60370a135a49f202a83c0e98e9672672f32745`，双回执artifact `12130953929`、ZIP SHA `7b81079780b105792dd8a2d12434172fb9128460d000bdf0095aec971bdf3ebd`。整仓审计扫描95个核心Python模块、约106个测试文件、93个工作流、74处生产权限/故事相关调用点；静态扫描不是证明所有动态插件安全。
+6. **重点剩余风险，不许误报全修好**：全新L10 ACTIVE能力仍可由可信代码`SkillRegistry.register`当作初始合同导入（不是已有同名技能覆盖），必须做可信Bootstrap/旧库迁移政策；`WritingFlow.accept_draft`与`StoryCommitCoordinator`是可信低层提交API，第三方不可信插件不能视为已通过`accept_candidate`的经验权限门禁；原始SQLite写权限不受Python模块HMAC防护；模型推理已经开始后不能被实时撤销；Reviewer真实独立性/读者评论身份、跨`WriterForgeDB`与`FactJournal`双库一致性、发行迁移/磁盘增长仍未独立认证。整仓AST列8项开放风险，详见完整报告，不是8个已证实远程漏洞。
+7. **接下来**：先设计「旧库技能可信导入 vs 新建正式能力」的bootstrap来源权限，再核实可信人工StoryCommit与assistant_generated候选的原点鉴权，建立Studio审计/PR工作流白名单，最后才考虑独立文学真题验证。禁止凭注册一个高等级对象宣称WF成为作家。V49`THIRD_STRIKE_FAILED`和第二课程锁定继续有效。V63仍在草稿分支，不能贸然堆叠合并main。
