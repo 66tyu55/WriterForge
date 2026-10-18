@@ -2,7 +2,7 @@
 
 > **本文件是新对话的唯一首读交接入口。** 每次继续项目前，先检查本文件并复核有关 GitHub Actions 运行结果；不要重建已完成的原文归档，不要将用户的聊天结论冒充 R2 中的真实数据。本文报告的是截至 **2026-10-16 06:08 UTC** 核实的状态，而不是当前实时桶扫描结果。
 
-> **最新更新（2026-10-18）：V66让WF程序自身通过Cloudflare Worker HTTPS API调用既有私有R2，见第52节；V65文学情境经验课第51节；V64第50节、V63第49节。最新用户强调不要再靠GitHub Actions/Cloudflare测试面板手工执行数据调用。** 绝不把用户早先在Worker控制台的成功响应冒充WF本机真实运行。
+> **最新更新（2026-10-18）：第53节【V66云端连接成功，WF自主文学检索未开始；用户因长度限制要求交接】为此刻唯一最新状态。详情参见 docs/V66_WF_SELF_RETRIEVAL_EXAM_HANDOFF_20261018.md。原第52节是连接搭建时的历史快照，不代表当前失败或仍需本地安装。V49 THIRD_STRIKE_FAILED 与第二窗口 LOCKED 不变。**
 
 ## 1. 已完成：六本现代小说的私有 R2 原文归档
 
@@ -813,3 +813,18 @@
 - 完整操作与安全范围见 [V66 WF HTTP连R2交接](V66_WF_DIRECT_R2_WORKER_HTTP_20261018.md)。
 - **这一步只写入WF代码。尚无真实带认证的本机WF新运行结果，不能因为CLI存在就宣称连接成功。** 当前聊天没有Cloudflare Secret，也不能直接访问用户PC。本轮没有触发新的GitHub Actions，`main`未变。
 - 用户本地仅需在WF仓库`git fetch origin v66-wf-direct-worker-http`、`git switch v66-wf-direct-worker-http`、`.\\scripts\\run_wf_r2_worker.ps1`并掩码输入自己保存的Token，获得真正的WF程序输出。后续若要WF全书SQL，需要Worker部署实际对象下载/查询接口；当前`/r2/inventory`只能枚举元数据。
+
+
+## 53. 【2026-10-18 V66 最终交接】WF已在Railway成功直连R2；下一步是独立查书问答，不得重做连接测试
+
+**用户明确最新指令：**「做个测试--提出问题--让他自己检索」，随后「最大长度了--先交接--说清楚」。**这道文学检索考试尚未开始执行**；之前只查阅了WF检索相关源代码，没有新的小说正文、SQLite或经验检索运行结果。请下一窗口直接接着未完成的检索考试，禁止误报。
+
+**完整、可复核的当前状态和下一轮操作顺序：** [V66 WF自主文学检索考试交接](V66_WF_SELF_RETRIEVAL_EXAM_HANDOFF_20261018.md)。
+
+1. **既有云端环境已建好，勿重复创建**：GitHub `66tyu55/WriterForge` 独立分支 `v66-wf-direct-worker-http`；Railway 项目 `WriterForge`（`c5a1c1ad-03d7-4767-b972-8a46446fec07`），Python 服务 `wf-python-r2`（`e6a7688b-ee12-49ef-ae83-02145005fc79`，production环境`65b1b9fe-2f4f-44f3-80af-77143a19545d`），Cloudflare Worker `https://wf-r2-api.3227482831.workers.dev` 绑定私有桶 `writerforge-private-library`；Railway `WF_API_TOKEN` 已配置，绝不能复制密钥或放 GitHub Secrets；用户本人本地没有安装WF。
+2. **真正机器验收**：Railway部署 `5243f688-3955-42d3-ab14-b229b3263c50` 运行 `WF_R2_HTTP_SUCCESS`、进程退出码0；**WF Python**经Worker只读扫描R2：**233个对象、1,673,579,609 bytes、HTTP端到端717.28ms、Worker内部289ms、1次HTTP/1页，0次写入**。这是线上WF真实调用，绝非浏览器手工测试；但是 `sqlite_sql_executed=false`、`original_novel_text_downloaded=false`，绝非语义检索完成。以前的403/404经过Cloudflare正式部署现已解决。
+3. **目前阻塞真实问答**：Production Worker已有 `/health`、`/r2/status`、`/r2/inventory`，没有受限对象读取或按内容查询接口。WF `r2_worker_http.py` 仅能取到**统计数字**，不能访问章/段/句或直接读取SQLite。旧 `r2_retrieval.py` 有经由S3 `R2StudyVault.restore` + SQLite只读+`XuehaiStore.query`的验证机制，但Railway只持有Worker Bearer Token，不具备旧S3密钥。不要冒充新HTTP路线已经复用了旧检索成果。R2内的 `study.sqlite3` 是blob，不是能直接远程 SQL 的数据库。
+4. **下个窗口必须先做的事**：沿用既有Worker和R2，仅新增严格鉴权、限于`writerforge/v1/libraries/`（先锁定`laocanyouji-25124`）的只读对象传输能力；由WF按需获取 `latest.json → 经SHA核验的manifest → 经SHA核验的SQLite blob`，在Railway临时只读SQLite中检索并返回来源回/段/句、源SHA和WF真实时延。不得全桶搬运1.67GB，不得输出整本小说，不得写回R2。Cloudflare在本聊天没有可直接调用的管理接口，需要用户**一次正式部署新Worker代码**，之后让WF自己运行考试而非让用户手工测试。
+5. **考试设计与诚实边界**：优先由WF自己检索回答《老残游记》声音或景物营造紧张感的实证题，要求其自行选择证据与解释；如当前没有语义模型能力，先明确标注地进行独立关键词出处定位子题（如「黃河」是否出现及回/段/句），不得把字面命中冒充文学理解。V52旧 `老殘` 六命中不准复制成新的测试。记录题目、WF自发检索过程、证据SHA/定位、真实答案和失败。V49 `THIRD_STRIKE_FAILED`、第二窗口 `LOCKED` 持续有效。
+6. Railway服务**固定旧代码commit** `f2c6d3377c307ce225a60be8c7e3226075a34911`；新增GitHub文档提交不会自动改变正在运行的WF。实际部署新功能必须通过Railway连接服务的新精确commit再读部署日志。**禁止GitHub Actions、GitHub Secrets、用户本地PowerShell重新安装、捏造文学成功成绩。**
+
