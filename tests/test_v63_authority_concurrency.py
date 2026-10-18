@@ -69,7 +69,7 @@ class SkillAuthorityTests(unittest.TestCase):
         registry=SkillRegistry()
         registry.register(CapabilityContract("craft02",1,"original"))
         with self.assertRaisesRegex((ValueError,PermissionError),"IMMUTABLE|EXISTS"):
-            registry.register(CapabilityContract("craft02",8,"unreviewed"))
+            registry.register(CapabilityContract("craft02",1,"changed unverified text"))
         self.assertEqual(registry.get("craft02").level,1)
 
     def test_get_and_all_cannot_mutate_live_registry_or_be_persisted(self):
@@ -305,7 +305,9 @@ class ExperienceRaceTests(unittest.TestCase):
         import os
         with patch.dict(os.environ,{
             "WRITERFORGE_EXPERIENCE_REVIEW_VERIFY_KEY_HEX":
-                REVIEW_KEY.hex()}):
+                REVIEW_KEY.hex(),
+            "WRITERFORGE_AI_COMMIT_VERIFY_KEY_HEX":
+                b"synthetic-V64-V63-signing-key".hex()}):
             with patch.object(
                     ExperienceDecisionBridge,"validate_live_decision",
                     race):
