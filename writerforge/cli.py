@@ -100,6 +100,55 @@ def main(argv: list[str] | None = None):
     sync.add_argument("--library",required=True)
     sync.add_argument("--snapshot",help="optional pinned hash; omission resolves R2 latest")
     sync.add_argument("--cache-dir",default="corpus/r2-readonly-cache")
+    sync.add_argument("--allow-download",action="store_true",
+                      help="REQUIRED explicit consent to download R2 archive files to disk")
+    sync.add_argument("--max-download-mib",type=int,default=256,
+                      help="cap for source download; default 256 MiB")
+    scratch=sub.add_parser("scratch-context",
+        help="prepare zero-corpus original writing prompt; no network, DB or downloads")
+    scratch.add_argument("--scene",required=True)
+    scratch.add_argument("--goal",required=True)
+    scratch.add_argument("--language",default="简体中文")
+    scratch_draft=sub.add_parser("draft-scratch",
+        help="optional untrained original candidate via explicitly configured loopback model")
+    scratch_draft.add_argument("--scene",required=True)
+    scratch_draft.add_argument("--goal",required=True)
+    scratch_draft.add_argument("--language",default="简体中文")
+    scratch_draft.add_argument("--model",required=True)
+    scratch_draft.add_argument("--api-base",default="http://127.0.0.1:1234/v1")
+    scratch_draft.add_argument("--output-dir",default="writing_runs/scratch")
+    resource_status=sub.add_parser("resource-status",
+        help="offline installation policy status; creates nothing and contacts nobody")
+    r2_plan=sub.add_parser("r2-plan",
+        help="metadata-only R2 remote download size preflight, NEVER downloads blobs")
+    r2_plan.add_argument("--library",required=True)
+    r2_plan.add_argument("--snapshot")
+    r2_plan.add_argument("--cache-dir",default="corpus/r2-readonly-cache")
+    record=sub.add_parser("fact-record",help="append one typed fact event to local evidence journal")
+    record.add_argument("--journal",required=True)
+    record.add_argument("--file",required=True,help="JSON event file <= 8KiB, no source prose")
+    fact_state=sub.add_parser("fact-state",help="read one actor/fact state at given logical tick")
+    fact_state.add_argument("--journal",required=True)
+    fact_state.add_argument("--scene",required=True)
+    fact_state.add_argument("--actor",required=True)
+    fact_state.add_argument("--fact",required=True)
+    fact_state.add_argument("--at-tick",type=int)
+    fact_link=sub.add_parser("fact-link",help="store typed temporal relation with unverified causality")
+    fact_link.add_argument("--journal",required=True)
+    fact_link.add_argument("--source-event",required=True)
+    fact_link.add_argument("--target-event",required=True)
+    fact_link.add_argument("--relation",required=True,
+                           choices=("BEFORE","POTENTIAL_CAUSE","CONTRADICTS"))
+    fact_candidate=sub.add_parser("fact-candidate",
+        help="append-only, non-writing, source-linked experience candidate revision")
+    fact_candidate.add_argument("--journal",required=True)
+    fact_candidate.add_argument("--candidate-id",required=True)
+    fact_candidate.add_argument("--version",type=int,required=True)
+    fact_candidate.add_argument("--prior-sha")
+    fact_candidate.add_argument("--file",required=True,help="metadata JSON <=8KiB")
+    fact_show=sub.add_parser("fact-candidate-status",help="view candidate version and immutable status")
+    fact_show.add_argument("--journal",required=True)
+    fact_show.add_argument("--candidate-id",required=True)
     offline=sub.add_parser("corpus-find",
         help="strictly local/offline indexed term match, NO network and NO source prose in output")
     offline.add_argument("--library",required=True)
@@ -109,6 +158,14 @@ def main(argv: list[str] | None = None):
     offline.add_argument("--cache-dir",default="corpus/r2-readonly-cache")
     offline.add_argument("--record-candidate",
                          help="optional on-disk metadata ledger; not literary learning")
+    observer=sub.add_parser("corpus-observe",
+        help="materialize offline index hits into typed structural fact journal; no model or R2")
+    observer.add_argument("--library",required=True)
+    observer.add_argument("--snapshot",required=True)
+    observer.add_argument("--term",action="append",required=True)
+    observer.add_argument("--limit",type=int,default=6)
+    observer.add_argument("--cache-dir",default="corpus/r2-readonly-cache")
+    observer.add_argument("--journal",required=True)
     corpus_verify=sub.add_parser("corpus-verify",
         help="explicit full SHA256 and SQLite audit of offline corpus cache")
     corpus_verify.add_argument("--library",required=True)
@@ -260,11 +317,78 @@ def main(argv: list[str] | None = None):
     reverse_restore.add_argument("--project",required=True)
     reverse_restore.add_argument("--snapshot",required=True)
     args=p.parse_args(argv)
-    if args.cmd=="r2-sync":
-        from .corpus_foundation import sync_r2
-        _emit(sync_r2(R2StudyVault(R2Config.from_environment()),
+    if args.cmd in ("scratch-context","draft-scratch"):
+        from .scratch import prepare_scratch
+        view=prepare_scratch(scene=args.scene,goal=args.goal,
+                             language=args.language)
+        if args.cmd=="scratch-context":
+            _emit(view)
+        else:
+            from .verified_flow import GroundedDraftPacket, local_chat_completion, save_candidate
+            packet=GroundedDraftPacket(
+                scene_id=args.scene,project_id="scratch-untrained",
+                snapshot_id=0,evidence=(),craft_ids=(),
+                prompt=view["prompt"],prompt_sha256=view["prompt_sha256"])
+            draft=local_chat_completion(packet,model=args.model,
+                                        api_base=args.api_base)
+            out=save_candidate(packet,draft,args.model,args.output_dir)
+            out["not_trained_writer"]=True
+            out["no_corpus_used"]=True
+            _emit(out)
+        return
+    if args.cmd=="resource-status":
+        from .resource_policy import offline_status
+        _emit(offline_status())
+        return
+    if args.cmd=="r2-plan":
+        from .resource_policy import plan_r2
+        _emit(plan_r2(R2StudyVault(R2Config.from_environment()),
                       library=args.library,snapshot=args.snapshot,
                       cache=args.cache_dir))
+        return
+    if args.cmd=="r2-sync":
+        # Reject before even opening R2 credentials unless explicit consent.
+        from .resource_policy import ResourcePolicyError, approved_sync
+        if not args.allow_download:
+            raise ResourcePolicyError("RESOURCE_DOWNLOAD_CONSENT_REQUIRED")
+        _emit(approved_sync(R2StudyVault(R2Config.from_environment()),
+             library=args.library,snapshot=args.snapshot,
+             cache=args.cache_dir,approved=True,
+             max_download_mib=args.max_download_mib))
+        return
+    if args.cmd in ("fact-record","fact-state","fact-link",
+                    "fact-candidate","fact-candidate-status"):
+        from .fact_journal import FactJournal
+        journal=FactJournal(args.journal)
+        try:
+            if args.cmd in ("fact-record","fact-candidate"):
+                file=Path(args.file)
+                if not file.is_file() or not 0<file.stat().st_size<=8192:
+                    raise ValueError("FACT_METADATA_FILE_MISSING_OR_TOO_LARGE")
+                record=json.loads(file.read_text(encoding="utf-8"))
+                if args.cmd=="fact-record":
+                    result=journal.append(record)
+                else:
+                    result=journal.add_candidate(
+                        candidate_id=args.candidate_id,version=args.version,
+                        prior_sha=args.prior_sha,record=record)
+            elif args.cmd=="fact-state":
+                result=journal.state(scene=args.scene,actor=args.actor,
+                                     fact=args.fact,at_tick=args.at_tick)
+            elif args.cmd=="fact-link":
+                result=journal.link(args.source_event,args.target_event,
+                                    args.relation)
+            else:
+                result=journal.latest_candidate(args.candidate_id)
+            _emit(result)
+        finally:
+            journal.close()
+        return
+    if args.cmd=="corpus-observe":
+        from .structural_observer import observe_corpus
+        _emit(observe_corpus(cache=args.cache_dir,library=args.library,
+              snapshot=args.snapshot,terms=tuple(args.term),
+              limit=args.limit,journal_path=args.journal))
         return
     if args.cmd=="corpus-verify":
         from .corpus_foundation import verify_cache

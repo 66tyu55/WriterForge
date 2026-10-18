@@ -169,7 +169,7 @@ See [docs/PROSE_FIRST_STYLE_BASELINE.md](docs/PROSE_FIRST_STYLE_BASELINE.md).
 Remote archiving, cleaning, indexing, verification and creative writing are different phases. The V52 command formerly called r2-query could implicitly restore a complete remote SQLite, and draft-context could directly append original quotes. That design is deprecated as a training route. V53 corrects both.
 
 1. R2-SYNC (explicit, one-time per immutable snapshot):
-   writerforge r2-sync --library laocanyouji-25124 --snapshot <64-digit-sha> --cache-dir corpus/r2-readonly-cache
+   writerforge r2-sync --allow-download --max-download-mib 256 --library laocanyouji-25124 --snapshot <64-digit-sha> --cache-dir corpus/r2-readonly-cache
    This may download the entire immutable snapshot ON DISK, verifies SHA/SQLite and builds a separate disk SQLite inverted index. It does not read the full novel into RAM.
 
 2. CLEAN/DEDUP: the independent indexing module normalizes NFKC/whitespace/control characters for lookup keys ONLY, retaining source originals unchanged, and deduplicates normalized matching units by hashes.
@@ -185,3 +185,13 @@ Remote archiving, cleaning, indexing, verification and creative writing are diff
 Data flow: R2 immutable source -> explicit disk sync -> normalise/index/dedup -> offline evidence comparison -> unverified pattern record -> (separate subsequent validation and author-approved rule) -> creative strategy. There is currently NO automatic literary experience promotion or proven quality gain. V49 THIRD_STRIKE_FAILED remains unchanged.
 
 Read docs/V53_DISK_FIRST_CORPUS_ARCHITECTURE_20261018.md before enabling source data access in any other Skill.
+
+## V54 — Resource-safe public Skill and model-free fact foundation
+
+**Installation never automatically downloads novels, author-private R2 files, or language model weights.** Your users do NOT need the author's R2 keys. In a new installation, `writerforge resource-status` and `scratch-context --scene ... --goal ...` are offline and require no project DB or corpus. `draft-scratch` optionally uses only an explicitly configured localhost model and creates an unaccepted, untrained original candidate.
+
+Private archive flow (only for authorized owners): use `writerforge r2-plan --library ...` to inspect metadata and disk footprint; use `writerforge r2-sync --library ... --allow-download --max-download-mib 256` ONLY after explicit user approval. `corpus-find` is offline, no R2 network or original prose returned. Never trigger sync while importing a Skill, opening the writer, or searching.
+
+V54 adds a separately stored deterministic `FactJournal` and `corpus-observe` bridge: actual offline-index term occurrences become source-index observations, each with a fixed logical time and unit hash. Typed narrative fact assertions (`fact-record`, `fact-state`, `fact-link`) detect exact fact-ID contradictions, preserve earlier knowledge, and record potential causation as UNVERIFIED. `fact-candidate` versions include real evidence and counterexamples; old records and retired candidates cannot be silently replaced or promoted. No source prose is fed to creative generation and no model is needed for indexing, deduping, event consistency or revision lineage.
+
+**Important:** a SHA proves a record hasn't changed relative to its logged hash, not that a human reviewer or literary interpretation is truthful. Semantic causality, sophisticated character reasoning, literary quality and V49 self-improvement remain NOT PROVEN. Full explanation: docs/V54_OPT_IN_RESOURCES_FACT_LEDGER_20261018.md.
