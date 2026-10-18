@@ -53,7 +53,11 @@ def trusted_commit_key()->bytes:
 def payload(*,project_id,scene_id,commit_id,snapshot_id,
             body_sha256,candidate_sha256,author_approved,
             decision_sha256=None,experience_attempt_id=None):
-    require(all(isinstance(v,str) and ID.fullmatch(v)
+    # Real WriterForge scenes may use dots (novel.ch1.s1) or Chinese text.
+    # HMAC binds the WHOLE exact value; forbid controls, not legitimate names.
+    require(all(isinstance(v,str) and 1<=len(v)<=160
+                and v==v.strip()
+                and all(ord(char)>=32 and ord(char)!=127 for char in v)
                 for v in (project_id,scene_id,commit_id)),
             "AI_PROVENANCE_IDENTIFIERS_INVALID")
     require(type(snapshot_id) is int and snapshot_id>=1,
