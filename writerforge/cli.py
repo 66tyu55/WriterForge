@@ -65,6 +65,15 @@ def main(argv: list[str] | None = None):
                    help="local SQLite store; not committed to Git")
     sub=p.add_subparsers(dest="cmd",required=True)
     sub.add_parser("init")
+    worker_r2=sub.add_parser("r2-http-inventory",
+        help="WF itself calls your authenticated Cloudflare Worker R2 API, no GitHub Actions")
+    worker_r2.add_argument("--endpoint",
+        default=os.environ.get("WRITERFORGE_R2_HTTP_ENDPOINT"),
+        help="HTTPS base URL of your configured Cloudflare workers.dev API")
+    worker_r2.add_argument("--timeout",type=int,default=30,
+        help="per HTTP request timeout in seconds, max 90")
+    worker_r2.add_argument("--max-requests",type=int,default=30,
+        help="maximum complete-inventory HTTP calls, max 50")
     catalog=sub.add_parser("catalog",help="list verified historical Chinese originals")
     fetch_classic=sub.add_parser("fetch-classic",help="download and validate one pinned Chinese original")
     fetch_classic.add_argument("--work",required=True,choices=tuple(CLASSICS_CATALOG))
@@ -475,6 +484,15 @@ def main(argv: list[str] | None = None):
     reverse_restore.add_argument("--project",required=True)
     reverse_restore.add_argument("--snapshot",required=True)
     args=p.parse_args(argv)
+    if args.cmd=="r2-http-inventory":
+        # Runs entirely within WF's process; R2 Worker auth stays in WF's
+        # environment, never goes through GitHub Actions or source control.
+        from .r2_worker_http import WFWorkerR2Client
+        result=WFWorkerR2Client(
+            endpoint=args.endpoint,timeout=args.timeout).inventory(
+                max_requests=args.max_requests)
+        _emit(result)
+        return
     if args.cmd in ("scene-craft-plan","scene-craft-diagnosis",
                     "scene-craft-compare"):
         from .scene_craft_teaching import (
