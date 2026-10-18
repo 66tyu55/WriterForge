@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field, asdict, replace
 from enum import Enum
 from collections import Counter, defaultdict
 from hashlib import sha256
@@ -18,7 +18,7 @@ class SkillStatus(str, Enum):
     RETIRED = "retired"
 
 
-@dataclass
+@dataclass(frozen=True)
 class CapabilityContract:
     name: str
     level: int
@@ -32,6 +32,9 @@ class CapabilityContract:
             raise ValueError("capability level must be 1..10")
         if not self.statement.strip():
             raise ValueError("capability statement is required")
+        # A frozen dataclass still permits mutation of nested dicts unless
+        # inputs are detached; exported snapshots are separately copied.
+        object.__setattr__(self,"depends_on",dict(self.depends_on))
 
 
 @dataclass(frozen=True)
@@ -43,93 +46,243 @@ class CapabilityLag:
 
 
 class SkillRegistry:
-    """Tracks qualitative capability levels and propagates revalidation only to dependents."""
+    """Read model and durable storage for skills; formal upgrades are gated.
 
-    def __init__(self, db=None, scope: str = "__system__"):
+    Normal callers may register an initial skill once and may LOWER trust to
+    SHADOW, but cannot promote levels or reactivate via plain booleans. The
+    only active-upgrade path is an independently verified, manually approved
+    EvolutionEngine permit, checked AGAIN before atomic SQLite update.
+
+    Raw SQLite write access and arbitrary Python monkeypatching are outside
+    this API security boundary; this is not a privilege sandbox.
+    """
+    def __init__(self, db=None, scope: str="__system__"):
         self._skills: dict[str, CapabilityContract] = {}
-        self.db = db
-        self.scope = scope
+        self.db=db
+        self.scope=scope
+        self._trusted_promotion_key=None
         if self.db is not None:
-            for r in self.db.conn.execute(
-                """SELECT skill_name,level,statement,dependencies_json,status,revision
-                   FROM skill_capabilities WHERE scope=? ORDER BY skill_name LIMIT 256""",
-                (self.scope,),
-            ):
-                self._skills[r["skill_name"]] = CapabilityContract(
-                    r["skill_name"], int(r["level"]), r["statement"],
-                    json.loads(r["dependencies_json"]),
-                    SkillStatus(r["status"]), int(r["revision"]),
-                )
+            for row in self.db.conn.execute(
+                "SELECT skill_name,level,statement,dependencies_json,status,"
+                "revision FROM skill_capabilities WHERE scope=? "
+                "ORDER BY skill_name LIMIT 256",(self.scope,)):
+                c=CapabilityContract(
+                    row["skill_name"],int(row["level"]),row["statement"],
+                    json.loads(row["dependencies_json"]),
+                    SkillStatus(row["status"]),int(row["revision"]))
+                self._skills[c.name]=c
+
+    @staticmethod
+    def _snapshot(item: CapabilityContract) -> CapabilityContract:
+        return replace(item,depends_on=dict(item.depends_on))
+
+    def _bind_promotion_verifier(self,key:bytes|None):
+        if key is None:
+            return
+        if not isinstance(key,bytes) or len(key)<16:
+            raise ValueError("SKILL_PROMOTION_VERIFIER_INVALID")
+        if (self._trusted_promotion_key is not None and
+                not hmac.compare_digest(self._trusted_promotion_key,key)):
+            raise PermissionError("SKILL_PROMOTION_VERIFIER_IMMUTABLE")
+        self._trusted_promotion_key=key
 
     def register(self, contract: CapabilityContract) -> None:
-        if contract.name not in self._skills and len(self._skills) >= 256:
-            raise ValueError("capability registry is capped at 256 entries")
-        self._skills[contract.name] = contract
-        self._persist(contract)
+        """Create an initial capability contract exactly once.
 
-    def get(self, name: str) -> CapabilityContract:
-        return self._skills[name]
-
-    def all(self) -> list[CapabilityContract]:
-        return list(self._skills.values())
-
-    def promote(self, name: str, *, new_level: int, statement: str, evidence_id: str) -> list[str]:
-        item = self._skills[name]
-        if new_level != item.level + 1:
-            raise ValueError("maturity promotion must advance exactly one level")
-        old_level = item.level
-        item.level = new_level
-        item.statement = statement
-        item.revision += 1
-        item.status = SkillStatus.ACTIVE
-        affected = []
-        for other in self._skills.values():
-            if name in other.depends_on:
-                other.status = SkillStatus.NEEDS_REVALIDATION
-                other.revision += 1
-                affected.append(other.name)
-                self._persist(other)
-        self._persist(item)
-        if self.db is not None:
-            self.db.conn.execute(
-                """INSERT INTO skill_upgrade_events(scope, skill_name, old_level, new_level, evidence_id, statement)
-                   VALUES(?,?,?,?,?,?)""",
-                (self.scope, name, old_level, new_level, evidence_id, statement),
-            )
-            self.db.conn.commit()
-        return sorted(affected)
-
-    def revalidate(self, name: str, *, passed: bool) -> None:
-        item = self._skills[name]
-        item.status = SkillStatus.ACTIVE if passed else SkillStatus.SHADOW
-        item.revision += 1
-        self._persist(item)
-
-    def lagging(self) -> list[CapabilityLag]:
-        out: list[CapabilityLag] = []
-        for skill in self._skills.values():
-            for dep, minimum in skill.depends_on.items():
-                actual = self._skills.get(dep)
-                if actual is None or actual.level < minimum:
-                    out.append(CapabilityLag(skill.name, dep, minimum, None if actual is None else actual.level))
-        return out
-
-    def _persist(self, item: CapabilityContract) -> None:
-        if self.db is None:
+        Registration is NOT a way to overwrite/promote an existing ID.
+        New unverified high-level declarations remain a separate release
+        policy risk, not evidence of WF's actual artistic ability.
+        """
+        if not isinstance(contract,CapabilityContract):
+            raise TypeError("SKILL_REGISTRATION_SCHEMA_INVALID")
+        proposed=self._snapshot(contract)
+        old=self._skills.get(proposed.name)
+        if old is not None:
+            if old!=proposed:
+                raise ValueError("SKILL_REGISTRATION_IMMUTABLE_EXISTS")
             return
-        self.db.conn.execute(
-            """INSERT INTO skill_capabilities(scope, skill_name, level, status, revision, statement, dependencies_json)
-               VALUES(?,?,?,?,?,?,?)
-               ON CONFLICT(scope, skill_name) DO UPDATE SET
-                 level=excluded.level, status=excluded.status, revision=excluded.revision,
-                 statement=excluded.statement, dependencies_json=excluded.dependencies_json,
-                 updated_at=CURRENT_TIMESTAMP""",
-            (
-                self.scope, item.name, item.level, item.status.value, item.revision,
-                item.statement, json.dumps(item.depends_on, ensure_ascii=False, sort_keys=True),
-            ),
-        )
-        self.db.conn.commit()
+        if len(self._skills)>=256:
+            raise ValueError("capability registry is capped at 256 entries")
+        if self.db is not None:
+            conn=self.db.conn
+            if conn.in_transaction:
+                raise RuntimeError("SKILL_REGISTRATION_NESTED_TRANSACTION")
+            try:
+                conn.execute("BEGIN IMMEDIATE")
+                prior=conn.execute(
+                    "SELECT skill_name FROM skill_capabilities "
+                    "WHERE scope=? AND skill_name=?",
+                    (self.scope,proposed.name)).fetchone()
+                if prior is not None:
+                    raise ValueError("SKILL_REGISTRATION_CONCURRENT_EXISTS")
+                conn.execute(
+                    "INSERT INTO skill_capabilities("
+                    "scope,skill_name,level,status,revision,statement,"
+                    "dependencies_json) VALUES(?,?,?,?,?,?,?)",
+                    (self.scope,proposed.name,proposed.level,
+                     proposed.status.value,proposed.revision,
+                     proposed.statement,
+                     json.dumps(proposed.depends_on,ensure_ascii=False,
+                                sort_keys=True)))
+                conn.commit()
+            except Exception:
+                if conn.in_transaction:
+                    conn.rollback()
+                raise
+        self._skills[proposed.name]=proposed
+
+    def get(self,name:str)->CapabilityContract:
+        return self._snapshot(self._skills[name])
+
+    def all(self)->list[CapabilityContract]:
+        return [self._snapshot(x) for x in self._skills.values()]
+
+    def promote(self, name: str, *, new_level: int,
+                statement: str, evidence_id: str) -> list[str]:
+        """Closed public bypass: use EvolutionEngine.apply_upgrade instead."""
+        raise PermissionError("SKILL_PROMOTION_VERIFIED_ENGINE_REQUIRED")
+
+    def _verify_external_upgrade(self, candidate, attestation, approved):
+        if not approved:
+            raise PermissionError("SKILL_PROMOTION_EXPLICIT_APPROVAL_REQUIRED")
+        if self._trusted_promotion_key is None:
+            raise PermissionError("SKILL_PROMOTION_ATTESTATION_KEY_MISSING")
+        if not isinstance(attestation,dict) or set(attestation)!={
+                "reviewer_id","review_id","signature"}:
+            raise PermissionError("SKILL_PROMOTION_ATTESTATION_REQUIRED")
+        try:
+            payload=EvolutionEngine.promotion_attestation_payload(
+                candidate,reviewer_id=attestation["reviewer_id"],
+                review_id=attestation["review_id"])
+            signature=attestation["signature"]
+            expected=hmac.new(
+                self._trusted_promotion_key,
+                json.dumps(payload,ensure_ascii=False,sort_keys=True,
+                           separators=(",",":"),allow_nan=False).encode("utf-8"),
+                "sha256").hexdigest()
+        except (KeyError,TypeError,ValueError) as exc:
+            raise PermissionError(
+                "SKILL_PROMOTION_ATTESTATION_INVALID") from exc
+        if not isinstance(signature,str) or not hmac.compare_digest(
+                signature,expected):
+            raise PermissionError("SKILL_PROMOTION_ATTESTATION_INVALID")
+        if candidate.evidence.human_anchor_count<1:
+            raise PermissionError("SKILL_PROMOTION_ANCHOR_NOT_VERIFIED")
+        decision=PromotionGate().evaluate(
+            candidate.evidence,requires_human_anchor=True)
+        if not decision.accepted:
+            raise ValueError("SKILL_PROMOTION_EVIDENCE_GATE_NOT_PASSED")
+        item=self._skills[candidate.skill]
+        if candidate.new_level!=item.level+1:
+            raise ValueError("SKILL_PROMOTION_LEVEL_INVALID")
+
+    def _promote_verified(self,candidate,*,attestation,approved):
+        """Internal gate repeats signer validation at the storage boundary."""
+        self._verify_external_upgrade(candidate,attestation,approved)
+        target=self._skills[candidate.skill]
+        elevated=replace(
+            target,level=candidate.new_level,
+            statement=candidate.capability_statement,
+            revision=target.revision+1,status=SkillStatus.ACTIVE)
+        new_deps={}
+        for item in self._skills.values():
+            if candidate.skill in item.depends_on and item.name!=target.name:
+                new_deps[item.name]=replace(
+                    item,status=SkillStatus.NEEDS_REVALIDATION,
+                    revision=item.revision+1)
+        if self.db is not None:
+            conn=self.db.conn
+            if conn.in_transaction:
+                raise RuntimeError("SKILL_PROMOTION_NESTED_TRANSACTION")
+            try:
+                conn.execute("BEGIN IMMEDIATE")
+                expected_rows={target.name:target}
+                expected_rows.update({
+                    n:self._skills[n] for n in new_deps})
+                for old in expected_rows.values():
+                    actual=conn.execute(
+                        "SELECT level,revision,status,statement FROM "
+                        "skill_capabilities WHERE scope=? AND skill_name=?",
+                        (self.scope,old.name)).fetchone()
+                    if (actual is None or
+                        actual["level"]!=old.level or
+                        actual["revision"]!=old.revision or
+                        actual["status"]!=old.status.value or
+                        actual["statement"]!=old.statement):
+                        raise RuntimeError(
+                            "SKILL_PROMOTION_STALE_REVISION")
+                for modified in (elevated,*new_deps.values()):
+                    before=expected_rows[modified.name]
+                    changed=conn.execute(
+                        "UPDATE skill_capabilities SET level=?,status=?,"
+                        "revision=?,statement=?,dependencies_json=?,"
+                        "updated_at=CURRENT_TIMESTAMP WHERE scope=? "
+                        "AND skill_name=? AND revision=? AND level=?",
+                        (modified.level,modified.status.value,
+                         modified.revision,modified.statement,
+                         json.dumps(modified.depends_on,ensure_ascii=False,
+                                    sort_keys=True),
+                         self.scope,modified.name,before.revision,before.level))
+                    if changed.rowcount!=1:
+                        raise RuntimeError(
+                            "SKILL_PROMOTION_STALE_REVISION")
+                conn.execute(
+                    "INSERT INTO skill_upgrade_events("
+                    "scope,skill_name,old_level,new_level,evidence_id,statement)"
+                    " VALUES(?,?,?,?,?,?)",
+                    (self.scope,candidate.skill,target.level,
+                     elevated.level,candidate.evidence_id,
+                     elevated.statement))
+                conn.commit()
+            except Exception:
+                if conn.in_transaction:
+                    conn.rollback()
+                raise
+        # Only now reflect the committed batch in memory. A failed audit
+        # insert or stale writer leaves both the DB and registry unchanged.
+        self._skills[target.name]=elevated
+        self._skills.update(new_deps)
+        return sorted(new_deps)
+
+    def revalidate(self,name:str,*,passed:bool)->None:
+        """A self-declared PASS cannot reactivate a shadow capability."""
+        if passed:
+            raise PermissionError("SKILL_REVALIDATION_EXTERNAL_PROOF_REQUIRED")
+        item=self._skills[name]
+        if item.status==SkillStatus.SHADOW:
+            return
+        new=replace(item,status=SkillStatus.SHADOW,revision=item.revision+1)
+        if self.db is not None:
+            conn=self.db.conn
+            if conn.in_transaction:
+                raise RuntimeError("SKILL_REVALIDATION_NESTED_TRANSACTION")
+            try:
+                conn.execute("BEGIN IMMEDIATE")
+                upd=conn.execute(
+                    "UPDATE skill_capabilities SET status=?,revision=?,"
+                    "updated_at=CURRENT_TIMESTAMP WHERE scope=? "
+                    "AND skill_name=? AND revision=? AND level=?",
+                    (new.status.value,new.revision,self.scope,name,
+                     item.revision,item.level))
+                if upd.rowcount!=1:
+                    raise RuntimeError("SKILL_REVALIDATION_STALE_REVISION")
+                conn.commit()
+            except Exception:
+                if conn.in_transaction:
+                    conn.rollback()
+                raise
+        self._skills[name]=new
+
+    def lagging(self)->list[CapabilityLag]:
+        out=[]
+        for skill in self._skills.values():
+            for dep,minimum in skill.depends_on.items():
+                actual=self._skills.get(dep)
+                if actual is None or actual.level<minimum:
+                    out.append(CapabilityLag(
+                        skill.name,dep,minimum,
+                        None if actual is None else actual.level))
+        return out
 
 
 @dataclass(frozen=True)
@@ -346,6 +499,8 @@ class EvolutionEngine:
                 len(promotion_verifier_key)<16):
             raise ValueError("PROMOTION_VERIFIER_KEY_INVALID")
         self._promotion_verifier_key=promotion_verifier_key
+        # Bind the same protected verifier to the registry write boundary.
+        self.registry._bind_promotion_verifier(promotion_verifier_key)
         self.failures: list[FailureEvent] = []
         self.clusterer = FailureClusterer()
         self.curriculum = CurriculumPlanner()
@@ -455,12 +610,8 @@ class EvolutionEngine:
             raise PermissionError("PROMOTION_MANUAL_REQUIRED")
         if not approved:
             raise PermissionError("PROMOTION_EXPLICIT_APPROVAL_REQUIRED")
-        return self.registry.promote(
-            candidate.skill,
-            new_level=candidate.new_level,
-            statement=candidate.capability_statement,
-            evidence_id=candidate.evidence_id,
-        )
+        return self.registry._promote_verified(
+            candidate,attestation=attestation,approved=approved)
 
 
 @dataclass(frozen=True)
