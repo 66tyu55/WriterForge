@@ -1,0 +1,38 @@
+{
+  "schema": "writerforge.scene-profile.v1",
+  "diagnosis_origin": "TEACHER_DEMO",
+  "viewpoint": "limited",
+  "scene_id": "demo_pursuit_pier",
+  "mode": "pursuit",
+  "reader_effect": "tension",
+  "tempo": "fast",
+  "scene_goal": "少年必须在渡船离岸前追回人物，同时不让怀中的契据沾水。",
+  "active_obstacle": "栈桥湿滑、木板翻翘，渡船逐步远离，二选一的时间越来越少。",
+  "planned_change": "少年不得不决定是继续追船还是先护住能证明旧债的契据。",
+  "facts": {
+    "environmental_obstacle": {
+      "state": "PRESENT",
+      "observation": "积雨令栈桥第二块木板向上翘，直接妨碍追船行动。"
+    },
+    "urgent_goal": {
+      "state": "PRESENT",
+      "observation": "船即将离岸，少年不能等天气好转才行动。"
+    },
+    "safe_stationary": {
+      "state": "ABSENT",
+      "observation": "少年正在快速移动，并未坐在原地静观景物。"
+    },
+    "deadline": {
+      "state": "PRESENT",
+      "observation": "一旦船离开栈桥就追不上，行动机会很快消失。"
+    },
+    "irreversible_action": {
+      "state": "PRESENT",
+      "observation": "他一旦跳过湿滑木板，就有丢失契据或落水的实际风险。"
+    },
+    "meditative_pause": {
+      "state": "ABSENT",
+      "observation": "此刻还没脱离危险，不是合适的冥想余波。"
+    }
+  }
+}
