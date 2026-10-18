@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 import hashlib
 import json
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, Callable
 
 from .db import WriterForgeDB
 from .runtime import RuntimeEngine, Mode
@@ -134,6 +134,7 @@ class StoryCommitCoordinator:
         plan: StoryCommitPlan,
         *,
         work_root: StoryWorkRoot | None = None,
+        precommit_check: Callable[[], None] | None = None,
     ) -> StoryCommitResult:
         self.runtime.require(Mode.WRITE)
         if not plan.project_id or not plan.commit_id:
@@ -159,6 +160,11 @@ class StoryCommitCoordinator:
 
         try:
             conn.execute("BEGIN IMMEDIATE")
+            # Guard executes AFTER the writer reservation but BEFORE any
+            # durable effect or replay success. Policy revocations/feedback
+            # cannot slip between authorization and story COMMIT.
+            if precommit_check is not None:
+                precommit_check()
             prior = conn.execute(
                 """SELECT bundle_hash,work_fingerprint
                    FROM story_commit_receipts
