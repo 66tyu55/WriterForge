@@ -499,11 +499,62 @@ class SkillRegistry:
                     (self.scope,candidate.skill,target.level,
                      elevated.level,candidate.evidence_id,
                      elevated.statement))
+                # Upgrade authorization is itself durable evidence.
+                # The signed AFTER state, reviewer metrics and preceding
+                # trust root are committed atomically with skill/events.
+                prev=conn.execute(
+                    "SELECT receipt_sha FROM skill_promotion_receipts "
+                    "WHERE scope=? AND skill_name=? AND new_level=?",
+                    (self.scope,candidate.skill,target.level)).fetchone()
+                if prev is not None:
+                    previous_sha=prev["receipt_sha"]
+                elif target.level==1:
+                    previous_sha="BASELINE_L1"
+                else:
+                    boot=conn.execute(
+                        "SELECT receipt_sha FROM skill_bootstrap_receipts "
+                        "WHERE scope=? AND skill_name=?",
+                        (self.scope,candidate.skill)).fetchone()
+                    if boot is None:
+                        raise PermissionError(
+                            "SKILL_PROMOTION_LINEAGE_MISSING")
+                    previous_sha=boot["receipt_sha"]
+                original_payload=EvolutionEngine.promotion_attestation_payload(
+                    candidate,reviewer_id=attestation["reviewer_id"],
+                    review_id=attestation["review_id"])
+                proof={
+                    "protocol":"writerforge.v64-signed-manual-promotion.v1",
+                    "scope":self.scope,"skill_name":candidate.skill,
+                    "before":asdict(target),"after":asdict(elevated),
+                    "prior_receipt_sha256":previous_sha,
+                    "attested_request":original_payload,
+                    "original_signature":attestation["signature"],
+                    "reviewer_id":attestation["reviewer_id"],
+                    "review_id":attestation["review_id"],
+                    "literary_quality_proven_by_software":False,
+                }
+                proof_text=self._canonical_receipt(proof)
+                seal_sig=hmac.new(
+                    self._trusted_promotion_key,
+                    proof_text.encode("utf-8"),"sha256").hexdigest()
+                receipt_sha=sha256(
+                    self._canonical_receipt({
+                        "payload":proof,"signature":seal_sig
+                    }).encode("utf-8")).hexdigest()
+                conn.execute(
+                    "INSERT INTO skill_promotion_receipts("
+                    "scope,skill_name,new_level,old_level,reviewer_id,"
+                    "review_id,signature,receipt_sha,payload_json)"
+                    " VALUES(?,?,?,?,?,?,?,?,?)",
+                    (self.scope,candidate.skill,elevated.level,target.level,
+                     attestation["reviewer_id"],attestation["review_id"],
+                     seal_sig,receipt_sha,proof_text))
                 conn.commit()
             except Exception:
                 if conn.in_transaction:
                     conn.rollback()
                 raise
+        self._verified_promotions.add(candidate.skill)
         # Only now reflect the committed batch in memory. A failed audit
         # insert or stale writer leaves both the DB and registry unchanged.
         self._skills[target.name]=elevated
