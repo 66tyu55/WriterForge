@@ -104,6 +104,19 @@ def main(argv: list[str] | None = None):
                       help="REQUIRED explicit consent to download R2 archive files to disk")
     sync.add_argument("--max-download-mib",type=int,default=256,
                       help="cap for source download; default 256 MiB")
+    scratch=sub.add_parser("scratch-context",
+        help="prepare zero-corpus original writing prompt; no network, DB or downloads")
+    scratch.add_argument("--scene",required=True)
+    scratch.add_argument("--goal",required=True)
+    scratch.add_argument("--language",default="简体中文")
+    scratch_draft=sub.add_parser("draft-scratch",
+        help="optional untrained original candidate via explicitly configured loopback model")
+    scratch_draft.add_argument("--scene",required=True)
+    scratch_draft.add_argument("--goal",required=True)
+    scratch_draft.add_argument("--language",default="简体中文")
+    scratch_draft.add_argument("--model",required=True)
+    scratch_draft.add_argument("--api-base",default="http://127.0.0.1:1234/v1")
+    scratch_draft.add_argument("--output-dir",default="writing_runs/scratch")
     resource_status=sub.add_parser("resource-status",
         help="offline installation policy status; creates nothing and contacts nobody")
     r2_plan=sub.add_parser("r2-plan",
@@ -296,6 +309,25 @@ def main(argv: list[str] | None = None):
     reverse_restore.add_argument("--project",required=True)
     reverse_restore.add_argument("--snapshot",required=True)
     args=p.parse_args(argv)
+    if args.cmd in ("scratch-context","draft-scratch"):
+        from .scratch import prepare_scratch
+        view=prepare_scratch(scene=args.scene,goal=args.goal,
+                             language=args.language)
+        if args.cmd=="scratch-context":
+            _emit(view)
+        else:
+            from .verified_flow import GroundedDraftPacket, local_chat_completion, save_candidate
+            packet=GroundedDraftPacket(
+                scene_id=args.scene,project_id="scratch-untrained",
+                snapshot_id=0,evidence=(),craft_ids=(),
+                prompt=view["prompt"],prompt_sha256=view["prompt_sha256"])
+            draft=local_chat_completion(packet,model=args.model,
+                                        api_base=args.api_base)
+            out=save_candidate(packet,draft,args.model,args.output_dir)
+            out["not_trained_writer"]=True
+            out["no_corpus_used"]=True
+            _emit(out)
+        return
     if args.cmd=="resource-status":
         from .resource_policy import offline_status
         _emit(offline_status())
