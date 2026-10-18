@@ -199,6 +199,23 @@ class AIProvenanceTests(unittest.TestCase):
         self.assertEqual(self.db.conn.execute(
             "SELECT COUNT(*) FROM story_ai_provenance").fetchone()[0],0)
 
+    def test_signed_exact_unicode_and_dotted_scene_names(self):
+        from writerforge.ai_provenance import issue_ai_commit_permit
+        self.scene="第一卷.ch1.夜雨"
+        digest=sha256(self.text.encode("utf-8")).hexdigest()
+        permit=issue_ai_commit_permit(
+            key=AI_KEY,project_id=self.project,
+            scene_id=self.scene,commit_id="signed-scene01",
+            snapshot_id=self.sid,body_sha256=digest,
+            candidate_sha256=digest,author_approved=True)
+        with patch.dict("os.environ",{
+                "WRITERFORGE_AI_COMMIT_VERIFY_KEY_HEX":AI_KEY.hex()}):
+            accepted=self.commit_direct(
+                "assistant_generated","signed-scene01",permit)
+        self.assertTrue(accepted.committed)
+        self.assertEqual(self.db.conn.execute(
+            "SELECT COUNT(*) FROM story_ai_provenance").fetchone()[0],1)
+
     def test_signed_ai_permit_cannot_rebind_body_scene_or_commit(self):
         from writerforge.ai_provenance import (
             issue_ai_commit_permit
