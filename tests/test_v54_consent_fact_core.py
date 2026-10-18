@@ -83,10 +83,12 @@ class UserResourcePolicyTests(unittest.TestCase):
         self.assertFalse(p["download_performed"])
         self.assertTrue(p["requires_separate_explicit_download_approval"])
         self.assertEqual(self.store.download_count,0)
-        with self.assertRaisesRegex(ResourcePolicyError,"EXCEEDS_USER_APPROVED"):
-            approved_sync(self.vault,library=LIBRARY,snapshot=self.snap,
-                          cache=self.root/"blocked",approved=True,
-                          max_download_mib=1)
+        with patch("writerforge.resource_policy.plan_r2",
+                   return_value={**p,"remote_source_bytes":2*1024*1024}):
+            with self.assertRaisesRegex(ResourcePolicyError,"EXCEEDS_USER_APPROVED"):
+                approved_sync(self.vault,library=LIBRARY,snapshot=self.snap,
+                              cache=self.root/"blocked",approved=True,
+                              max_download_mib=1)
         self.assertEqual(self.store.download_count,0)
         self.assertFalse((self.root/"blocked").exists())
         # Existing tests already exercise R2StudyVault.restore and build_index.
