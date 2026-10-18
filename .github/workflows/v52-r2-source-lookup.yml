@@ -1,0 +1,50 @@
+name: V52 native WriterForge R2 source retrieval
+on:
+  push:
+    branches: [v52-r2-native-retrieval]
+    paths:
+      - '.github/workflows/v52-r2-source-lookup.yml'
+      - 'writerforge/r2_retrieval.py'
+      - 'writerforge/verified_flow.py'
+      - 'writerforge/cli.py'
+      - 'tests/test_v52_r2_native_lookup.py'
+      - 'scripts/probe_v52_live_r2_lookup.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bounded-engineering:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install current WF plus optional R2 S3 client
+        run: python -m pip install -e '.[r2]'
+      - name: Actual WF source study through fake R2 protocol, zero models
+        run: python -m unittest discover -s tests -p 'test_v52_r2_native_lookup.py' -v
+      - name: Source/production compatibility
+        run: |
+          python -m unittest discover -s tests -p 'test_v23_real_learning.py' -q
+          python -m unittest discover -s tests -p 'test_v24_r2_storage.py' -q
+  private-live-read-only:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/v52-r2-native-retrieval'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install WF R2 client
+        run: python -m pip install -e '.[r2]'
+      - name: Existing private R2 exact original and structural Xuehai source lookup
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+        run: python -m scripts.probe_v52_live_r2_lookup
