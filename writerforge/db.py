@@ -447,7 +447,23 @@ CREATE TABLE IF NOT EXISTS skill_bootstrap_receipts (
     review_id TEXT NOT NULL,
     signature TEXT NOT NULL,
     receipt_sha TEXT NOT NULL,
+    payload_json TEXT NOT NULL DEFAULT '',
     PRIMARY KEY(scope,skill_name),
+    UNIQUE(scope,review_id)
+);
+-- Each legitimate manual skill upgrade seals the exact post-upgrade grade,
+-- reviewer evidence and previous authorized provenance in the SAME transaction.
+CREATE TABLE IF NOT EXISTS skill_promotion_receipts (
+    scope TEXT NOT NULL,
+    skill_name TEXT NOT NULL,
+    new_level INTEGER NOT NULL,
+    old_level INTEGER NOT NULL,
+    reviewer_id TEXT NOT NULL,
+    review_id TEXT NOT NULL,
+    signature TEXT NOT NULL,
+    receipt_sha TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    PRIMARY KEY(scope,skill_name,new_level),
     UNIQUE(scope,review_id)
 );
 CREATE TABLE IF NOT EXISTS story_ai_provenance (
@@ -713,6 +729,16 @@ class WriterForgeDB:
                 self.conn.execute(
                     f"ALTER TABLE writer_companion_preferences ADD COLUMN {column} TEXT"
                 )
+        # V64 local backward compatibility: test branches may have created
+        # earlier bootstrap receipts without the complete signed payload.
+        # Absence of original payload remains UNVERIFIED; never invent one.
+        bootstrap_columns={
+            row["name"] for row in self.conn.execute(
+                "PRAGMA table_info(skill_bootstrap_receipts)")}
+        if "payload_json" not in bootstrap_columns:
+            self.conn.execute(
+                "ALTER TABLE skill_bootstrap_receipts "
+                "ADD COLUMN payload_json TEXT NOT NULL DEFAULT ''")
         self.conn.execute(
             """CREATE UNIQUE INDEX IF NOT EXISTS idx_companion_pref_conflict
                ON writer_companion_preferences(project_id, category, conflict_group)
