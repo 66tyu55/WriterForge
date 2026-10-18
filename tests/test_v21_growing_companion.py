@@ -48,7 +48,30 @@ class GrowingCompanionTests(unittest.TestCase):
             project, commit_id, tuple(effects),
             work_root.finished_fingerprint() if work_root is not None else None,
         )
-        return self.coordinator.commit(plan, work_root=work_root)
+        # V64 contract migration: an assistant_generated synthetic fixture
+        # requires explicit host signing even for a test of voice attribution.
+        # Historical V21 tests and CI evidence remain untouched.
+        generated=[x for x in effects if
+                   x.type==EffectType.ACCEPT_PROSE and
+                   x.payload.get("origin")=="assistant_generated"]
+        if not generated:
+            return self.coordinator.commit(plan,work_root=work_root)
+        import hashlib,os
+        from unittest.mock import patch
+        from writerforge.ai_provenance import issue_ai_commit_permit
+        key=b"synthetic-V64-V21-provenance-only-key"
+        self.assertEqual(len(generated),1)
+        body=generated[0].payload["body"]
+        digest=hashlib.sha256(body.encode("utf-8")).hexdigest()
+        permit=issue_ai_commit_permit(
+            key=key,project_id=project,scene_id=generated[0].target,
+            commit_id=commit_id,snapshot_id=1,
+            body_sha256=digest,candidate_sha256=digest,
+            author_approved=True)
+        with patch.dict(os.environ,{
+                "WRITERFORGE_AI_COMMIT_VERIFY_KEY_HEX":key.hex()}):
+            return self.coordinator.commit(
+                plan,work_root=work_root,ai_provenance=permit)
 
     def row(self, project="novel"):
         return self.db.conn.execute(
