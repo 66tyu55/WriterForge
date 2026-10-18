@@ -27,9 +27,21 @@ def run():
         raise ValueError("REAL_R2_XUEHAI_DID_NOT_FIND_GROUNDED_CHINESE_TERM")
     if not all(r["work_id"]==book.work_id for r in first.matches):
         raise ValueError("WRONG_WORK_ID_IN_REAL_R2_EVIDENCE")
-    if not all(r["work_original_sha256"]==EXPECTED_ORIGINAL_SHA
+    # R2 stores the exact original *bytes*, while OriginalStudy stores
+    # sha256(decoded UTF-8-sig text). BOM-stripping changes that checksum.
+    restored=gateway.vault.restore(
+        library=book.library,snapshot=first.snapshot,destination=destination)
+    if not restored.get("source"):
+        raise ValueError("REAL_R2_ORIGINAL_SOURCE_BLOB_NOT_PRESENT")
+    raw=Path(restored["source"]).read_bytes()
+    raw_sha=hashlib.sha256(raw).hexdigest()
+    if raw_sha!=EXPECTED_ORIGINAL_SHA:
+        raise ValueError("REAL_R2_RAW_SOURCE_SHA_MISMATCH_PINNED_CHINESE_EDITION")
+    decoded=raw.decode("utf-8-sig")
+    decoded_sha=hashlib.sha256(decoded.encode("utf-8")).hexdigest()
+    if not all(r["work_original_sha256"]==decoded_sha
                for r in first.matches):
-        raise ValueError("REAL_SOURCE_SHA_MISMATCH_PINNED_CHINESE_EDITION")
+        raise ValueError("REAL_R2_STUDIED_SOURCE_SHA_MISMATCH_DECODED_EDITION")
     if first.from_local_cache:
         raise ValueError("FIRST_LIVE_R2_RESTORE_SHOULD_DOWNLOAD")
     second=gateway.search(library=book.library,snapshot=first.snapshot,
@@ -44,7 +56,8 @@ def run():
         "library":book.library,
         "work_id":book.work_id,
         "r2_snapshot_sha256":first.snapshot,
-        "original_text_sha256":EXPECTED_ORIGINAL_SHA,
+        "original_bytes_sha256":raw_sha,
+        "normalized_utf8_source_sha256":decoded_sha,
         "verified_exact_chinese_source_matches":len(first.matches),
         "verified_fresh_r2_restore":True,
         "verified_cached_sha_replay":True,
