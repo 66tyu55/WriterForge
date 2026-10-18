@@ -254,6 +254,13 @@ def main(argv: list[str] | None = None):
         help="emit a schema-bound prompt for WF's own planner, without calling any model")
     craft_diag.add_argument("--scene",required=True)
     craft_diag.add_argument("--goal",required=True)
+    craft_diag.add_argument("--brief-file",
+        help="optional WF-authored scene outline; no source novel or R2")
+    craft_diag.add_argument("--model",
+        help="run WF scene-diagnosis stage with currently loaded LOCAL model")
+    craft_diag.add_argument("--api-base",default="http://127.0.0.1:1234/v1")
+    craft_diag.add_argument("--output-profile",
+        help="save generated, schema-validated scene diagnosis for two-arm use")
     craft_compare=sub.add_parser("scene-craft-compare",
         help="record metadata-only same-scene original A/B comparisons")
     craft_compare.add_argument("--scene",required=True)
@@ -476,10 +483,64 @@ def main(argv: list[str] | None = None):
             profile=_small_experience_json(args.profile_file,limit=8192)
             _emit(SceneCraftTeacher().plan(profile,enabled=not args.disabled))
         elif args.cmd=="scene-craft-diagnosis":
-            _emit({"format":"writerforge.scene-diagnosis-instructions.v1",
-                   "prompt":diagnosis_prompt(args.goal,scene_id=args.scene),
-                   "model_calls":0,
-                   "wf_writing_quality_verified":False})
+            extra=""
+            if args.brief_file:
+                p=Path(args.brief_file)
+                if not p.is_file() or not 12<=p.stat().st_size<=6500:
+                    raise ValueError("SCENE_DIAGNOSIS_BRIEF_INVALID")
+                extra=p.read_text(encoding="utf-8").strip()
+                if not 12<=len(extra)<=1600:
+                    raise ValueError("SCENE_DIAGNOSIS_BRIEF_INVALID")
+            combined=args.goal+(
+                "\nWF此前自己的场景安排（不来自原著）："+extra if extra else "")
+            instructions=diagnosis_prompt(combined,scene_id=args.scene)
+            if not args.model:
+                if args.output_profile:
+                    raise ValueError(
+                        "SCENE_DIAGNOSIS_MODEL_REQUIRED_FOR_PROFILE")
+                _emit({"format":"writerforge.scene-diagnosis-instructions.v1",
+                       "prompt":instructions,
+                       "model_calls":0,
+                       "wf_writing_quality_verified":False})
+            else:
+                # Same local-only endpoint restrictions as ordinary WF draft.
+                # This is WF model scene analysis, not assistant fake analysis.
+                from .verified_flow import GroundedDraftPacket,local_chat_completion
+                from hashlib import sha256
+                packet=GroundedDraftPacket(
+                    scene_id=args.scene,project_id="wf-scene-diagnosis",
+                    snapshot_id=0,evidence=(),craft_ids=(),
+                    prompt=instructions,
+                    prompt_sha256=sha256(instructions.encode("utf-8")).hexdigest())
+                raw=local_chat_completion(packet,model=args.model,
+                                          api_base=args.api_base,
+                                          max_tokens=2500)
+                try:
+                    profile=json.loads(raw)
+                except (ValueError,TypeError) as exc:
+                    raise ValueError(
+                        "SCENE_DIAGNOSIS_MODEL_JSON_INVALID") from exc
+                if (not isinstance(profile,dict) or
+                    profile.get("scene_id")!=args.scene or
+                    profile.get("diagnosis_origin")!="WF_PLANNER"):
+                    raise ValueError(
+                        "SCENE_DIAGNOSIS_MODEL_ID_OR_ORIGIN_INVALID")
+                plan=SceneCraftTeacher().plan(profile)
+                if args.output_profile:
+                    path=Path(args.output_profile)
+                    path.parent.mkdir(parents=True,exist_ok=True)
+                    path.write_text(json.dumps(
+                        profile,ensure_ascii=False,indent=2)+"\n",
+                        encoding="utf-8")
+                _emit({"format":"writerforge.scene-diagnosis-result.v1",
+                       "scene_id":args.scene,
+                       "profile_sha256":plan["profile_sha256"],
+                       "teaching_pack_sha256":plan["teaching_pack_sha256"],
+                       "selected_ids":plan["selected_ids"],
+                       "profile_file":str(args.output_profile) if
+                            args.output_profile else None,
+                       "wf_model_diagnosis_called":True,
+                       "literary_improvement_proven":False})
         else:
             def local_draft(path):
                 p=Path(path)
