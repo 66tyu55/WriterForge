@@ -1,0 +1,400 @@
+"""V58 fail-first: relation identity, verified disclosure and stable pagination.
+
+Synthetic identifiers and disposable SQLite only. Never interpret, copy or
+train on novels; separate independent failures from old V56/V57 receipts.
+"""
+from __future__ import annotations
+
+from hashlib import sha256
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import base64
+import hmac
+import json
+import sqlite3
+import unittest
+
+from writerforge.fact_journal import FactJournal, FactLedgerError, canonical
+
+TRUSTED_KEY = b"only-a-synthetic-fixture-key-not-a-runtime-secret"
+
+
+def event(name, tick, *, scene="chapter01", actor="hero",
+          fact="seal", state="UNKNOWN", role="OBSERVE"):
+    return {"event_id":name,"scene_id":scene,"actor_id":actor,
+            "fact_id":fact,"tick":tick,"state":state,"role":role,
+            "evidence_sha256":sha256(("evidence:"+name).encode()).hexdigest()}
+
+
+def claim(name, start, state, evidence, *, scene="chapter01",
+          subject="hero", scope="ACTOR", end=None, supersedes=None):
+    return {"claim_id":name,"scene_id":scene,"subject_scope":scope,
+            "subject_id":subject,"fact_id":"seal","story_from":start,
+            "story_until":end,"knowledge_state":state,
+            "evidence_event_id":evidence,"supersedes_id":supersedes}
+
+
+def receipt_signature(ev, audience, released_at, secret=TRUSTED_KEY):
+    message=canonical({"event_id":ev["event_id"],
+                      "event_sha256":sha256(canonical(ev).encode()).hexdigest(),
+                      "reader_subject":audience,
+                      "disclosure_tick":released_at}).encode("utf-8")
+    return hmac.new(secret,message,"sha256").hexdigest()
+
+
+class V58RedTeamTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary=TemporaryDirectory()
+        self.path=Path(self.temporary.name)/"redteam.sqlite3"
+        self.db=FactJournal(self.path)
+
+    def tearDown(self):
+        self.db.close()
+        self.temporary.cleanup()
+
+    def story(self):
+        for scene,idx in (("chapter01",1),("chapter02",2),
+                          ("chapter03",3)):
+            self.db.register_scene(story_id="novelA",scene_id=scene,
+                                   chapter_index=idx)
+
+    def view(self,scene="chapter02",at=20,asof=None):
+        return self.db.temporal_view(
+            scene=scene,scope="ACTOR",subject="hero",fact="seal",
+            story_id="novelA",story_tick=at,as_of_recorded_seq=asof)
+
+    def test_same_label_unbound_must_not_automatically_merge_characters(self):
+        self.story()
+        self.db.append(event("hero-knows-in-ch1",4,state="KNOWN"))
+        self.db.append_temporal_claim(claim(
+            "knowledge-in-ch1",4,"KNOWN","hero-knows-in-ch1"))
+        # Matching display label 'hero' is not sufficient for shared identity.
+        self.assertEqual(self.view("chapter02",10)["state"],"UNRECORDED")
+
+    def test_explicit_different_identities_never_merge_within_same_story(self):
+        self.story()
+        for scene,entity in (("chapter01","character-A"),
+                             ("chapter02","character-B"),
+                             ("chapter03","character-A")):
+            self.db.bind_subject(scene_id=scene,scope="ACTOR",
+                                 subject_id="hero",canonical_id=entity)
+        self.db.append(event("ch1-knows",4,state="KNOWN"))
+        self.db.append_temporal_claim(claim("ch1-fact",4,"KNOWN","ch1-knows"))
+        self.assertEqual(self.view("chapter02",10)["state"],"UNRECORDED")
+        self.assertEqual(self.view("chapter03",10)["state"],"KNOWN")
+        # Once bound, changing who a scene-local name refers to is forbidden.
+        with self.assertRaisesRegex(FactLedgerError,"IDENTITY_IMMUTABLE"):
+            self.db.bind_subject(scene_id="chapter03",scope="ACTOR",
+                                 subject_id="hero",canonical_id="character-B")
+
+    def test_chapter_transition_respects_intervals_and_recorded_snapshot(self):
+        self.story()
+        for scene in ("chapter01","chapter02","chapter03"):
+            self.db.bind_subject(scene_id=scene,scope="ACTOR",
+                                 subject_id="hero",canonical_id="protagonist")
+        self.db.append(event("does-not-know",2,state="UNKNOWN"))
+        first=self.db.append_temporal_claim(
+            claim("unknown-first",2,"UNKNOWN","does-not-know",end=7))
+        self.db.append(event("discovers-secret",7,scene="chapter02",
+                             state="KNOWN"))
+        self.db.append_temporal_claim(
+            claim("known-later",7,"KNOWN","discovers-secret",
+                  scene="chapter02"))
+        self.assertEqual(self.view("chapter03",5)["state"],"UNKNOWN")
+        self.assertEqual(self.view("chapter03",9)["state"],"KNOWN")
+        self.assertEqual(self.view("chapter03",9,asof=first["recorded_seq"])
+                         ["state"],"UNRECORDED")
+        # Overlapping, independent contradictory versions must remain conflicted.
+        self.db.append(event("denies-secret",8,scene="chapter02",state="FALSE"))
+        self.db.append_temporal_claim(
+            claim("still-denied",8,"FALSE","denies-secret",scene="chapter02"))
+        self.assertEqual(self.view("chapter03",9)["state"],
+                         "CONFLICT_UNRESOLVED")
+
+    def test_self_labeled_reveal_is_not_authenticated_disclosure(self):
+        self.db.append(event("fake-narrator-reveal",4,
+                             actor="narrator",state="KNOWN",role="REVEAL"))
+        with self.assertRaisesRegex(FactLedgerError,"READER_ATTESTATION"):
+            self.db.append_temporal_claim(
+                claim("reader-knows-unverified",4,"KNOWN",
+                      "fake-narrator-reveal",
+                      scope="READER",subject="general-reader"))
+
+    def test_independently_signed_reveal_has_audience_and_time_gate(self):
+        self.db.close()
+        self.db=FactJournal(self.path,trusted_disclosure_key=TRUSTED_KEY)
+        ev=event("signed-narrator-reveal",4,actor="narrator",
+                 state="KNOWN",role="REVEAL")
+        self.db.append(ev)
+        with self.assertRaisesRegex(FactLedgerError,"READER_ATTESTATION"):
+            self.db.register_reader_disclosure(
+                event_id=ev["event_id"],reader_subject="general-reader",
+                disclosure_tick=8,signature="0"*64)
+        self.db.register_reader_disclosure(
+            event_id=ev["event_id"],reader_subject="general-reader",
+            disclosure_tick=8,signature=receipt_signature(
+                ev,"general-reader",8))
+        with self.assertRaisesRegex(FactLedgerError,"READER.*BEFORE"):
+            self.db.append_temporal_claim(
+                claim("premature-before-release",5,"KNOWN",ev["event_id"],
+                      scope="READER",subject="general-reader"))
+        with self.assertRaisesRegex(FactLedgerError,"READER_ATTESTATION"):
+            self.db.append_temporal_claim(
+                claim("wrong-audience",8,"KNOWN",ev["event_id"],
+                      scope="READER",subject="other-reader"))
+        self.db.append_temporal_claim(
+            claim("actually-released",8,"KNOWN",ev["event_id"],
+                  scope="READER",subject="general-reader"))
+        self.assertEqual(self.db.temporal_view(
+            scene="chapter01",scope="READER",subject="general-reader",
+            fact="seal",story_tick=8)["state"],"KNOWN")
+        self.db.close()
+        self.db=FactJournal(self.path)
+        with self.assertRaisesRegex(FactLedgerError,"READER_ATTESTATION"):
+            self.db.temporal_view(
+                scene="chapter01",scope="READER",subject="general-reader",
+                fact="seal",story_tick=8)
+
+    def test_replay_cursor_pins_snapshot_no_duplicates_or_cross_query_use(self):
+        self.story()
+        self.db.bind_subject(scene_id="chapter01",scope="ACTOR",
+                             subject_id="hero",canonical_id="protagonist")
+        self.db.bind_subject(scene_id="chapter02",scope="ACTOR",
+                             subject_id="hero",canonical_id="protagonist")
+        for i in range(131):
+            ident=f"e-{i:04d}"
+            self.db.append(event(ident,i+1))
+            self.db.append_temporal_claim(
+                claim(f"claim-{i:04d}",i+1,"UNKNOWN",ident))
+        initial=self.db.temporal_claim_page(
+            scene="chapter02",scope="ACTOR",subject="hero",fact="seal",
+            story_id="novelA",story_tick=300,limit=47)
+        self.assertEqual(initial["page_count"],47)
+        self.assertTrue(initial["has_more"])
+        asof=initial["as_of_recorded_seq"]
+        self.db.append(event("e-later",140))
+        self.db.append_temporal_claim(claim(
+            "claim-added-after-snapshot",140,"UNKNOWN","e-later"))
+        all_ids=[x["claim_id"] for x in initial["claims"]]
+        cursor=initial["next_cursor"]
+        pages=1
+        while cursor:
+            page=self.db.temporal_claim_page(
+                scene="chapter02",scope="ACTOR",subject="hero",fact="seal",
+                story_id="novelA",story_tick=300,limit=47,
+                as_of_recorded_seq=asof,cursor=cursor)
+            all_ids += [x["claim_id"] for x in page["claims"]]
+            pages+=1
+            cursor=page["next_cursor"]
+            self.assertLessEqual(pages,4)
+        self.assertEqual(len(all_ids),131)
+        self.assertEqual(len(set(all_ids)),131)
+        self.assertNotIn("claim-added-after-snapshot",all_ids)
+        with self.assertRaisesRegex(FactLedgerError,"CURSOR"):
+            self.db.temporal_claim_page(
+                scene="chapter02",scope="ACTOR",subject="hero",
+                fact="otherfact",story_id="novelA",story_tick=300,
+                limit=47,as_of_recorded_seq=asof,
+                cursor=initial["next_cursor"])
+
+    def test_pagination_rejects_forged_cursor_and_detects_tampered_row(self):
+        self.db.append(event("proof-source",2))
+        self.db.append_temporal_claim(
+            claim("first-record",2,"UNKNOWN","proof-source"))
+        first=self.db.temporal_claim_page(
+            scene="chapter01",scope="ACTOR",subject="hero",fact="seal",
+            story_tick=10,limit=1)
+        with self.assertRaisesRegex(FactLedgerError,"CURSOR"):
+            self.db.temporal_claim_page(
+                scene="chapter01",scope="ACTOR",subject="hero",fact="seal",
+                story_tick=10,limit=1,cursor="e30")
+        self.db.db.execute(
+            "UPDATE temporal_claims SET knowledge_state='KNOWN'"
+            " WHERE claim_id='first-record'")
+        self.db.db.commit()
+        with self.assertRaisesRegex(FactLedgerError,"STORED_CLAIM_TAMPERED"):
+            self.db.temporal_claim_page(
+                scene="chapter01",scope="ACTOR",subject="hero",fact="seal",
+                story_tick=10,limit=1)
+
+
+    def test_cursor_forged_hash_cannot_skip_unseen_pages(self):
+        # The old cursor used public SHA256 rather than keyed integrity.
+        # A caller could edit last_seq + recompute SHA to fake completeness.
+        from writerforge.fact_journal import digest
+        for i in range(3):
+            source=f"forge-source-{i}"
+            self.db.append(event(source,2+i))
+            self.db.append_temporal_claim(
+                claim(f"forge-claim-{i}",2+i,"UNKNOWN",source))
+        first=self.db.temporal_claim_page(
+            scene="chapter01",scope="ACTOR",subject="hero",
+            fact="seal",story_tick=10,limit=1)
+        self.assertTrue(first["has_more"])
+        token=json.loads(base64.urlsafe_b64decode(
+            first["next_cursor"]+"="*((-len(first["next_cursor"]))%4)
+        ).decode("utf-8"))
+        token["last_seq"]=999999
+        token["tag"]=digest(canonical({
+            k:v for k,v in token.items() if k!="tag"}))
+        forged=base64.urlsafe_b64encode(canonical(token).encode("utf-8")
+            ).decode("ascii").rstrip("=")
+        with self.assertRaisesRegex(FactLedgerError,"CURSOR"):
+            self.db.temporal_claim_page(
+                scene="chapter01",scope="ACTOR",subject="hero",
+                fact="seal",story_tick=10,limit=1,
+                as_of_recorded_seq=first["as_of_recorded_seq"],
+                cursor=forged)
+
+    def test_cursor_restart_stays_bound_to_original_snapshot(self):
+        for i in range(3):
+            source=f"restart-source-{i}"
+            self.db.append(event(source,3+i))
+            self.db.append_temporal_claim(
+                claim(f"restart-claim-{i}",3+i,"UNKNOWN",source))
+        first=self.db.temporal_claim_page(
+            scene="chapter01",scope="ACTOR",subject="hero",
+            fact="seal",story_tick=12,limit=1)
+        self.db.close()
+        self.db=FactJournal(self.path)
+        second=self.db.temporal_claim_page(
+            scene="chapter01",scope="ACTOR",subject="hero",
+            fact="seal",story_tick=12,limit=1,
+            cursor=first["next_cursor"])
+        self.assertEqual(second["claims"][0]["claim_id"],"restart-claim-1")
+        self.assertEqual(first["as_of_recorded_seq"],
+                         second["as_of_recorded_seq"])
+
+    def test_cli_authenticated_disclosure_identity_and_page_roundtrip(self):
+        import os
+        from io import StringIO
+        from contextlib import redirect_stdout
+        from unittest.mock import patch
+        from writerforge.cli import main
+
+        def cmd(*args):
+            stdout=StringIO()
+            with redirect_stdout(stdout):
+                main(list(args))
+            return json.loads(stdout.getvalue())
+
+        root=str(self.path)
+        ev=event("cli-public-note",7,actor="narrator",
+                 state="KNOWN",role="REVEAL")
+        source_file=Path(self.temporary.name)/"source.json"
+        source_file.write_text(json.dumps(ev),encoding="utf-8")
+        signed={"event_id":ev["event_id"],
+                "reader_subject":"reader-A",
+                "disclosure_tick":9,
+                "signature":receipt_signature(ev,"reader-A",9)}
+        disclosure_file=Path(self.temporary.name)/"signed-disclosure.json"
+        disclosure_file.write_text(json.dumps(signed),encoding="utf-8")
+        known=claim("reader-known",9,"KNOWN",ev["event_id"],
+                    scope="READER",subject="reader-A")
+        known_file=Path(self.temporary.name)/"reader-claim.json"
+        known_file.write_text(json.dumps(known),encoding="utf-8")
+        with patch.dict(os.environ,{"WRITERFORGE_READER_VERIFY_KEY_HEX":
+                                     TRUSTED_KEY.hex()}):
+            cmd("fact-record","--journal",root,"--file",str(source_file))
+            cmd("fact-story-bind","--journal",root,
+                "--story-id","novelA","--scene","chapter01",
+                "--chapter-index","1")
+            cmd("fact-subject-bind","--journal",root,
+                "--scene","chapter01","--scope","READER",
+                "--subject","reader-A","--canonical-id","audience-A")
+            cmd("fact-disclosure","--journal",root,
+                "--file",str(disclosure_file))
+            cmd("fact-claim","--journal",root,"--file",str(known_file))
+            result=cmd("fact-view","--journal",root,"--scene","chapter01",
+                       "--scope","READER","--subject","reader-A",
+                       "--story-tick","10","--fact","seal",
+                       "--story-id","novelA")
+            self.assertEqual(result["state"],"KNOWN")
+            page=cmd("fact-page","--journal",root,"--scene","chapter01",
+                     "--scope","READER","--subject","reader-A",
+                     "--story-tick","10","--fact","seal",
+                     "--story-id","novelA","--limit","1")
+            self.assertEqual(page["claims"][0]["claim_id"],"reader-known")
+
+
+    def test_cross_database_replay_cursors_cannot_be_reused(self):
+        # Two fresh journals with identical public facts must have different
+        # signing secrets, so an attacker cannot replay cursor from another.
+        from pathlib import Path
+        other=FactJournal(Path(self.temporary.name)/"other.sqlite3")
+        try:
+            for db in (self.db,other):
+                for i in range(2):
+                    src=f"same-event-{i}"
+                    db.append(event(src,2+i))
+                    db.append_temporal_claim(
+                        claim(f"same-claim-{i}",2+i,"UNKNOWN",src))
+            first=self.db.temporal_claim_page(
+                scene="chapter01",scope="ACTOR",subject="hero",
+                fact="seal",story_tick=10,limit=1)
+            with self.assertRaisesRegex(FactLedgerError,"CURSOR"):
+                other.temporal_claim_page(
+                    scene="chapter01",scope="ACTOR",subject="hero",
+                    fact="seal",story_tick=10,limit=1,
+                    cursor=first["next_cursor"])
+        finally:
+            other.close()
+
+    def test_8193_claim_history_refuses_incomplete_state_but_pages_all(self):
+        # Bulk *valid synthetic* SQL fixture avoids thousands of tiny commits.
+        # This does not model novel semantics, models replay exhaustiveness.
+        from writerforge.fact_journal import digest
+        events=[]
+        claims=[]
+        count=8193
+        for i in range(count):
+            name=f"large-event-{i:05d}"
+            ev=event(name,i+1)
+            events.append((
+                ev["event_id"],ev["scene_id"],ev["actor_id"],ev["fact_id"],
+                ev["tick"],ev["state"],ev["role"],ev["evidence_sha256"],
+                digest(canonical(ev))))
+            c=claim(f"large-claim-{i:05d}",i+1,"UNKNOWN",name)
+            claims.append((
+                c["claim_id"],c["scene_id"],c["subject_scope"],
+                c["subject_id"],c["fact_id"],c["story_from"],c["story_until"],
+                c["knowledge_state"],c["evidence_event_id"],
+                c["supersedes_id"],digest(canonical(c))))
+        with self.db.db:
+            self.db.db.executemany(
+                "INSERT INTO fact_events VALUES(?,?,?,?,?,?,?,?,?)",events)
+            self.db.db.executemany(
+                "INSERT INTO temporal_claims("
+                "claim_id,scene,subject_scope,subject_id,fact,"
+                "story_from,story_until,knowledge_state,evidence_event,"
+                "supersedes_id,claim_sha) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                claims)
+        with self.assertRaisesRegex(FactLedgerError,"SCAN_BUDGET_EXCEEDED"):
+            self.db.temporal_view(
+                scene="chapter01",scope="ACTOR",subject="hero",
+                fact="seal",story_tick=9000)
+        first=self.db.temporal_claim_page(
+            scene="chapter01",scope="ACTOR",subject="hero",
+            fact="seal",story_tick=9000,limit=64)
+        self.assertEqual(first["page_count"],64)
+        asof=first["as_of_recorded_seq"]
+        seen=set(x["claim_id"] for x in first["claims"])
+        pages=1
+        cursor=first["next_cursor"]
+        while cursor:
+            page=self.db.temporal_claim_page(
+                scene="chapter01",scope="ACTOR",subject="hero",
+                fact="seal",story_tick=9000,limit=64,
+                as_of_recorded_seq=asof,cursor=cursor)
+            ids=[x["claim_id"] for x in page["claims"]]
+            self.assertTrue(seen.isdisjoint(ids))
+            seen.update(ids)
+            cursor=page["next_cursor"]
+            pages+=1
+            self.assertLessEqual(pages,130)
+        self.assertEqual(len(seen),count)
+        self.assertEqual(pages,129)
+
+
+if __name__=="__main__":
+    unittest.main()

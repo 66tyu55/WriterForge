@@ -12,8 +12,12 @@ from __future__ import annotations
 
 from hashlib import sha256
 from pathlib import Path
+import base64
+import hmac
 import json
+import os
 import re
+import secrets
 import sqlite3
 
 ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{1,79}\Z")
@@ -64,8 +68,25 @@ def checked_event(value):
 
 
 class FactJournal:
-    def __init__(self, file: str | Path):
-        """Only explicit use creates local metadata storage. No R2 access."""
+    def __init__(self, file: str | Path, *,
+                 trusted_disclosure_key: bytes | None = None):
+        """No R2 access. Reader attestations need an OUT-OF-BAND verifier key.
+
+        Never read a key from the SQLite database or from a caller's claim.
+        Missing verification material fails closed for READER/KNOWN only.
+        """
+        if trusted_disclosure_key is None:
+            configured = os.environ.get("WRITERFORGE_READER_VERIFY_KEY_HEX")
+            if configured is not None:
+                try:
+                    trusted_disclosure_key = bytes.fromhex(configured)
+                except ValueError as exc:
+                    raise FactLedgerError("FACT_READER_VERIFY_KEY_INVALID") from exc
+        need(trusted_disclosure_key is None or (
+             isinstance(trusted_disclosure_key, bytes) and
+             len(trusted_disclosure_key) >= 16),
+             "FACT_READER_VERIFY_KEY_INVALID")
+        self._trusted_disclosure_key = trusted_disclosure_key
         self.db = sqlite3.connect(str(file), cached_statements=32)
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA cache_size=-1024")
@@ -111,12 +132,43 @@ class FactJournal:
             chapter_index INTEGER NOT NULL, binding_sha TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS story_chapter_lookup
             ON story_scenes(story_id,chapter_index);
+        -- V58: a scene-local label is NOT a global character identity.
+        CREATE TABLE IF NOT EXISTS story_subjects(
+            scene_id TEXT NOT NULL, subject_scope TEXT NOT NULL,
+            subject_id TEXT NOT NULL, canonical_id TEXT NOT NULL,
+            binding_sha TEXT NOT NULL,
+            PRIMARY KEY(scene_id,subject_scope,subject_id));
+        CREATE INDEX IF NOT EXISTS story_subject_lookup
+            ON story_subjects(canonical_id,subject_scope);
+        -- HMAC attestation comes from an external trusted verifier, not
+        -- from a self-labelled REVEAL event or a sha string alone.
+        CREATE TABLE IF NOT EXISTS reader_disclosures(
+            event_id TEXT NOT NULL, reader_subject TEXT NOT NULL,
+            disclosure_tick INTEGER NOT NULL, event_sha TEXT NOT NULL,
+            signature TEXT NOT NULL, receipt_sha TEXT NOT NULL,
+            PRIMARY KEY(event_id,reader_subject));
         -- Ingest sequence is distinct from fiction/story time.
         CREATE TABLE IF NOT EXISTS event_import_receipts(
             recorded_seq INTEGER PRIMARY KEY AUTOINCREMENT,
             event_id TEXT NOT NULL UNIQUE, ingest_kind TEXT NOT NULL,
             event_sha TEXT NOT NULL);
+        -- Private per-journal cursor signing secret; protects API clients
+        -- from forging page offset. A DB owner can still alter the journal.
+        CREATE TABLE IF NOT EXISTS journal_cursor_keys(
+            key_id INTEGER PRIMARY KEY CHECK(key_id=1),
+            secret_hex TEXT NOT NULL);
         """)
+        with self.db:
+            self.db.execute(
+                "INSERT OR IGNORE INTO journal_cursor_keys VALUES(1,?)",
+                (secrets.token_hex(32),))
+        record=self.db.execute(
+            "SELECT secret_hex FROM journal_cursor_keys WHERE key_id=1"
+        ).fetchone()
+        need(record is not None and isinstance(record[0],str) and
+             SHA.fullmatch(record[0]) is not None,
+             "FACT_TEMPORAL_CURSOR_KEY_INVALID")
+        self._cursor_key=bytes.fromhex(record[0])
         self.db.commit()
 
     def close(self):
@@ -166,6 +218,132 @@ class FactJournal:
         left = self._bound_story(left_scene)
         right = self._bound_story(right_scene)
         return left is not None and left == right
+
+    def bind_subject(self, *, scene_id: str, scope: str,
+                     subject_id: str, canonical_id: str):
+        """Immutable explicit identity binding, never inferred from a name."""
+        need(all(key(v) for v in (scene_id, subject_id, canonical_id)) and
+             scope in ("ACTOR", "READER"), "FACT_SUBJECT_BINDING_INVALID")
+        need(self._bound_story(scene_id) is not None,
+             "FACT_SUBJECT_SCENE_NOT_REGISTERED")
+        row = {"scene_id":scene_id,"subject_scope":scope,
+               "subject_id":subject_id,"canonical_id":canonical_id}
+        h = digest(canonical(row))
+        prior = self.db.execute(
+            "SELECT * FROM story_subjects WHERE scene_id=? AND "
+            "subject_scope=? AND subject_id=?",
+            (scene_id,scope,subject_id)).fetchone()
+        if prior:
+            self._verify_subject_binding(prior)
+            need(prior["binding_sha"] == h, "FACT_SUBJECT_IDENTITY_IMMUTABLE")
+            return {"binding_sha256":h,"replayed":True}
+        with self.db:
+            self.db.execute(
+                "INSERT INTO story_subjects VALUES(?,?,?,?,?)",
+                (scene_id,scope,subject_id,canonical_id,h))
+        return {"binding_sha256":h,"replayed":False}
+
+    @staticmethod
+    def _verify_subject_binding(row):
+        record = {"scene_id":row["scene_id"],
+                  "subject_scope":row["subject_scope"],
+                  "subject_id":row["subject_id"],
+                  "canonical_id":row["canonical_id"]}
+        need(digest(canonical(record)) == row["binding_sha"],
+             "FACT_SUBJECT_IDENTITY_TAMPERED")
+
+    def _bound_subject(self, scene, scope, subject):
+        row = self.db.execute(
+            "SELECT * FROM story_subjects WHERE scene_id=? AND "
+            "subject_scope=? AND subject_id=?",(scene,scope,subject)
+        ).fetchone()
+        if row:
+            self._verify_subject_binding(row)
+            return row["canonical_id"]
+        return None
+
+    @staticmethod
+    def _disclosure_payload(event, reader_subject, disclosure_tick):
+        return {"event_id":event["event_id"],
+                "event_sha256":event["event_sha"],
+                "reader_subject":reader_subject,
+                "disclosure_tick":disclosure_tick}
+
+    def _check_disclosure_signature(self, event, reader_subject,
+                                    disclosure_tick, signature):
+        need(self._trusted_disclosure_key is not None,
+             "FACT_READER_ATTESTATION_KEY_MISSING")
+        need(isinstance(signature,str) and
+             SHA.fullmatch(signature) is not None,
+             "FACT_READER_ATTESTATION_SIGNATURE_INVALID")
+        message = canonical(self._disclosure_payload(
+            event,reader_subject,disclosure_tick)).encode("utf-8")
+        expected = hmac.new(
+            self._trusted_disclosure_key,message,"sha256").hexdigest()
+        need(hmac.compare_digest(expected,signature),
+             "FACT_READER_ATTESTATION_SIGNATURE_INVALID")
+
+    def register_reader_disclosure(self, *, event_id: str,
+                                   reader_subject: str,
+                                   disclosure_tick: int,
+                                   signature: str):
+        """Accept externally signed metadata; never auto-certify prose truth."""
+        need(key(event_id) and key(reader_subject) and
+             type(disclosure_tick) is int and
+             0 <= disclosure_tick <= 10000000,
+             "FACT_READER_DISCLOSURE_SCHEMA_INVALID")
+        ev = self.db.execute(
+            "SELECT * FROM fact_events WHERE event_id=?",(event_id,)
+        ).fetchone()
+        need(ev is not None,"FACT_READER_DISCLOSURE_EVENT_MISSING")
+        self._assert_record_integrity(ev)
+        need(ev["state"] == "KNOWN" and
+             (ev["role"] == "REVEAL" or (
+                 ev["role"] == "OBSERVE" and ev["actor"] == "narrator")),
+             "FACT_READER_DISCLOSURE_ROLE_NOT_PUBLIC")
+        need(disclosure_tick >= ev["tick"],
+             "FACT_READER_KNOWS_BEFORE_EVIDENCE_EVENT")
+        self._check_disclosure_signature(
+            ev,reader_subject,disclosure_tick,signature)
+        receipt = {"event_id":event_id,"reader_subject":reader_subject,
+                   "disclosure_tick":disclosure_tick,
+                   "event_sha":ev["event_sha"],"signature":signature}
+        h = digest(canonical(receipt))
+        prior = self.db.execute(
+            "SELECT * FROM reader_disclosures "
+            "WHERE event_id=? AND reader_subject=?",
+            (event_id,reader_subject)).fetchone()
+        if prior:
+            self._verify_reader_disclosure(ev,reader_subject,disclosure_tick)
+            need(prior["receipt_sha"]==h,"FACT_READER_DISCLOSURE_IMMUTABLE")
+            return {"receipt_sha256":h,"replayed":True,
+                    "story_truth_verified":False}
+        with self.db:
+            self.db.execute(
+                "INSERT INTO reader_disclosures VALUES(?,?,?,?,?,?)",
+                (event_id,reader_subject,disclosure_tick,ev["event_sha"],
+                 signature,h))
+        return {"receipt_sha256":h,"replayed":False,
+                "story_truth_verified":False}
+
+    def _verify_reader_disclosure(self, ev, reader_subject, at_tick):
+        row = self.db.execute(
+            "SELECT * FROM reader_disclosures "
+            "WHERE event_id=? AND reader_subject=?",
+            (ev["event_id"],reader_subject)).fetchone()
+        need(row is not None,"FACT_READER_ATTESTATION_REQUIRED")
+        original = {"event_id":row["event_id"],
+                    "reader_subject":row["reader_subject"],
+                    "disclosure_tick":row["disclosure_tick"],
+                    "event_sha":row["event_sha"],
+                    "signature":row["signature"]}
+        need(digest(canonical(original))==row["receipt_sha"] and
+             ev["event_sha"] == row["event_sha"],
+             "FACT_READER_ATTESTATION_TAMPERED")
+        self._check_disclosure_signature(
+            ev,reader_subject,row["disclosure_tick"],row["signature"])
+        need(at_tick >= row["disclosure_tick"],
+             "FACT_READER_KNOWS_BEFORE_DISCLOSURE")
 
     def append_flashback(self, item, *, story_id: str):
         """Explicit out-of-order ingestion; NEVER edits old events or story time.
@@ -454,12 +632,14 @@ class FactJournal:
         elif record["knowledge_state"] == "KNOWN":
             need(begin >= evidence["tick"],
                  "FACT_READER_KNOWS_BEFORE_EVIDENCE_EVENT")
-            # Explicit REVEAL or narrator observation may disclose to reader.
-            # A character's private THINK alone must NEVER be inherited.
+            # A private THINK is not REVEAL, and self-labelled REVEAL is not
+            # trusted unless an independent verifier signed the event digest.
             need(evidence["role"] == "REVEAL" or
                  (evidence["actor"] == "narrator" and
                   evidence["role"] == "OBSERVE"),
                  "FACT_READER_DISCLOSURE_REQUIRED")
+            self._verify_reader_disclosure(
+                evidence,record["subject_id"],begin)
         if replaced is not None:
             old = self.db.execute(
                 "SELECT * FROM temporal_claims WHERE claim_id=?", (replaced,)
@@ -516,16 +696,45 @@ class FactJournal:
             (row["evidence_event"],)).fetchone()
         need(event is not None, "FACT_TEMPORAL_SOURCE_EVENT_LOST")
         self._assert_record_integrity(event)
+        if row["subject_scope"] == "READER" and row["knowledge_state"] == "KNOWN":
+            self._verify_reader_disclosure(
+                event,row["subject_id"],row["story_from"])
 
-    def temporal_view(self, *, scene: str, scope: str, subject: str,
-                      fact: str, story_tick: int,
-                      as_of_recorded_seq: int | None = None,
-                      story_id: str | None = None):
-        """Bitemporal projection. Explicit story_id enables cross-chapter view.
+    def _temporal_source(self, *, scene, scope, subject, fact, story_id):
+        """Shared SQL filter: identical identity rules for views and pages."""
+        if story_id is None:
+            return ("FROM temporal_claims c WHERE c.scene=? AND "
+                    "c.subject_scope=? AND c.subject_id=? AND c.fact=?",
+                    [scene,scope,subject,fact])
+        need(key(story_id) and self._bound_story(scene) == story_id,
+             "FACT_TEMPORAL_STORY_SCOPE_NOT_REGISTERED")
+        # Check complete scope bindings before projection; do not silently
+        # trust a modified SHA in another chapter's local identity map.
+        for row in self.db.execute(
+                "SELECT * FROM story_scenes WHERE story_id=?",(story_id,)):
+            self._verify_story_binding(row)
+        for row in self.db.execute(
+                "SELECT sb.* FROM story_subjects sb JOIN story_scenes sc "
+                "ON sc.scene_id=sb.scene_id WHERE sc.story_id=?",
+                (story_id,)):
+            self._verify_subject_binding(row)
+        canonical_id = self._bound_subject(scene,scope,subject)
+        if canonical_id is None:
+            # Fail closed: a matching local display name is not identity.
+            return ("FROM temporal_claims c WHERE 0=1", [])
+        return (
+            "FROM temporal_claims c "
+            "JOIN story_scenes sc ON sc.scene_id=c.scene "
+            "JOIN story_subjects sb ON sb.scene_id=c.scene AND "
+            "sb.subject_scope=c.subject_scope AND "
+            "sb.subject_id=c.subject_id "
+            "WHERE sc.story_id=? AND sb.canonical_id=? AND "
+            "c.subject_scope=? AND c.fact=?",
+            [story_id,canonical_id,scope,fact])
 
-        Streams verified claims instead of truncating at the V55 64-row
-        *history* limit. Output references stay capped; no R2/LLM access.
-        """
+    @staticmethod
+    def _temporal_query_validate(scene, scope, subject, fact, story_tick,
+                                 as_of_recorded_seq):
         need(all(key(v) for v in (scene,subject,fact)),
              "FACT_TEMPORAL_QUERY_ID_INVALID")
         need(scope in ("ACTOR","READER"),"FACT_TEMPORAL_QUERY_SCOPE_INVALID")
@@ -534,71 +743,71 @@ class FactJournal:
         need(as_of_recorded_seq is None or (
             type(as_of_recorded_seq) is int and as_of_recorded_seq >= 0),
             "FACT_TEMPORAL_QUERY_AS_OF_INVALID")
-        if story_id is not None:
-            need(key(story_id) and self._bound_story(scene) == story_id,
-                 "FACT_TEMPORAL_STORY_SCOPE_NOT_REGISTERED")
-            registered = self.db.execute(
-                "SELECT * FROM story_scenes WHERE story_id=?",
-                (story_id,)).fetchall()
-            for bound in registered:
-                self._verify_story_binding(bound)
+
+    def _recorded_snapshot(self, as_of_recorded_seq):
         if as_of_recorded_seq is None:
-            as_of_recorded_seq = self.db.execute(
+            return self.db.execute(
                 "SELECT COALESCE(MAX(recorded_seq),0) FROM temporal_claims"
             ).fetchone()[0]
-        if story_id is None:
-            location_clause = "c.scene=?"
-            binds = [scene]
-        else:
-            location_clause = ("c.scene IN (SELECT scene_id FROM "
-                               "story_scenes WHERE story_id=?)")
-            binds = [story_id]
+        return as_of_recorded_seq
+
+    def temporal_view(self, *, scene: str, scope: str, subject: str,
+                      fact: str, story_tick: int,
+                      as_of_recorded_seq: int | None = None,
+                      story_id: str | None = None):
+        """Bounded complete state, independent story/recorded clocks.
+
+        A cross-chapter identity must be explicitly bound in EACH chapter.
+        Return a result only if every relevant claim was checked; otherwise
+        raise instead of creating a false 'KNOWN' from an incomplete subset.
+        """
+        self._temporal_query_validate(
+            scene,scope,subject,fact,story_tick,as_of_recorded_seq)
+        as_of_recorded_seq=self._recorded_snapshot(as_of_recorded_seq)
+        source, bind = self._temporal_source(
+            scene=scene,scope=scope,subject=subject,
+            fact=fact,story_id=story_id)
         query = (
             "SELECT c.*, EXISTS(SELECT 1 FROM temporal_claims successor "
             "WHERE successor.supersedes_id=c.claim_id AND "
-            "successor.recorded_seq<=?) AS was_superseded "
-            "FROM temporal_claims c WHERE " + location_clause +
-            " AND c.subject_scope=? AND c.subject_id=? AND c.fact=? AND "
-            "c.story_from<=? AND (c.story_until IS NULL OR c.story_until>?) "
+            "successor.recorded_seq<=?) AS was_superseded " + source +
+            " AND c.story_from<=? AND "
+            "(c.story_until IS NULL OR c.story_until>?) "
             "AND c.recorded_seq<=? ORDER BY c.recorded_seq")
         cursor = self.db.execute(
-            query, [as_of_recorded_seq,*binds,scope,subject,fact,
-                    story_tick,story_tick,as_of_recorded_seq])
-        states = set()
-        active_ids, superseded_ids = [], []
-        active_count = superseded_count = scanned = 0
+            query,[as_of_recorded_seq,*bind,story_tick,story_tick,
+                   as_of_recorded_seq])
+        states=set()
+        active_ids,superseded_ids=[],[]
+        active_count=superseded_count=scanned=0
         while True:
-            batch = cursor.fetchmany(64)
+            batch=cursor.fetchmany(64)
             if not batch:
                 break
-            scanned += len(batch)
-            need(scanned <= 8192, "FACT_TEMPORAL_SCAN_BUDGET_EXCEEDED")
+            scanned+=len(batch)
+            need(scanned<=8192,"FACT_TEMPORAL_SCAN_BUDGET_EXCEEDED")
             for claim in batch:
                 self._verify_claim_row(claim)
-                if story_id is not None:
-                    need(self._bound_story(claim["scene"]) == story_id,
-                         "FACT_TEMPORAL_CROSS_STORY_CLAIM")
                 if claim["was_superseded"]:
-                    superseded_count += 1
-                    if len(superseded_ids) < 64:
+                    superseded_count+=1
+                    if len(superseded_ids)<64:
                         superseded_ids.append(claim["claim_id"])
                 else:
-                    active_count += 1
+                    active_count+=1
                     states.add(claim["knowledge_state"])
-                    if len(active_ids) < 64:
+                    if len(active_ids)<64:
                         active_ids.append(claim["claim_id"])
         if len(states)>1 or "DISPUTED" in states:
-            resolution = "CONFLICT_UNRESOLVED"
+            resolution="CONFLICT_UNRESOLVED"
         elif len(states)==1:
-            resolution = next(iter(states))
+            resolution=next(iter(states))
         else:
-            resolution = "UNRECORDED"
+            resolution="UNRECORDED"
         return {
-            "format":"writerforge.v57-bitemporal-knowledge.v1",
+            "format":"writerforge.v58-bitemporal-knowledge.v1",
             "scene_id":scene,"story_id":story_id,
             "scope":scope,"subject_id":subject,"fact_id":fact,
-            "story_tick":story_tick,
-            "as_of_recorded_seq":as_of_recorded_seq,
+            "story_tick":story_tick,"as_of_recorded_seq":as_of_recorded_seq,
             "state":resolution,
             "active_claim_ids":active_ids,
             "superseded_claim_ids":sorted(superseded_ids),
@@ -609,9 +818,117 @@ class FactJournal:
             "superseded_claims_truncated":superseded_count>64,
             "story_truth_verified":False,
             "reviewer_authenticity_verified":False,
-            "language_model_calls":0,
-            "eligible_to_direct_writing":False,
+            "language_model_calls":0,"eligible_to_direct_writing":False,
         }
+
+    def _cursor_tag(self, data):
+        return hmac.new(
+            self._cursor_key,canonical(data).encode("utf-8"),
+            "sha256").hexdigest()
+
+    def temporal_claim_page(self, *, scene: str, scope: str, subject: str,
+                            fact: str, story_tick: int,
+                            story_id: str | None = None,
+                            as_of_recorded_seq: int | None = None,
+                            limit: int = 64,
+                            cursor: str | None = None):
+        """Stable keyset replay of claim metadata, NOT a full state result.
+
+        Output never includes the source text. A cursor is tied to the exact
+        query, row limit and immutable recorded-sequence snapshot. Its HMAC
+        prevents outside callers from forging offsets; it is NOT authorization,
+        and anyone with raw SQLite write access controls the local journal.
+        """
+        self._temporal_query_validate(
+            scene,scope,subject,fact,story_tick,as_of_recorded_seq)
+        need(type(limit) is int and 1<=limit<=64,
+             "FACT_TEMPORAL_PAGE_SIZE_INVALID")
+        if story_id is not None:
+            need(key(story_id),"FACT_TEMPORAL_STORY_SCOPE_NOT_REGISTERED")
+        if cursor is not None:
+            need(isinstance(cursor,str) and 0<len(cursor)<=2048,
+                 "FACT_TEMPORAL_CURSOR_INVALID")
+            try:
+                token=json.loads(base64.urlsafe_b64decode(
+                    cursor+"="*((-len(cursor))%4)).decode("utf-8"))
+            except (ValueError,UnicodeError,TypeError) as exc:
+                raise FactLedgerError("FACT_TEMPORAL_CURSOR_INVALID") from exc
+            need(isinstance(token,dict) and set(token)=={
+                 "v","fingerprint","last_seq","asof","tag"} and
+                 type(token["v"]) is int and token["v"]==1 and
+                 type(token["last_seq"]) is int and token["last_seq"]>=0 and
+                 type(token["asof"]) is int and token["asof"]>=0 and
+                 type(token["fingerprint"]) is str and
+                 type(token["tag"]) is str,
+                 "FACT_TEMPORAL_CURSOR_INVALID")
+            prior_asof=token["asof"]
+            need(as_of_recorded_seq is None or
+                 as_of_recorded_seq==prior_asof,
+                 "FACT_TEMPORAL_CURSOR_SNAPSHOT_MISMATCH")
+            as_of_recorded_seq=prior_asof
+            proof=self._cursor_tag({
+                "v":1,"fingerprint":token["fingerprint"],
+                "last_seq":token["last_seq"],"asof":prior_asof})
+            need(hmac.compare_digest(proof,token["tag"]),
+                 "FACT_TEMPORAL_CURSOR_INVALID")
+            after_seq=token["last_seq"]
+        else:
+            as_of_recorded_seq=self._recorded_snapshot(as_of_recorded_seq)
+            after_seq=0
+        fingerprint=digest(canonical({
+            "scene":scene,"scope":scope,"subject":subject,"fact":fact,
+            "story_id":story_id,"story_tick":story_tick,
+            "asof":as_of_recorded_seq,"limit":limit}))
+        if cursor is not None:
+            need(token["fingerprint"]==fingerprint,
+                 "FACT_TEMPORAL_CURSOR_SCOPE_MISMATCH")
+        source,bind=self._temporal_source(
+            scene=scene,scope=scope,subject=subject,
+            fact=fact,story_id=story_id)
+        query=(
+            "SELECT c.*, EXISTS(SELECT 1 FROM temporal_claims successor "
+            "WHERE successor.supersedes_id=c.claim_id AND "
+            "successor.recorded_seq<=?) AS was_superseded " + source +
+            " AND c.story_from<=? AND "
+            "(c.story_until IS NULL OR c.story_until>?) "
+            "AND c.recorded_seq>? AND c.recorded_seq<=? "
+            "ORDER BY c.recorded_seq LIMIT ?")
+        rows=self.db.execute(
+            query,[as_of_recorded_seq,*bind,story_tick,story_tick,
+                   after_seq,as_of_recorded_seq,limit+1]).fetchall()
+        page=rows[:limit]
+        claims=[]
+        for row in page:
+            self._verify_claim_row(row)
+            claims.append({
+                "claim_id":row["claim_id"],
+                "scene_id":row["scene"],
+                "recorded_seq":row["recorded_seq"],
+                "story_from":row["story_from"],
+                "story_until":row["story_until"],
+                "knowledge_state":row["knowledge_state"],
+                "evidence_event_id":row["evidence_event"],
+                "supersedes_id":row["supersedes_id"],
+                "superseded_at_snapshot":bool(row["was_superseded"]),
+                "claim_sha256":row["claim_sha"],
+            })
+        more=len(rows)>limit
+        next_cursor=None
+        if more:
+            next_data={"v":1,"fingerprint":fingerprint,
+                       "last_seq":page[-1]["recorded_seq"],
+                       "asof":as_of_recorded_seq}
+            next_data["tag"]=self._cursor_tag(next_data)
+            next_cursor=base64.urlsafe_b64encode(
+                canonical(next_data).encode("utf-8")).decode("ascii").rstrip("=")
+        return {"format":"writerforge.v58-temporal-claim-page.v1",
+                "story_id":story_id,"scene_id":scene,"scope":scope,
+                "subject_id":subject,"fact_id":fact,"story_tick":story_tick,
+                "as_of_recorded_seq":as_of_recorded_seq,
+                "page_count":len(claims),"has_more":more,
+                "next_cursor":next_cursor,"claims":claims,
+                "literary_truth_verified":False,
+                "source_text_included":False}
 
     def graph_neighbors(self,event_id: str, *, depth: int = 2):
         """Bounded fact-event adjacency; potential causality NEVER proof."""

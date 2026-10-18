@@ -58,12 +58,27 @@ class V57RelationFoundationTests(unittest.TestCase):
             fact="seal",story_tick=3)["state"], "UNRECORDED")
 
     def test_private_thought_must_have_explicit_disclosure(self):
+        # V58 tightens proof: a REVEAL label must have a signed attestation.
+        import hmac
+        from writerforge.fact_journal import canonical, digest
+        verifier_key=b"synthetic-V57-fixture-verifier-key-not-production"
+        self.db.close()
+        self.db=FactJournal(self.path,trusted_disclosure_key=verifier_key)
         self.db.append(event("secret", 4, state="KNOWN", role="THINK"))
         with self.assertRaisesRegex(FactLedgerError, "READER_DISCLOSURE"):
             self.db.append_temporal_claim(claim(
                 "illegal-secret", 4, "KNOWN", "secret",
                 scope="READER",subject="general-reader"))
-        self.db.append(event("public-reveal", 8, state="KNOWN", role="REVEAL"))
+        public=event("public-reveal", 8, state="KNOWN", role="REVEAL")
+        self.db.append(public)
+        payload={"event_id":public["event_id"],
+                 "event_sha256":digest(canonical(public)),
+                 "reader_subject":"general-reader","disclosure_tick":8}
+        signature=hmac.new(verifier_key,canonical(payload).encode("utf-8"),
+                           "sha256").hexdigest()
+        self.db.register_reader_disclosure(
+            event_id=public["event_id"],reader_subject="general-reader",
+            disclosure_tick=8,signature=signature)
         self.db.append_temporal_claim(claim(
             "legal-disclosure", 8, "KNOWN", "public-reveal",
             scope="READER",subject="general-reader"))
@@ -88,6 +103,9 @@ class V57RelationFoundationTests(unittest.TestCase):
                                chapter_index=1)
         self.db.register_scene(story_id="novelA",scene_id="chapter03",
                                chapter_index=3)
+        for scene in ("chapter01","chapter03"):
+            self.db.bind_subject(scene_id=scene,scope="ACTOR",
+                                 subject_id="hero",canonical_id="protagonist")
         self.db.link("clue","payoff","BEFORE")
         graph = self.db.graph_neighbors("clue")
         self.assertEqual(graph["relation_count"],1)
@@ -219,6 +237,10 @@ class V57RelationFoundationTests(unittest.TestCase):
                          "--story-id","novelA","--scene",n,
                          "--chapter-index",chapter)
             self.assertIn("binding_sha256",receipt)
+            identity=call("fact-subject-bind","--journal",str(self.path),
+                          "--scene",n,"--scope","ACTOR",
+                          "--subject","hero","--canonical-id","protagonist")
+            self.assertIn("binding_sha256",identity)
         self.db.append(event("hero-learned",4,state="KNOWN"))
         self.db.append_temporal_claim(claim(
             "hero-history",4,"KNOWN","hero-learned"))
