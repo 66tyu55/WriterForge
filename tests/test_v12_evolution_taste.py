@@ -120,7 +120,32 @@ class V12EvolutionTasteTests(unittest.TestCase):
         r.register(CapabilityContract("character_engine", 4, "bounded character decisions"))
         r.register(CapabilityContract("dialogue_craft", 4, "goal-driven dialogue", {"character_engine": 4}))
         r.register(CapabilityContract("prose_rhythm", 4, "functional sentence rhythm"))
-        affected = r.promote("character_engine", new_level=5, statement="supports false belief and asymmetric relation view", evidence_id="eval-1")
+        # V63 migration of a historic positive fixture. The prior V12 and
+        # V62 branch results remain unchanged; direct registry promotion
+        # is now a genuine privilege bypass and MUST be refused.
+        import hmac, json
+        from writerforge.evolution import EvolutionEngine, UpgradeCandidate, PromotionEvidence
+        key=b"synthetic-V63-V12-registry-gate-key"
+        engine=EvolutionEngine(registry=r,promotion_verifier_key=key)
+        candidate=UpgradeCandidate(
+            skill="character_engine",new_level=5,
+            capability_statement="supports false belief and asymmetric relation view",
+            evidence_id="eval-1",
+            evidence=PromotionEvidence(
+                capability_statement="Synthetic verified promotion fixture",
+                heldout_success=.9,transfer_success=.85,
+                regression_success=.98,judge_stability=.95,
+                repeated_failure_reduction=.45,runtime_regression=.05,
+                human_anchor_count=1),requires_human_anchor=True)
+        proof=engine.promotion_attestation_payload(
+            candidate,reviewer_id="external01",review_id="V63-fixture01")
+        signed=hmac.new(key,json.dumps(
+            proof,ensure_ascii=False,sort_keys=True,
+            separators=(",",":")).encode("utf-8"),"sha256").hexdigest()
+        affected=engine.apply_upgrade(
+            candidate,policy="manual",approved=True,
+            attestation={"reviewer_id":"external01",
+                         "review_id":"V63-fixture01","signature":signed})
         self.assertEqual(affected, ["dialogue_craft"])
         self.assertEqual(r.get("dialogue_craft").status, SkillStatus.NEEDS_REVALIDATION)
         self.assertEqual(r.get("prose_rhythm").status, SkillStatus.ACTIVE)
