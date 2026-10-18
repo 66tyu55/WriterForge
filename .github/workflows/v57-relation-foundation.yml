@@ -1,0 +1,39 @@
+name: V57 explicit relation foundation and preserved legacy
+on:
+  push:
+    branches: [v57-relation-evidence-foundation]
+    paths:
+      - 'writerforge/fact_journal.py'
+      - 'tests/test_v57_relation_foundation.py'
+      - 'scripts/audit_v57_relations.py'
+      - '.github/workflows/v57-relation-foundation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  v57-synthetic-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install package without any literary training
+        run: python -m pip install -e .
+      - name: V54 immutable fact ledger regression
+        run: python -m unittest discover -s tests -p 'test_v54_consent_fact_core.py' -v
+      - name: V55 original nine temporal and graph regressions
+        run: python -m unittest discover -s tests -p 'test_v55_bitemporal_graph.py' -v
+      - name: V57 fresh independent red team and machine receipt
+        run: python -m scripts.audit_v57_relations
+      - name: Record SHA of new implementation and tests
+        if: always()
+        run: sha256sum writerforge/fact_journal.py tests/test_v57_relation_foundation.py scripts/audit_v57_relations.py
+      - name: Upload V57 results even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: V57_Synthetic_Relation_Evidence
+          path: v57_relation_regression_receipt.json
+          retention-days: 90
