@@ -94,11 +94,14 @@ class WFWorkerR2Client:
         self.timeout = timeout
         self._opener = build_opener(_NoBearerRedirect())
 
-    def _request_json(self, *, cursor: str | None = None) -> dict:
+    def _request_json(self, *, cursor: str | None = None,
+                      path: str = "/r2/inventory") -> dict:
+        if path not in ("/r2/inventory", "/r2/status", "/health"):
+            raise WFWorkerAPIError("WF_R2_HTTP_ROUTE_NOT_ALLOWED")
         if cursor is not None and (not isinstance(cursor, str)
                                    or not 1 <= len(cursor) <= 2048):
             raise WFWorkerAPIError("WF_R2_HTTP_CURSOR_INVALID")
-        suffix = "/r2/inventory"
+        suffix = path
         if cursor:
             suffix += "?" + urlencode({"cursor": cursor})
         req = Request(
@@ -131,6 +134,37 @@ class WFWorkerR2Client:
         if not isinstance(result, dict) or result.get("ok") is not True:
             raise WFWorkerAPIError("WF_R2_HTTP_WORKER_REPORTED_FAILURE")
         return result
+
+    def r2_status(self) -> dict:
+        """Perform the Worker's actual R2 list probe, not a full inventory."""
+        start = perf_counter()
+        doc = self._request_json(path="/r2/status")
+        elapsed_ms = round((perf_counter() - start) * 1000, 2)
+        if (doc.get("r2_connected") is not True
+                or doc.get("read_only") is not True
+                or type(doc.get("metadata_objects_returned")) is not int
+                or doc["metadata_objects_returned"] < 0
+                or type(doc.get("query_ms")) not in (int, float)
+                or doc["query_ms"] < 0):
+            raise WFWorkerAPIError("WF_R2_HTTP_R2_STATUS_SCHEMA_INVALID")
+        return {
+            "format": "writerforge.r2-worker-direct-status.v1",
+            "invoked_by": "WRITERFORGE_PYTHON_HTTP_CLIENT",
+            "r2_connected": True,
+            "metadata_objects_returned": doc["metadata_objects_returned"],
+            "worker_r2_query_ms": doc["query_ms"],
+            "wf_http_end_to_end_ms": elapsed_ms,
+            "inventory_complete": False,
+            "sqlite_sql_executed": False,
+            "remote_writes_performed": 0,
+            "api_token_in_output": False,
+        }
+
+    def authenticated_health(self) -> dict:
+        """Confirm valid bearer credentials without claiming R2 was queried."""
+        doc = self._request_json(path="/health")
+        return {"authenticated": True,
+                "r2_binding_present": doc.get("r2_binding_present", False)}
 
     def probe_public_health_unauthenticated(self) -> dict:
         """Single diagnostic GET without token, never reveals auth material.
