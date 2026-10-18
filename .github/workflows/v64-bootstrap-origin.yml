@@ -1,0 +1,31 @@
+name: V64 bootstrap and AI manuscript origin red team
+on:
+  push:
+    branches: [v64-bootstrap-origin-authorization]
+    paths:
+      - 'writerforge/evolution.py'
+      - 'writerforge/writing_flow.py'
+      - 'writerforge/story_commit.py'
+      - 'writerforge/verified_flow.py'
+      - 'tests/test_v64_bootstrap_origin.py'
+      - '.github/workflows/v64-bootstrap-origin.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  v64-synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - name: Independent fail-first V64 synthetic tests
+        run: python -m unittest discover -s tests -p 'test_v64_bootstrap_origin.py' -v
+      - name: Entire existing suite
+        run: python -m unittest discover -s tests -q
+      - name: Freeze code and test digests
+        if: always()
+        run: sha256sum writerforge/evolution.py writerforge/writing_flow.py writerforge/story_commit.py writerforge/verified_flow.py tests/test_v64_bootstrap_origin.py
