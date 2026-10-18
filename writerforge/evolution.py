@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from enum import Enum
 from collections import Counter, defaultdict
+from hashlib import sha256
+import hmac
 import json
+import os
+import re
 from typing import Iterable
 
 
@@ -324,10 +328,24 @@ class UpgradeCandidate:
 class EvolutionEngine:
     """Controlled literary self-improvement. It may propose; production promotion requires an explicit gate and approval."""
 
-    def __init__(self, *, registry: SkillRegistry | None = None, db=None, scope: str = "__system__"):
+    def __init__(self, *, registry: SkillRegistry | None = None, db=None,
+                 scope: str = "__system__",
+                 promotion_verifier_key: bytes | None = None):
         self.registry = registry or SkillRegistry(db=db, scope=scope)
         self.db = db
         self.scope = scope
+        if promotion_verifier_key is None:
+            key_hex=os.environ.get("WRITERFORGE_PROMOTION_VERIFY_KEY_HEX")
+            if key_hex is not None:
+                try:
+                    promotion_verifier_key=bytes.fromhex(key_hex)
+                except ValueError as exc:
+                    raise ValueError("PROMOTION_VERIFIER_KEY_INVALID") from exc
+        if promotion_verifier_key is not None and (
+                not isinstance(promotion_verifier_key,bytes) or
+                len(promotion_verifier_key)<16):
+            raise ValueError("PROMOTION_VERIFIER_KEY_INVALID")
+        self._promotion_verifier_key=promotion_verifier_key
         self.failures: list[FailureEvent] = []
         self.clusterer = FailureClusterer()
         self.curriculum = CurriculumPlanner()
@@ -372,27 +390,71 @@ class EvolutionEngine:
             return PromotionDecision(False, ("upgrade must advance exactly one capability level",))
         return self.promotion_gate.evaluate(candidate.evidence, requires_human_anchor=candidate.requires_human_anchor)
 
-    def apply_upgrade(self, candidate: UpgradeCandidate, *, policy: str = "gated_auto", approved: bool = False) -> list[str]:
-        """
-        Apply a candidate only after the Promotion Gate.
+    @staticmethod
+    def promotion_attestation_payload(candidate: UpgradeCandidate, *,
+                                      reviewer_id: str, review_id: str):
+        """Credentialed external permit binds exact metrics and level.
 
-        policy:
-        - gated_auto: offline Evolution Engine may self-promote after all gates pass;
-        - manual: additionally requires approved=True;
-        - shadow_only: keep the candidate out of production even when it passes.
-
-        Subjective literary capabilities should set requires_human_anchor=True, so
-        gated_auto still cannot pass on self-judgment alone.
+        A signature authenticates an authority, NOT literary truth.
         """
-        decision = self.evaluate_upgrade(candidate)
+        id_regex=re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{1,79}")
+        if not all(isinstance(x,str) and id_regex.fullmatch(x)
+                   for x in (reviewer_id,review_id,candidate.evidence_id)):
+            raise ValueError("PROMOTION_ATTESTATION_REFERENCE_INVALID")
+        return {
+            "contract":"writerforge.v61-human-controlled-promotion",
+            "skill":candidate.skill,
+            "new_level":candidate.new_level,
+            "capability_statement":candidate.capability_statement,
+            "evidence_id":candidate.evidence_id,
+            "evidence":asdict(candidate.evidence),
+            "reviewer_id":reviewer_id,
+            "review_id":review_id,
+            "human_anchor_required":True,
+            "literary_quality_proven_by_software":False,
+        }
+
+    def _require_attestation(self, candidate, attestation):
+        if self._promotion_verifier_key is None:
+            raise PermissionError("PROMOTION_ATTESTATION_KEY_REQUIRED")
+        if (not isinstance(attestation,dict) or
+            set(attestation)!={"reviewer_id","review_id","signature"}):
+            raise PermissionError("PROMOTION_ATTESTATION_REQUIRED")
+        payload=self.promotion_attestation_payload(
+            candidate,reviewer_id=attestation["reviewer_id"],
+            review_id=attestation["review_id"])
+        raw=json.dumps(payload,ensure_ascii=False,sort_keys=True,
+                       separators=(",",":"),allow_nan=False).encode("utf-8")
+        expected=hmac.new(
+            self._promotion_verifier_key,raw,"sha256").hexdigest()
+        received=attestation["signature"]
+        if not isinstance(received,str) or not hmac.compare_digest(
+                received,expected):
+            raise PermissionError("PROMOTION_ATTESTATION_INVALID")
+        if candidate.evidence.human_anchor_count<1:
+            raise PermissionError("PROMOTION_ATTESTATION_HUMAN_ANCHOR_MISSING")
+
+    def apply_upgrade(self, candidate: UpgradeCandidate, *,
+                      policy: str = "gated_auto", approved: bool = False,
+                      attestation: dict | None = None) -> list[str]:
+        """No self-reviewed scores can autonomously promote a formal skill.
+
+        Shadow proposals are non-mutating. Active promotion needs an
+        out-of-band signed permit and explicit manual authorization.
+        """
+        decision=self.evaluate_upgrade(candidate)
         if not decision.accepted:
-            raise ValueError("promotion gate failed: " + "; ".join(decision.reasons))
-        if policy == "shadow_only":
+            raise ValueError(
+                "promotion gate failed: " + "; ".join(decision.reasons))
+        if policy=="shadow_only":
             return []
-        if policy == "manual" and not approved:
-            raise PermissionError("manual promotion policy requires explicit approval")
-        if policy not in {"gated_auto", "manual"}:
+        if policy not in {"gated_auto","manual"}:
             raise ValueError("policy must be gated_auto, manual, or shadow_only")
+        self._require_attestation(candidate,attestation)
+        if policy!="manual":
+            raise PermissionError("PROMOTION_MANUAL_REQUIRED")
+        if not approved:
+            raise PermissionError("PROMOTION_EXPLICIT_APPROVAL_REQUIRED")
         return self.registry.promote(
             candidate.skill,
             new_level=candidate.new_level,

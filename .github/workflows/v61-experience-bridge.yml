@@ -1,0 +1,51 @@
+name: V61 experience to writing decision bridge (synthetic only)
+on:
+  push:
+    branches: [v61-experience-decision-contract]
+    paths:
+      - 'writerforge/experience_decision.py'
+      - 'writerforge/verified_flow.py'
+      - 'writerforge/cli.py'
+      - 'writerforge/evolution.py'
+      - 'writerforge/db.py'
+      - 'tests/test_v61_experience_decision.py'
+      - 'tests/test_v12_evolution_taste.py'
+      - 'tests/test_v60_architecture_diagnostics.py'
+      - 'scripts/audit_v61_decision_bridge.py'
+      - '.github/workflows/v61-experience-bridge.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-decision-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - name: V61 independent fail-first and machine-readable receipt
+        run: python -m scripts.audit_v61_decision_bridge
+      - name: Frozen old V60 architecture boundary diagnostics
+        run: python -m unittest discover -s tests -p 'test_v60_architecture_diagnostics.py' -v
+      - name: V12 skill promotion and origin regression
+        run: python -m unittest discover -s tests -p 'test_v12_evolution_taste.py' -v
+      - name: Full repository regression
+        run: python -m unittest discover -s tests -q
+      - name: Source and JSON SHA manifest
+        if: always()
+        run: |
+          sha256sum tests/test_v61_experience_decision.py scripts/audit_v61_decision_bridge.py
+          for file in writerforge/experience_decision.py writerforge/verified_flow.py writerforge/evolution.py writerforge/db.py v61_relation_regression_receipt.json; do
+            if test -f "$file"; then sha256sum "$file"; fi
+          done
+      - name: Upload even when red
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: V61_ExperienceDecision_Original_Receipt
+          path: v61_relation_regression_receipt.json
+          if-no-files-found: warn
+          retention-days: 90

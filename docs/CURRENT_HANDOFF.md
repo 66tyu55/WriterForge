@@ -2,7 +2,7 @@
 
 > **本文件是新对话的唯一首读交接入口。** 每次继续项目前，先检查本文件并复核有关 GitHub Actions 运行结果；不要重建已完成的原文归档，不要将用户的聊天结论冒充 R2 中的真实数据。本文报告的是截至 **2026-10-16 06:08 UTC** 核实的状态，而不是当前实时桶扫描结果。
 
-> **最新更新（2026-10-18）：V60架构审计首先阅读第46节；V59见第45节，V58见第44节，V57见第43节，V56原始失败见第42节。之前的旧记录与所有模型、R2、GitHub Actions原始证据不可覆盖。** V60仅审计，不训练、不改生产代码。
+> **最新更新（2026-10-18）：V61经验决策底层修复先阅读第47节；V60架构审计第46节、V59第45节、V58第44节、V57第43节、V56原始审计第42节。旧模型、R2、GitHub Actions证据不可覆盖。** V61只有合成结构验证，未完成文学独立能力晋级。
 
 ## 1. 已完成：六本现代小说的私有 R2 原文归档
 
@@ -734,3 +734,16 @@
 4. 本轮实际读取GitHub [LangGraph checkpoint](https://github.com/langchain-ai/langgraph/blob/main/libs/checkpoint/langgraph/checkpoint/base/__init__.py)、[MLflow Run](https://github.com/mlflow/mlflow/blob/master/mlflow/entities/run.py)、[OpenAI Evals Recorder](https://github.com/openai/evals/blob/main/evals/record.py)，对照快照、输入输出及评估收据；只借机制，不引入框架、不复制代码。
 5. V60报告JSON SHA256 `8c9cd38c5bb33a01e1b94b4d473525a949deab857671597bef7a483f9959036b`，代码审计脚本SHA `f524d119db3798223b90563dcb8a09778b758f5f9f5256946b3ddb95ebf6e657`，诊断SHA `9176106d7896da1ecfbe070da7f6d045508a600e3474e1b947e69aecf27cc8d3`；原始证据artifact `12129525377`、ZIP SHA `f329a12bdb0f65fc1d6783fab866c32bffc89269ccc272be8eba9970474fb1ce`。
 6. **下一步不要改100个Skill**：先审查/限定 `ExperienceCandidate → 独立可信审阅 → CreativeDecision(SELECT/SKIP/UNCERTAIN) → 冻结计划 → 正式写作 → 写后证据` 的最小契约，零模型合成输入先验证调用/跳过/恢复/防作弊；V49 `THIRD_STRIKE_FAILED` 不变，L2历史R39/R43分歧不重新付费训练，也不能强行改为正确。V57/V58/V59稳定版合并需要独立迁移验收。
+
+
+## 47. 【2026-10-18 V61独立修复】来源经验进入正式WRITE决策；不再用自报高分自动晋级
+
+**重要：仅`v61-experience-decision-contract`开发分支（自V60分叉）。未合并main，也不修改V49、V56–V60原始证据。** 详见 [V61完整实现、红绿哈希和剩余问题](V61_EXPERIENCE_DECISION_BRIDGE_20261018.md)。
+
+1. 本轮接着V60完整架构审计的P0-001、P0-002、P0-003做**最小局部重构**，不是重写WorkTree/调度/R2。新模块`writerforge/experience_decision.py`使用现有`WriterForgeDB`增加4张小表，封存`source_ref`定位和SHA、独立受信签名准入、WRITE`SELECT/SKIP/UNCERTAIN`决策、写后精确引文存在性声明。实验性固定操作原语不等于真正学到文学技巧；不存新的原文/整稿。
+2. `VerifiedWritingFlow.prepare()`已接上受控的写前决策：已批准经验必须给定attempt及明确场景事实才可继续；只有SELECT的抽象操作进入prompt；决定在模型前冻结。`accept_candidate`遇到遗漏/篡改决策收据会拒绝，重用旧attempt也重验真实来源SHA和审核签名。CLI可通过`experience-stage/approve/decide/read/postwrite`及`draft --experience-attempt-id --experience-signals-file`使用，不允许自动R2检索或原文拼接。
+3. `EvolutionEngine.apply_upgrade`现要求有签名的独立外部指标收据并`manual, approved=True`方可真正升级，`gated_auto`不再晋级。这只关上此公开执行入口，**尚未审计全部内部`SkillRegistry.promote`直接写调用者**；低层信任边界必须后续加固，不可声称全WF已彻底防伪。V12/V60受此安全契约影响的正向测试仅在V61新分支透明迁移，旧独立分支及CI原样保存。
+4. 先冻结原始红色 [Actions #39108670931](https://github.com/66tyu55/WriterForge/actions/runs/39108670931)：11项新测试0通过（主要由于当时API不存在，不是11处确认漏洞）；原始JSON SHA `6d582e23a8ef75d89318400d6257a12118900df9f3e39bb30140db155f21f7c0`、证据artifact ID `12129850565`。调试中又复现CLI缩进错误、测试异常类型不匹配，均保留CI红色运行，未删旧测试掩盖。
+5. 最终真实 [Actions #39109713890](https://github.com/66tyu55/WriterForge/actions/runs/39109713890) `completed/success`：**V61新增14/14，全仓库656/656**；完整回执JSON SHA `136c2fd9370e73daa86dd76cf3403ae6dcb0ee55d46e09fa298aa815647df6aa`；artifact ID `12129783367`、ZIP SHA `c3c469851f2ee7aa7cf353168b0fba4a1c61f0cb03b50a0d090d5e99a2c35de3`。实际用临时SQLite/合成文本核验了候选定位、签名、跳过、未知、重启、CLI、manifest篡改、写后引文、晋级拒绝等，不是模型写作/文学品质测试。
+6. **还没完成的真正大问题**：V31实验规则及V38真实L2冲突尚未由可信语义审核变成V61批准经验；当前scene_signals由调用方给定，规则是预设通用动作，不能当作WF理解文学因果；评论者真实性/权限不可由HMAC本身证明；审查`SkillRegistry`所有直接调用及Studio默认路径、审核/撤销、旧库迁移/存储预算仍是下一步。V49 `THIRD_STRIKE_FAILED`、第一文学窗口NOT_PASSED、第二LOCKED，全部保持。
+7. 下一窗口先看第47节→V61文档→红色#39108670931及最终绿色#39109713890；选择唯一一条既有冻结L2/人物有限知识**负面经验**先作为HYPOTHESIS_ONLY对照来源，不得自动批准或让主模型代写；先做独立来源和审批权限审计，然后再考虑真正新题文学盲评。**不重复付费训练，不以代码测试绿色冒充作家文学晋级。**

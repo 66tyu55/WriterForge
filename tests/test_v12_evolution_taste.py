@@ -231,7 +231,9 @@ class V12EvolutionEngineControlTests(unittest.TestCase):
         from writerforge import EvolutionEngine, SkillRegistry, CapabilityContract, UpgradeCandidate, PromotionEvidence
         reg = SkillRegistry()
         reg.register(CapabilityContract("dialogue_craft", 4, "basic goal-driven dialogue"))
-        engine = EvolutionEngine(registry=reg)
+        import hmac, json
+        external_key=b"synthetic-V12-external-verifier-key"
+        engine = EvolutionEngine(registry=reg,promotion_verifier_key=external_key)
         candidate = UpgradeCandidate(
             skill="dialogue_craft",
             new_level=5,
@@ -247,5 +249,17 @@ class V12EvolutionEngineControlTests(unittest.TestCase):
         )
         engine.apply_upgrade(candidate, policy="shadow_only")
         self.assertEqual(reg.get("dialogue_craft").level, 4)
-        engine.apply_upgrade(candidate, policy="gated_auto")
+        # V61: prior generic gated_auto promotion is no longer an acceptable
+        # positive fixture; the historical V12 branch and result stay frozen.
+        with self.assertRaises(PermissionError):
+            engine.apply_upgrade(candidate,policy="gated_auto")
+        signed=engine.promotion_attestation_payload(
+            candidate,reviewer_id="external01",review_id="V12-fixture-review")
+        signature=hmac.new(external_key,json.dumps(
+            signed,ensure_ascii=False,sort_keys=True,
+            separators=(",",":")).encode("utf-8"),"sha256").hexdigest()
+        engine.apply_upgrade(candidate,policy="manual",approved=True,
+                             attestation={"reviewer_id":"external01",
+                                          "review_id":"V12-fixture-review",
+                                          "signature":signature})
         self.assertEqual(reg.get("dialogue_craft").level, 5)
