@@ -158,6 +158,14 @@ def main(argv: list[str] | None = None):
     offline.add_argument("--cache-dir",default="corpus/r2-readonly-cache")
     offline.add_argument("--record-candidate",
                          help="optional on-disk metadata ledger; not literary learning")
+    observer=sub.add_parser("corpus-observe",
+        help="materialize offline index hits into typed structural fact journal; no model or R2")
+    observer.add_argument("--library",required=True)
+    observer.add_argument("--snapshot",required=True)
+    observer.add_argument("--term",action="append",required=True)
+    observer.add_argument("--limit",type=int,default=6)
+    observer.add_argument("--cache-dir",default="corpus/r2-readonly-cache")
+    observer.add_argument("--journal",required=True)
     corpus_verify=sub.add_parser("corpus-verify",
         help="explicit full SHA256 and SQLite audit of offline corpus cache")
     corpus_verify.add_argument("--library",required=True)
@@ -375,6 +383,12 @@ def main(argv: list[str] | None = None):
             _emit(result)
         finally:
             journal.close()
+        return
+    if args.cmd=="corpus-observe":
+        from .structural_observer import observe_corpus
+        _emit(observe_corpus(cache=args.cache_dir,library=args.library,
+              snapshot=args.snapshot,terms=tuple(args.term),
+              limit=args.limit,journal_path=args.journal))
         return
     if args.cmd=="corpus-verify":
         from .corpus_foundation import verify_cache
