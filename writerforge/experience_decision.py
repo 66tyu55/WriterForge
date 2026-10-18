@@ -270,6 +270,196 @@ class ExperienceDecisionBridge:
              row["approval_sha"],"EXPERIENCE_APPROVAL_TAMPERED")
         return payload
 
+    def register_legacy_reference(self, *, project_id, legacy_id,
+                                  source_family, source_receipt_sha256,
+                                  independent_review_sha256, issue_code,
+                                  **unexpected_fields):
+        """Quarantine a PUBLIC SHA pointer to an existing V31/V38 record.
+
+        The source is NOT fetched here. A hash observed in a GitHub handoff
+        cannot authenticate original private R2 objects or semantic truth.
+        This table cannot be joined to approved creative policies.
+        """
+        self.runtime.require(Mode.LEARN)
+        need(not unexpected_fields,
+             "EXPERIENCE_LEGACY_REFERENCE_FIELDS_INVALID")
+        need(is_id(project_id) and is_id(legacy_id) and
+             source_family in LEGACY_FAMILIES and
+             issue_code in LEGACY_ISSUES and
+             isinstance(source_receipt_sha256,str) and
+             SHA.fullmatch(source_receipt_sha256) is not None and
+             (independent_review_sha256 is None or
+                 (isinstance(independent_review_sha256,str) and
+                  SHA.fullmatch(independent_review_sha256))),
+             "EXPERIENCE_LEGACY_REFERENCE_FIELDS_INVALID")
+        record={
+            "project_id":project_id,"legacy_id":legacy_id,
+            "source_family":source_family,
+            "source_receipt_sha256":source_receipt_sha256,
+            "independent_review_sha256":independent_review_sha256,
+            "issue_code":issue_code,
+            "status":"UNVERIFIED_REMOTE_POINTER",
+            "eligible_for_writing":False,
+            "source_pointer_readback_verified":False,
+            "independent_literary_review_verified":False,
+            "original_prose_stored":False,
+        }
+        h=digest(record)
+        prior=self.db.conn.execute(
+            "SELECT ref_sha,ref_json FROM experience_legacy_refs "
+            "WHERE project_id=? AND legacy_id=?",
+            (project_id,legacy_id)).fetchone()
+        if prior:
+            self.read_legacy_reference(project_id=project_id,
+                                       legacy_id=legacy_id)
+            need(prior["ref_sha"]==h,
+                 "EXPERIENCE_LEGACY_REFERENCE_IMMUTABLE")
+            return {**record,"reference_sha256":h,"replayed":True}
+        with self.db.conn:
+            self.db.conn.execute(
+                "INSERT INTO experience_legacy_refs("
+                "project_id,legacy_id,ref_sha,ref_json) VALUES(?,?,?,?)",
+                (project_id,legacy_id,h,canonical(record)))
+        return {**record,"reference_sha256":h,"replayed":False}
+
+    def read_legacy_reference(self, *, project_id,legacy_id):
+        need(is_id(project_id) and is_id(legacy_id),
+             "EXPERIENCE_LEGACY_REFERENCE_ID_INVALID")
+        row=self.db.conn.execute(
+            "SELECT ref_sha,ref_json FROM experience_legacy_refs "
+            "WHERE project_id=? AND legacy_id=?",
+            (project_id,legacy_id)).fetchone()
+        need(row is not None,"EXPERIENCE_LEGACY_REFERENCE_MISSING")
+        try:
+            record=json.loads(row["ref_json"])
+        except (TypeError,ValueError) as error:
+            raise ExperiencePolicyError(
+                "EXPERIENCE_LEGACY_REFERENCE_TAMPERED") from error
+        need(isinstance(record,dict) and
+             digest(record)==row["ref_sha"] and
+             record.get("project_id")==project_id and
+             record.get("legacy_id")==legacy_id and
+             record.get("status")=="UNVERIFIED_REMOTE_POINTER" and
+             record.get("eligible_for_writing") is False,
+             "EXPERIENCE_LEGACY_REFERENCE_TAMPERED")
+        return {**record,"reference_sha256":row["ref_sha"]}
+
+    def revocation_payload(self, *, project_id,experience_id,
+                           reviewer_id,review_id,reason_code):
+        need(all(is_id(v) for v in (
+            project_id,experience_id,reviewer_id,review_id))
+            and reason_code in REVOCATION_REASONS,
+            "EXPERIENCE_REVOCATION_FIELDS_INVALID")
+        row=self.db.conn.execute(
+            "SELECT * FROM experience_approvals "
+            "WHERE project_id=? AND experience_id=?",
+            (project_id,experience_id)).fetchone()
+        need(row is not None,"EXPERIENCE_REVOCATION_APPROVAL_MISSING")
+        self._verify_approval(row)
+        return {
+            "contract":"writerforge.v62-experience-revocation",
+            "project_id":project_id,"experience_id":experience_id,
+            "approved_policy_sha256":row["approval_sha"],
+            "reviewer_id":reviewer_id,"review_id":review_id,
+            "reason_code":reason_code,
+            "reinstatement_requires_new_experience_id":True,
+            "literary_truth_verified":False,
+        }
+
+    def _verify_revocation(self,row):
+        payload=self.revocation_payload(
+            project_id=row["project_id"],experience_id=row["experience_id"],
+            reviewer_id=row["reviewer_id"],review_id=row["review_id"],
+            reason_code=row["reason_code"])
+        self._check_signature(payload,row["signature"])
+        need(digest({"payload":payload,"signature":row["signature"]})==
+             row["revoke_sha"],
+             "EXPERIENCE_REVOCATION_TAMPERED")
+        return payload
+
+    def _revocation_state(self,project_id,experience_id):
+        row=self.db.conn.execute(
+            "SELECT * FROM experience_revocations "
+            "WHERE project_id=? AND experience_id=?",
+            (project_id,experience_id)).fetchone()
+        if row:
+            self._verify_revocation(row)
+            return row["reason_code"]
+        return None
+
+    def revoke_candidate(self, *, project_id,experience_id,reviewer_id,
+                         review_id,reason_code,signature):
+        """Signed, permanent tombstone. Never delete approval or old plans."""
+        self.runtime.require(Mode.LEARN)
+        payload=self.revocation_payload(
+            project_id=project_id,experience_id=experience_id,
+            reviewer_id=reviewer_id,review_id=review_id,
+            reason_code=reason_code)
+        self._check_signature(payload,signature)
+        record={"payload":payload,"signature":signature}
+        h=digest(record)
+        prior=self.db.conn.execute(
+            "SELECT * FROM experience_revocations "
+            "WHERE project_id=? AND experience_id=?",
+            (project_id,experience_id)).fetchone()
+        if prior:
+            self._verify_revocation(prior)
+            need(prior["revoke_sha"]==h,
+                 "EXPERIENCE_REVOCATION_IMMUTABLE")
+            return {"revocation_sha256":h,"replayed":True,
+                    "eligible_for_writing":False}
+        with self.db.conn:
+            self.db.conn.execute(
+                "INSERT INTO experience_revocations("
+                "project_id,experience_id,reviewer_id,review_id,"
+                "reason_code,revoke_sha,signature) VALUES(?,?,?,?,?,?,?)",
+                (project_id,experience_id,reviewer_id,review_id,
+                 reason_code,h,signature))
+        return {"revocation_sha256":h,"replayed":False,
+                "eligible_for_writing":False}
+
+    def _feedback_state(self,project_id,experience_id):
+        """Derived conservative status from bounded *historical* postwrites.
+
+        A self-reported NOT_APPLIED/UNCERTAIN blocks or suspends later uses.
+        Neither is proof of a literary quality regression. No row is deleted,
+        automatically edited, or converted into a formally approved skill.
+        """
+        rows=self.db.conn.execute(
+            "SELECT * FROM experience_postwrites WHERE project_id=? "
+            "AND experience_id=? ORDER BY attempt_id LIMIT ?",
+            (project_id,experience_id,MAX_FEEDBACK_SCAN+1)).fetchall()
+        need(len(rows)<=MAX_FEEDBACK_SCAN,
+             "EXPERIENCE_FEEDBACK_SCAN_BUDGET_EXCEEDED")
+        statuses=set()
+        for row in rows:
+            try:
+                item=json.loads(row["receipt_json"])
+            except (TypeError,ValueError) as exc:
+                raise ExperiencePolicyError(
+                    "EXPERIENCE_POSTWRITE_TAMPERED") from exc
+            need(isinstance(item,dict) and
+                 digest(item)==row["receipt_sha"] and
+                 item.get("project_id")==project_id and
+                 item.get("experience_id")==experience_id and
+                 item.get("attempt_id")==row["attempt_id"] and
+                 item.get("outcome") in (
+                     "CLAIMED_APPLIED","NOT_APPLIED","UNCERTAIN"),
+                 "EXPERIENCE_POSTWRITE_TAMPERED")
+            plan=self.read_decision(
+                project_id=project_id,attempt_id=row["attempt_id"])
+            need(plan["decision_sha256"]==item.get("decision_sha256") and
+                 any(x["experience_id"]==experience_id and
+                     x["decision"]=="SELECT"
+                     for x in plan["decisions"]),
+                 "EXPERIENCE_POSTWRITE_TAMPERED")
+            statuses.add(item["outcome"])
+        if "NOT_APPLIED" in statuses:
+            return "NOT_APPLIED"
+        if "UNCERTAIN" in statuses:
+            return "UNCERTAIN"
+        return None
+
     def has_approved(self, *, project_id):
         need(is_id(project_id),"EXPERIENCE_PROJECT_INVALID")
         return bool(self.db.conn.execute(
