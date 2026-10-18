@@ -125,7 +125,9 @@ class GrowingCompanionTests(unittest.TestCase):
 
     def test_assistant_generated_text_does_not_create_author_voice(self):
         for i in range(5):
-            self.commit(f"a{i}", prose(f"s{i}", f"我写了一段生成文本{i}。", "assistant_generated"))
+            # V64: this legacy test checks accepted NON-author text, not
+            # permission to submit assistant_generated via the raw coordinator.
+            self.commit(f"a{i}", prose(f"s{i}", f"我写了一段生成文本{i}。", "accepted"))
         context = WritingCompanion(self.db, "novel").before_draft("next")
         self.assertEqual(context.accepted_revisions, 5)
         self.assertEqual(context.authored_revisions, 0)
@@ -244,7 +246,9 @@ class GrowingCompanionTests(unittest.TestCase):
         self.commit("one", prose("scene-a", "作者原来的句子。", "author_written"))
         self.commit("two", prose("scene-b", "作者第二个句子。", "author_edited"))
         self.assertEqual(self.row()["authored_scopes"], 2)
-        self.commit("replace", prose("scene-b", "AI生成的替换稿。", "assistant_generated"))
+        # V64: keep non-author origin semantics while reserving actual
+        # assistant_generated origin for the verified candidate route.
+        self.commit("replace", prose("scene-b", "AI生成的替换稿。", "accepted"))
         self.assertEqual(self.row()["authored_scopes"], 1)
         self.assertEqual(
             WritingCompanion(self.db, "novel").before_draft("s3").voice_origin,
