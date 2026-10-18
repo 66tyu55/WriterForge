@@ -1,0 +1,499 @@
+{
+  "format": "writerforge.scene-craft-teaching.v1",
+  "version": "2026-10-18.scene-craft.1",
+  "origin": "ASSISTANT_TAUGHT_BY_USER_REQUEST",
+  "training_status": "INSTRUCTION_NOT_LEARNER_DISCOVERED",
+  "evaluation_status": "NOT_YET_DEMONSTRATED_LITERARY_IMPROVEMENT",
+  "policy": "Compare applicability first; never inject every lesson; never treat examples as copyable text",
+  "literary_regression_references": [
+    "docs/V29_REAL_OLD_NEW_SEMANTIC_HOLDOUT_FINAL_20261017.md",
+    "docs/V38_XIYOUJI_L2_CAUSAL_ROLE_CONFLICT_FINAL_20261017.md"
+  ],
+  "lessons": [
+    {
+      "id": "ENVIRONMENT_CHANGES_ACTION",
+      "title": "环境不是布景，而是行动阻力",
+      "domain": "scene",
+      "modes": [
+        "pursuit",
+        "action"
+      ],
+      "effects": [
+        "tension"
+      ],
+      "tempos": [
+        "fast",
+        "measured"
+      ],
+      "viewpoints": [
+        "limited",
+        "objective"
+      ],
+      "required": [
+        "environmental_obstacle",
+        "urgent_goal"
+      ],
+      "forbidden": [
+        "safe_stationary"
+      ],
+      "priority": 82,
+      "instructions": [
+        "让人物先采取一项明确行动，再选择恰好妨碍这项行动的天气、地形或物件。",
+        "写出受阻后的具体动作修正或付出的代价；不要先列风雨声色。",
+        "每段环境细节至少改变行动、判断或危险中的一个。"
+      ],
+      "pitfall": "雨很大、天很黑之类修饰词堆满，却不改变人物行为。",
+      "review_question": "删去这段环境后，角色动作或危险是否不再成立？",
+      "example_before": "暴雨中的栈桥十分危险，少年焦急地追赶远去的船。",
+      "example_after": "栈桥第二块木板翻了边。少年差点踩空，忙把怀里的契据压在肘下——船又往江心滑出一丈。"
+    },
+    {
+      "id": "CLUE_BEFORE_EXPLANATION",
+      "title": "先给可感知线索，再让角色有限推断",
+      "domain": "suspense",
+      "modes": [
+        "investigation",
+        "discovery"
+      ],
+      "effects": [
+        "suspense",
+        "unease"
+      ],
+      "tempos": [
+        "measured",
+        "slow"
+      ],
+      "viewpoints": [
+        "limited"
+      ],
+      "required": [
+        "visible_clue",
+        "information_gap"
+      ],
+      "forbidden": [
+        "facts_fully_revealed"
+      ],
+      "priority": 94,
+      "instructions": [
+        "先交代人物能看见、听见或触到的异常事实，不先由旁白公布原因。",
+        "让人物依据目标和既有知识提出一个有偏差可能的解释，并用下一步行动验证。",
+        "保留读者可以回看核查的具体细节；缺线索不等于有悬念。"
+      ],
+      "pitfall": "用‘有个惊天秘密’替代可以回查的物证，或让不知情人物突然知道真相。",
+      "review_question": "读者是否在答案出现前获得至少一个可核查证据，人物是否仍受知识边界约束？",
+      "example_before": "他意识到客栈里肯定藏着可怕的阴谋。",
+      "example_after": "门栓从里面扣着，窗沿却有一线刚擦开的灰。掌柜说昨夜没人住这间房，他先去摸了摸窗外的雨棚。"
+    },
+    {
+      "id": "DIALOGUE_IS_ATTEMPT",
+      "title": "每句关键对话都要试图改变对方",
+      "domain": "dialogue",
+      "modes": [
+        "negotiation",
+        "confrontation"
+      ],
+      "effects": [
+        "tension",
+        "empathy"
+      ],
+      "tempos": [
+        "fast",
+        "measured"
+      ],
+      "viewpoints": [
+        "limited",
+        "objective"
+      ],
+      "required": [
+        "opposing_goals",
+        "exchange_changes_options"
+      ],
+      "forbidden": [
+        "lecture_only"
+      ],
+      "priority": 88,
+      "instructions": [
+        "每个说话者先有当下目标、担忧和不肯说出的底牌；台词要试探、交换、回避或施压。",
+        "让一句话引起对方动作、沉默、改口或让步，形成可观察的关系变化。",
+        "用短暂动作和场景阻力取代多轮背景介绍，不把人物写成辩论机器人。"
+      ],
+      "pitfall": "人物轮流念世界观设定，没人真正试图影响对方。",
+      "review_question": "拿掉一段对话后，双方的选项、关系或风险是否完全不变？",
+      "example_before": "他说：‘我不相信你。’对方说：‘我也不相信你。’",
+      "example_after": "‘把账簿给我。’她没接那只伸来的手，只把灯移近封蜡：‘先说说，谁告诉你第三页缺了角？’"
+    },
+    {
+      "id": "AFTERMATH_IN_SMALL_ACTION",
+      "title": "结果落地之后，以细小失序承载余波",
+      "domain": "emotion",
+      "modes": [
+        "aftermath",
+        "quiet"
+      ],
+      "effects": [
+        "grief",
+        "empathy"
+      ],
+      "tempos": [
+        "slow",
+        "measured"
+      ],
+      "viewpoints": [
+        "limited"
+      ],
+      "required": [
+        "consequence_irreversible",
+        "character_changed"
+      ],
+      "forbidden": [
+        "fresh_immediate_chase"
+      ],
+      "priority": 92,
+      "instructions": [
+        "先确认一项已发生且无法立刻撤回的后果，再选择一件原本习惯性的细小动作。",
+        "让人物对那件动作迟疑、做错或只做一半，读者从缺失中感受情绪。",
+        "少写抽象‘悲痛’判断；若新行动尚未开始，允许停在有意义的静默。"
+      ],
+      "pitfall": "刚失去重要关系就立即长篇自我剖白，或重复说自己很难过。",
+      "review_question": "读者能否从人物行动与缺席之物推断感受，而不靠旁白贴情绪标签？",
+      "example_before": "他为师傅离开感到无比悲伤，内心充满了空虚。",
+      "example_after": "他照常把茶盏放到对面，手指才离开杯沿，便想起今日没人替他转正那只缺口。"
+    },
+    {
+      "id": "SETUP_IS_NOT_PAYOFF",
+      "title": "铺垫先改变观察，回收再改变认识",
+      "domain": "suspense",
+      "modes": [
+        "revelation",
+        "discovery"
+      ],
+      "effects": [
+        "surprise",
+        "suspense"
+      ],
+      "tempos": [
+        "measured"
+      ],
+      "viewpoints": [
+        "limited",
+        "objective"
+      ],
+      "required": [
+        "earlier_clue",
+        "later_reinterpretation"
+      ],
+      "forbidden": [
+        "no_prior_setup"
+      ],
+      "priority": 100,
+      "instructions": [
+        "铺垫必须在回收前的不同叙事时刻已真实出现，并曾影响人物或读者的初次理解。",
+        "回收通过新的因果事实改变早先线索的意义；不要把回收句自身倒填为最初铺垫。",
+        "先画‘早先出现→当时如何误读→何事揭示→回看为何合理’四个事件节点。"
+      ],
+      "pitfall": "只在结尾放两句相邻的物件描述，自称一前一后就是伏笔；V38 R39叙事角色混淆不能复用。",
+      "review_question": "移走回收段，早期线索还真实存在吗？回收是否导致新的合理理解？",
+      "example_before": "他忽然发现那根绳子原来是重要伏笔，真相顿时揭晓。",
+      "example_after": "进门时他嫌墙上的旧绳多余。等闩木倒下，才发现绳结朝外——有人从屋外拉过那扇门。"
+    },
+    {
+      "id": "SUBTEXT_TAKES_A_POSITION",
+      "title": "未说出口的意图，用姿态与谈判位置表现",
+      "domain": "dialogue",
+      "modes": [
+        "confrontation",
+        "negotiation"
+      ],
+      "effects": [
+        "unease",
+        "empathy"
+      ],
+      "tempos": [
+        "slow",
+        "measured"
+      ],
+      "viewpoints": [
+        "limited",
+        "objective"
+      ],
+      "required": [
+        "concealed_intent",
+        "visible_choice"
+      ],
+      "forbidden": [
+        "clarity_needed_now"
+      ],
+      "priority": 81,
+      "instructions": [
+        "角色可以不肯承认真实动机，但必须做出能改变对方判断的具体选择。",
+        "选择一个物件、站位或语气停顿承担潜台词；让另一角色有所回应。",
+        "只有读者已有线索可推断时才克制解释，必要事实必须讲清。"
+      ],
+      "pitfall": "一味沉默和省略，读者既不知道角色要什么，也不知道情节为何停住。",
+      "review_question": "不写‘他想隐瞒’，读者还能从行为与对方反应感到隐瞒的压力吗？",
+      "example_before": "他心里很内疚，不愿面对旧友，气氛尴尬。",
+      "example_after": "旧友问‘你去过库房？’他把钥匙放回桌上，齿尖冲向自己。‘我只负责锁门。’"
+    },
+    {
+      "id": "DECISION_PAYS_VISIBLE_COST",
+      "title": "重要选择要有代价，但代价不能代替铺垫",
+      "domain": "causality",
+      "modes": [
+        "decision",
+        "action"
+      ],
+      "effects": [
+        "tension",
+        "empathy"
+      ],
+      "tempos": [
+        "fast",
+        "measured"
+      ],
+      "viewpoints": [
+        "limited",
+        "objective"
+      ],
+      "required": [
+        "forced_choice",
+        "visible_cost"
+      ],
+      "forbidden": [
+        "cost_without_prior_cue"
+      ],
+      "priority": 90,
+      "instructions": [
+        "先建立角色所追求的目标与两个代价不同的选项。",
+        "选择发生后，用行动中的损失、关系变化或时间消耗写出代价，不用旁白宣布‘代价沉重’。",
+        "若结尾还要回收线索，必须保留早先可见的依据；V29沙漠旧井曾显示单纯强调代价可能伤害线索连续性。"
+      ],
+      "pitfall": "增加苦难或扣分却不改角色选择，或者以行动代价为借口忘掉前面埋过的线索。",
+      "review_question": "读者能指出角色为了什么舍弃了什么，并在前文找到代价的根据吗？",
+      "example_before": "他的决定付出了巨大的代价，所有人都震惊了。",
+      "example_after": "他把最后一盏油灯交给渡船。暗下来的一刻，岸边等信的两家人都没看见他示警。"
+    },
+    {
+      "id": "TRANSITION_ONLY_WHAT_CHANGES",
+      "title": "过场交代方位与目的，不用全景稀释节奏",
+      "domain": "pacing",
+      "modes": [
+        "transition",
+        "setup"
+      ],
+      "effects": [
+        "clarity"
+      ],
+      "tempos": [
+        "fast",
+        "measured"
+      ],
+      "viewpoints": [
+        "limited",
+        "objective",
+        "omniscient"
+      ],
+      "required": [
+        "time_place_shift",
+        "active_goal"
+      ],
+      "forbidden": [
+        "pivotal_choice_now"
+      ],
+      "priority": 84,
+      "instructions": [
+        "用最少的时间、地点和新的行动目标让读者重新定位。",
+        "只保留会在下一场影响人物路径或选择的一件地方特征。",
+        "如果这段本身发生重要决定，转为实时场景而不是一句带过。"
+      ],
+      "pitfall": "每次换地点都重新描绘整座城、天气、街道和人群，真正冲突被冲淡。",
+      "review_question": "读者知道何时何地、谁要做什么吗？多余背景删掉会失去关键信息吗？",
+      "example_before": "三日后，他们来到了风景秀美、街道纵横、商铺林立的大城。",
+      "example_after": "三日后入城，东门已换夜岗。少年把通行帖翻到背面，绕向卖盐人的后巷。"
+    },
+    {
+      "id": "AWE_HAS_HUMAN_SCALE",
+      "title": "奇观从人物可感的尺度进入",
+      "domain": "description",
+      "modes": [
+        "spectacle",
+        "discovery"
+      ],
+      "effects": [
+        "awe"
+      ],
+      "tempos": [
+        "slow",
+        "measured"
+      ],
+      "viewpoints": [
+        "limited",
+        "objective"
+      ],
+      "required": [
+        "scale_contrast",
+        "viewpoint_anchor"
+      ],
+      "forbidden": [
+        "urgent_escape"
+      ],
+      "priority": 79,
+      "instructions": [
+        "先以人物熟悉的身体尺度或物件作参照，再让庞然物的大小、声音、距离被感受到。",
+        "人物必须因此停下、躲避、改变判断或重新估计自己，而非旁白罗列宏伟形容词。",
+        "奇观只选一两层最有效的感觉，给读者留想象空间。"
+      ],
+      "pitfall": "无尽重复壮观、震撼、巨大、神圣，却没有人物的视线和反应。",
+      "review_question": "读者能据人物尺度估计奇观吗？这一眼是否真的改变他要做的事情？",
+      "example_before": "眼前是一座无比宏大壮丽、令人震撼的古塔。",
+      "example_after": "城门上的旗杆只够到古塔第一层的窗台。少年仰头，雨点落进眼里，塔顶仍隐在云后。"
+    },
+    {
+      "id": "POV_FILTERS_DETAIL",
+      "title": "描写由人物此刻关心什么决定",
+      "domain": "description",
+      "modes": [
+        "setup",
+        "quiet",
+        "discovery"
+      ],
+      "effects": [
+        "empathy",
+        "unease"
+      ],
+      "tempos": [
+        "slow",
+        "measured"
+      ],
+      "viewpoints": [
+        "limited"
+      ],
+      "required": [
+        "character_priority",
+        "selective_detail"
+      ],
+      "forbidden": [
+        "omniscient_inventory"
+      ],
+      "priority": 89,
+      "instructions": [
+        "先确定主视角人物现在想得到什么、怕失去什么，再选择最容易被其注意的一件细节。",
+        "描述必须反映角色经验：药师先留意味道与脉象，账房先留意墨迹与划痕。",
+        "让细节暗示关系、危险或目标，不使用超出角色认知的上帝视角解释。"
+      ],
+      "pitfall": "给所有角色安排同一套景物清单，重要细节与其职业、目标或恐惧无关。",
+      "review_question": "换一个主角，这段环境选择应否改变？若不会，是否只是通用背景？",
+      "example_before": "集市热闹非凡，有许多摊位、人群、灯笼和香气。",
+      "example_after": "药师挤过卖布的人群，只在一处摊前停住——药罐外壁干净，罐口却有苦杏仁的气味。"
+    },
+    {
+      "id": "SENTENCE_PACE_FOLLOWS_PRESSURE",
+      "title": "句子节奏跟随动作压力，不追求机械短句",
+      "domain": "pacing",
+      "modes": [
+        "pursuit",
+        "decision"
+      ],
+      "effects": [
+        "tension"
+      ],
+      "tempos": [
+        "fast"
+      ],
+      "viewpoints": [
+        "limited",
+        "objective"
+      ],
+      "required": [
+        "deadline",
+        "irreversible_action"
+      ],
+      "forbidden": [
+        "meditative_pause"
+      ],
+      "priority": 78,
+      "instructions": [
+        "危险临近时删去当前人物来不及注意的解释，动作与感官按发生顺序推进。",
+        "短句用于真正的顿挫或急变，关键判断仍需交代清楚前因。",
+        "危险解除后允许句式拉长；不要整章每句都砍成三四字。"
+      ],
+      "pitfall": "全篇感叹号与短句导致机械抽搐，速度快却看不清人物实际处境。",
+      "review_question": "阅读节奏与人物的可用时间一致吗？关键动作仍能看懂吗？",
+      "example_before": "危机突然来临。他非常紧张。速度很快。气氛令人窒息。",
+      "example_after": "绳索啪地绷直。少年没再解释，先踢开挡在脚前的木箱，手才摸到刀鞘，另一端已传来一声断裂。"
+    },
+    {
+      "id": "SPATIAL_RELATIONS_ENABLE_CONFLICT",
+      "title": "站位和空间阻隔让冲突可看见",
+      "domain": "scene",
+      "modes": [
+        "confrontation",
+        "action"
+      ],
+      "effects": [
+        "clarity",
+        "tension"
+      ],
+      "tempos": [
+        "fast",
+        "measured"
+      ],
+      "viewpoints": [
+        "limited",
+        "objective"
+      ],
+      "required": [
+        "spatial_constraint",
+        "interacting_agents"
+      ],
+      "forbidden": [
+        "static_meditation"
+      ],
+      "priority": 84,
+      "instructions": [
+        "明确人与门、桌、武器、出口的相对位置，避免所有人突然瞬移。",
+        "让空间决定谁能接近、谁可观察、谁挡住谁，从而产生权力与行动选择。",
+        "空间只有影响局势时才写，地图级方位不要逐格播报。"
+      ],
+      "pitfall": "两人激烈搏斗但读者不知谁在哪，动作被抽象声响取代。",
+      "review_question": "读者能在不画地图的情况下跟上关键动作、障碍和结果吗？",
+      "example_before": "两人激战许久，场面十分激烈，刀光剑影交错。",
+      "example_after": "柜台挡住了他的退路。对手向左逼一步，他只能把刀背抵住门闩，脚下那截台阶却松了。"
+    },
+    {
+      "id": "MISTAKE_COMES_FROM_LIMITED_EVIDENCE",
+      "title": "误判要有合理根据，后果才能可信",
+      "domain": "causality",
+      "modes": [
+        "investigation",
+        "decision"
+      ],
+      "effects": [
+        "suspense",
+        "empathy"
+      ],
+      "tempos": [
+        "measured"
+      ],
+      "viewpoints": [
+        "limited"
+      ],
+      "required": [
+        "ambiguous_evidence",
+        "plausible_false_belief"
+      ],
+      "forbidden": [
+        "proof_already_certain"
+      ],
+      "priority": 91,
+      "instructions": [
+        "让人物依据自己确实掌握的一半证据得出可理解、却可能错误的判断。",
+        "错误选择须符合其目标或恐惧，不可为了制造冲突硬让人降智。",
+        "后面用新的可见事实与后果修正认识，而不是突然给旁白解释。"
+      ],
+      "pitfall": "明明所有证据已明，角色却突然犯不合理错误；随后用大段说明洗白。",
+      "review_question": "如果读者站在人物当时的位置，会理解他为什么会那样选择吗？",
+      "example_before": "少年突然愚蠢地信错了人，导致了重大误会。",
+      "example_after": "药材盒上的封绳是师叔惯用的结，他便没再验货。等病人饮下汤药，屋里却飘出他从没闻过的辛味。"
+    }
+  ]
+}
