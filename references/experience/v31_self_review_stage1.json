@@ -1,0 +1,7 @@
+{
+  "legacy_id": "v31_self_review_stage1",
+  "source_family": "V31_EXPERIMENT",
+  "source_receipt_sha256": "cd9cfa1d6413ed84bb4d3bb18c9a77d873666df95cbcd5898d4745cfeb2e3c7c",
+  "independent_review_sha256": null,
+  "issue_code": "SELF_REVIEW_UNVERIFIED"
+}
