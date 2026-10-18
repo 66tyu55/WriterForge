@@ -51,18 +51,18 @@ V62成功将 `NOT_APPLIED` / `UNCERTAIN` 持久化并影响下一轮SKIP，但�
 
 ## 3. 修复后GitHub独立运行结果
 
-[Actions #39113189833](https://github.com/66tyu55/WriterForge/actions/runs/39113189833)：V63新增 **9/9** 真实对抗通过，V12、V61、V62旧契约回归成功；全仓库 **679/679** 合成工程测试通过。该成功只代表代码依照合约行为执行，**绝不代表WF文学写作进步**。
+[Actions #39113729476](https://github.com/66tyu55/WriterForge/actions/runs/39113729476)：V63新增 **9/9** 修复型真实对抗通过，另有 **2/2** 特意演示仍未解决边界的观察性测试（绿色表示风险已复现）。V12、V61、V62旧契约回归成功；全仓库 **681/681** 合成工程测试通过。该成功只代表代码依照合约行为执行，**绝不代表WF文学写作进步**。
 
 - V63测试JSON SHA256 `6997eb0d1eb60131d1f83440298cc6644d161cc00e26ebcc337f2e5e5e19416e`。
-- 第二份**全仓库AST审计**JSON SHA256 `2960c9f396b4cf142ad818a82f60370a135a49f202a83c0e98e9672672f32745`。
-- [双报告绿灯 artifact #12130953929](https://github.com/66tyu55/WriterForge/actions/runs/39113189833/artifacts/12130953929) ZIP SHA `7b81079780b105792dd8a2d12434172fb9128460d000bdf0095aec971bdf3ebd`。
+- 第二份**全仓库AST审计**JSON SHA256 `39c0fa13c46d564c5a81b665a85eb78d21f520cbe1c62526277ac5e28610b268`。
+- [双报告绿灯 artifact #12131238419](https://github.com/66tyu55/WriterForge/actions/runs/39113729476/artifacts/12131238419) ZIP SHA `2a88c7e33946b91ae356b3bc25ff7f0a871853613d6e743ad8e6c1928df04dc2`。
 - `evolution.py` SHA256 `44bb20a6dfd6a4b6f51100062fe6eb6685be7adfb19f0719434d005044db6a6e`。
 - `experience_decision.py` SHA256 `85f059489decf3a807b2b7f87ae708c399dc0df3009795ce7134ff858b78b456`。
 - 源与测试运行详细SHA在该Actions日志中，可按文件逐一复核。文件修改都只在V63开发分支，没有重写V49旧文学记录。
 
 ## 4. 「整体仔细检查」的范围与明确证据分级
 
-新增 `scripts/audit_v63_full_architecture.py` 使用Python AST遍历仓库的`writerforge/`、`scripts/`、`tests/`代码，并列出生产核心调用点/行号、受控API和仓库SQLite表。实际统计：**95个Python核心模块、约106个测试文件、93个工作流、74处生产权限/故事相关调用点**，静态源码哈希留机器报告。机器状态标记 `STRUCTURAL_REVIEW_REQUIRES_HUMAN_AND_FURTHER_TESTS`。
+新增 `scripts/audit_v63_full_architecture.py` 使用Python AST遍历仓库的`writerforge/`、`scripts/`、`tests/`代码，并列出生产核心调用点/行号、受控API和仓库SQLite表。实际统计：**95个Python核心模块、108个测试文件、94个工作流、74处生产权限/故事相关调用点**，静态源码哈希留机器报告。机器状态标记 `STRUCTURAL_REVIEW_REQUIRES_HUMAN_AND_FURTHER_TESTS`。
 
 ### 已经由实际CI动态支持
 
@@ -74,6 +74,15 @@ V62成功将 `NOT_APPLIED` / `UNCERTAIN` 持久化并影响下一轮SKIP，但�
 - 两个技能写连接旧revision不能重复晋级；
 - 两个经验写连接中途撤销/负反馈不会抢写；
 - 仅第一次检查通过但正式提交前撤销，最终接受仍被拒。
+
+### 额外实测：两个仍未关闭的受信入口
+
+`tests/test_v63_remaining_trust_boundaries.py` 两项观察性测试均通过，但其**绿色表示风险仍然可以复现**：
+
+- 对一个全新ID，`SkillRegistry.register(CapabilityContract(level=10,status=ACTIVE))`仍接受为高等级主动技能。这不是已存在同名技能的覆盖，也不是文学能力经评审提升；要区分「可信导入一个基线」与「已经学到这个技能」。
+- 已有真实合成来源定位且受信签名的实验策略，仍可以从**可信宿主低层**`WritingFlow.accept_draft(...origin="assistant_generated")`直接提交，而未经过上层`accept_candidate`的经验方案。该入口也供人工写作使用，不是原本设计给不可信插件的公开鉴权API；第三方宿主运行隔离与助手生成稿授权仍需分离。
+
+这两项故意保留为**未解决问题的观察证据**，不列入V63九个修复成功项。全仓机器报告的`open_boundary_observation_tests`亦分别指向它们。
 
 ### 整体扫描后**尚未关闭的8项风险**
 
