@@ -342,6 +342,9 @@ class FactJournal:
         if record["subject_scope"] == "ACTOR":
             need(evidence["actor"] == record["subject_id"],
                  "FACT_ACTOR_KNOWLEDGE_EVIDENCE_MISMATCH")
+            if record["knowledge_state"] == "KNOWN":
+                need(begin >= evidence["tick"],
+                     "FACT_ACTOR_KNOWS_BEFORE_EVIDENCE_EVENT")
         if replaced is not None:
             old = self.db.execute(
                 "SELECT * FROM temporal_claims WHERE claim_id=?", (replaced,)
