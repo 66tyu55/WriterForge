@@ -63,6 +63,8 @@ class WFOfflineFoundationTests(unittest.TestCase):
             with patch.object(self.s3,"get_object",side_effect=AssertionError("query network")):
                 result=self.lookup()
         self.assertEqual(self.s3.download_count,before)
+        self.assertTrue(result["full_sha_verified_at_sync_not_on_each_lookup"])
+        self.assertEqual(result["per_lookup_cache_check"],"manifest_sha_and_source_file_stat")
         self.assertGreater(result["match_count"],0)
         self.assertFalse(result["source_prose_sent_to_writer"])
         self.assertTrue(result["unverified_lexical_comparison_only"])
