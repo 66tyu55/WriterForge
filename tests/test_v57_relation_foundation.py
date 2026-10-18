@@ -201,5 +201,44 @@ class V57RelationFoundationTests(unittest.TestCase):
         self.assertEqual(now["claim_count_examined"],70)
         self.assertEqual(now["active_claim_ids"],["version-069"])
 
+    def test_cli_full_path_binding_cross_chapter_view_and_flashback(self):
+        # Tests actual WF commands, not only Python methods.
+        import json
+        from io import StringIO
+        from contextlib import redirect_stdout
+        from writerforge.cli import main
+
+        def call(*args):
+            output=StringIO()
+            with redirect_stdout(output):
+                main(list(args))
+            return json.loads(output.getvalue())
+
+        for n,chapter in (("chapter01","1"),("chapter02","2")):
+            receipt=call("fact-story-bind","--journal",str(self.path),
+                         "--story-id","novelA","--scene",n,
+                         "--chapter-index",chapter)
+            self.assertIn("binding_sha256",receipt)
+        self.db.append(event("hero-learned",4,state="KNOWN"))
+        self.db.append_temporal_claim(claim(
+            "hero-history",4,"KNOWN","hero-learned"))
+        view=call("fact-view","--journal",str(self.path),
+                  "--scene","chapter02","--story-id","novelA",
+                  "--scope","ACTOR","--subject","hero",
+                  "--fact","seal","--story-tick","15")
+        self.assertEqual(view["state"],"KNOWN")
+
+        self.db.append(event("hero-later",20,state="KNOWN"))
+        p=Path(self.temp.name)/"typed-flashback.json"
+        p.write_text(json.dumps(event("hero-earlier",3)),encoding="utf-8")
+        ingest=call("fact-flashback","--journal",str(self.path),
+                    "--story-id","novelA","--file",str(p))
+        self.assertFalse(ingest["replayed"])
+        self.assertGreater(ingest["recorded_seq"],0)
+        again=call("fact-flashback","--journal",str(self.path),
+                   "--story-id","novelA","--file",str(p))
+        self.assertTrue(again["replayed"])
+
+
 if __name__ == "__main__":
     unittest.main()
