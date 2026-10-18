@@ -419,9 +419,34 @@ def accept_candidate(db: WriterForgeDB, runtime: RuntimeEngine, *,
             expected["literary_quality_proven"] is not False):
             raise WritingExecutionError("EXPERIENCE_RECEIPT_MISMATCH")
 
+    def _policy_guard_at_commit():
+        # This executes INSIDE StoryCommitCoordinator's BEGIN IMMEDIATE lock.
+        # A prior preview authorization never grants unlimited future use.
+        if expected is None:
+            if bridge.has_approved(project_id=project_id):
+                raise WritingExecutionError(
+                    "EXPERIENCE_FROZEN_DECISION_REQUIRED_AT_COMMIT")
+        else:
+            try:
+                live=bridge.validate_live_decision(
+                    project_id=project_id,attempt_id=expected["attempt_id"])
+            except (ValueError,KeyError) as exc:
+                raise WritingExecutionError(
+                    "EXPERIENCE_REVOKED_OR_STALE_AT_COMMIT") from exc
+            codes=[x["operation_code"] for x in live["decisions"]
+                   if x["decision"]=="SELECT"]
+            if (live["decision_sha256"]!=expected["decision_sha256"] or
+                live["scene_id"]!=manifest["scene_id"] or
+                live["source_snapshot_id"]!=sid or
+                expected["source_snapshot_id"]!=sid or
+                expected["selected_operation_codes"]!=codes):
+                raise WritingExecutionError(
+                    "EXPERIENCE_DECISION_MISMATCH_AT_COMMIT")
+
     flow=WritingFlow(db,runtime,project_id)
     result=flow.accept_draft(
-        commit_id,manifest["scene_id"],body,origin="assistant_generated"
+        commit_id,manifest["scene_id"],body,origin="assistant_generated",
+        precommit_check=_policy_guard_at_commit
     )
     # Never claim durable commit failed if an optional audit-file write fails.
     manifest["accepted"]=True
