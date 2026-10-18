@@ -1,0 +1,26 @@
+{
+  "schema": "writerforge.scene-profile.v1",
+  "diagnosis_origin": "TEACHER_DEMO",
+  "viewpoint": "limited",
+  "scene_id": "demo_aftermath",
+  "mode": "aftermath",
+  "reader_effect": "grief",
+  "tempo": "slow",
+  "scene_goal": "师傅离开后，徒弟尝试继续每日沏茶，却迟迟无法完成这个习惯动作。",
+  "active_obstacle": "茶席仍旧摆着两只盏，而对面熟悉的位置再没有回应。",
+  "planned_change": "徒弟第一次接受无人再来端那杯茶，决定独自收拾小院。",
+  "facts": {
+    "consequence_irreversible": {
+      "state": "PRESENT",
+      "observation": "师傅离开导致往日双人茶席不能照常进行，已非一句道歉可以挽回。"
+    },
+    "character_changed": {
+      "state": "PRESENT",
+      "observation": "徒弟的习惯从不自觉摆双盏，变成知道必须独自处理茶席。"
+    },
+    "fresh_immediate_chase": {
+      "state": "ABSENT",
+      "observation": "此刻没有新的追赶或迫近威胁，不必用奔逃节奏。"
+    }
+  }
+}
