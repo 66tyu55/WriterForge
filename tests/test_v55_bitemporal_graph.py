@@ -83,7 +83,23 @@ class V55TemporalProjectionTests(unittest.TestCase):
         self.assertFalse(self.view(4)["story_truth_verified"])
 
     def test_reader_and_character_knowledge_are_not_merged(self):
-        self.db.append(event("reader-note",5,"KNOWN",actor="narrator"))
+        # V58 security-contract migration of this V55 positive fixture.
+        # Historical V55/V57 branches remain byte-for-byte untouched.
+        import hmac
+        from writerforge.fact_journal import canonical, digest
+        verifier_key=b"synthetic-V55-fixture-verifier-key-not-production"
+        self.db.close()
+        self.db=FactJournal(self.path,trusted_disclosure_key=verifier_key)
+        disclosure=event("reader-note",5,"KNOWN",actor="narrator")
+        self.db.append(disclosure)
+        payload={"event_id":disclosure["event_id"],
+                 "event_sha256":digest(canonical(disclosure)),
+                 "reader_subject":"reader-general","disclosure_tick":5}
+        signature=hmac.new(verifier_key,canonical(payload).encode("utf-8"),
+                           "sha256").hexdigest()
+        self.db.register_reader_disclosure(
+            event_id=disclosure["event_id"],reader_subject="reader-general",
+            disclosure_tick=5,signature=signature)
         self.db.append(event("character-note",6,"UNKNOWN"))
         self.db.append_temporal_claim(claim(
             "reader-sees",5,"KNOWN","reader-note",
