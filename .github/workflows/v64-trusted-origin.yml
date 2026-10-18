@@ -1,0 +1,54 @@
+name: V64 trusted skill bootstrap and assistant provenance (synthetic)
+on:
+  push:
+    branches: [v64-trusted-bootstrap-ai-provenance]
+    paths:
+      - 'writerforge/evolution.py'
+      - 'writerforge/ai_provenance.py'
+      - 'writerforge/db.py'
+      - 'writerforge/story_commit.py'
+      - 'writerforge/writing_flow.py'
+      - 'writerforge/verified_flow.py'
+      - 'tests/test_v64_bootstrap_provenance.py'
+      - 'tests/test_v12_evolution_taste.py'
+      - 'tests/test_v63_remaining_trust_boundaries.py'
+      - 'scripts/audit_v64_trust.py'
+      - '.github/workflows/v64-trusted-origin.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  origin-and-bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - name: Independent V64 red/green case receipts
+        run: python -m scripts.audit_v64_trust
+      - name: Historic V63 authority contracts
+        run: |
+          python -m unittest discover -s tests -p 'test_v63_authority_concurrency.py' -v
+          python -m unittest discover -s tests -p 'test_v63_remaining_trust_boundaries.py' -v
+      - name: Historic V12 capability registry
+        run: python -m unittest discover -s tests -p 'test_v12_evolution_taste.py' -v
+      - name: Full repository regression
+        run: python -m unittest discover -s tests -q
+      - name: Digest signed provenance code, tests and receipt
+        if: always()
+        run: |
+          sha256sum tests/test_v64_bootstrap_provenance.py scripts/audit_v64_trust.py writerforge/evolution.py writerforge/story_commit.py writerforge/verified_flow.py
+          for file in writerforge/ai_provenance.py v64_relation_regression_receipt.json; do
+            if test -f "$file"; then sha256sum "$file"; fi
+          done
+      - name: Preserve both red and green machine evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: V64_Origin_And_Bootstrap_FailFirst
+          path: v64_relation_regression_receipt.json
+          if-no-files-found: warn
+          retention-days: 90
