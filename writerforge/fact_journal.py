@@ -1137,16 +1137,26 @@ class FactJournal:
                 "literary_truth_verified":False,
                 "source_text_included":False}
 
-    def graph_neighbors(self,event_id: str, *, depth: int = 2):
-        """Bounded fact-event adjacency; potential causality NEVER proof."""
+    def graph_neighbors(self,event_id: str, *, depth: int = 2,
+                        as_of_ledger_seq: int | None = None):
+        """Bounded graph query using the same global recording cutoff.
+
+        BEFORE/POTENTIAL_CAUSE remain typed, UNVERIFIED relationships;
+        a future link or future scene registration cannot appear in the
+        historical graph. Does not parse prose or infer literary motives.
+        """
         need(key(event_id),"FACT_GRAPH_EVENT_ID_INVALID")
         need(type(depth) is int and 1<=depth<=3,
              "FACT_GRAPH_DEPTH_INVALID")
+        cutoff=self._global_cutoff(
+            ledger_seq=as_of_ledger_seq,recorded_seq=None,story_id=None)
         source=self.db.execute(
             "SELECT * FROM fact_events WHERE event_id=?",(event_id,)
         ).fetchone()
         need(source is not None,"FACT_GRAPH_SOURCE_EVENT_MISSING")
         self._assert_record_integrity(source)
+        need(self._visible_operation("EVENT",event_id,cutoff),
+             "FACT_GRAPH_EVENT_NOT_AVAILABLE_AS_OF")
         frontier={event_id}
         seen={event_id}
         links=[]
@@ -1154,26 +1164,40 @@ class FactJournal:
             new=set()
             for node in sorted(frontier):
                 rows=self.db.execute(
-                    "SELECT * FROM fact_links WHERE source_event=? "
-                    "OR target_event=? ORDER BY link_sha LIMIT 49",(node,node)
-                ).fetchall()
+                    "SELECT edge.* FROM fact_links edge "
+                    "JOIN ledger_operations relation_clock "
+                    "ON relation_clock.operation='LINK' AND "
+                    "relation_clock.ref=edge.link_sha AND "
+                    "relation_clock.global_seq<=? "
+                    "WHERE (edge.source_event=? OR edge.target_event=?) "
+                    "ORDER BY edge.link_sha LIMIT 49",
+                    (cutoff,node,node)).fetchall()
                 need(len(rows)<=48,"FACT_GRAPH_EDGE_QUERY_BUDGET_EXCEEDED")
                 for edge in rows:
-                    proof = digest(canonical({
+                    proof=digest(canonical({
                         "source":edge["source_event"],
                         "target":edge["target_event"],
                         "relation":edge["relation"]}))
                     need(proof==edge["link_sha"],
                          "FACT_GRAPH_RELATION_TAMPERED")
-                    counterpart = (edge["target_event"] if
-                                   edge["source_event"]==node else edge["source_event"])
+                    counterpart=(edge["target_event"] if
+                                 edge["source_event"]==node
+                                 else edge["source_event"])
                     record=self.db.execute(
                         "SELECT * FROM fact_events WHERE event_id=?",
                         (counterpart,)).fetchone()
                     need(record is not None,"FACT_GRAPH_LINK_TO_MISSING_EVENT")
                     self._assert_record_integrity(record)
+                    need(self._visible_operation("EVENT",counterpart,cutoff),
+                         "FACT_GRAPH_EVENT_NOT_AVAILABLE_AS_OF")
                     need(self._same_story(record["scene"],source["scene"]),
                          "FACT_GRAPH_CROSS_SCENE_RELATION")
+                    if record["scene"] != source["scene"]:
+                        need(self._visible_operation(
+                            "SCENE",record["scene"],cutoff) and
+                            self._visible_operation(
+                                "SCENE",source["scene"],cutoff),
+                            "FACT_GRAPH_SCOPE_NOT_AVAILABLE_AS_OF")
                     if not any(v["link_sha256"]==edge["link_sha"] for v in links):
                         links.append({"link_sha256":edge["link_sha"],
                                       "from":edge["source_event"],
@@ -1186,9 +1210,11 @@ class FactJournal:
             frontier=new
             need(len(seen)<=64 and len(links)<=64,
                  "FACT_GRAPH_NEIGHBORHOOD_TOO_LARGE")
-            if not frontier: break
-        return {"format":"writerforge.v55-event-graph-neighborhood.v1",
+            if not frontier:
+                break
+        return {"format":"writerforge.v59-event-graph-neighborhood.v1",
                 "root_event_id":event_id,"visited_event_ids":sorted(seen),
+                "as_of_ledger_seq":cutoff,
                 "relations":links,"relation_count":len(links),
                 "narrative_causality_verified":False,
                 "model_calls":0,"prose_included":False}
