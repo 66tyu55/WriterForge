@@ -155,6 +155,17 @@ def main(argv: list[str] | None = None):
     story_bind.add_argument("--story-id",required=True)
     story_bind.add_argument("--scene",required=True)
     story_bind.add_argument("--chapter-index",type=int,required=True)
+    subject_bind=sub.add_parser("fact-subject-bind",
+        help="explicitly bind local character/reader label to canonical story identity")
+    subject_bind.add_argument("--journal",required=True)
+    subject_bind.add_argument("--scene",required=True)
+    subject_bind.add_argument("--scope",required=True,choices=("ACTOR","READER"))
+    subject_bind.add_argument("--subject",required=True)
+    subject_bind.add_argument("--canonical-id",required=True)
+    disclosure=sub.add_parser("fact-disclosure",
+        help="verify an externally signed reader disclosure; key from protected environment")
+    disclosure.add_argument("--journal",required=True)
+    disclosure.add_argument("--file",required=True,help="signed metadata <=8KiB")
     flashback=sub.add_parser("fact-flashback",
         help="explicitly ingest earlier story event after later event (append-only)")
     flashback.add_argument("--journal",required=True)
@@ -175,6 +186,18 @@ def main(argv: list[str] | None = None):
     fact_view.add_argument("--recorded-seq",type=int)
     fact_view.add_argument("--story-id",
         help="require explicit story registration; include that story's other chapters")
+    fact_page=sub.add_parser("fact-page",
+        help="get snapshot-stable bounded claims with no source text")
+    fact_page.add_argument("--journal",required=True)
+    fact_page.add_argument("--scene",required=True)
+    fact_page.add_argument("--scope",required=True,choices=("ACTOR","READER"))
+    fact_page.add_argument("--subject",required=True)
+    fact_page.add_argument("--fact",required=True)
+    fact_page.add_argument("--story-tick",required=True,type=int)
+    fact_page.add_argument("--story-id")
+    fact_page.add_argument("--recorded-seq",type=int)
+    fact_page.add_argument("--limit",type=int,default=64)
+    fact_page.add_argument("--cursor")
     fact_graph=sub.add_parser("fact-graph",
         help="retrieve bounded source-event relationships; causal meaning unverified")
     fact_graph.add_argument("--journal",required=True)
@@ -390,12 +413,13 @@ def main(argv: list[str] | None = None):
     if args.cmd in ("fact-record","fact-state","fact-link",
                     "fact-candidate","fact-candidate-status",
                     "fact-claim","fact-view","fact-graph",
-                    "fact-story-bind","fact-flashback"):
+                    "fact-story-bind","fact-subject-bind","fact-flashback",
+                    "fact-disclosure","fact-page"):
         from .fact_journal import FactJournal
         journal=FactJournal(args.journal)
         try:
             if args.cmd in ("fact-record","fact-candidate","fact-claim",
-                            "fact-flashback"):
+                            "fact-flashback","fact-disclosure"):
                 file=Path(args.file)
                 if not file.is_file() or not 0<file.stat().st_size<=8192:
                     raise ValueError("FACT_METADATA_FILE_MISSING_OR_TOO_LARGE")
@@ -406,6 +430,11 @@ def main(argv: list[str] | None = None):
                     result=journal.append_flashback(record,story_id=args.story_id)
                 elif args.cmd=="fact-claim":
                     result=journal.append_temporal_claim(record)
+                elif args.cmd=="fact-disclosure":
+                    if not isinstance(record,dict) or set(record)!={
+                            "event_id","reader_subject","disclosure_tick","signature"}:
+                        raise ValueError("FACT_READER_DISCLOSURE_FIELDS_INVALID")
+                    result=journal.register_reader_disclosure(**record)
                 else:
                     result=journal.add_candidate(
                         candidate_id=args.candidate_id,version=args.version,
@@ -414,6 +443,10 @@ def main(argv: list[str] | None = None):
                 result=journal.register_scene(
                     story_id=args.story_id,scene_id=args.scene,
                     chapter_index=args.chapter_index)
+            elif args.cmd=="fact-subject-bind":
+                result=journal.bind_subject(
+                    scene_id=args.scene,scope=args.scope,
+                    subject_id=args.subject,canonical_id=args.canonical_id)
             elif args.cmd=="fact-state":
                 result=journal.state(scene=args.scene,actor=args.actor,
                                      fact=args.fact,at_tick=args.at_tick)
@@ -426,6 +459,12 @@ def main(argv: list[str] | None = None):
                     fact=args.fact,story_tick=args.story_tick,
                     as_of_recorded_seq=args.recorded_seq,
                     story_id=args.story_id)
+            elif args.cmd=="fact-page":
+                result=journal.temporal_claim_page(
+                    scene=args.scene,scope=args.scope,subject=args.subject,
+                    fact=args.fact,story_tick=args.story_tick,
+                    story_id=args.story_id,as_of_recorded_seq=args.recorded_seq,
+                    limit=args.limit,cursor=args.cursor)
             elif args.cmd=="fact-graph":
                 result=journal.graph_neighbors(args.event,depth=args.depth)
             else:
