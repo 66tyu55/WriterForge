@@ -34,6 +34,32 @@ def main() -> int:
               "attempted_remote_request": False,
               "no_github_actions": True})
         return 0
+    if os.environ.get("WF_TASK") == "literary_exam_v67":
+        # Examination question is separate from WF's search implementation.
+        # The answer is NEVER supplied by evaluator code or an LLM.
+        from pathlib import Path
+        from .r2_literary_exam import run_literary_retrieval_exam
+        exam_path = Path("eval/v67_literary_source_question.json")
+        emit({**label, "status": "WF_LITERARY_EXAM_QUESTION_RECEIVED",
+              "exam_id": "V67-LAOCAN-FIRST-ORIGINAL-OCCURRENCE",
+              "token_present": True, "token_printed": False})
+        try:
+            client = WFWorkerR2Client(endpoint=ENDPOINT)
+            result = run_literary_retrieval_exam(client, question_path=exam_path)
+        except WFWorkerAPIError as exc:
+            emit({**label, "status": "WF_LITERARY_EXAM_RETRIEVAL_FAILED",
+                  "error_code": str(exc),
+                  "safe_http_diagnostic": getattr(exc, "metadata", None),
+                  "answer_generated": False, "token_printed": False})
+            return 2
+        except Exception:
+            emit({**label, "status": "WF_LITERARY_EXAM_SOURCE_OR_PARSER_FAILED",
+                  "answer_generated": False, "token_printed": False})
+            return 2
+        emit({**label, "status": "WF_LITERARY_EXAM_SUCCESS",
+              "result": result, "token_printed": False})
+        return 0
+
     emit({**label, "status": "WF_HTTP_REQUEST_STARTED", "token_present": True, "token_printed": False})
     client = None
     try:
