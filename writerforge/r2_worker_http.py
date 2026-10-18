@@ -8,6 +8,7 @@ chapters, learned methods or SQL rows. This adapter is not literary study.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from hashlib import sha256
 from time import perf_counter
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
@@ -134,6 +135,67 @@ class WFWorkerR2Client:
         if not isinstance(result, dict) or result.get("ok") is not True:
             raise WFWorkerAPIError("WF_R2_HTTP_WORKER_REPORTED_FAILURE")
         return result
+
+    def pinned_laocan_original(self) -> tuple[bytes, dict]:
+        """Fetch ONLY V52's pinned original via authenticated Worker.
+
+        Requires deployed /r2/source/laocanyouji. Does not persist source to
+        disk; authenticates manifest and source against independently pinned
+        SHA-256 from earlier proven private R2 study. The Worker is limited to
+        serving this one public-domain book; modern private books remain closed.
+        """
+        expected_sha = "273f4cbaecb4c4d396ecec7103b4761e62bde0c0f368185a1697c1880cfe9cf7"
+        expected_snap = "7fe1ceff8d637139d51b0b6bf2de6a7de220aeaea670247868fa17cc55270dd2"
+        max_bytes = 8 * 1024 * 1024
+        req = Request(self.endpoint + "/r2/source/laocanyouji",
+                      method="GET", headers={
+                          "Authorization": "Bearer " + self.token,
+                          "Accept": "text/plain",
+                          "User-Agent": "WriterForge-Literary-Exam/1.0"})
+        started = perf_counter()
+        try:
+            with self._opener.open(req, timeout=max(self.timeout, 60)) as resp:
+                if resp.status != 200:
+                    raise WFWorkerAPIError("WF_R2_SOURCE_UNEXPECTED_STATUS")
+                if resp.headers.get("X-WF-Library") != "laocanyouji-25124":
+                    raise WFWorkerAPIError("WF_R2_SOURCE_LIBRARY_MISMATCH")
+                if resp.headers.get("X-WF-Snapshot-SHA256") != expected_snap:
+                    raise WFWorkerAPIError("WF_R2_SOURCE_SNAPSHOT_MISMATCH")
+                if resp.headers.get("X-WF-Source-SHA256") != expected_sha:
+                    raise WFWorkerAPIError("WF_R2_SOURCE_EXPECTED_SHA_MISMATCH")
+                size_header = resp.headers.get("X-WF-Source-Bytes", "")
+                if not size_header.isascii() or not size_header.isdecimal():
+                    raise WFWorkerAPIError("WF_R2_SOURCE_SIZE_HEADER_INVALID")
+                declared_size = int(size_header)
+                if not 0 < declared_size <= max_bytes:
+                    raise WFWorkerAPIError("WF_R2_SOURCE_SIZE_EXCEEDS_LIMIT")
+                body = resp.read(max_bytes + 1)
+        except HTTPError as exc:
+            codes = {401: "WF_R2_HTTP_UNAUTHORIZED",
+                     403: "WF_R2_HTTP_FORBIDDEN",
+                     404: "WF_R2_SOURCE_ROUTE_NOT_DEPLOYED",
+                     429: "WF_R2_HTTP_RATE_LIMIT",
+                     502: "WF_R2_SOURCE_R2_FAILURE"}
+            raise WFWorkerHTTPStatusError(
+                codes.get(exc.code, "WF_R2_SOURCE_REMOTE_FAILURE"),
+                _safe_http_metadata(exc)) from None
+        except (URLError, TimeoutError, OSError):
+            raise WFWorkerAPIError("WF_R2_SOURCE_CONNECTION_FAILED") from None
+        transfer_ms = round((perf_counter() - started) * 1000, 2)
+        if len(body) != declared_size or len(body) > max_bytes:
+            raise WFWorkerAPIError("WF_R2_SOURCE_BYTES_MISMATCH")
+        computed_sha = sha256(body).hexdigest()
+        if computed_sha != expected_sha:
+            raise WFWorkerAPIError("WF_R2_SOURCE_SHA256_VERIFICATION_FAILED")
+        return body, {
+            "library": "laocanyouji-25124",
+            "manifest_snapshot_sha256": expected_snap,
+            "source_sha256": computed_sha,
+            "source_size_bytes": len(body),
+            "wf_transfer_and_sha256_ms": transfer_ms,
+            "source_full_bytes_verified": True,
+            "stored_to_disk": False,
+        }
 
     def r2_status(self) -> dict:
         """Perform the Worker's actual R2 list probe, not a full inventory."""
