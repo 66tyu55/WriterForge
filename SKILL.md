@@ -185,3 +185,17 @@ Alternatively, if the host itself provides the only language inference, the guar
     writerforge --db project.sqlite skill-host-status --run-id unique-trial-01
 
 Truthful completion rules: synthetic unit-test replies prove only the engineering contract. The learned method is an UNREVIEWED source-linked hypothesis and must never be assumed literary truth. The paired outputs are not a true independent blinded literary quality A/B; no Skill promotion or version bump is authorized until fresh real literary evidence is independently reviewed. Preserve all prior V35-V46 receipts.
+
+## V52 — Native read-only Cloudflare R2 source retrieval (experimental)
+
+WriterForge may query the author's already existing private R2 **structural Xuehai** directly. The verified process is R2 latest/pinned manifest -> checked immutable SQLite/source blob -> read-only Xuehai ranked search -> exact source-span location and SHA cross-check. This is NOT model training and a source quotation is NOT a reviewed literary skill.
+
+When the user's task needs support from an existing original and R2 credentials are authorized in the host environment, select a specific known library and 1–4 meaningful exact source terms, then invoke the real WF console command:
+
+    writerforge r2-query --library laocanyouji-25124 --term 老殘 --limit 6 --cache-dir corpus/r2-readonly-cache
+
+The response includes verified snapshot SHA, original work SHA, source-unit SHA, and chapter/paragraph/sentence. Pin that exact snapshot in follow-up work. Never retry an absent model/credential by fabricating source findings. A missing term means NO_EXACT_MATCH, not a guessed literary mechanism. Do not present a keyword/lexical result as an independently-reviewed storytelling technique.
+
+In a WF project with an EXISTING separately published local Xuehai and real WRITE mode, the optional production commands `draft-context` / `draft` can be given `--r2-library <library> --r2-snapshot <64-char-sha> --r2-term <literal>` to include only bounded source citations in the creation context. No private manuscript is uploaded or exposed publicly. If there are no exact matches or provenance cannot be verified, fail before generating a candidate. All normal project/story commits remain on the existing private/local database, and remote R2 content is never mutated by lookup.
+
+R2 source SHA integrity is separate from literary interpretation truth. A separately frozen source-specific mechanism and independently authenticated editorial feedback are still required for any literary ability claim. The 50-distinct-complete-works global assessment gate and the V49 THIRD_STRIKE_FAILED verdict remain unchanged.
