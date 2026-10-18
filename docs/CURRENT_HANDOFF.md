@@ -2,7 +2,7 @@
 
 > **本文件是新对话的唯一首读交接入口。** 每次继续项目前，先检查本文件并复核有关 GitHub Actions 运行结果；不要重建已完成的原文归档，不要将用户的聊天结论冒充 R2 中的真实数据。本文报告的是截至 **2026-10-16 06:08 UTC** 核实的状态，而不是当前实时桶扫描结果。
 
-> **最新更新（2026-10-18）：V63全仓权限审计、晋级SQLite原子化和撤销竞态修复见第49节；V62第48节、V61第47节、V60第46节、V59第45节、V58第44节、V57第43节、V56第42节。所有R2文学原文、V49失败与历史机器证据不可覆盖。** V63无新文学训练或文学能力晋级。
+> **最新更新（2026-10-18）：V64技能可信初始化与AI稿件来源鉴权见第50节；V63全仓权限/并发第49节，V62负反馈第48节，V61决策桥梁第47节，V60架构审计第46节，V56–V59第42–45节。V49失败、R2原著与所有原始红绿回执均不可改写。** V64未开展文学训练或正式能力晋级。
 
 ## 1. 已完成：六本现代小说的私有 R2 原文归档
 
@@ -773,3 +773,16 @@
 5. GitHub实际 [Actions #39113729476](https://github.com/66tyu55/WriterForge/actions/runs/39113729476)：**V63修复型9/9 + 残留风险观察2/2；全仓681/681结构测试绿色**。修复后JSON SHA `6997eb0d1eb60131d1f83440298cc6644d161cc00e26ebcc337f2e5e5e19416e`；另有全仓静态调用审计报告 SHA `39c0fa13c46d564c5a81b665a85eb78d21f520cbe1c62526277ac5e28610b268`，双回执artifact `12131238419`、ZIP SHA `2a88c7e33946b91ae356b3bc25ff7f0a871853613d6e743ad8e6c1928df04dc2`。整仓审计扫描95个核心Python模块、108个测试文件、94个工作流、74处生产权限/故事相关调用点；静态扫描不是证明所有动态插件安全。 另外增两项**故意复现未解决风险**的绿色观察性测试：新技能可初始化为L10/ACTIVE、可信底层WritingFlow可绕过AI候选的上层经验收据。绿色只代表这两项待整改问题仍然存在，绝非修好。
 6. **重点剩余风险，不许误报全修好**：全新L10 ACTIVE能力仍可由可信代码`SkillRegistry.register`当作初始合同导入（不是已有同名技能覆盖），必须做可信Bootstrap/旧库迁移政策；`WritingFlow.accept_draft`与`StoryCommitCoordinator`是可信低层提交API，第三方不可信插件不能视为已通过`accept_candidate`的经验权限门禁；原始SQLite写权限不受Python模块HMAC防护；模型推理已经开始后不能被实时撤销；Reviewer真实独立性/读者评论身份、跨`WriterForgeDB`与`FactJournal`双库一致性、发行迁移/磁盘增长仍未独立认证。整仓AST列8项开放风险，详见完整报告，不是8个已证实远程漏洞。
 7. **接下来**：先设计「旧库技能可信导入 vs 新建正式能力」的bootstrap来源权限，再核实可信人工StoryCommit与assistant_generated候选的原点鉴权，建立Studio审计/PR工作流白名单，最后才考虑独立文学真题验证。禁止凭注册一个高等级对象宣称WF成为作家。V49`THIRD_STRIKE_FAILED`和第二课程锁定继续有效。V63仍在草稿分支，不能贸然堆叠合并main。
+
+
+## 50. 【2026-10-18 V64】新技能L2–L10必须可信初始化；AI生成正文必须签名后才可正式提交
+
+**仅开发分支 `v64-trusted-bootstrap-ai-provenance`，基于V63，不合并main。** 完整代码对照、红绿证据/哈希与待解问题见：[V64技能初始等级及AI稿件来源鉴权报告](V64_BOOTSTRAP_AND_AI_ORIGIN_TRUST_20261018.md)。V49 `THIRD_STRIKE_FAILED`、第二课程`LOCKED`以及V56–V63全部旧报告/R2均保持不变。没有新文学训练或模型权重更新。
+
+1. **先冻结有效失败**：[Actions #39114944248](https://github.com/66tyu55/WriterForge/actions/runs/39114944248)新增12个安全用例0通过，**3项已执行的错误接受行为**、9项因新API未实现而ERROR；原始JSON SHA `607ffc257926c369b83a796bf4666971d7d04ba2105e2bc1921e357bb3e5c9e5`，artifact #`12132275387`、ZIP SHA `a5d9c76145a8239a374b6659f58ead92446e71cc67c6ee2448cc68983a5ebae2`。不能把缺少API的9项谎称独立漏洞；旧红色报告绝不重写。
+2. `SkillRegistry.register`新建高于L1的技能，无论标记ACTIVE还是SHADOW，必须有**外部受信HMAC**签过的完整技能合同、来源SHA、项目scope、评审员及审核ID；合同与收据同事务SQLite保存。旧库高等级若没有真实历史收据，`SkillRegistry`读取时保持数字原始记录但仅展示`SHADOW`且`bootstrap_verified=False`，不会按旧记录自造审批。依赖判定`lagging()`同时检查`ACTIVE`和级别，未认证的L9不再冒充L5前置能力。L1允许明确基线，不构成文学质量晋级。
+3. AI来源统一进入新`writerforge/ai_provenance.py`：`accept_candidate`在确认候选文件哈希、真实发布快照、显式作者批准和已冻结经验后，使用受信宿主密钥签发包括原稿候选SHA、项目/场景/提交ID/快照与可选经验决策SHA的Permit；原著与正文都不放到许可回执。低层`WritingFlow`可继续提交真正人工原稿，但宣称`assistant_generated`没有有效签名的一律拒绝。`StoryCommitCoordinator`在`BEGIN IMMEDIATE`持锁时再次核验签名、真实发布快照及当前有效经验状态，源数据变更、错scene、换commit、错正文、来源错称都拒绝，业务提交与`story_ai_provenance`收据同事务落盘。
+4. 签名密钥`WRITERFORGE_SKILL_BOOTSTRAP_VERIFY_KEY_HEX`、`WRITERFORGE_AI_COMMIT_VERIFY_KEY_HEX`必须由可信宿主/外部配置提供，不得直接提交仓库或发给模型。**HMAC不能独立证明真实人类点击批准或文学能力；拥有原始SQLite写权限/签名密钥的恶意进程不在本模块安全隔离范围。** 部署要做真正角色/进程权限隔离。
+5. 新API影响V12/V21/V23/V63少量历史正向测试，**只在V64分支使用明确合成签名夹具迁移**，原旧分支与CI机器报告未改。新中英文/带点场景ID兼容，AI来源不得绑定不存在或未发布的快照。正式 [Actions #39115856473](https://github.com/66tyu55/WriterForge/actions/runs/39115856473) V64新15/15、全仓**696/696**合成工程回归通过；最终JSON SHA `a4cbc9c5994134ae81e9d9e51637b35134db77b643ff211a8e514cc479adc80d`，artifact #`12132381668`，ZIP SHA `5ec7e2c53ff0941fc55580f5247faeee1349373e4543b095888d3c4306f0d242`。完整源码SHA见V64报告。
+6. **下一阶段仍要做**：可信宿主与不可信agent的真正进程隔离、真人审核收据与用户确认页面、旧库高等级来源只读迁移清单、签名密钥轮换/撤销、跨`WriterForgeDB`+`FactJournal`账本一致性、成长经验真实语义/阅读鉴权/新题独立盲评。V49失败文学证据不能因为V64代码测试绿色而自动变成晋级。
+7. **恢复入口**：先读第50节及V64完整报告，核对原始红色#39114944248与绿色#39115856473，再按优先级审核可信宿主签名配置及V57–V64叠加分支的数据库迁移；不要把旧V31/V38的未核验R2哈希指针直接导入为已学知识，也不要重复旧文学付费训练。
