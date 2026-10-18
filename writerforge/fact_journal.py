@@ -173,27 +173,34 @@ class FactJournal:
         self._initialize_global_clock()
 
     def _initialize_global_clock(self):
-        """V59: one durable write order for facts, identity and disclosures.
+        """One SQLite write transaction covers bootstrap AND trigger install.
 
-        Raw SQL inserts receive the same order through SQLite triggers.
-        Old V58 databases lack trustworthy cross-table ordering. Bootstrap
-        marks that history as UNORDERED rather than inventing timestamps.
+        Inspired by event-sourcing recorder atomicity. An old database has no
+        provable cross-table record order, so bootstrap is marked UNORDERED;
+        it is NOT silently fabricated into a valid historical sequence.
+
+        Deploy with existing legacy writers stopped: code older than V59
+        cannot participate in the new schema migration contract.
         """
-        self.db.executescript("""
-        CREATE TABLE IF NOT EXISTS ledger_operations(
-            global_seq INTEGER PRIMARY KEY AUTOINCREMENT,
-            operation TEXT NOT NULL, ref TEXT NOT NULL,
-            UNIQUE(operation,ref));
-        CREATE TABLE IF NOT EXISTS ledger_bootstrap(
-            singleton INTEGER PRIMARY KEY CHECK(singleton=1),
-            legacy_unordered INTEGER NOT NULL,
-            bootstrap_seq INTEGER NOT NULL,
-            legacy_claim_max INTEGER NOT NULL);
-        CREATE INDEX IF NOT EXISTS ledger_op_ref
-            ON ledger_operations(operation,ref,global_seq);
-        """)
+        # BEGIN IMMEDIATE acquires the writer reservation before checking
+        # migration state. Do NOT use executescript() inside this transaction:
+        # Python sqlite3.executescript() can commit an open transaction first.
         self.db.execute("BEGIN IMMEDIATE")
         try:
+            for ddl in (
+                "CREATE TABLE IF NOT EXISTS ledger_operations("
+                "global_seq INTEGER PRIMARY KEY AUTOINCREMENT,"
+                "operation TEXT NOT NULL,ref TEXT NOT NULL,"
+                "UNIQUE(operation,ref))",
+                "CREATE TABLE IF NOT EXISTS ledger_bootstrap("
+                "singleton INTEGER PRIMARY KEY CHECK(singleton=1),"
+                "legacy_unordered INTEGER NOT NULL,"
+                "bootstrap_seq INTEGER NOT NULL,"
+                "legacy_claim_max INTEGER NOT NULL)",
+                "CREATE INDEX IF NOT EXISTS ledger_op_ref "
+                "ON ledger_operations(operation,ref,global_seq)",
+            ):
+                self.db.execute(ddl)
             marker=self.db.execute(
                 "SELECT 1 FROM ledger_bootstrap WHERE singleton=1"
             ).fetchone()
@@ -220,44 +227,27 @@ class FactJournal:
                 self.db.execute(
                     "INSERT INTO ledger_bootstrap VALUES(1,?,?,?)",
                     (int(legacy_rows>0),last,max_claim))
+
+            # Constant specifications, never caller-controlled SQL. A failed
+            # DDL or backfill rolls back the entire migration, not half of it.
+            specs=(
+                ("wf_clock_event_insert","fact_events","EVENT","NEW.event_id"),
+                ("wf_clock_scene_insert","story_scenes","SCENE","NEW.scene_id"),
+                ("wf_clock_subject_insert","story_subjects","SUBJECT","NEW.binding_sha"),
+                ("wf_clock_disclosure_insert","reader_disclosures","DISCLOSURE","NEW.receipt_sha"),
+                ("wf_clock_claim_insert","temporal_claims","CLAIM","NEW.claim_id"),
+                ("wf_clock_link_insert","fact_links","LINK","NEW.link_sha"),
+            )
+            for name, table, operation, reference in specs:
+                self.db.execute(
+                    f"CREATE TRIGGER IF NOT EXISTS {name} "
+                    f"AFTER INSERT ON {table} BEGIN "
+                    f"INSERT INTO ledger_operations(operation,ref) "
+                    f"VALUES('{operation}',{reference}); END;")
             self.db.commit()
         except Exception:
             self.db.rollback()
             raise
-        # Installed after any legacy backfill. Each trigger runs atomically
-        # in the same transaction as the original row INSERT.
-        self.db.executescript("""
-        CREATE TRIGGER IF NOT EXISTS wf_clock_event_insert
-        AFTER INSERT ON fact_events BEGIN
-            INSERT INTO ledger_operations(operation,ref)
-            VALUES('EVENT',NEW.event_id);
-        END;
-        CREATE TRIGGER IF NOT EXISTS wf_clock_scene_insert
-        AFTER INSERT ON story_scenes BEGIN
-            INSERT INTO ledger_operations(operation,ref)
-            VALUES('SCENE',NEW.scene_id);
-        END;
-        CREATE TRIGGER IF NOT EXISTS wf_clock_subject_insert
-        AFTER INSERT ON story_subjects BEGIN
-            INSERT INTO ledger_operations(operation,ref)
-            VALUES('SUBJECT',NEW.binding_sha);
-        END;
-        CREATE TRIGGER IF NOT EXISTS wf_clock_disclosure_insert
-        AFTER INSERT ON reader_disclosures BEGIN
-            INSERT INTO ledger_operations(operation,ref)
-            VALUES('DISCLOSURE',NEW.receipt_sha);
-        END;
-        CREATE TRIGGER IF NOT EXISTS wf_clock_claim_insert
-        AFTER INSERT ON temporal_claims BEGIN
-            INSERT INTO ledger_operations(operation,ref)
-            VALUES('CLAIM',NEW.claim_id);
-        END;
-        CREATE TRIGGER IF NOT EXISTS wf_clock_link_insert
-        AFTER INSERT ON fact_links BEGIN
-            INSERT INTO ledger_operations(operation,ref)
-            VALUES('LINK',NEW.link_sha);
-        END;
-        """)
 
     def ledger_head(self):
         return self.db.execute(
