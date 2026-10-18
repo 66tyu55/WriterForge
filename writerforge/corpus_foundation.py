@@ -219,7 +219,8 @@ def search_disk(cache,*,library,snapshot,terms,limit=6):
     root=root_of(cache,library,snapshot)
     manifest=root/"manifest.json"
     # O(1)-sized manifest check; full blob SHA happens ONLY in sync/verify.
-    require(manifest.is_file() and digest(manifest.read_bytes())==snapshot,
+    require(manifest.is_file(),"CORPUS_NOT_SYNCED_USE_R2_SYNC")
+    require(digest(manifest.read_bytes())==snapshot,
             "CORPUS_MANIFEST_CHANGED")
     path=root/"corpus-index.sqlite3"
     require(path.is_file(),"CORPUS_NOT_INDEXED_RUN_R2_SYNC")
