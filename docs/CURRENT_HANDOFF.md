@@ -2,7 +2,7 @@
 
 > **本文件是新对话的唯一首读交接入口。** 每次继续项目前，先检查本文件并复核有关 GitHub Actions 运行结果；不要重建已完成的原文归档，不要将用户的聊天结论冒充 R2 中的真实数据。本文报告的是截至 **2026-10-16 06:08 UTC** 核实的状态，而不是当前实时桶扫描结果。
 
-> **最新更新（2026-10-18）：V64技能可信初始化/AI稿件来源鉴权见第50节；V63全仓权限审计第49节，V62第48节、V61第47节、V60第46节、V59第45节、V58第44节、V57第43节、V56第42节。原始失败、文学训练/R2及旧模型证据均不可覆盖。** V64只是合成工程审计，不代表文学晋级。
+> **最新更新（2026-10-18）：V65用户授权直接教授WF的“情境适用性/场景文笔”见第51节。V64第50节、V63第49节、V62第48节、V61第47节、V60第46节，旧R2、原始文学失败和GitHub机器证据一律不得覆盖。** 当前重心是适用性与实际文学改善，不再新增信任权限框架。
 
 ## 1. 已完成：六本现代小说的私有 R2 原文归档
 
@@ -786,3 +786,16 @@
 5. 只在V64新分支透明迁移V12/V21/V23/V63受新安全契约影响的测试用例；所有历史原始分支和旧测试结果仍可回看。V21改用`accepted`弱信任非作者文字来验证“非作者样本不污染作者口吻”，真正`assistant_generated`来源另由V64测试经正式入口验证。
 6. **真实最终绿色**：[Actions #39116669476](https://github.com/66tyu55/WriterForge/actions/runs/39116669476)：新增V64 **9/9**、完整项目 **690/690**。源代码 SHA：`evolution.py` `f2ea9a77aa1cd8c4468024d455eec45bf722b07c124e668381124c8df981f36b`；`writing_flow.py` `bd42116486508212694145f8204797d14b0b802274f65fcb17cc106c9c93f38e`；`story_commit.py` `2e40234b95959fdce56859b10e08e075b48fe2fbf88069299a111e4bf51f9b66`；`verified_flow.py` `f195052c5c5b2c43f78c64d325c5b379f1eaf084c576f5da68e52821308c5c7a`。本阶段没有机器JSON审计文件，只有可验证的GitHub运行日志，不能虚构SHA机器回执。
 7. **未解决边界**：受信bootstrap签名≠文学能力；同进程任意Python代码仍能读取内部许可标记或使用SQLite写权限；Studio/不可信插件与模型的真实进程隔离、读者评论真实性、V31/V38真实R2历史原稿文学语义、双账本事务及旧数据迁移仍在后续。V49 THIRD_STRIKE_FAILED、第二文学窗口LOCKED持续有效，不得通过一次CI成功偷改晋级。
+
+
+## 51. 【2026-10-18 V65用户授权直接教学】13条条件化文笔经验，WF场景诊断，正式WRITE和双稿评估入口
+
+**用户最新明确指令：暂停“可信身份/签名/权限”主线，WF最需要的是文学经验的适用性与实际写作改善。允许宿主直接“给WF喂文学经验”，但不能装成WF已经自主阅读得来的知识。** 完整经验课、实际中文正反示例、选择/跳过条件、可运行CLI、双稿评估和局限见 [V65完整情境文笔课程](V65_CONTEXTUAL_SCENE_CRAFT_TEACHING_20261018.md)。
+
+1. 仅`v65-contextual-scene-literary-teaching`开发分支，基于V64；`main`未合并或修改，无R2小说下载、无付费文学模型调用、无正文代写、无新文学能力晋级。经验包 `writerforge/scene_craft_lessons_v1.json` 真正保存**13条我原创的教师经验**，明确写 `ASSISTANT_TAUGHT_BY_USER_REQUEST`和`INSTRUCTION_NOT_LEARNER_DISCOVERED`，绝不冒称来自WF自主分析。每条有适用模式/节奏/视角/读者效果、必须证据、禁用特征、2–4个具体改写动作、坏例/好例、自检问题和失败模式。pack SHA256 `f5e1143baf415c99021a06fc39284166e258f7d80247f1e0e3ab97088ee5ae92`。
+2. `writerforge/scene_craft_teaching.py`是新的有界场景经验选择器：WF自己的`scene_profile`应写明人物目标、阻碍、预期变化、叙事职能、POV、节奏、目标读者感受，以及对每项事实的`PRESENT/ABSENT/UNCERTAIN`和观察理由。只按完整条件作`SELECT/SKIP/UNCERTAIN`，每幕最多2条，禁用或未知时不偷偷塞提示；不使用原著关键词作匹配，不把教学正反例句子送入WRITE。选择脚本SHA `8306d49e1dcdbc6444dae20b1d7fee2193aba9ab8356483d143ff631c95855de`。
+3. **真实接入`VerifiedWritingFlow.prepare()`**：可选`scene_craft_profile`和`scene_craft_enabled`，只将选中操作的抽象指导和自检放进正式模型prompt，`GroundedDraftPacket.manifest()["scene_craft"]`保存教学包SHA、场景诊断SHA、选择ID与计划SHA，标注`literary_improvement_proven=False`。禁用教学时原先正式prompt无附加教学文字；合法经验不需要再用V61审核签名才能学习，V61旧独立经验权限契约不删除。
+4. CLI `scene-craft-plan --profile-file ...`无需数据库/模型；`scene-craft-diagnosis --scene ... --goal ...`仅输出WF规划格式要求；**明确指定`--model LOCAL_MODEL_NAME --brief-file WF自己的场景安排 --output-profile ...`**才调用已连接的本地WF模型进行JSON情境诊断一次，并区分“诊断器”与“作者”system角色。可复用同一份profile用于`draft-context` / `draft --scene-craft-profile`教学组和`--scene-craft-disabled`基准组。`scene-craft-compare`将真实两篇文字以SHA匿名、检查15%稿长相似性，不保存正文；无盲评时`TEXT_PAIR_READY_FOR_BLIND_REVIEW`，有5维评分也最多是单场候选，不自动升级。四份教师示例`examples/scene_craft/*.json`可立即离线复核：追船/悲痛余波/无铺垫揭秘/双方谈判，标记`TEACHER_DEMO`，不假装WF自行推理。
+5. **实际CI**：[Actions #39119151016](https://github.com/66tyu55/WriterForge/actions/runs/39119151016) `completed/success`：V65新增情境判断/反例/可选WF本地模型接口模拟/正式写作接线/A-B相对字数合同**21/21**通过；全项目 **711/711** 合成结构测试通过。相关SHA在该GitHub CI日志：card pack `f5e1143baf415c99021a06fc39284166e258f7d80247f1e0e3ab97088ee5ae92`、选择器 `8306d49e1dcdbc6444dae20b1d7fee2193aba9ab8356483d143ff631c95855de`、`verified_flow.py` `47f89be9aaba42ad0bd5a02309828139d7bec39401d5c10aadb93507cee81a3f`、CLI `a598629c9ba9979455ccdf14ef8a71e57aadd656e56bde7552e36b60596966ac`、测试 `4aa44a17c4f735c2892b3a2f0f6934cd817429520694979c5d0c7535aee84654`。最初缺少选择器引起的红色 CI在[#39118337377](https://github.com/66tyu55/WriterForge/actions/runs/39118337377)保留，但它是新能力接口未实现的失败，不等于文学写作漏洞。
+6. **最关键未完成**：当前4份演示情境与大多数测试的场景事实都是教师合成，实际“WF是否自行正确理解场景”还没用真实模型检验；生成的WF诊断接口只是模拟local completion，不能自称WF已经学会独立文学判读。V65本轮没产生一篇由WF自己写的真实新稿，文学质量改善尚无评分，原V29三场真实 +7.8/-5.0/+6.2 混合且第三场机制相同、V38 R39“铺垫与回收”争议均不得改成成功。V49 `THIRD_STRIKE_FAILED`与第二窗口LOCKED继续有效。
+7. **下一步而不是再增功能**：拿一个WF自己拟定且旧V29/V38未出现的新场景，让WF本地Planner真正产生JSON事实剖面；同一剖面、同一Writer/任务/长度边界写【禁用经验】与【启用选中经验】两稿；五维匿名比较因果、人物行动、知识信息、情绪作用、语言节奏，**遇到任何严重下降保留反例并收窄该经验适用范围**，而不删掉失败或宣布“模型理解了文学”。经验是外部教的，文学改善仍必须由WF自己在新稿上展现。
