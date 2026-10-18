@@ -3,7 +3,7 @@
  * Deploy manually to the EXISTING wf-r2-api Worker; keep existing WF_R2 R2
  * binding and WF_API_TOKEN secret. No R2 writes, no raw bucket traversal.
  *
- * The ONLY new content route is /r2/object. Existing /health,
+ * V69 adds strictly scoped read-only private-reading list and ranged content.\n * Existing /r2/object, /health,
  * /r2/status and /r2/inventory responses stay compatible with V66.
  */
 const PREFIX = "writerforge/v1/";
@@ -14,6 +14,12 @@ const SMALL_MAX = 128 * 1024;
 const BLOB_MAX = 256 * 1024 * 1024;
 const CHUNK_MAX = 4 * 1024 * 1024;
 const INVENTORY_PAGES = 10;
+const PRIVATE_ROOT = PREFIX + "private-reading/";
+const PRIVATE_FOLDERS = new Set(["single-works", "仙侠", "历史", "科幻"]);
+const PRIVATE_LIST_LIMIT = 64;
+const PRIVATE_MAX_KEY_BYTES = 1536;
+const PRIVATE_ALLOWED_FILE = /\.(?:txt|md|epub|zip|rar|7z|pdf)$/i;
+
 
 function json(value, status = 200) {
   return new Response(JSON.stringify(value), {
@@ -57,6 +63,71 @@ function allowedKey(key) {
   if (/^blobs\/[0-9a-f]{64}$/.test(suffix)) return "blob";
   return null;
 }
+function allowedPrivateKey(key) {
+  if (typeof key !== "string" || !key.startsWith(PRIVATE_ROOT) ||
+      new TextEncoder().encode(key).length > PRIVATE_MAX_KEY_BYTES) {
+    return null;
+  }
+  const path = key.slice(PRIVATE_ROOT.length);
+  const parts = path.split("/");
+  if (parts.length < 2 || !PRIVATE_FOLDERS.has(parts[0]) ||
+      parts.some(x => !x || x === "." || x === ".." || /[\\\\\u0000-\u001f]/.test(x))) {
+    return null;
+  }
+  // R2 zero-byte "folder marker" objects and executables are not source files.
+  if (!PRIVATE_ALLOWED_FILE.test(parts[parts.length - 1])) return null;
+  return "blob";
+}
+function privateListParams(url) {
+  const pairs = [...url.searchParams.entries()];
+  if (pairs.length > 2 || new Set(pairs.map(p => p[0])).size !== pairs.length ||
+      pairs.some(p => !["folder", "cursor"].includes(p[0]))) return null;
+  const folder = url.searchParams.get("folder");
+  if (!PRIVATE_FOLDERS.has(folder)) return null;
+  const cursor = url.searchParams.get("cursor");
+  if (cursor !== null && (!cursor || cursor.length > 2048 ||
+      /[\u0000-\u001f]/.test(cursor))) return null;
+  return {folder, cursor};
+}
+async function privateList(env, url) {
+  const p = privateListParams(url);
+  if (!p) return fail(400, "WF_PRIVATE_LIST_QUERY_INVALID");
+  const prefix = PRIVATE_ROOT + p.folder + "/";
+  const started = performance.now();
+  const result = await env.WF_R2.list({
+    prefix, limit: PRIVATE_LIST_LIMIT,
+    ...(p.cursor ? {cursor:p.cursor} : {}),
+  });
+  if (result.objects.length > PRIVATE_LIST_LIMIT ||
+      (result.truncated && (!result.cursor || result.cursor === p.cursor))) {
+    return fail(502, "WF_PRIVATE_LIST_CURSOR_INVALID");
+  }
+  const objects = [];
+  for (const obj of result.objects) {
+    if (typeof obj.key !== "string" || !obj.key.startsWith(prefix) ||
+        !Number.isSafeInteger(obj.size) || obj.size < 0) {
+      return fail(502, "WF_PRIVATE_LIST_OBJECT_INVALID");
+    }
+    // Folder marker entries are excluded, not miscounted as books.
+    if (obj.key.endsWith("/") && obj.size === 0) continue;
+    objects.push({
+      key:obj.key, size:obj.size,
+      etag:typeof obj.httpEtag === "string" ? obj.httpEtag : null,
+      // Uploaded timestamps aid diagnostics; never infer the first upload date
+      // without an earlier frozen inventory or independently signed records.
+      uploaded:obj.uploaded instanceof Date ? obj.uploaded.toISOString() : null,
+    });
+  }
+  return json({
+    ok:true, read_only:true, format:"wf.private-reading-list.v1",
+    folder:p.folder, objects,
+    complete:!result.truncated,
+    next_cursor:result.truncated ? result.cursor : null,
+    page_entries:result.objects.length,
+    elapsed_ms:Math.round(performance.now()-started),
+  });
+}
+
 function objectHeaders(obj) {
   return {
     "Cache-Control": "no-store",
@@ -67,7 +138,7 @@ function objectHeaders(obj) {
     "Accept-Ranges": "bytes",
   };
 }
-async function getObject(request, env, url) {
+async function getObject(request, env, url, privateMode = false) {
   // Only the pinned single study library; no arbitrary paths or listing.
   const params = [...url.searchParams.keys()];
   if (params.length > 3 || params.some(k => !["key", "offset", "length"].includes(k)) ||
@@ -75,7 +146,7 @@ async function getObject(request, env, url) {
     return fail(400, "WF_OBJECT_QUERY_INVALID");
   }
   const key = url.searchParams.get("key");
-  const kind = allowedKey(key);
+  const kind = privateMode ? allowedPrivateKey(key) : allowedKey(key);
   if (!kind) return fail(403, "WF_OBJECT_OUTSIDE_PINNED_LIBRARY");
   const meta = await env.WF_R2.head(key);
   if (!meta) return fail(404, "WF_OBJECT_NOT_FOUND");
@@ -156,6 +227,13 @@ export default {
       const url = new URL(request.url);
       if (url.pathname === "/r2/object") {
         return await getObject(request, env, url);
+      }
+      if (url.pathname === "/r2/private-reading/list") {
+        if (request.method !== "GET") return fail(405, "WF_METHOD_NOT_ALLOWED");
+        return await privateList(env, url);
+      }
+      if (url.pathname === "/r2/private-reading/object") {
+        return await getObject(request, env, url, true);
       }
       if (request.method !== "GET") return fail(405, "WF_METHOD_NOT_ALLOWED");
       if (url.pathname === "/health") {
