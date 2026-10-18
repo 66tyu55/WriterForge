@@ -533,6 +533,31 @@ class ExperienceDecisionBridge:
 
     def decide(self, *, project_id,scene_id,attempt_id,goal,
                scene_signals,enabled=True):
+        """Serialize permission checks and a new frozen decision in ONE write tx.
+
+        BEGIN IMMEDIATE precedes all revocation/negative feedback checks.
+        Another SQLite writer can commit only before this decision's
+        snapshot or after it commits, never in the SELECT-to-INSERT gap.
+        """
+        self.runtime.require(Mode.WRITE)
+        conn=self.db.conn
+        need(not conn.in_transaction,
+             "EXPERIENCE_DECISION_NESTED_TRANSACTION")
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            answer=self._decide_locked(
+                project_id=project_id,scene_id=scene_id,
+                attempt_id=attempt_id,goal=goal,
+                scene_signals=scene_signals,enabled=enabled)
+            conn.commit()
+            return answer
+        except Exception:
+            if conn.in_transaction:
+                conn.rollback()
+            raise
+
+    def _decide_locked(self, *, project_id,scene_id,attempt_id,goal,
+                       scene_signals,enabled=True):
         self.runtime.require(Mode.WRITE)
         need(all(is_id(x) for x in (project_id,scene_id,attempt_id)),
              "EXPERIENCE_DECISION_ID_INVALID")
@@ -613,26 +638,11 @@ class ExperienceDecisionBridge:
               "auto_skill_promotion":False,
               "source_prose_stored":False}
         h=digest(plan)
-        try:
-            with self.db.conn:
-                self.db.conn.execute(
-                    "INSERT INTO experience_decisions("
-                    "project_id,attempt_id,request_sha,plan_sha,plan_json)"
-                    " VALUES(?,?,?,?,?)",
-                    (project_id,attempt_id,request_hash,h,canonical(plan)))
-        except Exception as exc:
-            # Concurrent writer may have created same attempt. Either exact
-            # replay or collision is determined by the immutable row.
-            again=self.db.conn.execute(
-                "SELECT request_sha FROM experience_decisions "
-                "WHERE project_id=? AND attempt_id=?",
-                (project_id,attempt_id)).fetchone()
-            if again:
-                need(again["request_sha"]==request_hash,
-                     "EXPERIENCE_DECISION_IMMUTABLE")
-                return self.read_decision(project_id=project_id,
-                                          attempt_id=attempt_id)
-            raise
+        self.db.conn.execute(
+            "INSERT INTO experience_decisions("
+            "project_id,attempt_id,request_sha,plan_sha,plan_json)"
+            " VALUES(?,?,?,?,?)",
+            (project_id,attempt_id,request_hash,h,canonical(plan)))
         return {**plan,"decision_sha256":h}
 
     def report_postwrite(self, *, project_id,attempt_id,draft,
