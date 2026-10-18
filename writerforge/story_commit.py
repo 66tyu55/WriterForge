@@ -117,6 +117,9 @@ _EFFECT_ORDER = {
 }
 
 
+_ASSISTANT_ORIGIN_PERMIT = object()  # internal trusted-host API marker, not process sandbox
+
+
 class StoryCommitCoordinator:
     """
     Durable story commit boundary.
@@ -135,12 +138,23 @@ class StoryCommitCoordinator:
         *,
         work_root: StoryWorkRoot | None = None,
         precommit_check: Callable[[], None] | None = None,
+        _assistant_origin_permit: object | None = None,
     ) -> StoryCommitResult:
         self.runtime.require(Mode.WRITE)
         if not plan.project_id or not plan.commit_id:
             raise StoryCommitError("project_id and commit_id are required")
         if not plan.effects:
             raise StoryCommitError("commit plan requires at least one effect")
+        # Trust boundary for host APIs: an ordinary low-level call cannot
+        # label a text model-generated without the vetted candidate route.
+        # This marker is NOT security isolation against arbitrary Python code.
+        if any(e.type==EffectType.ACCEPT_PROSE and
+               e.payload.get("origin")=="assistant_generated"
+               for e in plan.effects):
+            if (_assistant_origin_permit is not _ASSISTANT_ORIGIN_PERMIT
+                    or precommit_check is None):
+                raise PermissionError(
+                    "ASSISTANT_ORIGIN_VERIFIED_CANDIDATE_REQUIRED")
         if work_root is not None:
             if work_root.durable_project_id is not None and work_root.durable_project_id != plan.project_id:
                 raise StoryCommitError("WorkTree belongs to a different project")
