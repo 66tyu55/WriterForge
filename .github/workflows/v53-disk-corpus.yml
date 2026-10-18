@@ -1,0 +1,29 @@
+name: V53 disk-first R2 corpus cleaning and offline lookup
+on:
+  push:
+    branches: [v53-disk-index-experience-foundation]
+    paths:
+      - '.github/workflows/v53-disk-corpus.yml'
+      - 'writerforge/corpus_foundation.py'
+      - 'writerforge/candidate_patterns.py'
+      - 'writerforge/verified_flow.py'
+      - 'writerforge/cli.py'
+      - 'tests/test_v53_disk_corpus.py'
+permissions:
+  contents: read
+jobs:
+  offline-corpus-engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - name: Run real WF R2 restored corpus disk-index tests, zero models
+        run: python -m unittest discover -s tests -p 'test_v53_disk_corpus.py' -v
+      - name: Verify old R2, source, writing compatibility
+        run: |
+          python -m unittest discover -s tests -p 'test_v52_r2_native_lookup.py' -q
+          python -m unittest discover -s tests -p 'test_v23_real_learning.py' -q
