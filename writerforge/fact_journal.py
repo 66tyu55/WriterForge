@@ -70,6 +70,7 @@ class FactJournal:
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA cache_size=-1024")
         self.db.execute("PRAGMA temp_store=FILE")
+        self.db.execute("PRAGMA max_page_count=16384")  # ~64 MiB with 4KiB pages
         self.db.executescript("""
         CREATE TABLE IF NOT EXISTS fact_events(
             event_id TEXT PRIMARY KEY, scene TEXT NOT NULL,
@@ -234,10 +235,17 @@ class FactJournal:
             return {"candidate_sha256":h, "idempotent_replay":True,
                     "eligible_to_change_writing":False}
         latest=self.db.execute(
-            "SELECT version,body_sha FROM pattern_versions "
+            "SELECT version,body_sha,body_json FROM pattern_versions "
             "WHERE candidate_id=? ORDER BY version DESC LIMIT 1",
             (candidate_id,)).fetchone()
         if latest:
+            need(digest(latest["body_json"])==latest["body_sha"],
+                 "FACT_CANDIDATE_PRIOR_VERSION_TAMPERED")
+            previous=json.loads(latest["body_json"])
+            need(previous["status"]!="RETIRED",
+                 "FACT_CANDIDATE_RETIRED_IS_TERMINAL")
+            need(h != latest["body_sha"],
+                 "FACT_CANDIDATE_EMPTY_REVISION_IS_NOT_PROGRESS")
             need(version==latest["version"]+1 and prior_sha==latest["body_sha"],
                  "FACT_CANDIDATE_REVISION_CHAIN_INVALID")
         else:
