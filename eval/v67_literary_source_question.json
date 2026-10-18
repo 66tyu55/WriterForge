@@ -1,0 +1,9 @@
+{
+  "format": "writerforge.independent-literary-retrieval-exam.v1",
+  "exam_id": "V67-LAOCAN-FIRST-ORIGINAL-OCCURRENCE",
+  "source_scope": "private R2, pinned Lao Can original (20 chapters)",
+  "question": "请你自己检索《老残游记》的原著20回：“老殘”这个称呼第一次出现在哪一回？给出准确回目、原文短证据与章节内位置，并报告实际扫描的回数。绝对不能凭模型常识猜测，找不到就说明找不到。",
+  "model_assistance_allowed": false,
+  "evaluator_supplies_expected_answer": false,
+  "public_domain_original_only": true
+}
