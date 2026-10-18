@@ -12,7 +12,10 @@ from __future__ import annotations
 
 from hashlib import sha256
 from pathlib import Path
+import base64
+import hmac
 import json
+import os
 import re
 import sqlite3
 
@@ -64,8 +67,25 @@ def checked_event(value):
 
 
 class FactJournal:
-    def __init__(self, file: str | Path):
-        """Only explicit use creates local metadata storage. No R2 access."""
+    def __init__(self, file: str | Path, *,
+                 trusted_disclosure_key: bytes | None = None):
+        """No R2 access. Reader attestations need an OUT-OF-BAND verifier key.
+
+        Never read a key from the SQLite database or from a caller's claim.
+        Missing verification material fails closed for READER/KNOWN only.
+        """
+        if trusted_disclosure_key is None:
+            configured = os.environ.get("WRITERFORGE_READER_VERIFY_KEY_HEX")
+            if configured is not None:
+                try:
+                    trusted_disclosure_key = bytes.fromhex(configured)
+                except ValueError as exc:
+                    raise FactLedgerError("FACT_READER_VERIFY_KEY_INVALID") from exc
+        need(trusted_disclosure_key is None or (
+             isinstance(trusted_disclosure_key, bytes) and
+             len(trusted_disclosure_key) >= 16),
+             "FACT_READER_VERIFY_KEY_INVALID")
+        self._trusted_disclosure_key = trusted_disclosure_key
         self.db = sqlite3.connect(str(file), cached_statements=32)
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA cache_size=-1024")
@@ -111,6 +131,21 @@ class FactJournal:
             chapter_index INTEGER NOT NULL, binding_sha TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS story_chapter_lookup
             ON story_scenes(story_id,chapter_index);
+        -- V58: a scene-local label is NOT a global character identity.
+        CREATE TABLE IF NOT EXISTS story_subjects(
+            scene_id TEXT NOT NULL, subject_scope TEXT NOT NULL,
+            subject_id TEXT NOT NULL, canonical_id TEXT NOT NULL,
+            binding_sha TEXT NOT NULL,
+            PRIMARY KEY(scene_id,subject_scope,subject_id));
+        CREATE INDEX IF NOT EXISTS story_subject_lookup
+            ON story_subjects(canonical_id,subject_scope);
+        -- HMAC attestation comes from an external trusted verifier, not
+        -- from a self-labelled REVEAL event or a sha string alone.
+        CREATE TABLE IF NOT EXISTS reader_disclosures(
+            event_id TEXT NOT NULL, reader_subject TEXT NOT NULL,
+            disclosure_tick INTEGER NOT NULL, event_sha TEXT NOT NULL,
+            signature TEXT NOT NULL, receipt_sha TEXT NOT NULL,
+            PRIMARY KEY(event_id,reader_subject));
         -- Ingest sequence is distinct from fiction/story time.
         CREATE TABLE IF NOT EXISTS event_import_receipts(
             recorded_seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -166,6 +201,132 @@ class FactJournal:
         left = self._bound_story(left_scene)
         right = self._bound_story(right_scene)
         return left is not None and left == right
+
+    def bind_subject(self, *, scene_id: str, scope: str,
+                     subject_id: str, canonical_id: str):
+        """Immutable explicit identity binding, never inferred from a name."""
+        need(all(key(v) for v in (scene_id, subject_id, canonical_id)) and
+             scope in ("ACTOR", "READER"), "FACT_SUBJECT_BINDING_INVALID")
+        need(self._bound_story(scene_id) is not None,
+             "FACT_SUBJECT_SCENE_NOT_REGISTERED")
+        row = {"scene_id":scene_id,"subject_scope":scope,
+               "subject_id":subject_id,"canonical_id":canonical_id}
+        h = digest(canonical(row))
+        prior = self.db.execute(
+            "SELECT * FROM story_subjects WHERE scene_id=? AND "
+            "subject_scope=? AND subject_id=?",
+            (scene_id,scope,subject_id)).fetchone()
+        if prior:
+            self._verify_subject_binding(prior)
+            need(prior["binding_sha"] == h, "FACT_SUBJECT_IDENTITY_IMMUTABLE")
+            return {"binding_sha256":h,"replayed":True}
+        with self.db:
+            self.db.execute(
+                "INSERT INTO story_subjects VALUES(?,?,?,?,?)",
+                (scene_id,scope,subject_id,canonical_id,h))
+        return {"binding_sha256":h,"replayed":False}
+
+    @staticmethod
+    def _verify_subject_binding(row):
+        record = {"scene_id":row["scene_id"],
+                  "subject_scope":row["subject_scope"],
+                  "subject_id":row["subject_id"],
+                  "canonical_id":row["canonical_id"]}
+        need(digest(canonical(record)) == row["binding_sha"],
+             "FACT_SUBJECT_IDENTITY_TAMPERED")
+
+    def _bound_subject(self, scene, scope, subject):
+        row = self.db.execute(
+            "SELECT * FROM story_subjects WHERE scene_id=? AND "
+            "subject_scope=? AND subject_id=?",(scene,scope,subject)
+        ).fetchone()
+        if row:
+            self._verify_subject_binding(row)
+            return row["canonical_id"]
+        return None
+
+    @staticmethod
+    def _disclosure_payload(event, reader_subject, disclosure_tick):
+        return {"event_id":event["event_id"],
+                "event_sha256":event["event_sha"],
+                "reader_subject":reader_subject,
+                "disclosure_tick":disclosure_tick}
+
+    def _check_disclosure_signature(self, event, reader_subject,
+                                    disclosure_tick, signature):
+        need(self._trusted_disclosure_key is not None,
+             "FACT_READER_ATTESTATION_KEY_MISSING")
+        need(isinstance(signature,str) and
+             SHA.fullmatch(signature) is not None,
+             "FACT_READER_ATTESTATION_SIGNATURE_INVALID")
+        message = canonical(self._disclosure_payload(
+            event,reader_subject,disclosure_tick)).encode("utf-8")
+        expected = hmac.new(
+            self._trusted_disclosure_key,message,"sha256").hexdigest()
+        need(hmac.compare_digest(expected,signature),
+             "FACT_READER_ATTESTATION_SIGNATURE_INVALID")
+
+    def register_reader_disclosure(self, *, event_id: str,
+                                   reader_subject: str,
+                                   disclosure_tick: int,
+                                   signature: str):
+        """Accept externally signed metadata; never auto-certify prose truth."""
+        need(key(event_id) and key(reader_subject) and
+             type(disclosure_tick) is int and
+             0 <= disclosure_tick <= 10000000,
+             "FACT_READER_DISCLOSURE_SCHEMA_INVALID")
+        ev = self.db.execute(
+            "SELECT * FROM fact_events WHERE event_id=?",(event_id,)
+        ).fetchone()
+        need(ev is not None,"FACT_READER_DISCLOSURE_EVENT_MISSING")
+        self._assert_record_integrity(ev)
+        need(ev["state"] == "KNOWN" and
+             (ev["role"] == "REVEAL" or (
+                 ev["role"] == "OBSERVE" and ev["actor"] == "narrator")),
+             "FACT_READER_DISCLOSURE_ROLE_NOT_PUBLIC")
+        need(disclosure_tick >= ev["tick"],
+             "FACT_READER_KNOWS_BEFORE_EVIDENCE_EVENT")
+        self._check_disclosure_signature(
+            ev,reader_subject,disclosure_tick,signature)
+        receipt = {"event_id":event_id,"reader_subject":reader_subject,
+                   "disclosure_tick":disclosure_tick,
+                   "event_sha":ev["event_sha"],"signature":signature}
+        h = digest(canonical(receipt))
+        prior = self.db.execute(
+            "SELECT * FROM reader_disclosures "
+            "WHERE event_id=? AND reader_subject=?",
+            (event_id,reader_subject)).fetchone()
+        if prior:
+            self._verify_reader_disclosure(ev,reader_subject,disclosure_tick)
+            need(prior["receipt_sha"]==h,"FACT_READER_DISCLOSURE_IMMUTABLE")
+            return {"receipt_sha256":h,"replayed":True,
+                    "story_truth_verified":False}
+        with self.db:
+            self.db.execute(
+                "INSERT INTO reader_disclosures VALUES(?,?,?,?,?,?)",
+                (event_id,reader_subject,disclosure_tick,ev["event_sha"],
+                 signature,h))
+        return {"receipt_sha256":h,"replayed":False,
+                "story_truth_verified":False}
+
+    def _verify_reader_disclosure(self, ev, reader_subject, at_tick):
+        row = self.db.execute(
+            "SELECT * FROM reader_disclosures "
+            "WHERE event_id=? AND reader_subject=?",
+            (ev["event_id"],reader_subject)).fetchone()
+        need(row is not None,"FACT_READER_ATTESTATION_REQUIRED")
+        original = {"event_id":row["event_id"],
+                    "reader_subject":row["reader_subject"],
+                    "disclosure_tick":row["disclosure_tick"],
+                    "event_sha":row["event_sha"],
+                    "signature":row["signature"]}
+        need(digest(canonical(original))==row["receipt_sha"] and
+             ev["event_sha"] == row["event_sha"],
+             "FACT_READER_ATTESTATION_TAMPERED")
+        self._check_disclosure_signature(
+            ev,reader_subject,row["disclosure_tick"],row["signature"])
+        need(at_tick >= row["disclosure_tick"],
+             "FACT_READER_KNOWS_BEFORE_DISCLOSURE")
 
     def append_flashback(self, item, *, story_id: str):
         """Explicit out-of-order ingestion; NEVER edits old events or story time.
@@ -454,12 +615,14 @@ class FactJournal:
         elif record["knowledge_state"] == "KNOWN":
             need(begin >= evidence["tick"],
                  "FACT_READER_KNOWS_BEFORE_EVIDENCE_EVENT")
-            # Explicit REVEAL or narrator observation may disclose to reader.
-            # A character's private THINK alone must NEVER be inherited.
+            # A private THINK is not REVEAL, and self-labelled REVEAL is not
+            # trusted unless an independent verifier signed the event digest.
             need(evidence["role"] == "REVEAL" or
                  (evidence["actor"] == "narrator" and
                   evidence["role"] == "OBSERVE"),
                  "FACT_READER_DISCLOSURE_REQUIRED")
+            self._verify_reader_disclosure(
+                evidence,record["subject_id"],begin)
         if replaced is not None:
             old = self.db.execute(
                 "SELECT * FROM temporal_claims WHERE claim_id=?", (replaced,)
@@ -516,6 +679,9 @@ class FactJournal:
             (row["evidence_event"],)).fetchone()
         need(event is not None, "FACT_TEMPORAL_SOURCE_EVENT_LOST")
         self._assert_record_integrity(event)
+        if row["subject_scope"] == "READER" and row["knowledge_state"] == "KNOWN":
+            self._verify_reader_disclosure(
+                event,row["subject_id"],row["story_from"])
 
     def temporal_view(self, *, scene: str, scope: str, subject: str,
                       fact: str, story_tick: int,
