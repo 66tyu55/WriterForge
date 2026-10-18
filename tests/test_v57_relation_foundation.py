@@ -240,5 +240,34 @@ class V57RelationFoundationTests(unittest.TestCase):
         self.assertTrue(again["replayed"])
 
 
+    def test_database_unique_index_prevents_concurrent_successor_fork(self):
+        # V56 no_fork fixture was invalid. This checks the DB itself, not
+        # merely Python's sequential preflight.
+        from writerforge.fact_journal import canonical, digest
+        self.db.append(event("primary-proof",2))
+        self.db.append(event("correction-proof",8,state="FALSE"))
+        self.db.append_temporal_claim(claim(
+            "primary-claim",2,"UNKNOWN","primary-proof",until=6))
+        self.db.append_temporal_claim(claim(
+            "accepted-correction",2,"FALSE","correction-proof",
+            supersedes="primary-claim",until=6))
+        forged=claim("parallel-correction",2,"FALSE","correction-proof",
+                     supersedes="primary-claim",until=6)
+        with sqlite3.connect(self.path) as independent_writer:
+            with self.assertRaises(sqlite3.IntegrityError):
+                independent_writer.execute(
+                    "INSERT INTO temporal_claims("
+                    "claim_id,scene,subject_scope,subject_id,fact,story_from,"
+                    "story_until,knowledge_state,evidence_event,supersedes_id,claim_sha)"
+                    " VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    (forged["claim_id"],forged["scene_id"],
+                     forged["subject_scope"],forged["subject_id"],forged["fact_id"],
+                     forged["story_from"],forged["story_until"],
+                     forged["knowledge_state"],forged["evidence_event_id"],
+                     forged["supersedes_id"],digest(canonical(forged))))
+        self.assertEqual(self.view(at=4)["active_claim_ids"],
+                         ["accepted-correction"])
+
+
 if __name__ == "__main__":
     unittest.main()
