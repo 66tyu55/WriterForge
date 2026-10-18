@@ -310,6 +310,21 @@ def main(argv: list[str] | None = None):
     exp_post.add_argument("--outcome",required=True,
         choices=("CLAIMED_APPLIED","NOT_APPLIED","UNCERTAIN"))
     exp_post.add_argument("--quote-file",help="optional exact 8..120 character draft span")
+    historical_import=sub.add_parser("experience-legacy-import",
+        help="LEARN: store V31/V38 external SHA pointer only, NOT a trained skill")
+    historical_import.add_argument("--project",required=True)
+    historical_import.add_argument("--file",required=True,
+        help="bounded 5-field metadata JSON, no manuscript or secrets")
+    historical_read=sub.add_parser("experience-legacy-read",
+        help="read an unverified historical source pointer, no R2 access")
+    historical_read.add_argument("--project",required=True)
+    historical_read.add_argument("--legacy-id",required=True)
+    exp_revoke=sub.add_parser("experience-revoke",
+        help="LEARN: signed irreversible suspension of approved experience")
+    exp_revoke.add_argument("--project",required=True)
+    exp_revoke.add_argument("--experience-id",required=True)
+    exp_revoke.add_argument("--file",required=True,
+        help="reviewer_id, review_id, reason_code and external signature")
     style_approve=sub.add_parser("prose-style-approve",help="approve ONE quality-reviewed prose reference for a project")
     style_approve.add_argument("--project",required=True)
     style_approve.add_argument("--file",required=True,help="author-approved ORIGINAL sample; never committed")
@@ -688,10 +703,12 @@ def main(argv: list[str] | None = None):
     try:
         if args.cmd in ("experience-stage","experience-approve",
                         "experience-decide","experience-read",
-                        "experience-postwrite"):
+                        "experience-postwrite","experience-revoke",
+                        "experience-legacy-import","experience-legacy-read"):
             from .experience_decision import ExperienceDecisionBridge
             rt=RuntimeEngine()
-            if args.cmd in ("experience-stage","experience-approve"):
+            if args.cmd in ("experience-stage","experience-approve",
+                            "experience-revoke","experience-legacy-import"):
                 rt.enter_learn()
             elif args.cmd=="experience-decide":
                 rt.enter_write(args.snapshot)
@@ -712,8 +729,9 @@ def main(argv: list[str] | None = None):
             bridge=ExperienceDecisionBridge(db,rt,reviewer_key=verifier_key)
             if args.cmd=="experience-stage":
                 doc=_small_experience_json(args.file)
-                if set(doc)!={"source_ref","required_tags","forbidden_tags",
-                              "operation_code"}:
+                fields={"source_ref","required_tags","forbidden_tags",
+                        "operation_code"}
+                if set(doc) not in (fields, fields|{"supersedes_experience_id"}):
                     raise ValueError("EXPERIENCE_STAGE_FIELDS_INVALID")
                 result=bridge.stage_candidate(
                     project_id=args.project,experience_id=args.experience_id,
@@ -725,6 +743,26 @@ def main(argv: list[str] | None = None):
                 result=bridge.approve_candidate(
                     project_id=args.project,experience_id=args.experience_id,
                     **doc)
+            elif args.cmd=="experience-revoke":
+                doc=_small_experience_json(args.file)
+                if set(doc)!={"reviewer_id","review_id",
+                              "reason_code","signature"}:
+                    raise ValueError("EXPERIENCE_REVOCATION_FIELDS_INVALID")
+                result=bridge.revoke_candidate(
+                    project_id=args.project,experience_id=args.experience_id,
+                    **doc)
+            elif args.cmd=="experience-legacy-import":
+                doc=_small_experience_json(args.file)
+                fields={"legacy_id","source_family",
+                        "source_receipt_sha256",
+                        "independent_review_sha256","issue_code"}
+                if set(doc)!=fields:
+                    raise ValueError("EXPERIENCE_LEGACY_FIELDS_INVALID")
+                result=bridge.register_legacy_reference(
+                    project_id=args.project,**doc)
+            elif args.cmd=="experience-legacy-read":
+                result=bridge.read_legacy_reference(
+                    project_id=args.project,legacy_id=args.legacy_id)
             elif args.cmd=="experience-decide":
                 values=_small_experience_json(args.signals_file,limit=4096)
                 result=bridge.decide(
