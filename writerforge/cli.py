@@ -244,6 +244,16 @@ def main(argv: list[str] | None = None):
     corpus_verify.add_argument("--snapshot",required=True)
     corpus_verify.add_argument("--cache-dir",default="corpus/r2-readonly-cache")
 
+    craft_view=sub.add_parser("scene-craft-plan",
+        help="V65 apply taught literary lessons to WF planner's scene diagnosis; zero models")
+    craft_view.add_argument("--profile-file",required=True,
+        help="typed scene diagnosis from WF scene planning, not original prose")
+    craft_view.add_argument("--disabled",action="store_true",
+        help="explicit A/B baseline: no scene lesson can affect prose")
+    craft_diag=sub.add_parser("scene-craft-diagnosis",
+        help="emit a schema-bound prompt for WF's own planner, without calling any model")
+    craft_diag.add_argument("--scene",required=True)
+    craft_diag.add_argument("--goal",required=True)
     status=sub.add_parser("status")
     status.add_argument("--work-id",default=WORK_ID)
     context=sub.add_parser("draft-context")
@@ -273,6 +283,10 @@ def main(argv: list[str] | None = None):
             help="bounded JSON of explicit scene facts (true/false/null)")
         command.add_argument("--experience-disabled",action="store_true",
             help="record explicit SKIP for reviewed experimental policies")
+        command.add_argument("--scene-craft-profile",
+            help="V65 scene applicability diagnosis JSON; no original text/URL")
+        command.add_argument("--scene-craft-disabled",action="store_true",
+            help="A/B baseline: ignore the scene writing lessons")
         command.add_argument("--r2-library",help="private original source library")
         command.add_argument("--r2-snapshot",help="required SHA256 snapshot for prose context")
         command.add_argument("--r2-term",action="append",default=[])
@@ -443,6 +457,17 @@ def main(argv: list[str] | None = None):
     reverse_restore.add_argument("--project",required=True)
     reverse_restore.add_argument("--snapshot",required=True)
     args=p.parse_args(argv)
+    if args.cmd in ("scene-craft-plan","scene-craft-diagnosis"):
+        from .scene_craft_teaching import SceneCraftTeacher,diagnosis_prompt
+        if args.cmd=="scene-craft-plan":
+            profile=_small_experience_json(args.profile_file,limit=8192)
+            _emit(SceneCraftTeacher().plan(profile,enabled=not args.disabled))
+        else:
+            _emit({"format":"writerforge.scene-diagnosis-instructions.v1",
+                   "prompt":diagnosis_prompt(args.goal,scene_id=args.scene),
+                   "model_calls":0,
+                   "wf_writing_quality_verified":False})
+        return
     if args.cmd in ("scratch-context","draft-scratch"):
         from .scratch import prepare_scratch
         view=prepare_scratch(scene=args.scene,goal=args.goal,
@@ -1002,6 +1027,8 @@ def main(argv: list[str] | None = None):
             concerns=tuple(x.strip() for x in args.concerns.split(",") if x.strip())
             signals=(_small_experience_json(args.experience_signals_file,limit=4096)
                      if args.experience_signals_file else None)
+            scene_profile=(_small_experience_json(args.scene_craft_profile,limit=8192)
+                           if args.scene_craft_profile else None)
             packet=flow.prepare(
                 args.scene,args.goal,concerns=concerns,genre=args.genre,
                 reference_category=args.reference_category,
@@ -1011,6 +1038,8 @@ def main(argv: list[str] | None = None):
                 experience_attempt_id=args.experience_attempt_id,
                 scene_signals=signals,
                 experience_enabled=not args.experience_disabled,
+                scene_craft_profile=scene_profile,
+                scene_craft_enabled=not args.scene_craft_disabled,
             )
             if args.cmd=="draft-context":
                 # Preview only: does NOT claim a model was called or produce prose.
