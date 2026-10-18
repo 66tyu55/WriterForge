@@ -1,0 +1,36 @@
+name: V65 contextual scene craft teaching (no models/R2)
+on:
+  push:
+    branches: [v65-contextual-scene-literary-teaching]
+    paths:
+      - 'writerforge/scene_craft_teaching.py'
+      - 'writerforge/scene_craft_lessons_v1.json'
+      - 'writerforge/verified_flow.py'
+      - 'writerforge/cli.py'
+      - 'pyproject.toml'
+      - 'tests/test_v65_scene_craft_teaching.py'
+      - '.github/workflows/v65-scene-craft-teaching.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  literary-technique-applicability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - name: V65 applicability and anti-template probes
+        run: python -m unittest discover -s tests -p 'test_v65_scene_craft_teaching.py' -v
+      - name: Full old and new regression
+        run: python -m unittest discover -s tests -q
+      - name: Code and original teaching-package SHA
+        if: always()
+        run: |
+          sha256sum writerforge/scene_craft_lessons_v1.json tests/test_v65_scene_craft_teaching.py
+          for p in writerforge/scene_craft_teaching.py writerforge/verified_flow.py writerforge/cli.py; do
+            if test -f "$p"; then sha256sum "$p"; fi
+          done
