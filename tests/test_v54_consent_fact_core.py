@@ -101,6 +101,50 @@ class UserResourcePolicyTests(unittest.TestCase):
                          "corpus-index.sqlite3").is_file())
         self.assertGreater(self.store.download_count,0)
 
+    def test_index_observer_creates_real_structural_fact_journal_without_model(self):
+        from writerforge.structural_observer import observe_corpus
+        approved_sync(self.vault,library=LIBRARY,snapshot=self.snap,
+                      cache=self.root/"local-index",approved=True,max_download_mib=256)
+        journal=self.root/"index-witness.sqlite3"
+        with patch("writerforge.r2_storage.R2StudyVault.restore",
+                   side_effect=AssertionError("offline observer cannot call R2")):
+            a=observe_corpus(cache=self.root/"local-index",
+                     library=LIBRARY,snapshot=self.snap,
+                     terms=("猴王",),journal_path=journal)
+            b=observe_corpus(cache=self.root/"local-index",
+                     library=LIBRARY,snapshot=self.snap,
+                     terms=("猴王",),journal_path=journal)
+        self.assertEqual(a,b)
+        self.assertGreater(a["observed_events"],0)
+        self.assertTrue(a["literal_occurrence_only"])
+        self.assertFalse(a["actual_original_sentences_exposed"])
+        self.assertFalse(a["candidate_eligible_for_creative_execution"])
+        with sqlite3.connect(journal) as db:
+            n=db.execute("SELECT COUNT(*) FROM fact_events").fetchone()[0]
+            self.assertEqual(n,a["observed_events"])
+            kinds=[x[0] for x in db.execute("SELECT DISTINCT actor FROM fact_events")]
+            self.assertEqual(kinds,["index_witness"])
+            self.assertEqual(db.execute(
+                "SELECT COUNT(*) FROM fact_links").fetchone()[0],
+                a["temporal_order_relations"])
+
+    def test_resource_free_scratch_writes_only_on_explicit_local_model_action(self):
+        # No data download, DB, private R2 or remote API needed for a new user.
+        with patch("writerforge.verified_flow.local_chat_completion",
+                   return_value="独立原创场景，人物在门口选择要不要进屋。"*16):
+            with redirect_stdout(StringIO()) as buf:
+                main(["--db",str(self.root/"unwanted-db.sqlite3"),
+                      "draft-scratch","--scene","夜间客栈",
+                      "--goal","写一段全新客栈人物做出决定的原创故事，所有人物和事件必须重新构建。",
+                      "--model","mock-loopback-not-real",
+                      "--output-dir",str(self.root/"scratch-results")])
+        result=json.loads(buf.getvalue())
+        self.assertTrue(result["no_corpus_used"])
+        self.assertTrue(result["not_trained_writer"])
+        self.assertFalse(result["accepted"])
+        self.assertTrue(Path(result["candidate"]).is_file())
+        self.assertFalse((self.root/"unwanted-db.sqlite3").exists())
+
     def test_metadata_queries_reject_missing_or_bad_credentials_without_guessing(self):
         with self.assertRaisesRegex(ResourcePolicyError,"CONSENT_REQUIRED"):
             approved_sync(self.vault,library=LIBRARY,snapshot=self.snap,
@@ -187,6 +231,15 @@ class FactLedgerTests(unittest.TestCase):
         self.db.close()
         self.db=FactJournal(self.root/"ledger.sqlite3")
         self.assertEqual(self.db.latest_candidate("pattern-case")["version"],2)
+
+    def test_existing_sqlite_fact_record_tampering_is_not_trusted(self):
+        self.db.append(original_event("tamper-me",1,"UNKNOWN"))
+        self.db.close()
+        with sqlite3.connect(self.root/"ledger.sqlite3") as raw:
+            raw.execute("UPDATE fact_events SET state='KNOWN' WHERE event_id='tamper-me'")
+        self.db=FactJournal(self.root/"ledger.sqlite3")
+        with self.assertRaisesRegex(FactLedgerError,"STORED_EVENT_TAMPERED"):
+            self.db.state(scene="night_river",actor="observer",fact="door_seal")
 
     def test_cli_real_sqlite_records_and_reads_but_no_r2(self):
         file=self.root/"fact.json"
