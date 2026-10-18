@@ -46,23 +46,27 @@ V63已封住`SkillRegistry.promote()`直接晋级和`StoryCommit`内撤销竞态
 5. 人工写稿原有`author_written`/合法内部提交继续正常工作；`assistant_generated`必须由宿主提供证明。但**任何持有同一Python进程和可信私钥或SQLite原始写权限的恶意插件仍不构成隔离安全边界**。HMAC不能单独证明“真人亲自点击批准”，布尔`explicitly_approved`依旧由本地宿主声明：需要后续独立的用户身份/确认UI或系统级权限隔离。
 6. 旧机器稿件历史没有可信签名，不追溯补签、删档或默默归因。重放要求相同的签名及同一原始提交标识；如果旧历史缺少凭证，则只能作为历史遗留接受情况另行审计，不是全新AI授权。
 
+### 最新补充：有已审经验的 AI 许可也必须绑定真实冻结决策
+
+新增一项完整正向/负向合成回归：先在学习模式登记真实SQLite来源定位，再用V61已有外部签名批准实验经验；只有AI来源许可还**绑定准确的`decision_sha256 + experience_attempt_id`**，StoryCommit才接受。即使Permit本身合法签名，若项目已存在批准经验但无冻结决策，仍然拒绝。这证明来源许可不会悄悄绕过V61–V63的受控经验链，**不等于独立文学效果验证**。
+
 ### C. `writerforge/db.py`：不添第二套存储
 
 新增`skill_bootstrap_receipts`和`story_ai_provenance`两张表。现有SourceStudy/Xuehai/StoryCommit/FactJournal/R2正文存储原样保留；只记录摘要和权限证明，没有复制小说正文或生成整稿。此代码面向SQLite本地账本，不宣称持有原始数据库写权限的用户不可篡改。
 
 ## 4. GitHub最终回归与可重放SHA
 
-[正式V64 CI #39115856473](https://github.com/66tyu55/WriterForge/actions/runs/39115856473)：`completed/success`。
+[正式V64 CI #39116237730](https://github.com/66tyu55/WriterForge/actions/runs/39116237730)：`completed/success`。
 
-- V64新增 **15/15** 合成安全契约测试，完整项目 **696/696** 工程测试通过；均无新的实际文学模型调用。
-- V64新JSON机器回执SHA256：`a4cbc9c5994134ae81e9d9e51637b35134db77b643ff211a8e514cc479adc80d`。
-- [绿色证据 artifact #12132381668](https://github.com/66tyu55/WriterForge/actions/runs/39115856473/artifacts/12132381668)，ZIP SHA256 `5ec7e2c53ff0941fc55580f5247faeee1349373e4543b095888d3c4306f0d242`。
+- V64新增 **16/16** 合成安全契约测试，完整项目 **697/697** 工程测试通过；均无新的实际文学模型调用。
+- V64新JSON机器回执SHA256：`30661fedbad08341931294fff5791253b13b29776d376fc70ec8bf60a6d60d4f`。
+- [绿色证据 artifact #12131749143](https://github.com/66tyu55/WriterForge/actions/runs/39116237730/artifacts/12131749143)，ZIP SHA256 `7f1ae017191235b3c00a949c10bccb6d6c778ec4f222619289f7a7684b170fad`。
 - 最终源码/测试 SHA：
   - `writerforge/evolution.py`：`0cb8b44818f8440b10751415801ad64ebb39cd3f6332db1ca148e347e411f92b`
   - `writerforge/story_commit.py`：`0cf4970dffec31ef61a227d6e64659f90ff6b22f97b284e9bde0e854a4c660f0`
   - `writerforge/verified_flow.py`：`1ee283f052949fc59b01112b9ae037b23fb521ea9fbf8eedc46bfc6c263ff76c`
   - `writerforge/ai_provenance.py`：`8e0baf36404d8010977e3d4f37fac3f0f0431921ec89698d56b4dd236fb18c23`
-  - `tests/test_v64_bootstrap_provenance.py`：`4284359c5c50aae108716f08acb921370081d671e8f3c74d57b641786265ed75`
+  - `tests/test_v64_bootstrap_provenance.py`：`45190ccee13b1805832d06fce00316a4ffac6227a2c9cab9023feed77da06858`
   - `scripts/audit_v64_trust.py`：`e51589a06e74f64a296f1bcbb7c36a4696b7e04ca1f46aac6c3851ab106952c4`
 - 旧V12、V21、V23、V63测试受新许可契约影响的正向夹具只在V64分支显式迁移，原旧分支与历史机读报告不可覆盖；该差异必须在正式合并前仔细审查。
 
