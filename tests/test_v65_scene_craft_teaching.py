@@ -33,7 +33,7 @@ def profile(*,mode="pursuit",effect="tension",tempo="fast",
     return {
         "schema":"writerforge.scene-profile.v1",
         "scene_id":scene,
-        "diagnosis_origin":"WF_PLANNER",
+        "diagnosis_origin":"TEACHER_DEMO",
         "mode":mode,"reader_effect":effect,"tempo":tempo,
         "viewpoint":viewpoint,
         "scene_goal":"少年必须在船离岸前保护契据并追上离开的人。",
