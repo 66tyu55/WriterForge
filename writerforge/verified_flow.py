@@ -28,6 +28,7 @@ from .encyclopedia import FictionEncyclopedia, FacetQuery
 from .writing_companion import CATEGORIES as COMPANION_CATEGORIES
 from .prose_style import ProseStyleStore, rejects_verbatim_copy, format_prose_reference
 from .experience_decision import ExperienceDecisionBridge
+from .scene_craft_teaching import SceneCraftTeacher, SceneCraftInputError
 
 
 MAX_PROMPT_CHARS = 10_000
@@ -54,6 +55,7 @@ class GroundedDraftPacket:
     r2_verified_sources: tuple[dict, ...] = ()
     r2_snapshot_sha256: str | None = None
     experience_decision_receipt: dict | None = None
+    scene_craft_receipt: dict | None = None
 
     def manifest(self) -> dict:
         return {
@@ -72,6 +74,10 @@ class GroundedDraftPacket:
             # Frozen decision: no source prose or reviewer signature.
             "experience_decision": dict(self.experience_decision_receipt)
                 if self.experience_decision_receipt is not None else None,
+            # This is externally taught conditional craft, not a learned
+            # or independently validated literary skill.
+            "scene_craft": dict(self.scene_craft_receipt)
+                if self.scene_craft_receipt is not None else None,
             "encyclopedia_refs": [
                 {"entity_id":e["entity_id"],"evidence_id":e["id"],
                  "work_id":e["work_id"],"category_path":e["category_path"],
@@ -134,6 +140,8 @@ class VerifiedWritingFlow(WritingFlow):
         experience_attempt_id: str | None = None,
         scene_signals: dict[str,bool|None] | None = None,
         experience_enabled: bool = True,
+        scene_craft_profile: dict | None = None,
+        scene_craft_enabled: bool = True,
     ) -> GroundedDraftPacket:
         self.runtime.require(Mode.WRITE)
         if not goal.strip() or len(goal) > 2000 or not scene_id or len(scene_id)>128:
@@ -248,6 +256,32 @@ class VerifiedWritingFlow(WritingFlow):
                     "literary_quality_proven":False,
                 }
 
+        # V65 teacher-authored literary experience: a separate optional
+        # semantic scene DIAGNOSIS, never a keyword-based novel search.
+        # Only selected abstract actions enter the writing prompt;
+        # illustrative examples stay in LEARN/lesson-bank material.
+        scene_craft_receipt=None
+        scene_guidance=""
+        if scene_craft_profile is not None:
+            if not isinstance(scene_craft_profile,dict) or (
+                    scene_craft_profile.get("scene_id")!=scene_id):
+                raise WritingExecutionError("SCENE_CRAFT_SCENE_ID_MISMATCH")
+            try:
+                taught=SceneCraftTeacher().plan(
+                    scene_craft_profile,enabled=scene_craft_enabled)
+            except SceneCraftInputError as exc:
+                raise WritingExecutionError(str(exc)) from exc
+            scene_guidance=taught["writer_guidance"]
+            scene_craft_receipt={
+                "profile_sha256":taught["profile_sha256"],
+                "teaching_pack_sha256":taught["teaching_pack_sha256"],
+                "plan_sha256":taught["plan_sha256"],
+                "selected_ids":list(taught["selected_ids"]),
+                "teaching_origin":"ASSISTANT_TAUGHT_BY_USER_REQUEST",
+                "literary_improvement_proven":False,
+                "learner_autonomous_discovery_proven":False,
+            }
+
         prompt = (
             f"请创作原创{language}小说正文。体裁：{genre}。\n"
             "原著学习档案里的关键词与第几章标签仅作来源审计，不是文笔范例，"
@@ -263,6 +297,8 @@ class VerifiedWritingFlow(WritingFlow):
             "不要输出大纲、自评或教学说明；只写原创正文。"
             + ("\\n本轮已冻结的受控实验性写前操作（并非已经证明的文学技巧）：\\n"
                + selected_guidance if selected_guidance else "")
+            + ("\n根据本场景语义分析选中的外部教学经验（非已证明的写作能力）：\n"
+               + scene_guidance if scene_guidance else "")
             + prose_tail
         )
         if len(prompt) > MAX_PROMPT_CHARS:
@@ -277,6 +313,7 @@ class VerifiedWritingFlow(WritingFlow):
             (),
             None,
             experience_receipt,
+            scene_craft_receipt,
         )
 
 
