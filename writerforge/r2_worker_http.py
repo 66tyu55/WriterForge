@@ -14,10 +14,46 @@ from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 import json
 import os
+import re
 
 
 class WFWorkerAPIError(RuntimeError):
     pass
+
+
+class WFWorkerHTTPStatusError(WFWorkerAPIError):
+    def __init__(self, code: str, metadata: dict):
+        super().__init__(code)
+        # Safe boolean/status diagnostics only; no URL, body or auth headers.
+        self.metadata = metadata
+
+
+def _safe_http_metadata(exc: HTTPError) -> dict:
+    headers = exc.headers
+    raw_type = (headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+    content_type = raw_type if raw_type in (
+        "application/json", "text/html", "text/plain", "application/problem+json"
+    ) else "other"
+    cf_ray = headers.get("CF-Ray") or ""
+    ray_safe = cf_ray if re.fullmatch(r"[0-9a-fA-F]{8,20}-[A-Za-z0-9]{1,10}", cf_ray) else None
+    # Read a tiny bounded amount ONLY to classify common edge errors; never
+    # reproduce HTML, JSON, tokens or arbitrary untrusted response text.
+    try:
+        body = exc.read(4096).decode("utf-8", "replace").lower()
+    except Exception:
+        body = ""
+    return {
+        "http_status": exc.code,
+        "content_type": content_type,
+        "server_cloudflare": (headers.get("Server") or "").lower() == "cloudflare",
+        "cf_ray": ray_safe,
+        "cf_mitigated_challenge": (headers.get("cf-mitigated") or "").lower() == "challenge",
+        "body_mentions_cloudflare": "cloudflare" in body,
+        "body_mentions_error_1020": "error 1020" in body,
+        "body_mentions_error_1015": "error 1015" in body,
+        "body_mentions_access_denied": "access denied" in body,
+        "body_mentions_forbidden": "forbidden" in body,
+    }
 
 
 class _NoBearerRedirect(HTTPRedirectHandler):
@@ -68,7 +104,8 @@ class WFWorkerR2Client:
         req = Request(
             self.endpoint + suffix, method="GET",
             headers={"Authorization": "Bearer " + self.token,
-                     "Accept": "application/json"})
+                     "Accept": "application/json",
+                     "User-Agent": "WriterForge-R2-Client/1.0"})
         try:
             with self._opener.open(req, timeout=self.timeout) as response:
                 if response.status != 200:
@@ -82,7 +119,7 @@ class WFWorkerR2Client:
                     429: "WF_R2_HTTP_RATE_LIMIT",
                     502: "WF_R2_HTTP_R2_FAILURE"}.get(
                         exc.code, "WF_R2_HTTP_REMOTE_FAILURE")
-            raise WFWorkerAPIError(code) from None
+            raise WFWorkerHTTPStatusError(code, _safe_http_metadata(exc)) from None
         except (URLError, TimeoutError, OSError):
             raise WFWorkerAPIError("WF_R2_HTTP_CONNECTION_FAILED") from None
         if len(data) > 131072:
@@ -94,6 +131,25 @@ class WFWorkerR2Client:
         if not isinstance(result, dict) or result.get("ok") is not True:
             raise WFWorkerAPIError("WF_R2_HTTP_WORKER_REPORTED_FAILURE")
         return result
+
+    def probe_public_health_unauthenticated(self) -> dict:
+        """Single diagnostic GET without token, never reveals auth material.
+
+        Expected response is 401 from the installed Worker. 403 with the same
+        metadata suggests the request never reached the Worker application.
+        """
+        req = Request(self.endpoint + "/health", method="GET",
+                      headers={"Accept": "application/json",
+                               "User-Agent": "WriterForge-R2-Client/1.0"})
+        try:
+            with self._opener.open(req, timeout=self.timeout) as response:
+                return {"http_status": response.status,
+                        "content_type": (response.headers.get("Content-Type") or "")
+                                        .split(";", 1)[0].strip().lower()}
+        except HTTPError as exc:
+            return _safe_http_metadata(exc)
+        except (URLError, OSError, TimeoutError):
+            return {"error_code": "WF_R2_HTTP_PROBE_CONNECT_FAILED"}
 
     def inventory(self, *, max_requests: int = 30) -> dict:
         """Retrieve complete writerforge/v1 metadata, chasing all cursors.
