@@ -4,7 +4,7 @@
     "builder": "RAILPACK"
   },
   "deploy": {
-    "startCommand": "python -m writerforge.railway_runner",
+    "startCommand": "python -u wf_railway_start.py",
     "restartPolicyType": "NEVER",
     "numReplicas": 1
   }
