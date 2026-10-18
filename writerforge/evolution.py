@@ -397,7 +397,7 @@ class EvolutionEngine:
 
         A signature authenticates an authority, NOT literary truth.
         """
-        id_regex=re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{1,79}\\Z")
+        id_regex=re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{1,79}")
         if not all(isinstance(x,str) and id_regex.fullmatch(x)
                    for x in (reviewer_id,review_id,candidate.evidence_id)):
             raise ValueError("PROMOTION_ATTESTATION_REFERENCE_INVALID")
