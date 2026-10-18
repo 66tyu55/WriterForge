@@ -1,0 +1,50 @@
+name: V60 architecture audit (source-only, no model or R2)
+on:
+  push:
+    branches: [v60-architecture-audit-readonly]
+    paths:
+      - 'scripts/audit_v60_architecture.py'
+      - 'tests/test_v60_architecture_diagnostics.py'
+      - '.github/workflows/v60-architecture-audit.yml'
+      - 'docs/V60_ARCHITECTURE_AUDIT_20261018.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  architectural-boundary-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check V59 baseline production Python remains unchanged
+        run: |
+          git diff --name-only 3e589412acabaee95e9881923b0f3fa4cc7080c2 HEAD > /tmp/v60_changed_paths.txt
+          if grep -E '^writerforge/|^data/actual_reader/' /tmp/v60_changed_paths.txt; then
+            echo 'V60 audit must not modify production modules or reader evidence' >&2
+            exit 1
+          fi
+          cat /tmp/v60_changed_paths.txt
+      - name: Install existing WriterForge package without R2 extras
+        run: python -m pip install -e .
+      - name: Record source call graph and open architecture findings
+        run: python -m scripts.audit_v60_architecture
+      - name: Reproduce three isolated architecture gaps, not literary success
+        run: python -m unittest discover -s tests -p 'test_v60_architecture_diagnostics.py' -v
+      - name: Entire existing code regression plus observational diagnostics
+        run: python -m unittest discover -s tests -q
+      - name: Hash readonly audit source and result
+        if: always()
+        run: sha256sum scripts/audit_v60_architecture.py tests/test_v60_architecture_diagnostics.py v60_architecture_audit_receipt.json
+      - name: Preserve V60 open-gaps evidence as separate artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: V60_Readonly_Architecture_Gaps
+          path: v60_architecture_audit_receipt.json
+          retention-days: 90
+          if-no-files-found: warn
