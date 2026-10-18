@@ -584,6 +584,48 @@ ON story_events(project_id, created_at);
 
 CREATE INDEX IF NOT EXISTS idx_story_effect_journal_commit
 ON story_effect_journal(project_id, commit_id);
+
+-- V61: only abstract source-locatable experience CANDIDATES, not prose,
+-- private R2 contents, semantic assertions or model output.
+CREATE TABLE IF NOT EXISTS experience_candidates (
+    project_id TEXT NOT NULL,
+    experience_id TEXT NOT NULL,
+    candidate_sha TEXT NOT NULL,
+    candidate_json TEXT NOT NULL,
+    PRIMARY KEY(project_id,experience_id)
+);
+CREATE TABLE IF NOT EXISTS experience_approvals (
+    project_id TEXT NOT NULL,
+    experience_id TEXT NOT NULL,
+    reviewer_id TEXT NOT NULL,
+    review_id TEXT NOT NULL UNIQUE,
+    approval_sha TEXT NOT NULL,
+    signature TEXT NOT NULL,
+    PRIMARY KEY(project_id,experience_id),
+    FOREIGN KEY(project_id,experience_id)
+      REFERENCES experience_candidates(project_id,experience_id)
+);
+-- Frozen BEFORE a model is called. A changed request cannot reuse attempt_id.
+CREATE TABLE IF NOT EXISTS experience_decisions (
+    project_id TEXT NOT NULL,
+    attempt_id TEXT NOT NULL,
+    request_sha TEXT NOT NULL,
+    plan_sha TEXT NOT NULL,
+    plan_json TEXT NOT NULL,
+    PRIMARY KEY(project_id,attempt_id)
+);
+CREATE TABLE IF NOT EXISTS experience_postwrites (
+    project_id TEXT NOT NULL,
+    attempt_id TEXT NOT NULL,
+    experience_id TEXT NOT NULL,
+    receipt_sha TEXT NOT NULL,
+    receipt_json TEXT NOT NULL,
+    PRIMARY KEY(project_id,attempt_id,experience_id),
+    FOREIGN KEY(project_id,attempt_id)
+      REFERENCES experience_decisions(project_id,attempt_id)
+);
+CREATE INDEX IF NOT EXISTS idx_experience_approval_project
+ON experience_approvals(project_id,experience_id);
 """
 
 class WriterForgeDB:
