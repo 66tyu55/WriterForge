@@ -22,6 +22,7 @@ from .craft_engine import CraftEngine, CraftRequest
 from .db import WriterForgeDB
 from .runtime import RuntimeEngine, Mode
 from .writing_flow import WritingFlow
+from .story_commit import _ASSISTANT_ORIGIN_PERMIT
 from .xuehai import XuehaiStore, Query
 from .encyclopedia import FictionEncyclopedia, FacetQuery
 from .writing_companion import CATEGORIES as COMPANION_CATEGORIES
@@ -446,7 +447,8 @@ def accept_candidate(db: WriterForgeDB, runtime: RuntimeEngine, *,
     flow=WritingFlow(db,runtime,project_id)
     result=flow.accept_draft(
         commit_id,manifest["scene_id"],body,origin="assistant_generated",
-        precommit_check=_policy_guard_at_commit
+        precommit_check=_policy_guard_at_commit,
+        _assistant_origin_permit=_ASSISTANT_ORIGIN_PERMIT
     )
     # Never claim durable commit failed if an optional audit-file write fails.
     manifest["accepted"]=True
