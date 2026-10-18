@@ -128,7 +128,7 @@ class R2GenuineNativeTests(unittest.TestCase):
         with self.assertRaisesRegex(R2RetrievalError,"PRIVATE_LIBRARY"):
             R2SourceGateway(R2StudyVault(bad,client=self.store))
 
-    def test_actual_production_draft_will_use_only_explicit_sha_pinned_lookup(self):
+    def test_production_write_never_loads_r2_quoted_prose(self):
         project=self.root/"project.sqlite3"
         db=WriterForgeDB(project)
         try:
@@ -140,33 +140,28 @@ class R2GenuineNativeTests(unittest.TestCase):
             ).fetchone()["id"]
             rt.exit();rt.enter_write(int(sid))
             flow=VerifiedWritingFlow(db,rt,"r2-test")
-            with self.assertRaisesRegex(Exception,"R2_WRITING_REQUIRES_PINNED"):
-                flow.prepare("scene-1","写一个原创角色的场景",r2_library=LIBRARY,
-                             r2_terms=("猴王",))
-            with patch("writerforge.r2_retrieval.R2SourceGateway.from_environment",
-                       return_value=self.gateway):
-                packet=flow.prepare("scene-1","写一个原创角色的场景",
-                    r2_library=LIBRARY,r2_snapshot=self.snap,r2_terms=("猴王",),
-                    r2_cache_dir=self.cache)
-            self.assertGreater(len(packet.r2_verified_sources),0)
-            self.assertIn("R2已验证原著出处",packet.prompt)
-            receipt=packet.manifest()["r2_source_lookup"]
-            self.assertEqual(receipt["snapshot_sha256"],self.snap)
-            self.assertFalse(receipt["literary_method_verified"])
-            self.assertNotIn("学会",str(receipt))
+            from writerforge.verified_flow import WritingExecutionError
+            with self.assertRaisesRegex(WritingExecutionError,
+                                        "R2_RESEARCH_IS_NOT_WRITING_CONTEXT"):
+                flow.prepare("scene-1","写一个原创角色的场景",
+                             r2_library=LIBRARY,r2_snapshot=self.snap,r2_terms=("猴王",))
+            packet=flow.prepare("scene-1","写一个原创角色的场景")
+            self.assertNotIn("R2已验证原著出处",packet.prompt)
+            self.assertEqual(packet.manifest()["r2_source_lookup"]["references"],[])
         finally:
             db.close()
 
-    def test_r2_cli_does_not_create_default_project_database(self):
-        with patch("writerforge.r2_retrieval.R2SourceGateway.from_environment",
-                   return_value=self.gateway):
-            with redirect_stdout(StringIO()) as output:
-                main(["--db",str(self.root/"should-not-create.sqlite3"),
-                      "r2-query","--library",LIBRARY,"--snapshot",self.snap,
-                      "--term","猴王","--cache-dir",str(self.cache)])
+    def test_r2_cli_is_offline_after_explicit_sync_and_no_db_creation(self):
+        from writerforge.corpus_foundation import sync_r2
+        sync_r2(self.vault,library=LIBRARY,snapshot=self.snap,cache=self.cache)
+        with redirect_stdout(StringIO()) as output:
+            main(["--db",str(self.root/"should-not-create.sqlite3"),
+                  "r2-query","--library",LIBRARY,"--snapshot",self.snap,
+                  "--term","猴王","--cache-dir",str(self.cache)])
         result=json.loads(output.getvalue())
         self.assertGreater(result["match_count"],0)
-        self.assertEqual(result["provider"],"Cloudflare R2")
+        self.assertEqual(result["network_calls"],0)
+        self.assertFalse(result["source_prose_sent_to_writer"])
         self.assertFalse((self.root/"should-not-create.sqlite3").exists())
 
 

@@ -1,0 +1,50 @@
+name: V53 disk-first R2 corpus cleaning and offline lookup
+on:
+  push:
+    branches: [v53-disk-index-experience-foundation]
+    paths:
+      - '.github/workflows/v53-disk-corpus.yml'
+      - 'writerforge/corpus_foundation.py'
+      - 'writerforge/candidate_patterns.py'
+      - 'writerforge/verified_flow.py'
+      - 'writerforge/cli.py'
+      - 'tests/test_v53_disk_corpus.py'
+      - 'tests/test_v52_r2_native_lookup.py'
+permissions:
+  contents: read
+jobs:
+  offline-corpus-engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - name: Run real WF R2 restored corpus disk-index tests, zero models
+        run: python -m unittest discover -s tests -p 'test_v53_disk_corpus.py' -v
+      - name: Verify old R2, source, writing compatibility
+        run: |
+          python -m unittest discover -s tests -p 'test_v52_r2_native_lookup.py' -q
+          python -m unittest discover -s tests -p 'test_v23_real_learning.py' -q
+
+  verified-live-corpus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Explicit disk sync and offline correspondence on pinned real private R2
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+        run: |
+          python -m writerforge.cli r2-sync --library laocanyouji-25124 --snapshot 7fe1ceff8d637139d51b0b6bf2de6a7de220aeaea670247868fa17cc55270dd2 --cache-dir "$RUNNER_TEMP/wf-index"
+          env -u WRITERFORGE_R2_ACCOUNT_ID -u WRITERFORGE_R2_BUCKET -u WRITERFORGE_R2_ACCESS_KEY_ID -u WRITERFORGE_R2_SECRET_ACCESS_KEY python -m writerforge.cli corpus-find --library laocanyouji-25124 --snapshot 7fe1ceff8d637139d51b0b6bf2de6a7de220aeaea670247868fa17cc55270dd2 --term 老殘 --limit 6 --cache-dir "$RUNNER_TEMP/wf-index"

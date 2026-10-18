@@ -89,12 +89,32 @@ def main(argv: list[str] | None = None):
     learn.add_argument("--backup-r2",action="store_true",
                        help="back up after completed learning to your private R2 bucket")
     r2_query=sub.add_parser("r2-query",
-        help="private R2 verified read-only original Xuehai search (not literary training)")
+        help="offline cached corpus verification only (deprecated; use corpus-find)")
     r2_query.add_argument("--library",required=True)
     r2_query.add_argument("--snapshot",help="SHA256 snapshot to pin; omit for verified latest")
     r2_query.add_argument("--term",action="append",required=True)
     r2_query.add_argument("--limit",type=int,default=6)
     r2_query.add_argument("--cache-dir",default="corpus/r2-readonly-cache")
+    sync=sub.add_parser("r2-sync",
+        help="explicitly DOWNLOAD and SHA-verify private R2 archive to DISK, then build deduped offline index")
+    sync.add_argument("--library",required=True)
+    sync.add_argument("--snapshot",help="optional pinned hash; omission resolves R2 latest")
+    sync.add_argument("--cache-dir",default="corpus/r2-readonly-cache")
+    offline=sub.add_parser("corpus-find",
+        help="strictly local/offline indexed term match, NO network and NO source prose in output")
+    offline.add_argument("--library",required=True)
+    offline.add_argument("--snapshot",required=True)
+    offline.add_argument("--term",action="append",required=True)
+    offline.add_argument("--limit",type=int,default=6)
+    offline.add_argument("--cache-dir",default="corpus/r2-readonly-cache")
+    offline.add_argument("--record-candidate",
+                         help="optional on-disk metadata ledger; not literary learning")
+    corpus_verify=sub.add_parser("corpus-verify",
+        help="explicit full SHA256 and SQLite audit of offline corpus cache")
+    corpus_verify.add_argument("--library",required=True)
+    corpus_verify.add_argument("--snapshot",required=True)
+    corpus_verify.add_argument("--cache-dir",default="corpus/r2-readonly-cache")
+
     status=sub.add_parser("status")
     status.add_argument("--work-id",default=WORK_ID)
     context=sub.add_parser("draft-context")
@@ -240,12 +260,36 @@ def main(argv: list[str] | None = None):
     reverse_restore.add_argument("--project",required=True)
     reverse_restore.add_argument("--snapshot",required=True)
     args=p.parse_args(argv)
-    if args.cmd=="r2-query":
-        from .r2_retrieval import R2SourceGateway
-        result=R2SourceGateway.from_environment().search(
-            library=args.library,snapshot=args.snapshot,
-            terms=tuple(args.term),cache_dir=args.cache_dir,limit=args.limit)
-        _emit(result.public())
+    if args.cmd=="r2-sync":
+        from .corpus_foundation import sync_r2
+        _emit(sync_r2(R2StudyVault(R2Config.from_environment()),
+                      library=args.library,snapshot=args.snapshot,
+                      cache=args.cache_dir))
+        return
+    if args.cmd=="corpus-verify":
+        from .corpus_foundation import verify_cache
+        verified=verify_cache(args.cache_dir,args.library,args.snapshot)
+        _emit({"format":"WF.corpus-explicit-integrity-audit.v1",
+               "library":args.library,"snapshot_sha256":args.snapshot,
+               "verified_cache_dir":str(verified),
+               "all_r2_blob_sha256_and_sqlite_valid":True,
+               "r2_network_calls":0,"model_calls":0})
+        return
+    if args.cmd in ("corpus-find","r2-query"):
+        if args.cmd=="r2-query" and not args.snapshot:
+            raise ValueError("R2_QUERY_NOW_OFFLINE: first use r2-sync then pin --snapshot")
+        from .corpus_foundation import search_disk
+        result=search_disk(args.cache_dir,library=args.library,
+                           snapshot=args.snapshot,terms=tuple(args.term),
+                           limit=args.limit)
+        if args.cmd=="corpus-find" and args.record_candidate:
+            from .candidate_patterns import PatternLedger
+            bank=PatternLedger(args.record_candidate)
+            try:
+                result["comparison_candidate"]=bank.observe(result)
+            finally:
+                bank.close()
+        _emit(result)
         return
     if args.cmd in ("reverse-core-init","reverse-core-status","reverse-core-restore"):
         from .reverse_craft import ReverseCraftCoordinator, WORK, EDITION
