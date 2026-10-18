@@ -26,6 +26,7 @@ from .xuehai import XuehaiStore, Query
 from .encyclopedia import FictionEncyclopedia, FacetQuery
 from .writing_companion import CATEGORIES as COMPANION_CATEGORIES
 from .prose_style import ProseStyleStore, rejects_verbatim_copy, format_prose_reference
+from .experience_decision import ExperienceDecisionBridge
 
 
 MAX_PROMPT_CHARS = 10_000
@@ -51,6 +52,7 @@ class GroundedDraftPacket:
     prose_reference_sha256: str | None = None
     r2_verified_sources: tuple[dict, ...] = ()
     r2_snapshot_sha256: str | None = None
+    experience_decision_receipt: dict | None = None
 
     def manifest(self) -> dict:
         return {
@@ -66,6 +68,9 @@ class GroundedDraftPacket:
                 for x in self.evidence
             ],
             "craft_ids": list(self.craft_ids),
+            # Frozen decision: no source prose or reviewer signature.
+            "experience_decision": dict(self.experience_decision_receipt)
+                if self.experience_decision_receipt is not None else None,
             "encyclopedia_refs": [
                 {"entity_id":e["entity_id"],"evidence_id":e["id"],
                  "work_id":e["work_id"],"category_path":e["category_path"],
@@ -101,9 +106,12 @@ class GroundedDraftPacket:
 class VerifiedWritingFlow(WritingFlow):
     """The only CLI writing path labelled 'trained-source grounded'."""
 
-    def __init__(self, db: WriterForgeDB, runtime: RuntimeEngine, project_id: str):
+    def __init__(self, db: WriterForgeDB, runtime: RuntimeEngine,
+                 project_id: str, *,
+                 experience_review_key: bytes | None = None):
         super().__init__(db, runtime, project_id)
         self.db = db
+        self._experience_review_key = experience_review_key
         self.xuehai = XuehaiStore(db, runtime)
         row = db.conn.execute(
             "SELECT status FROM snapshots WHERE id=?", (runtime.pinned_snapshot_id,),
@@ -122,6 +130,9 @@ class VerifiedWritingFlow(WritingFlow):
         r2_snapshot: str | None = None,
         r2_terms: tuple[str,...] = (),
         r2_cache_dir: str | Path = "corpus/r2-readonly-cache",
+        experience_attempt_id: str | None = None,
+        scene_signals: dict[str,bool|None] | None = None,
+        experience_enabled: bool = True,
     ) -> GroundedDraftPacket:
         self.runtime.require(Mode.WRITE)
         if not goal.strip() or len(goal) > 2000 or not scene_id or len(scene_id)>128:
@@ -195,6 +206,47 @@ class VerifiedWritingFlow(WritingFlow):
         # Absent approval => free-model prose. No "best first chapter" guesses.
         style = ProseStyleStore(self.db, self.project_id).load()
         prose_tail = format_prose_reference(style.text) if style else ""
+
+        experience_receipt = None
+        selected_guidance = ""
+        # Formal route: new approved experiment must be explicitly selected
+        # or skipped BEFORE any prose generation. A synthetic no-DB proxy in
+        # legacy isolated tests keeps the historical no-policy behavior.
+        if isinstance(self.db, WriterForgeDB):
+            verifier_key = self._experience_review_key
+            if verifier_key is None:
+                raw_key = os.environ.get(
+                    "WRITERFORGE_EXPERIENCE_REVIEW_VERIFY_KEY_HEX")
+                if raw_key is not None:
+                    try:
+                        verifier_key = bytes.fromhex(raw_key)
+                    except ValueError as exc:
+                        raise WritingExecutionError(
+                            "EXPERIENCE_VERIFIER_KEY_INVALID") from exc
+            bridge = ExperienceDecisionBridge(
+                self.db, self.runtime, reviewer_key=verifier_key)
+            has_approved = bridge.has_approved(project_id=self.project_id)
+            if has_approved and (
+                    experience_attempt_id is None or scene_signals is None):
+                raise WritingExecutionError("EXPERIENCE_DECISION_REQUIRED")
+            if experience_attempt_id is not None:
+                if scene_signals is None:
+                    raise WritingExecutionError("EXPERIENCE_SCENE_SIGNALS_REQUIRED")
+                frozen = bridge.decide(
+                    project_id=self.project_id, scene_id=scene_id,
+                    attempt_id=experience_attempt_id, goal=goal,
+                    scene_signals=scene_signals, enabled=experience_enabled)
+                selected_guidance = frozen["prompt_guidance"]
+                experience_receipt = {
+                    "attempt_id":experience_attempt_id,
+                    "decision_sha256":frozen["decision_sha256"],
+                    "selected_operation_codes":[
+                        row["operation_code"] for row in frozen["decisions"]
+                        if row["decision"]=="SELECT"],
+                    "source_snapshot_id":frozen["source_snapshot_id"],
+                    "literary_quality_proven":False,
+                }
+
         prompt = (
             f"请创作原创{language}小说正文。体裁：{genre}。\n"
             "原著学习档案里的关键词与第几章标签仅作来源审计，不是文笔范例，"
@@ -208,6 +260,8 @@ class VerifiedWritingFlow(WritingFlow):
             "情绪、动作、声音和环境只在情节需要时自然出现。"
             "不强制对话比例、转折次数、修辞配额，也不解释写作方法。"
             "不要输出大纲、自评或教学说明；只写原创正文。"
+            + ("\\n本轮已冻结的受控实验性写前操作（并非已经证明的文学技巧）：\\n"
+               + selected_guidance if selected_guidance else "")
             + prose_tail
         )
         if len(prompt) > MAX_PROMPT_CHARS:
@@ -221,6 +275,7 @@ class VerifiedWritingFlow(WritingFlow):
             style.sha256 if style else None,
             (),
             None,
+            experience_receipt,
         )
 
 
