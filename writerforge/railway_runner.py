@@ -41,8 +41,33 @@ def main() -> int:
         result = client.inventory()
     except WFWorkerAPIError as exc:
         diagnostic = getattr(exc, "metadata", None)
-        # Run just one token-free comparison request if an initial
-        # inventory call was refused with HTTP 403.
+        # If the inventory route is absent, try the independently deployed
+        # one-object /r2/status probe. Do NOT claim full inventory success.
+        if client and str(exc) == "WF_R2_HTTP_ROUTE_NOT_DEPLOYED":
+            try:
+                status = client.r2_status()
+                emit({**label,
+                      "status": "WF_R2_STATUS_SUCCESS_INVENTORY_ROUTE_MISSING",
+                      "inventory_error": str(exc),
+                      "result": status,
+                      "token_printed": False})
+                return 0
+            except WFWorkerAPIError as status_exc:
+                status_diag = {
+                    "inventory_error": str(exc),
+                    "inventory_http": diagnostic,
+                    "r2_status_error": str(status_exc),
+                    "r2_status_http": getattr(status_exc, "metadata", None),
+                }
+                try:
+                    status_diag["authenticated_health"] = client.authenticated_health()
+                except WFWorkerAPIError as health_exc:
+                    status_diag["health_error"] = str(health_exc)
+                    status_diag["health_http"] = getattr(health_exc, "metadata", None)
+                emit({**label, "status": "WF_WORKER_ROUTE_DIAGNOSTIC_FAILED",
+                      "safe_http_diagnostic": status_diag,
+                      "token_printed": False})
+                return 1
         if isinstance(diagnostic, dict) and diagnostic.get("http_status") == 403 and client:
             diagnostic = {**diagnostic,
                           "without_token_health": client.probe_public_health_unauthenticated()}
