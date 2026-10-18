@@ -2,7 +2,7 @@
 
 > **本文件是新对话的唯一首读交接入口。** 每次继续项目前，先检查本文件并复核有关 GitHub Actions 运行结果；不要重建已完成的原文归档，不要将用户的聊天结论冒充 R2 中的真实数据。本文报告的是截至 **2026-10-16 06:08 UTC** 核实的状态，而不是当前实时桶扫描结果。
 
-> **最新更新（2026-10-18）：V59源码对照和全局时间修复请先看第45节；V58红队在第44节，V57在第43节，V56原始失败在第42节。历史记录与原始运行报告均不可覆盖。** 本轮不训练、不修改原始失败证据。
+> **最新更新（2026-10-18）：V60架构审计首先阅读第46节；V59见第45节，V58见第44节，V57见第43节，V56原始失败见第42节。之前的旧记录与所有模型、R2、GitHub Actions原始证据不可覆盖。** V60仅审计，不训练、不改生产代码。
 
 ## 1. 已完成：六本现代小说的私有 R2 原文归档
 
@@ -722,3 +722,15 @@
 5. 最终真实绿灯：[Actions #39105993899](https://github.com/66tyu55/WriterForge/actions/runs/39105993899) 原有V54 12、V55 9、V57 12、V58 12，新V59 13，合计**58/58 合成事实软件结构测试通过**。最终JSON SHA `0b395c14bf9b997cc637b10cded46338db037ddf9915b2522943afdd63653cc4`；artifact `12127897818`；源程序和测试SHA见完整V59文档。
 6. **未完成绝不可漏**：这不是文学理解、因果或知识来源真值证明；原V49 `THIRD_STRIKE_FAILED`、`NO_PROMOTION` 不变。旧V58写入进程必须在升级前停止，否则跨版本热迁移有风险；HMAC/数据库原始访问边界不等于外部公证；8192状态扫描和图邻域预算仍有效；更大历史规模、原始SHA可信来源与多节点同步未验证。本轮没有下载R2，没有模型训练，没有覆盖私有原文或旧原始证据。
 7. 下一轮先复核上述两张红色artifact和最终绿色，优先审查安全迁移部署、源证据授权、全局时钟数据量增长/冷库恢复；对照GitHub现成实现后才扩展，不复制代码。
+
+
+## 46. 【2026-10-18 V60仅审计】真实LEARN→经验→WRITE调用关系与未解决权限边界
+
+**这轮没有重构生产代码，没有任何文学训练/付费模型/R2下载；从 `v59-global-ledger-clock-audit` 的 `3e589412acabaee95e9881923b0f3fa4cc7080c2` 创建新分支 `v60-architecture-audit-readonly`。** 完整证据、逐项源码/行号、GitHub参考源码、数据流及下一阶段受限重构设计见：[V60完整架构审计](V60_ARCHITECTURE_AUDIT_20261018.md)。
+
+1. GitHub真实 [V60 Actions #39107632165](https://github.com/66tyu55/WriterForge/actions/runs/39107632165)：完整原有CI + 3项新诊断共 **642/642执行通过**。这三项新诊断专门用来**复现当前缺陷**，不能称为修复成功。只读架构报告 `ARCHITECTURE_GAPS_OPEN_NO_PROMOTION`，8项开放风险（P0 4项，P1 4项）；源程序零修改。
+2. 真正观察到的三件事：正式 `VerifiedWritingFlow.prepare()` 更换Xuehai来源证据后生成的 `prompt_sha256` 仍相同，说明没有把已学经验形成明确写前操作；`EvolutionEngine` 通用 `gated_auto` 接口可用**仅由调用者提交**的全部高分指标，在纯内存测试中把技能L1→L2，未核实第三方证据（不是公网上已证实攻击）；`FeedbackStore.triage` 把任意两个 `reader_id` 当成两个收敛读者（该接口未验证身份）。
+3. 其他核心缺口：V31实验记忆、V35/V38写后证据与正式 `VerifiedWritingFlow` 的写前决策没有统一强制门禁；八类原著索引只是 `deterministic_structural_unverified`，不能直接当文学理解；`WriterForgeDB` 与 `FactJournal` 是不同授权边界/SQLite接口，需统一实体与版本引用、**不粗暴合库**；V59仍是未合并的开发阶段，包版本号依旧为27.0.0。
+4. 本轮实际读取GitHub [LangGraph checkpoint](https://github.com/langchain-ai/langgraph/blob/main/libs/checkpoint/langgraph/checkpoint/base/__init__.py)、[MLflow Run](https://github.com/mlflow/mlflow/blob/master/mlflow/entities/run.py)、[OpenAI Evals Recorder](https://github.com/openai/evals/blob/main/evals/record.py)，对照快照、输入输出及评估收据；只借机制，不引入框架、不复制代码。
+5. V60报告JSON SHA256 `8c9cd38c5bb33a01e1b94b4d473525a949deab857671597bef7a483f9959036b`，代码审计脚本SHA `f524d119db3798223b90563dcb8a09778b758f5f9f5256946b3ddb95ebf6e657`，诊断SHA `9176106d7896da1ecfbe070da7f6d045508a600e3474e1b947e69aecf27cc8d3`；原始证据artifact `12129525377`、ZIP SHA `f329a12bdb0f65fc1d6783fab866c32bffc89269ccc272be8eba9970474fb1ce`。
+6. **下一步不要改100个Skill**：先审查/限定 `ExperienceCandidate → 独立可信审阅 → CreativeDecision(SELECT/SKIP/UNCERTAIN) → 冻结计划 → 正式写作 → 写后证据` 的最小契约，零模型合成输入先验证调用/跳过/恢复/防作弊；V49 `THIRD_STRIKE_FAILED` 不变，L2历史R39/R43分歧不重新付费训练，也不能强行改为正确。V57/V58/V59稳定版合并需要独立迁移验收。
