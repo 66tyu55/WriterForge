@@ -149,6 +149,17 @@ def main(argv: list[str] | None = None):
     fact_show=sub.add_parser("fact-candidate-status",help="view candidate version and immutable status")
     fact_show.add_argument("--journal",required=True)
     fact_show.add_argument("--candidate-id",required=True)
+    story_bind=sub.add_parser("fact-story-bind",
+        help="explicitly bind chapter/scene to same-story identity (never guessed)")
+    story_bind.add_argument("--journal",required=True)
+    story_bind.add_argument("--story-id",required=True)
+    story_bind.add_argument("--scene",required=True)
+    story_bind.add_argument("--chapter-index",type=int,required=True)
+    flashback=sub.add_parser("fact-flashback",
+        help="explicitly ingest earlier story event after later event (append-only)")
+    flashback.add_argument("--journal",required=True)
+    flashback.add_argument("--story-id",required=True)
+    flashback.add_argument("--file",required=True,help="typed event JSON <=8 KiB")
     fact_claim=sub.add_parser("fact-claim",
         help="append an explicit two-clock evidence-backed knowledge assertion")
     fact_claim.add_argument("--journal",required=True)
@@ -162,6 +173,8 @@ def main(argv: list[str] | None = None):
     fact_view.add_argument("--fact",required=True)
     fact_view.add_argument("--story-tick",required=True,type=int)
     fact_view.add_argument("--recorded-seq",type=int)
+    fact_view.add_argument("--story-id",
+        help="require explicit story registration; include that story's other chapters")
     fact_graph=sub.add_parser("fact-graph",
         help="retrieve bounded source-event relationships; causal meaning unverified")
     fact_graph.add_argument("--journal",required=True)
@@ -376,23 +389,31 @@ def main(argv: list[str] | None = None):
         return
     if args.cmd in ("fact-record","fact-state","fact-link",
                     "fact-candidate","fact-candidate-status",
-                    "fact-claim","fact-view","fact-graph"):
+                    "fact-claim","fact-view","fact-graph",
+                    "fact-story-bind","fact-flashback"):
         from .fact_journal import FactJournal
         journal=FactJournal(args.journal)
         try:
-            if args.cmd in ("fact-record","fact-candidate","fact-claim"):
+            if args.cmd in ("fact-record","fact-candidate","fact-claim",
+                            "fact-flashback"):
                 file=Path(args.file)
                 if not file.is_file() or not 0<file.stat().st_size<=8192:
                     raise ValueError("FACT_METADATA_FILE_MISSING_OR_TOO_LARGE")
                 record=json.loads(file.read_text(encoding="utf-8"))
                 if args.cmd=="fact-record":
                     result=journal.append(record)
+                elif args.cmd=="fact-flashback":
+                    result=journal.append_flashback(record,story_id=args.story_id)
                 elif args.cmd=="fact-claim":
                     result=journal.append_temporal_claim(record)
                 else:
                     result=journal.add_candidate(
                         candidate_id=args.candidate_id,version=args.version,
                         prior_sha=args.prior_sha,record=record)
+            elif args.cmd=="fact-story-bind":
+                result=journal.register_scene(
+                    story_id=args.story_id,scene_id=args.scene,
+                    chapter_index=args.chapter_index)
             elif args.cmd=="fact-state":
                 result=journal.state(scene=args.scene,actor=args.actor,
                                      fact=args.fact,at_tick=args.at_tick)
@@ -403,7 +424,8 @@ def main(argv: list[str] | None = None):
                 result=journal.temporal_view(
                     scene=args.scene,scope=args.scope,subject=args.subject,
                     fact=args.fact,story_tick=args.story_tick,
-                    as_of_recorded_seq=args.recorded_seq)
+                    as_of_recorded_seq=args.recorded_seq,
+                    story_id=args.story_id)
             elif args.cmd=="fact-graph":
                 result=journal.graph_neighbors(args.event,depth=args.depth)
             else:
