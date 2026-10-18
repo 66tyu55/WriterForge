@@ -27,6 +27,7 @@ from .encyclopedia import FictionEncyclopedia, FacetQuery
 from .writing_companion import CATEGORIES as COMPANION_CATEGORIES
 from .prose_style import ProseStyleStore, rejects_verbatim_copy, format_prose_reference
 from .experience_decision import ExperienceDecisionBridge
+from .ai_provenance import issue_ai_commit_permit,trusted_commit_key
 
 
 MAX_PROMPT_CHARS = 10_000
@@ -443,10 +444,27 @@ def accept_candidate(db: WriterForgeDB, runtime: RuntimeEngine, *,
                 raise WritingExecutionError(
                     "EXPERIENCE_DECISION_MISMATCH_AT_COMMIT")
 
+    # A generator/editor can never self-declare trusted prose by setting
+    # origin='assistant_generated' directly. The host issuing this receipt
+    # must hold a protected signer key and have performed explicit author
+    # acceptance. This is NOT independent proof of human identity.
+    provenance=issue_ai_commit_permit(
+        key=trusted_commit_key(),
+        project_id=project_id,scene_id=manifest["scene_id"],
+        commit_id=commit_id,snapshot_id=sid,
+        body_sha256=sha256(body.encode("utf-8")).hexdigest(),
+        candidate_sha256=manifest["candidate_sha256"],
+        author_approved=explicitly_approved,
+        decision_sha256=(expected["decision_sha256"]
+                         if expected is not None else None),
+        experience_attempt_id=(expected["attempt_id"]
+                               if expected is not None else None))
+
     flow=WritingFlow(db,runtime,project_id)
     result=flow.accept_draft(
         commit_id,manifest["scene_id"],body,origin="assistant_generated",
-        precommit_check=_policy_guard_at_commit
+        precommit_check=_policy_guard_at_commit,
+        ai_provenance=provenance
     )
     # Never claim durable commit failed if an optional audit-file write fails.
     manifest["accepted"]=True
