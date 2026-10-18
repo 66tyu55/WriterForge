@@ -320,6 +320,32 @@ class SkillRegistry:
                 not hmac.compare_digest(self._trusted_promotion_key,key)):
             raise PermissionError("SKILL_PROMOTION_VERIFIER_IMMUTABLE")
         self._trusted_promotion_key=key
+        # EvolutionEngine can receive an already-open SkillRegistry whose
+        # high grades were conservatively SHADOW while the verification key
+        # was unavailable. Verify legitimate durable chains after binding.
+        if self.db is not None:
+            for name in tuple(self._legacy_unverified):
+                row=self.db.conn.execute(
+                    "SELECT skill_name,level,statement,dependencies_json,"
+                    "status,revision FROM skill_capabilities "
+                    "WHERE scope=? AND skill_name=?",
+                    (self.scope,name)).fetchone()
+                if row is None:
+                    continue
+                matching=self.db.conn.execute(
+                    "SELECT 1 FROM skill_promotion_receipts "
+                    "WHERE scope=? AND skill_name=? AND new_level=?",
+                    (self.scope,name,int(row["level"]))).fetchone()
+                if matching is None:
+                    continue
+                candidate=CapabilityContract(
+                    row["skill_name"],int(row["level"]),row["statement"],
+                    json.loads(row["dependencies_json"]),
+                    SkillStatus(row["status"]),int(row["revision"]))
+                self._verify_promotion_chain(candidate)
+                self._skills[name]=candidate
+                self._legacy_unverified.remove(name)
+                self._verified_promotions.add(name)
 
     def register(self, contract: CapabilityContract, *,
                  bootstrap_attestation:dict|None=None) -> None:
