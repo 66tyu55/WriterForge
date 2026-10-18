@@ -25,7 +25,6 @@ def observe_corpus(*, cache: str | Path, library: str, snapshot: str,
                              terms=terms,limit=limit)
     journal = FactJournal(journal_path)
     created = []
-    links = []
     try:
         normalized_terms = tuple(comparison["query_terms"])
         term_set_id = _hex(json.dumps(normalized_terms,ensure_ascii=False))[:20]
@@ -38,7 +37,6 @@ def observe_corpus(*, cache: str | Path, library: str, snapshot: str,
                 if word in r["terms_matched"]
             ]
             matches.sort(key=lambda r:(r["work_id"],*r["location"]))
-            prior = None
             for tick, item in enumerate(matches,1):
                 detail = json.dumps(
                     [comparison["snapshot_sha256"],word,item["work_id"],
@@ -56,16 +54,15 @@ def observe_corpus(*, cache: str | Path, library: str, snapshot: str,
                 }
                 out = journal.append(doc)
                 created.append(out["event_id"])
-                if prior:
-                    linked = journal.link(prior,event_id,"BEFORE")
-                    links.append(linked["link_sha256"])
-                prior = event_id
+                # Corpus index order is NOT story-time chronology.
+                # Do not fabricate BEFORE/causal links from lexical order.
         return {
             "format":"WF.corpus-structural-observation.v1",
             "source_snapshot_sha256":snapshot,
             "source_library":library,
             "observed_events":len(created),
-            "temporal_order_relations":len(links),
+            "temporal_order_relations":0,
+            "index_order_is_not_story_time":True,
             "journal_event_ids":created,
             "journal_source_event_sha256":_hex("".join(sorted(created))),
             "network_calls":0,"model_calls":0,

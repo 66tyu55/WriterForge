@@ -149,6 +149,24 @@ def main(argv: list[str] | None = None):
     fact_show=sub.add_parser("fact-candidate-status",help="view candidate version and immutable status")
     fact_show.add_argument("--journal",required=True)
     fact_show.add_argument("--candidate-id",required=True)
+    fact_claim=sub.add_parser("fact-claim",
+        help="append an explicit two-clock evidence-backed knowledge assertion")
+    fact_claim.add_argument("--journal",required=True)
+    fact_claim.add_argument("--file",required=True,help="typed JSON claim <=8 KiB")
+    fact_view=sub.add_parser("fact-view",
+        help="replay character or reader knowledge by story time AND recorded time")
+    fact_view.add_argument("--journal",required=True)
+    fact_view.add_argument("--scene",required=True)
+    fact_view.add_argument("--scope",required=True,choices=("ACTOR","READER"))
+    fact_view.add_argument("--subject",required=True)
+    fact_view.add_argument("--fact",required=True)
+    fact_view.add_argument("--story-tick",required=True,type=int)
+    fact_view.add_argument("--recorded-seq",type=int)
+    fact_graph=sub.add_parser("fact-graph",
+        help="retrieve bounded source-event relationships; causal meaning unverified")
+    fact_graph.add_argument("--journal",required=True)
+    fact_graph.add_argument("--event",required=True)
+    fact_graph.add_argument("--depth",type=int,default=2)
     offline=sub.add_parser("corpus-find",
         help="strictly local/offline indexed term match, NO network and NO source prose in output")
     offline.add_argument("--library",required=True)
@@ -357,17 +375,20 @@ def main(argv: list[str] | None = None):
              max_download_mib=args.max_download_mib))
         return
     if args.cmd in ("fact-record","fact-state","fact-link",
-                    "fact-candidate","fact-candidate-status"):
+                    "fact-candidate","fact-candidate-status",
+                    "fact-claim","fact-view","fact-graph"):
         from .fact_journal import FactJournal
         journal=FactJournal(args.journal)
         try:
-            if args.cmd in ("fact-record","fact-candidate"):
+            if args.cmd in ("fact-record","fact-candidate","fact-claim"):
                 file=Path(args.file)
                 if not file.is_file() or not 0<file.stat().st_size<=8192:
                     raise ValueError("FACT_METADATA_FILE_MISSING_OR_TOO_LARGE")
                 record=json.loads(file.read_text(encoding="utf-8"))
                 if args.cmd=="fact-record":
                     result=journal.append(record)
+                elif args.cmd=="fact-claim":
+                    result=journal.append_temporal_claim(record)
                 else:
                     result=journal.add_candidate(
                         candidate_id=args.candidate_id,version=args.version,
@@ -378,6 +399,13 @@ def main(argv: list[str] | None = None):
             elif args.cmd=="fact-link":
                 result=journal.link(args.source_event,args.target_event,
                                     args.relation)
+            elif args.cmd=="fact-view":
+                result=journal.temporal_view(
+                    scene=args.scene,scope=args.scope,subject=args.subject,
+                    fact=args.fact,story_tick=args.story_tick,
+                    as_of_recorded_seq=args.recorded_seq)
+            elif args.cmd=="fact-graph":
+                result=journal.graph_neighbors(args.event,depth=args.depth)
             else:
                 result=journal.latest_candidate(args.candidate_id)
             _emit(result)

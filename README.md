@@ -197,3 +197,15 @@ Private archive flow (only for authorized owners): use `writerforge r2-plan --li
 V54 adds a separately stored deterministic `FactJournal` and `corpus-observe` bridge: actual offline-index term occurrences become source-index observations, each with a fixed logical time and unit hash. Typed narrative fact assertions (`fact-record`, `fact-state`, `fact-link`) detect exact fact-ID contradictions, preserve earlier knowledge, and record potential causation as UNVERIFIED. `fact-candidate` versions include real evidence and counterexamples; old records and retired candidates cannot be silently replaced or promoted. No source prose is fed to creative generation and no model is needed for indexing, deduping, event consistency or revision lineage.
 
 **Important:** a SHA proves a record hasn't changed relative to its logged hash, not that a human reviewer or literary interpretation is truthful. Semantic causality, sophisticated character reasoning, literary quality and V49 self-improvement remain NOT PROVEN. Full explanation: docs/V54_OPT_IN_RESOURCES_FACT_LEDGER_20261018.md.
+
+## V55 — Two-clock fact replay (engineering only; NOT literary understanding)
+
+The existing V54 fact journal distinguishes typed original/source-index observations from verified character or reader knowledge. **Text order is NOT story time.** When there is an explicit structured evidence event, use the new no-model commands in the SAME project journal:
+
+    writerforge fact-claim --journal story-facts.sqlite3 --file claim.json
+    writerforge fact-view --journal story-facts.sqlite3 --scene storyscene --scope ACTOR --subject witness --fact door --story-tick 5 --recorded-seq 1
+    writerforge fact-graph --journal story-facts.sqlite3 --event event-01 --depth 2
+
+An explicit claim JSON needs stable claim/event/scene/fact IDs, ACTOR or READER scope, story_from/story_until time bounds, KNOWN/UNKNOWN/DISPUTED/FALSE state, evidence_event_id, and optional supersedes_id. Claims are append-only. recorded_seq is WF database write order, while story_from/story_until describes the asserted story-time validity. Old assertions remain accessible with --recorded-seq; disagreements never vanish without a trace. An ACTOR cannot be marked KNOWN before the specified evidence event. A lexical-only corpus index event is NOT sufficient evidence of knowledge or narrative motive.
+
+The bounded graph returns source-event relationships only. POTENTIAL_CAUSE is always UNVERIFIED, and no knowledge/technique candidate is permitted to automatically drive writing or to overwrite an earlier failure. No new R2 download, model, vector service, Graphiti or Neo4j dependency is needed. This is not natural-language semantic extraction; see docs/V55_GITHUB_COMPARISON_BITEMPORAL_PLAN_20261018.md.
