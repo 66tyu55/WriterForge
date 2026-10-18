@@ -197,6 +197,24 @@ class V65ApplicabilityTests(unittest.TestCase):
         self.assertIn("UNCERTAIN",prompt)
         self.assertNotIn("例文：",prompt)
 
+    def test_teacher_demo_profiles_show_four_different_applicability_outcomes(self):
+        expected={
+            "pursuit_pier.json":["ENVIRONMENT_CHANGES_ACTION",
+                                "SENTENCE_PACE_FOLLOWS_PRESSURE"],
+            "quiet_aftermath.json":["AFTERMATH_IN_SMALL_ACTION"],
+            "revelation_without_seed.json":[],
+            "negotiation_two_goals.json":["DIALOGUE_IS_ATTEMPT"],
+        }
+        for name,wanted in expected.items():
+            with self.subTest(name=name):
+                path=Path("examples/scene_craft")/name
+                self.assertTrue(path.is_file())
+                scene=json.loads(path.read_text(encoding="utf-8"))
+                self.assertEqual(scene["diagnosis_origin"],"TEACHER_DEMO")
+                actual=self.teacher.plan(scene)
+                self.assertEqual(actual["selected_ids"],wanted)
+
+
 
 class V65ComparisonTests(unittest.TestCase):
     def test_pair_without_grades_never_claims_writing_improvement(self):
@@ -222,6 +240,67 @@ class V65ComparisonTests(unittest.TestCase):
                 selected_lesson_ids=["ENVIRONMENT_CHANGES_ACTION"],
                 baseline_draft="一段拖延的文字。"*150,
                 taught_draft="一段简短的文字。"*20)
+
+    def test_scoped_negative_blind_review_never_promotes_any_lesson(self):
+        baseline="人物去追赶船只，" + "他反复用行动确认了手中的纸张。"*32
+        taught="人物踏过雨中栈桥，" + "他在湿滑路面上缓慢检查契据。"*32
+        base=compare_scene_drafts(
+            scene_id="bridge01",
+            scene_profile_sha256="a"*64,
+            teaching_pack_sha256="b"*64,
+            selected_lesson_ids=["ENVIRONMENT_CHANGES_ACTION"],
+            baseline_draft=baseline,taught_draft=taught)
+        tag=[name for name,hash_ in
+             base["review_blinding_labels_by_sha256"].items()
+             if hash_==base["draft_sha256"]["taught"]][0]
+        ratings={
+            "A":{name:80 for name in (
+                "causality","character_agency","information",
+                "emotional_effect","prose_rhythm")},
+            "B":{name:80 for name in (
+                "causality","character_agency","information",
+                "emotional_effect","prose_rhythm")},
+        }
+        ratings[tag]["information"]=50
+        ratings[tag]["causality"]=90
+        report=compare_scene_drafts(
+            scene_id="bridge01",scene_profile_sha256="a"*64,
+            teaching_pack_sha256="b"*64,
+            selected_lesson_ids=["ENVIRONMENT_CHANGES_ACTION"],
+            baseline_draft=baseline,taught_draft=taught,ratings=ratings)
+        self.assertEqual(report["comparison_status"],
+                         "TASK_SCOPED_REGRESSION")
+        self.assertLess(report["per_dimension_taught_minus_baseline"]
+                        ["information"],0)
+        self.assertFalse(report["literary_improvement_proven"])
+
+    def test_cli_comparison_emits_sha_only_no_prose_or_fake_score(self):
+        from writerforge.cli import main
+        with TemporaryDirectory() as tmp:
+            old=Path(tmp)/"without.txt"
+            new=Path(tmp)/"with.txt"
+            old.write_text("少年守在桥头，" +
+                           "他想追上渡船但没能前进。"*30,
+                           encoding="utf-8")
+            new.write_text("少年踏上湿桥，" +
+                           "木板滑动迫他先护住契据。"*30,
+                           encoding="utf-8")
+            result=StringIO()
+            with redirect_stdout(result):
+                main(["scene-craft-compare",
+                      "--scene","bridge01",
+                      "--profile-sha256","a"*64,
+                      "--pack-sha256","b"*64,
+                      "--lessons","ENVIRONMENT_CHANGES_ACTION",
+                      "--baseline-file",str(old),
+                      "--taught-file",str(new)])
+            output=json.loads(result.getvalue())
+            self.assertEqual(output["comparison_status"],
+                             "TEXT_PAIR_READY_FOR_BLIND_REVIEW")
+            self.assertFalse(output["literary_improvement_proven"])
+            self.assertTrue(output["original_drafts_not_retained"])
+            self.assertNotIn("湿桥",result.getvalue())
+
 
 
 class V65FormalWritingIntegrationTests(unittest.TestCase):
