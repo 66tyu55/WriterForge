@@ -195,6 +195,16 @@ def audit():
             "V62 adverse feedback and signed tombstone remain preserved",
             "V49 literary capability failure remains not overturned"
         ],
+        # These GREEN tests deliberately demonstrate OPEN trusted-entry
+        # boundaries, not remediated issues or literary ability.
+        "open_boundary_observation_tests":[
+            {"finding":"WF63-RISK-ROOT-BOOTSTRAP",
+             "case":"test_unreviewed_new_level_ten_can_still_be_bootstrapped",
+             "interpretation":"Risk reproduced; not a passing security fix"},
+            {"finding":"WF63-RISK-RAW-STORY-COMMIT",
+             "case":"test_trusted_low_level_storycommit_is_not_an_authentication_boundary",
+             "interpretation":"Risk reproduced; user-authorized host API is not untrusted plugin sandbox"}
+        ],
         "unresolved_findings":unresolved,
         "open_findings_count":len(unresolved),
         "report_status":OUTPUT_TRUST,
