@@ -42,6 +42,7 @@ def main():
         "no_literary_training":True, "llm_calls":0, "r2_calls":0,
         "old_v56_report_modified":False,
         "fact_journal_sha256":digest("writerforge/fact_journal.py"),
+        "cli_sha256":digest("writerforge/cli.py"),
         "new_test_sha256":digest("tests/test_v57_relation_foundation.py"),
         "total":result.testsRun,
         "passed":len([x for x in result.case_results if x["status"]=="PASS"]),
@@ -53,6 +54,7 @@ def main():
     print(json.dumps({
         "receipt_sha256":sha256(raw.encode()).hexdigest(),
         "code_sha256":report["fact_journal_sha256"],
+        "cli_sha256":report["cli_sha256"],
         "new_test_sha256":report["new_test_sha256"],
         "passed":report["passed"],"total":report["total"]
     },ensure_ascii=False))
