@@ -157,6 +157,12 @@ class WFOfflineFoundationTests(unittest.TestCase):
         self.assertGreater(data["match_count"],0)
         self.assertEqual(data["comparison_candidate"]["status"],
                          "STRUCTURAL_OBSERVATION_ONLY")
+        with redirect_stdout(StringIO()) as proof_out:
+            main(["corpus-verify","--library",LIBRARY,"--snapshot",self.snapshot,
+                  "--cache-dir",str(self.cache)])
+        verified=json.loads(proof_out.getvalue())
+        self.assertTrue(verified["all_r2_blob_sha256_and_sqlite_valid"])
+        self.assertEqual(verified["r2_network_calls"],0)
         with redirect_stdout(StringIO()) as o:
             main(["r2-query","--library",LIBRARY,"--snapshot",self.snapshot,
                   "--term","猴王","--cache-dir",str(self.cache)])
