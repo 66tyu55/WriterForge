@@ -1,0 +1,38 @@
+{
+  "schema": "writerforge.scene-profile.v1",
+  "diagnosis_origin": "TEACHER_DEMO",
+  "viewpoint": "limited",
+  "scene_id": "demo_negotiation",
+  "mode": "negotiation",
+  "reader_effect": "tension",
+  "tempo": "measured",
+  "scene_goal": "少年要拿回账册，掌柜想保护代管人的身份而不肯轻易交出。",
+  "active_obstacle": "双方都不愿把底牌和所需让步说破，谈判可能使关系恶化。",
+  "planned_change": "少年用账册破损处的知识试探掌柜，让对方不得不做出回应。",
+  "facts": {
+    "opposing_goals": {
+      "state": "PRESENT",
+      "observation": "少年要求账册立即归还，掌柜则试图拖延以保护另一个人。"
+    },
+    "exchange_changes_options": {
+      "state": "PRESENT",
+      "observation": "少年提及第三页的缺角后，掌柜是否交还账册的选择发生变化。"
+    },
+    "lecture_only": {
+      "state": "ABSENT",
+      "observation": "这是一场争取物件的交涉，不是单纯给读者介绍历史资料。"
+    },
+    "concealed_intent": {
+      "state": "PRESENT",
+      "observation": "掌柜故意不提谁曾经翻看第三页账册。"
+    },
+    "visible_choice": {
+      "state": "PRESENT",
+      "observation": "掌柜要决定是否把钥匙交到少年手里。"
+    },
+    "clarity_needed_now": {
+      "state": "ABSENT",
+      "observation": "关键事实可透过试探继续显现，不需要此刻讲完整背景。"
+    }
+  }
+}
