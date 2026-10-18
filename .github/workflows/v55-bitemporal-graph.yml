@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/v55-bitemporal-graph.yml'
       - 'writerforge/fact_journal.py'
+      - 'writerforge/structural_observer.py'
       - 'writerforge/cli.py'
       - 'tests/test_v55_bitemporal_graph.py'
   workflow_dispatch:
