@@ -254,6 +254,17 @@ def main(argv: list[str] | None = None):
         help="emit a schema-bound prompt for WF's own planner, without calling any model")
     craft_diag.add_argument("--scene",required=True)
     craft_diag.add_argument("--goal",required=True)
+    craft_compare=sub.add_parser("scene-craft-compare",
+        help="record metadata-only same-scene original A/B comparisons")
+    craft_compare.add_argument("--scene",required=True)
+    craft_compare.add_argument("--profile-sha256",required=True)
+    craft_compare.add_argument("--pack-sha256",required=True)
+    craft_compare.add_argument("--lessons",required=True,
+        help="comma-separated scene-craft lesson IDs actually selected")
+    craft_compare.add_argument("--baseline-file",required=True)
+    craft_compare.add_argument("--taught-file",required=True)
+    craft_compare.add_argument("--ratings-file",
+        help="optional blinded A/B 5-dimensional numeric assessment JSON")
     status=sub.add_parser("status")
     status.add_argument("--work-id",default=WORK_ID)
     context=sub.add_parser("draft-context")
@@ -457,16 +468,35 @@ def main(argv: list[str] | None = None):
     reverse_restore.add_argument("--project",required=True)
     reverse_restore.add_argument("--snapshot",required=True)
     args=p.parse_args(argv)
-    if args.cmd in ("scene-craft-plan","scene-craft-diagnosis"):
-        from .scene_craft_teaching import SceneCraftTeacher,diagnosis_prompt
+    if args.cmd in ("scene-craft-plan","scene-craft-diagnosis",
+                    "scene-craft-compare"):
+        from .scene_craft_teaching import (
+            SceneCraftTeacher,diagnosis_prompt,compare_scene_drafts)
         if args.cmd=="scene-craft-plan":
             profile=_small_experience_json(args.profile_file,limit=8192)
             _emit(SceneCraftTeacher().plan(profile,enabled=not args.disabled))
-        else:
+        elif args.cmd=="scene-craft-diagnosis":
             _emit({"format":"writerforge.scene-diagnosis-instructions.v1",
                    "prompt":diagnosis_prompt(args.goal,scene_id=args.scene),
                    "model_calls":0,
                    "wf_writing_quality_verified":False})
+        else:
+            def local_draft(path):
+                p=Path(path)
+                if not p.is_file() or not 250<=p.stat().st_size<=16000:
+                    raise ValueError("SCENE_COMPARE_DRAFT_FILE_SIZE_INVALID")
+                return p.read_text(encoding="utf-8")
+            ratings=(_small_experience_json(args.ratings_file,limit=8192)
+                     if args.ratings_file else None)
+            selected=[x.strip() for x in args.lessons.split(",") if x.strip()]
+            _emit(compare_scene_drafts(
+                scene_id=args.scene,
+                scene_profile_sha256=args.profile_sha256,
+                teaching_pack_sha256=args.pack_sha256,
+                selected_lesson_ids=selected,
+                baseline_draft=local_draft(args.baseline_file),
+                taught_draft=local_draft(args.taught_file),
+                ratings=ratings))
         return
     if args.cmd in ("scratch-context","draft-scratch"):
         from .scratch import prepare_scratch
