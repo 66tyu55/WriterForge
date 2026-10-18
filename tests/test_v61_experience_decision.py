@@ -284,6 +284,93 @@ class V61ExperienceDecisionTests(unittest.TestCase):
             "WHERE project_id='project01' AND commit_id='commit01'"
         ).fetchone())
 
+    def test_cli_full_chain_stage_approve_decide_preview_and_postwrite(self):
+        from io import StringIO
+        from contextlib import redirect_stdout
+        from unittest.mock import patch as mocked
+        from writerforge.cli import main
+        def call(*args):
+            output=StringIO()
+            with redirect_stdout(output):
+                main(["--db",str(self.path),*args])
+            return json.loads(output.getvalue())
+        folder=Path(self.temp.name)
+        stage_file=folder/"candidate.json"
+        stage_file.write_text(json.dumps({
+            "source_ref":self.locator,
+            "required_tags":["limited_knowledge"],
+            "forbidden_tags":["omniscient"],
+            "operation_code":"CHECK_KNOWLEDGE"}),encoding="utf-8")
+        initial=call("experience-stage","--project","project01",
+                     "--experience-id","lesson-01",
+                     "--snapshot",str(self.snapshot),
+                     "--file",str(stage_file))
+        self.assertFalse(initial["eligible_for_writing"])
+        payload=self.bridge.approval_payload(
+            project_id="project01",experience_id="lesson-01",
+            reviewer_id="external01",review_id="review-01")
+        signature=hmac.new(KEY,canon(payload).encode("utf-8"),
+                           "sha256").hexdigest()
+        approval_file=folder/"approval.json"
+        approval_file.write_text(json.dumps({
+            "reviewer_id":"external01","review_id":"review-01",
+            "signature":signature}),encoding="utf-8")
+        signals=folder/"signals.json"
+        signals.write_text(json.dumps({
+            "limited_knowledge":True,"omniscient":False}),encoding="utf-8")
+        self.db.conn.execute(
+            "INSERT INTO xuehai_entries("
+            "snapshot_id,work_id,chapter,paragraph,sentence,text,"
+            "library_class,culture,genre,source_role,function,effect,"
+            "method_cluster,quality_weight,novelty_weight,reuse_policy,"
+            "source_hash) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (self.snapshot,"synthetic_work",1,1,1,"synthetic reference",
+             "中国古代小说","中国","古代白话","core","narration",
+             "unverified","synthetic",1.0,1.0,"technique_only",
+             hash_text("synthetic reference")))
+        self.db.conn.commit()
+        with mocked.dict("os.environ",{
+                "WRITERFORGE_EXPERIENCE_REVIEW_VERIFY_KEY_HEX":KEY.hex()}):
+            signed=call("experience-approve","--project","project01",
+                        "--experience-id","lesson-01",
+                        "--file",str(approval_file))
+            self.assertIn("approval_sha256",signed)
+            plan=call("experience-decide","--project","project01",
+                      "--scene","scene01","--goal","synthetic investigation",
+                      "--attempt-id","attempt01",
+                      "--snapshot",str(self.snapshot),
+                      "--signals-file",str(signals))
+            self.assertEqual(plan["decisions"][0]["decision"],"SELECT")
+            read=call("experience-read","--project","project01",
+                      "--attempt-id","attempt01")
+            self.assertEqual(plan["decision_sha256"],read["decision_sha256"])
+            preview_file=folder/"preview.json"
+            call("draft-context","--project","project01",
+                 "--scene","scene01","--goal","synthetic investigation",
+                 "--experience-attempt-id","attempt01",
+                 "--experience-signals-file",str(signals),
+                 "--output",str(preview_file))
+            preview=json.loads(preview_file.read_text(encoding="utf-8"))
+            self.assertIn("已掌握",preview["prompt"])
+            self.assertNotIn(self.source,preview["prompt"])
+            self.assertEqual(preview["experience_decision"]["decision_sha256"],
+                             plan["decision_sha256"])
+            draft=folder/"synthetic_draft.txt"
+            evidence=folder/"anchor.txt"
+            draft.write_text(
+                "少年犹豫片刻，已知的线索只有渡口那声钟响，决定先去探查。",
+                encoding="utf-8")
+            evidence.write_text("已知的线索只有渡口那声钟响",
+                                encoding="utf-8")
+            out=call("experience-postwrite","--project","project01",
+                     "--attempt-id","attempt01",
+                     "--experience-id","lesson-01",
+                     "--draft-file",str(draft),
+                     "--quote-file",str(evidence),
+                     "--outcome","CLAIMED_APPLIED")
+            self.assertFalse(out["literary_effect_verified"])
+            self.assertTrue(out["source_text_not_stored"])
+
     def test_actual_verified_writing_prepare_includes_frozen_policy(self):
         # Test production prep path without HTTP, novel text or R2.
         self.stage()
