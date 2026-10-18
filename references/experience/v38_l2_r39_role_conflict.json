@@ -1,0 +1,7 @@
+{
+  "legacy_id": "v38_l2_role_conflict",
+  "source_family": "V38_L2_CONFLICT",
+  "source_receipt_sha256": "a9d5d521b2e0adbeb416f9325b0adabaad408abb728bd978099effe328488a62",
+  "independent_review_sha256": "e2ed24abc352daef678165de8bee5f7c283f5709cf3a23c9fe99b9a876aeb0db",
+  "issue_code": "SEMANTIC_ROLE_DISPUTED"
+}

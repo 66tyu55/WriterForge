@@ -626,6 +626,32 @@ CREATE TABLE IF NOT EXISTS experience_postwrites (
 );
 CREATE INDEX IF NOT EXISTS idx_experience_approval_project
 ON experience_approvals(project_id,experience_id);
+
+-- V62: signed, irreversible quarantine of previously approved experiment.
+-- Historical decisions and postwrites remain audit-readable, never erased.
+CREATE TABLE IF NOT EXISTS experience_revocations (
+    project_id TEXT NOT NULL,
+    experience_id TEXT NOT NULL,
+    reviewer_id TEXT NOT NULL,
+    review_id TEXT NOT NULL UNIQUE,
+    reason_code TEXT NOT NULL,
+    revoke_sha TEXT NOT NULL,
+    signature TEXT NOT NULL,
+    PRIMARY KEY(project_id,experience_id),
+    FOREIGN KEY(project_id,experience_id)
+       REFERENCES experience_approvals(project_id,experience_id)
+);
+-- V31/V38 private R2 pointers are unverified SHA references only, deliberately
+-- separate from experience_candidates and experience_approvals.
+CREATE TABLE IF NOT EXISTS experience_legacy_refs (
+    project_id TEXT NOT NULL,
+    legacy_id TEXT NOT NULL,
+    ref_sha TEXT NOT NULL,
+    ref_json TEXT NOT NULL,
+    PRIMARY KEY(project_id,legacy_id)
+);
+CREATE INDEX IF NOT EXISTS idx_experience_postwrite_case
+ON experience_postwrites(project_id,experience_id);
 """
 
 class WriterForgeDB:

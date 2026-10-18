@@ -2,7 +2,7 @@
 
 > **本文件是新对话的唯一首读交接入口。** 每次继续项目前，先检查本文件并复核有关 GitHub Actions 运行结果；不要重建已完成的原文归档，不要将用户的聊天结论冒充 R2 中的真实数据。本文报告的是截至 **2026-10-16 06:08 UTC** 核实的状态，而不是当前实时桶扫描结果。
 
-> **最新更新（2026-10-18）：V61经验决策底层修复先阅读第47节；V60架构审计第46节、V59第45节、V58第44节、V57第43节、V56原始审计第42节。旧模型、R2、GitHub Actions证据不可覆盖。** V61只有合成结构验证，未完成文学独立能力晋级。
+> **最新更新（2026-10-18）：V62失败经验影响未来写作的修复见第48节；V61见第47节、V60第46节、V59第45节、V58第44节、V57第43节、V56第42节。旧R2、文学原稿和原始失败回执不可覆盖。** V62未进行文学训练、正式技能晋级。
 
 ## 1. 已完成：六本现代小说的私有 R2 原文归档
 
@@ -747,3 +747,16 @@
 5. 最终真实 [Actions #39109713890](https://github.com/66tyu55/WriterForge/actions/runs/39109713890) `completed/success`：**V61新增14/14，全仓库656/656**；完整回执JSON SHA `136c2fd9370e73daa86dd76cf3403ae6dcb0ee55d46e09fa298aa815647df6aa`；artifact ID `12129783367`、ZIP SHA `c3c469851f2ee7aa7cf353168b0fba4a1c61f0cb03b50a0d090d5e99a2c35de3`。实际用临时SQLite/合成文本核验了候选定位、签名、跳过、未知、重启、CLI、manifest篡改、写后引文、晋级拒绝等，不是模型写作/文学品质测试。
 6. **还没完成的真正大问题**：V31实验规则及V38真实L2冲突尚未由可信语义审核变成V61批准经验；当前scene_signals由调用方给定，规则是预设通用动作，不能当作WF理解文学因果；评论者真实性/权限不可由HMAC本身证明；审查`SkillRegistry`所有直接调用及Studio默认路径、审核/撤销、旧库迁移/存储预算仍是下一步。V49 `THIRD_STRIKE_FAILED`、第一文学窗口NOT_PASSED、第二LOCKED，全部保持。
 7. 下一窗口先看第47节→V61文档→红色#39108670931及最终绿色#39109713890；选择唯一一条既有冻结L2/人物有限知识**负面经验**先作为HYPOTHESIS_ONLY对照来源，不得自动批准或让主模型代写；先做独立来源和审批权限审计，然后再考虑真正新题文学盲评。**不重复付费训练，不以代码测试绿色冒充作家文学晋级。**
+
+
+## 48. 【2026-10-18 V62】WF终于让未完成的经验影响下一轮：SKIP/UNCERTAIN、受信撤销、重新审批、V31/V38旧证据SHA隔离
+
+**仅`v62-experience-negative-transfer`开发分支，不合并main。完整证据、机制与限制：[V62失败经验转移及V31/V38哈希引用](V62_NEGATIVE_EXPERIENCE_AND_LEGACY_REFERENCES_20261018.md)。** V49 `THIRD_STRIKE_FAILED`、V56–V61红绿原始机器报告、私有R2原著及旧稿全部不改。
+
+1. **先冻结夹具错误与真实红色两种不同证据**：初次 [#39111000402](https://github.com/66tyu55/WriterForge/actions/runs/39111000402)新测试0/11，但只是新增测试公共helper传了V61没有的修订参数，不能算11处真实漏洞，原始JSON SHA `6fea83b1e0e349d605a22f87abcb526b7c651206e236d8a7713f883676f69ccd`。修正测试helper后真正 [#39111052510](https://github.com/66tyu55/WriterForge/actions/runs/39111052510)为11项中2通过、**5个真实行为断言失败**、4个尚无接口报错；V61确实会在报告NOT_APPLIED/UNCERTAIN后仍SELECT旧技能、也不会检查旧回执已失效。真实红色JSON SHA `a8f321e57572734d3fcae80089d1d4685311a99e53c40ad31ee9ba5b3bce222f`，artifact `12129919904`，绝不覆盖。
+2. `experience_decision.py`现从V61写后SQLite回执建立有界、SHA核对的负反馈视图：`NOT_APPLIED`→下轮`SKIP/PRIOR_NOT_APPLIED`、`UNCERTAIN`→下轮`UNCERTAIN/PRIOR_APPLICATION_UNCERTAIN`。旧写前记录仍可历史只读，但不再可用来生成新稿；`CLAIMED_APPLIED`仅为使用自述，不得冒充成功或晋级。新修订必须新experience ID、改变适用条件或操作并重新独立签名审批，旧失败不得清理。
+3. 受信签名`revoke_candidate`永久撤销一条批准经验，后续`SKIP/EXPERIENCE_REVOKED`；所有旧批准和旧失败原文证据保留。新增`experience_legacy_refs`单独存V31/V38已知公开SHA为`UNVERIFIED_REMOTE_POINTER`，**不联网读私人R2，也不允许直接进入WRITE**。两条公开元数据`references/experience/v38_l2_r39_role_conflict.json`、`references/experience/v31_self_review_stage1.json`由CLI在合成库中实际导入读回，不能据此声称旧R2正文完成了新一轮验证。
+4. `db.py`只新增revocation与legacy_refs两表和有界反馈索引；`cli.py`新增`experience-revoke`、`experience-legacy-import`、`experience-legacy-read`，并允许`experience-stage`显式修订引用。`source_prose`与R2全文不复制。GitHub源码借鉴OpenFeature `Reason=DISABLED/STALE/ERROR`的「状态 + 原因码」而不复制框架。
+5. 最新真实绿灯：[Actions #39111498188](https://github.com/66tyu55/WriterForge/actions/runs/39111498188) V62新增14/14、全仓库**670/670**，全部临时SQLite、无模型文学调用。最终JSON SHA `667bad7454472c151fd3403c262d433dd65736505349762bc210bc1db69455ca`，artifact ID `12130229092`，ZIP SHA `c2cdbc6efb4f50b8170d0273ad4d86e6a5174659792e4d2feece36072afe4d71`；源码/测试SHA见V62完整文档。
+6. **不许吹成文学理解**：该负反馈是WF写后`NOT_APPLIED`自述触发保守停用，还没独立语义真值审核；旧V38 R39“自认铺垫vs独立Pro认为回收”仍有争议，模型意见不等于真人文学真值。`SkillRegistry.promote`低层写入口、SQLite双连接并发撤销竞争、读者评论身份认证和私有R2哈希真实性仍需核查；别用临时SQLite测试绿色宣告书写能力晋级。
+7. **下次开工先审`SkillRegistry.promote`直接调用与真正权限边界，之后对两个写连接同时决定/撤销做失败先行试验；V31/V38如需升级任何经验，先有只读R2原件SHA和外部可信审核，不能从本报告里抄标题直接通过。** 继续保留原先未通过的文学课程阶段，绝不重复旧题刷分。
