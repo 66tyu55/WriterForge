@@ -24,17 +24,14 @@ class RemainingTrustBoundaries(unittest.TestCase):
     def test_unreviewed_new_level_ten_can_still_be_bootstrapped(self):
         """Registration is a trusted initial declaration, NOT earned grade."""
         reg=SkillRegistry()
-        reg.register(CapabilityContract(
-            "synthetic_level_ten",10,
-            "not validated against any real literary evidence",
-            status=SkillStatus.ACTIVE))
-        self.assertEqual(reg.get("synthetic_level_ten").level,10)
-        self.assertEqual(reg.get("synthetic_level_ten").status,
-                         SkillStatus.ACTIVE)
-        # Note: SkillRegistry.promote() is separately correctly denied.
-        with self.assertRaises(PermissionError):
-            reg.promote("synthetic_level_ten",new_level=11,
-                        statement="self judged",evidence_id="nothing")
+        # V64 converts the V63 deliberately-green OPEN-risk observation
+        # into a regression: high-grade INITIAL creation now needs proof.
+        with self.assertRaisesRegex(PermissionError,"BOOTSTRAP"):
+            reg.register(CapabilityContract(
+                "synthetic_level_ten",10,
+                "not validated against any real literary evidence",
+                status=SkillStatus.ACTIVE))
+        self.assertEqual(reg.all(),[])
 
     def test_trusted_low_level_storycommit_is_not_an_authentication_boundary(self):
         with TemporaryDirectory() as t:
@@ -87,13 +84,21 @@ class RemainingTrustBoundaries(unittest.TestCase):
                 # permit by default. User-authored drafts legitimately use
                 # this route, but an untrusted plugin must never be handed it.
                 flow=WritingFlow(db,mode,"syntheticproj")
+                # V64: the same low-level assistant claim must fail.
+                # Truly human-hosted editing remains an allowed separate path.
+                with self.assertRaisesRegex(
+                        (PermissionError,RuntimeError),"PROVENANCE"):
+                    flow.accept_draft(
+                        "commit99","scene99",
+                        "synthetic original human/host provided text",
+                        origin="assistant_generated")
                 saved=flow.accept_draft(
-                    "commit99","scene99",
+                    "human99","scene99",
                     "synthetic original human/host provided text",
-                    origin="assistant_generated")
+                    origin="author_written")
                 self.assertTrue(saved.committed)
                 self.assertEqual(db.conn.execute(
-                    "SELECT COUNT(*) FROM experience_decisions"
+                    "SELECT COUNT(*) FROM story_ai_provenance"
                     ).fetchone()[0],0)
                 self.assertEqual(db.conn.execute(
                     "SELECT COUNT(*) FROM story_commit_receipts"
