@@ -69,13 +69,14 @@ class V62ExperienceFailureTests(unittest.TestCase):
 
     def stage(self, experience_id="lesson01", *, operation_code="CHECK_KNOWLEDGE",
               supersedes_experience_id=None):
-        return self.bridge.stage_candidate(
-            project_id="project01",experience_id=experience_id,
-            snapshot_id=self.snapshot,source_ref=self.locator,
-            required_tags=("limited_knowledge",),
-            forbidden_tags=("omniscient",),
-            operation_code=operation_code,
-            supersedes_experience_id=supersedes_experience_id)
+        args={"project_id":"project01","experience_id":experience_id,
+              "snapshot_id":self.snapshot,"source_ref":self.locator,
+              "required_tags":("limited_knowledge",),
+              "forbidden_tags":("omniscient",),
+              "operation_code":operation_code}
+        if supersedes_experience_id is not None:
+            args["supersedes_experience_id"]=supersedes_experience_id
+        return self.bridge.stage_candidate(**args)
 
     def approve(self, experience_id="lesson01", review_id="review01"):
         payload=self.bridge.approval_payload(
