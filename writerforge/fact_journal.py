@@ -244,10 +244,10 @@ class FactJournal:
             previous=json.loads(latest["body_json"])
             need(previous["status"]!="RETIRED",
                  "FACT_CANDIDATE_RETIRED_IS_TERMINAL")
-            need(h != latest["body_sha"],
-                 "FACT_CANDIDATE_EMPTY_REVISION_IS_NOT_PROGRESS")
             need(version==latest["version"]+1 and prior_sha==latest["body_sha"],
                  "FACT_CANDIDATE_REVISION_CHAIN_INVALID")
+            need(h != latest["body_sha"],
+                 "FACT_CANDIDATE_EMPTY_REVISION_IS_NOT_PROGRESS")
         else:
             need(version==1 and prior_sha is None,
                  "FACT_CANDIDATE_MISSING_GENESIS")
