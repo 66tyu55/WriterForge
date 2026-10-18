@@ -224,6 +224,10 @@ class FactLedgerTests(unittest.TestCase):
             candidate_id="pattern-case",version=2,
             prior_sha=first["candidate_sha256"],record=retired)
         self.assertEqual(self.db.latest_candidate("pattern-case")["status"],"RETIRED")
+        with self.assertRaisesRegex(FactLedgerError,"RETIRED_IS_TERMINAL"):
+            self.db.add_candidate(candidate_id="pattern-case",version=3,
+                                  prior_sha=out["candidate_sha256"],
+                                  record={**item,"status":"PROPOSED"})
         self.assertFalse(out["eligible_to_change_writing"])
         with self.assertRaisesRegex(FactLedgerError,"REVISION_IMMUTABLE"):
             self.db.add_candidate(candidate_id="pattern-case",version=2,
