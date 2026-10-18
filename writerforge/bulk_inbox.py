@@ -17,6 +17,8 @@ import tempfile
 import unicodedata
 
 INBOX = "writerforge/v1/inbox/"
+PRIVATE_READING = "writerforge/v1/private-reading/"
+PRIVATE_FOLDERS = frozenset(("single-works", "仙侠", "历史", "科幻"))
 MAX_RAW_BYTES = 256 * 1024 * 1024
 CHUNK = 1024 * 1024
 ALLOWED_TEXT = frozenset((".txt", ".md"))
@@ -45,23 +47,47 @@ def category_from_folder(folder):
     return CAT.get(normalized,"待分类")
 
 def parse_key(key):
-    require(isinstance(key,str) and key.startswith(INBOX) and
-            len(key.encode("utf8"))<=1024,"BULK_KEY_OUTSIDE_INBOX")
-    parts=key[len(INBOX):].split("/")
-    require(len(parts)>=3 and all(
-        x and x not in (".","..") and "\\" not in x and
-        not any(ord(c)<32 for c in x) for x in parts),
-        "BULK_KEY_UNSAFE_SEGMENTS")
-    batch,folder=parts[:2]
-    require(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}",batch) is not None,
-            "BULK_BATCH_UNSAFE")
+    """Both historic V68 inbox and actual R2 private-reading source prefixes.
+
+    single-works is a storage folder, NOT a literary genre. Any nested
+    chapter-file sets remain uncounted as independent novels until grouped.
+    """
+    require(isinstance(key,str) and len(key.encode("utf8"))<=1536,
+            "BULK_KEY_INVALID")
+    if key.startswith(PRIVATE_READING):
+        parts=key[len(PRIVATE_READING):].split("/")
+        require(len(parts)>=2 and parts[0] in PRIVATE_FOLDERS,
+                "BULK_PRIVATE_FOLDER_OUT_OF_SCOPE")
+        batch="private-reading"
+        folder=parts[0]
+        nested_genre=(category_from_folder(parts[1]) if
+                      folder=="single-works" and len(parts)==3 else "待分类")
+        category=(nested_genre if folder=="single-works" else folder)
+        nested_source=(len(parts)>2 and not (
+            folder=="single-works" and len(parts)==3 and
+            nested_genre!="待分类"))
+    elif key.startswith(INBOX):
+        parts=key[len(INBOX):].split("/")
+        require(len(parts)>=3, "BULK_INBOX_PATH_TOO_SHORT")
+        batch,folder=parts[:2]
+        require(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}",batch),
+                "BULK_BATCH_UNSAFE")
+        category=category_from_folder(folder)
+        nested_source=len(parts)>3
+    else:
+        raise BulkCorpusError("BULK_KEY_OUTSIDE_APPROVED_PREFIXES")
+    require(all(p and p not in (".","..") and "\\\\" not in p and
+                not any(ord(ch)<32 for ch in p) for p in parts),
+            "BULK_KEY_UNSAFE_SEGMENTS")
     filename=parts[-1]
     ext=Path(filename).suffix.casefold()
     status=("RAW_ONLY_PENDING_SQL" if ext in ALLOWED_TEXT else
             "EPUB_PENDING_PARSER" if ext==".epub" else
             "ARCHIVE_NEEDS_LOCAL_EXTRACTION" if ext in ARCHIVE else
             "UNSUPPORTED_REVIEW")
-    return dict(batch=batch,folder=folder,category=category_from_folder(folder),
+    if nested_source and ext in ALLOWED_TEXT:
+        status="GROUPED_FILES_NEED_ASSEMBLY"
+    return dict(batch=batch,folder=folder,category=category,
                 filename=filename,raw_title=Path(filename).stem,
                 ext=ext,status=status)
 
