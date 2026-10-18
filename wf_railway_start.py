@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import sys
 import types
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -32,4 +33,8 @@ except Exception:
     print("WF_RAILWAY_BOOTSTRAP_IMPORT_FAILED", flush=True)
     raise SystemExit(1)
 
-raise SystemExit(main())
+result = main()
+print(f"WF_RAILWAY_RUNNER_EXIT_CODE={result}", flush=True)
+# Give Railway's log forwarder time to ingest the one-shot program result.
+time.sleep(12)
+raise SystemExit(result)
