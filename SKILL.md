@@ -163,3 +163,17 @@ Verbatim copying from the style example is blocked; no claim of literary quality
 without independently blind-read same-model baseline comparison.
 See [docs/PROSE_FIRST_STYLE_BASELINE.md](docs/PROSE_FIRST_STYLE_BASELINE.md).
 
+
+## Native private R2 source lookup — source evidence, not proven literary experience
+
+WriterForge can now query the author's existing, privately owned Cloudflare R2 structural Xuehai using the real `writerforge r2-query` CLI. This is a READ-ONLY source gateway, NOT extra model inference or new literary training.
+
+First query a specific library with 1–4 literal search terms:
+
+    writerforge r2-query --library laocanyouji-25124 --term 老殘 --limit 6
+
+The gateway verifies R2 snapshot/manifest/file SHA256, SQLite integrity, source span hashes and precise chapter/paragraph/sentence locations. Known catalogued public-domain novels additionally verify the exact published Git blob version, after accounting for UTF-8 BOM decoding. Pin the returned snapshot SHA when revisiting the same evidence.
+
+When a project already has a published local Xuehai, `writerforge draft-context` or `writerforge draft` may explicitly receive `--r2-library`, `--r2-snapshot` and `--r2-term` to add short independently source-verified citations to its preparation packet. This access never edits a remote library, never substitutes its SQLite for a project database, never auto-publishes new story memory, and refuses missing evidence. Model generation still uses whatever real local host the user configured.
+
+**Very important:** R2 authenticates bytes, provenance and original source, not the correctness of model-generated literary analysis. All retrieved Xuehai lexical tags remain UNVERIFIED structural observations; they cannot automatically become creative instructions, performance scores or promoted writer Skills. Previous V49 literary FAIL remains valid.
