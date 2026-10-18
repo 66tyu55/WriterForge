@@ -19,8 +19,11 @@
 
 ## CLI 操作
 
+**V54资源许可更新：**先执行 `writerforge r2-plan --library laocanyouji-25124` 查看预期大小，再由授权用户明确加 `--allow-download` 同步；没有许可默认拒绝，安装本身不需要下载任何原著。
+
+
 ```bash
-writerforge r2-sync --library laocanyouji-25124 --snapshot 7fe1ceff8d637139d51b0b6bf2de6a7de220aeaea670247868fa17cc55270dd2 --cache-dir corpus/r2-readonly-cache
+writerforge r2-sync --allow-download --max-download-mib 256 --library laocanyouji-25124 --snapshot 7fe1ceff8d637139d51b0b6bf2de6a7de220aeaea670247868fa17cc55270dd2 --cache-dir corpus/r2-readonly-cache
 writerforge corpus-find --library laocanyouji-25124 --snapshot 7fe1ceff8d637139d51b0b6bf2de6a7de220aeaea670247868fa17cc55270dd2 --term 老殘 --cache-dir corpus/r2-readonly-cache --record-candidate patterns.sqlite3
 writerforge corpus-verify --library laocanyouji-25124 --snapshot 7fe1ceff8d637139d51b0b6bf2de6a7de220aeaea670247868fa17cc55270dd2 --cache-dir corpus/r2-readonly-cache
 ```
