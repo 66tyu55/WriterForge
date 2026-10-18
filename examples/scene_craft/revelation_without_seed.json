@@ -1,0 +1,26 @@
+{
+  "schema": "writerforge.scene-profile.v1",
+  "diagnosis_origin": "TEACHER_DEMO",
+  "viewpoint": "limited",
+  "scene_id": "demo_unseeded_reveal",
+  "mode": "revelation",
+  "reader_effect": "surprise",
+  "tempo": "measured",
+  "scene_goal": "结尾突然揭晓一枚旧印章的含义，让主人公重新认识旧案。",
+  "active_obstacle": "计划中没有在此前场景展示过印章或任何相关旧线索。",
+  "planned_change": "本场景出现新的真相，但现有故事无法支持读者回看验证。",
+  "facts": {
+    "earlier_clue": {
+      "state": "ABSENT",
+      "observation": "此前的计划、已完成场景和人物经历都没有印章的可核查线索。"
+    },
+    "later_reinterpretation": {
+      "state": "PRESENT",
+      "observation": "这一段试图用新解释改变读者对旧案的理解。"
+    },
+    "no_prior_setup": {
+      "state": "PRESENT",
+      "observation": "只有尾声才让印章首次出现，不满足真实前置铺垫条件。"
+    }
+  }
+}
