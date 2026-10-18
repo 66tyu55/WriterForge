@@ -59,7 +59,7 @@ class V60ArchitectureDiagnostics(unittest.TestCase):
         finally:
             connection.close()
 
-    def test_promoter_accepts_self_asserted_metrics_without_proof(self):
+    def test_promoter_rejects_self_asserted_metrics_without_proof(self):
         # In-memory registry ONLY. A fabricated numeric object is enough for
         # this low-level API; this is NOT evidence of network exploitability.
         reg = SkillRegistry()
@@ -72,14 +72,16 @@ class V60ArchitectureDiagnostics(unittest.TestCase):
             regression_success=1.0,judge_stability=1.0,
             repeated_failure_reduction=1.0,runtime_regression=0.0,
             human_anchor_count=0)
-        result=engine.apply_upgrade(UpgradeCandidate(
-            skill="synthetic_craft",new_level=2,
-            capability_statement="Synthetic unverified promotion",
-            evidence_id="synthetic_unverified_receipt",
-            evidence=claim,requires_human_anchor=False),
-            policy="gated_auto")
-        self.assertEqual(result,[])
-        self.assertEqual(reg.get("synthetic_craft").level,2)
+        # This V60 diagnostic reproduced a loophole before V61; here its
+        # expectation intentionally reverses. V60's old CI is unchanged.
+        with self.assertRaisesRegex(PermissionError,"ATTESTATION"):
+            engine.apply_upgrade(UpgradeCandidate(
+                skill="synthetic_craft",new_level=2,
+                capability_statement="Synthetic unverified promotion",
+                evidence_id="synthetic_unverified_receipt",
+                evidence=claim,requires_human_anchor=False),
+                policy="gated_auto")
+        self.assertEqual(reg.get("synthetic_craft").level,1)
 
     def test_feedback_convergence_is_not_reader_authentication(self):
         # Two arbitrary caller-provided names appear as two distinct readers.
