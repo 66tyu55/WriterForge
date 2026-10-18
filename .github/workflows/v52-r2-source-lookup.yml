@@ -1,7 +1,7 @@
 name: V52 native WriterForge R2 source retrieval
 on:
   push:
-    branches: [v52-r2-native-retrieval]
+    branches: [r2-native-retrieval-mainline]
     paths:
       - '.github/workflows/v52-r2-source-lookup.yml'
       - 'writerforge/r2_retrieval.py'
@@ -30,7 +30,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_v23_real_learning.py' -q
           python -m unittest discover -s tests -p 'test_v24_r2_storage.py' -q
   private-live-read-only:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/v52-r2-native-retrieval'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/r2-native-retrieval-mainline'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
