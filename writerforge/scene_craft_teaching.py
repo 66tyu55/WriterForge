@@ -28,7 +28,7 @@ READER_EFFECTS = frozenset({
 TEMPOS = frozenset({"fast","measured","slow"})
 VIEWPOINTS = frozenset({"limited","objective","omniscient"})
 FEATURE_STATES = frozenset({"PRESENT","ABSENT","UNCERTAIN"})
-DIAGNOSIS_ORIGINS = frozenset({"WF_PLANNER","AUTHOR_OUTLINE"})
+DIAGNOSIS_ORIGINS = frozenset({"WF_PLANNER","AUTHOR_OUTLINE","TEACHER_DEMO"})
 PROFILE_FIELDS = frozenset({
     "schema","scene_id","diagnosis_origin","mode",
     "reader_effect","tempo","viewpoint","scene_goal",
