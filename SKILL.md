@@ -164,16 +164,24 @@ without independently blind-read same-model baseline comparison.
 See [docs/PROSE_FIRST_STYLE_BASELINE.md](docs/PROSE_FIRST_STYLE_BASELINE.md).
 
 
-## Native private R2 source lookup — source evidence, not proven literary experience
+## V53 disk-first source foundation — NO copy/paste into WRITE
 
-WriterForge can now query the author's existing, privately owned Cloudflare R2 structural Xuehai using the real `writerforge r2-query` CLI. This is a READ-ONLY source gateway, NOT extra model inference or new literary training.
+Remote archiving, cleaning, indexing, verification and creative writing are different phases. The V52 command formerly called r2-query could implicitly restore a complete remote SQLite, and draft-context could directly append original quotes. That design is deprecated as a training route. V53 corrects both.
 
-First query a specific library with 1–4 literal search terms:
+1. R2-SYNC (explicit, one-time per immutable snapshot):
+   writerforge r2-sync --library laocanyouji-25124 --snapshot <64-digit-sha> --cache-dir corpus/r2-readonly-cache
+   This may download the entire immutable snapshot ON DISK, verifies SHA/SQLite and builds a separate disk SQLite inverted index. It does not read the full novel into RAM.
 
-    writerforge r2-query --library laocanyouji-25124 --term 老殘 --limit 6
+2. CLEAN/DEDUP: the independent indexing module normalizes NFKC/whitespace/control characters for lookup keys ONLY, retaining source originals unchanged, and deduplicates normalized matching units by hashes.
 
-The gateway verifies R2 snapshot/manifest/file SHA256, SQLite integrity, source span hashes and precise chapter/paragraph/sentence locations. Known catalogued public-domain novels additionally verify the exact published Git blob version, after accounting for UTF-8 BOM decoding. Pin the returned snapshot SHA when revisiting the same evidence.
+3. OFFLINE VERIFY/COMPARE:
+   writerforge corpus-find --library laocanyouji-25124 --snapshot <64-digit-sha> --term 老殘 --cache-dir corpus/r2-readonly-cache
+   Queries use only local disk-index pages; no R2 credentials/network/model calls. Results are source IDs, location hashes, recurrence counts and bounded comparison signals, with NO quoted story sentences. The old r2-query is now a pinned, offline-only compatibility alias; for a full independent integrity audit use corpus-verify.
 
-When a project already has a published local Xuehai, `writerforge draft-context` or `writerforge draft` may explicitly receive `--r2-library`, `--r2-snapshot` and `--r2-term` to add short independently source-verified citations to its preparation packet. This access never edits a remote library, never substitutes its SQLite for a project database, never auto-publishes new story memory, and refuses missing evidence. Model generation still uses whatever real local host the user configured.
+4. CANDIDATE: add --record-candidate project-patterns.sqlite3 to corpus-find to persist a hash-addressed, uncertainty-labelled structural recurrence in a separate SQLite candidate ledger. This is not a validated literary mechanism, character intent or authorial style rule, and it must NEVER automatically become WRITE advice.
 
-**Very important:** R2 authenticates bytes, provenance and original source, not the correctness of model-generated literary analysis. All retrieved Xuehai lexical tags remain UNVERIFIED structural observations; they cannot automatically become creative instructions, performance scores or promoted writer Skills. Previous V49 literary FAIL remains valid.
+5. WRITE: no R2 archive sync or original source excerpts allowed inside VerifiedWritingFlow.prepare. If R2 reference options are passed to the old draft/draft-context entry, it intentionally raises R2_RESEARCH_IS_NOT_WRITING_CONTEXT_USE_R2_SYNC_CORPUS_FIND. Use the separate offline data preparation workflow before creative planning.
+
+Data flow: R2 immutable source -> explicit disk sync -> normalise/index/dedup -> offline evidence comparison -> unverified pattern record -> (separate subsequent validation and author-approved rule) -> creative strategy. There is currently NO automatic literary experience promotion or proven quality gain. V49 THIRD_STRIKE_FAILED remains unchanged.
+
+Read docs/V53_DISK_FIRST_CORPUS_ARCHITECTURE_20261018.md before enabling source data access in any other Skill.
