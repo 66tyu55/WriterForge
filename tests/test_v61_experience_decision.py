@@ -225,6 +225,65 @@ class V61ExperienceDecisionTests(unittest.TestCase):
         with self.assertRaises(Exception):
             self.approve()
 
+    def test_old_frozen_receipt_cannot_be_reused_if_source_is_tampered(self):
+        self.stage()
+        self.approve()
+        self.write()
+        frozen=self.decide()
+        self.db.conn.execute(
+            "UPDATE source_spans SET source_sha256=? "
+            "WHERE work_id='synthetic_work'",("f"*64,))
+        self.db.conn.commit()
+        # Historical readback is valid; authorization for a new generation
+        # must recheck the actual source and fail closed.
+        self.assertEqual(self.bridge.read_decision(
+            project_id="project01",attempt_id="attempt01")
+            ["decision_sha256"],frozen["decision_sha256"])
+        with self.assertRaisesRegex(ValueError,"SOURCE"):
+            self.decide()
+
+    def test_accept_candidate_refuses_missing_or_edited_frozen_receipt(self):
+        from unittest.mock import patch as mocked
+        from writerforge.verified_flow import save_candidate, accept_candidate
+        self.stage()
+        self.approve()
+        self.write()
+        flow=VerifiedWritingFlow(self.db,self.runtime,"project01",
+                                 experience_review_key=KEY)
+        fake=[{"entry_id":1,"work_id":"synthetic_work",
+               "location":[1,1,1],"function":"narration",
+               "effect":"unverified"}]
+        with mocked.object(flow.xuehai,"query",return_value=fake):
+            packet=flow.prepare("scene01","synthetic investigation",
+                experience_attempt_id="attempt01",
+                scene_signals={"limited_knowledge":True,
+                               "omniscient":False})
+        saved=save_candidate(packet,"少年看见前路犹豫。","synthetic-model",
+                             Path(self.temp.name)/"candidate")
+        manifest=Path(saved["manifest"])
+        original=json.loads(manifest.read_text(encoding="utf-8"))
+        forged=dict(original)
+        forged["experience_decision"]=dict(original["experience_decision"],
+                                          decision_sha256="a"*64)
+        def accept():
+            return accept_candidate(
+                self.db,self.runtime,project_id="project01",
+                manifest_path=manifest,commit_id="commit01",
+                explicitly_approved=True)
+        with mocked.dict("os.environ",{
+                "WRITERFORGE_EXPERIENCE_REVIEW_VERIFY_KEY_HEX":KEY.hex()}):
+            manifest.write_text(json.dumps(forged),encoding="utf-8")
+            with self.assertRaisesRegex(WritingExecutionError,"EXPERIENCE"):
+                accept()
+            forged["experience_decision"]=None
+            manifest.write_text(json.dumps(forged),encoding="utf-8")
+            with self.assertRaisesRegex(WritingExecutionError,"EXPERIENCE"):
+                accept()
+        self.assertIsNone(self.db.conn.execute(
+            "SELECT 1 FROM story_commit_receipts "
+            "WHERE project_id='project01' AND commit_id='commit01'"
+        ).fetchone())
+
     def test_actual_verified_writing_prepare_includes_frozen_policy(self):
         # Test production prep path without HTTP, novel text or R2.
         self.stage()
