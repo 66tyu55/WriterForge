@@ -1,0 +1,29 @@
+name: V54 opt-in resources and deterministic fact foundation
+on:
+  push:
+    branches: [v54-consent-facts-foundation]
+    paths:
+      - '.github/workflows/v54-consent-facts.yml'
+      - 'writerforge/resource_policy.py'
+      - 'writerforge/fact_journal.py'
+      - 'writerforge/scratch.py'
+      - 'writerforge/cli.py'
+      - 'tests/test_v54_consent_fact_core.py'
+permissions:
+  contents: read
+jobs:
+  offline-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - name: Actual CLI zero-download, approved sync, contradictory facts and versioned evidence tests
+        run: python -m unittest discover -s tests -p test_v54_consent_fact_core.py -v
+      - name: Existing disk-first corpus and original-entry compatibility
+        run: |
+          python -m unittest discover -s tests -p test_v53_disk_corpus.py -q
+          python -m unittest discover -s tests -p test_v23_real_learning.py -q
