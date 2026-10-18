@@ -299,5 +299,93 @@ class V62ExperienceFailureTests(unittest.TestCase):
             previous)
 
 
+    def _cli(self,*args):
+        from writerforge.cli import main
+        from io import StringIO
+        from contextlib import redirect_stdout
+        stream=StringIO()
+        with redirect_stdout(stream):
+            main(["--db",str(self.path),*args])
+        return json.loads(stream.getvalue())
+
+    def test_cli_imports_real_hand_off_hash_references_as_unverified_only(self):
+        from pathlib import Path
+        for name in ("v38_l2_r39_role_conflict",
+                     "v31_self_review_stage1"):
+            source=f"references/experience/{name}.json"
+            self.assertTrue(Path(source).is_file())
+            receipt=self._cli(
+                "experience-legacy-import","--project","project01",
+                "--file",source)
+            self.assertFalse(receipt["eligible_for_writing"])
+            self.assertEqual(receipt["status"],"UNVERIFIED_REMOTE_POINTER")
+            read=self._cli(
+                "experience-legacy-read","--project","project01",
+                "--legacy-id",receipt["legacy_id"])
+            self.assertEqual(read["reference_sha256"],
+                             receipt["reference_sha256"])
+        self.assertEqual(self.db.conn.execute(
+            "SELECT COUNT(*) FROM experience_approvals").fetchone()[0],0)
+        self.assertEqual(self.db.conn.execute(
+            "SELECT COUNT(*) FROM experience_candidates").fetchone()[0],0)
+
+    def test_cli_preserves_failure_and_blocks_next_select(self):
+        from pathlib import Path
+        from unittest.mock import patch
+        self.stage();self.approve();self.write()
+        self.decide("cli_before")
+        draft=Path(self.tmp.name)/"dummy_draft.txt"
+        draft.write_text(
+            "少年因错误判断付出代价，承认这次策略未能照计划执行。",
+            encoding="utf-8")
+        self._cli("experience-postwrite","--project","project01",
+                  "--attempt-id","cli_before",
+                  "--experience-id","lesson01",
+                  "--draft-file",str(draft),"--outcome","NOT_APPLIED")
+        facts=Path(self.tmp.name)/"signals.json"
+        facts.write_text(json.dumps({
+            "limited_knowledge":True,"omniscient":False}),encoding="utf-8")
+        with patch.dict("os.environ",{
+                "WRITERFORGE_EXPERIENCE_REVIEW_VERIFY_KEY_HEX":KEY.hex()}):
+            result=self._cli(
+                "experience-decide","--project","project01",
+                "--scene","scene01","--attempt-id","cli_after",
+                "--snapshot",str(self.snapshot),
+                "--goal","synthetic trace without copied prose",
+                "--signals-file",str(facts))
+        self.assertEqual(result["decisions"][0]["decision"],"SKIP")
+        self.assertEqual(result["decisions"][0]["reason_code"],
+                         "PRIOR_NOT_APPLIED")
+        self.assertEqual(result["prompt_guidance"],"")
+
+    def test_cli_revoke_signed_and_then_read_frozen_history(self):
+        from unittest.mock import patch
+        self.stage();self.approve();self.write()
+        old=self.decide("cli_saved")
+        request=self.bridge.revocation_payload(
+            project_id="project01",experience_id="lesson01",
+            reviewer_id="external01",review_id="revoke01",
+            reason_code="AUTHORITY_WITHDRAWN")
+        file=Path(self.tmp.name)/"revocation.json"
+        file.write_text(json.dumps({
+            "reviewer_id":"external01","review_id":"revoke01",
+            "reason_code":"AUTHORITY_WITHDRAWN",
+            "signature":sig(request)}),encoding="utf-8")
+        with patch.dict("os.environ",{
+                "WRITERFORGE_EXPERIENCE_REVIEW_VERIFY_KEY_HEX":KEY.hex()}):
+            result=self._cli(
+                "experience-revoke","--project","project01",
+                "--experience-id","lesson01","--file",str(file))
+            self.assertFalse(result["eligible_for_writing"])
+            old_view=self._cli(
+                "experience-read","--project","project01",
+                "--attempt-id","cli_saved")
+        self.assertEqual(old_view["decision_sha256"],
+                         old["decision_sha256"])
+        later=self.decide("cli_later")
+        self.assertEqual(later["decisions"][0]["reason_code"],
+                         "EXPERIENCE_REVOKED")
+
+
 if __name__=="__main__":
     unittest.main()
