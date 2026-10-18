@@ -56,11 +56,24 @@ class SkillRegistry:
     Raw SQLite write access and arbitrary Python monkeypatching are outside
     this API security boundary; this is not a privilege sandbox.
     """
-    def __init__(self, db=None, scope: str="__system__"):
+    def __init__(self, db=None, scope: str="__system__", *,
+                 bootstrap_verifier_key: bytes | None = None):
         self._skills: dict[str, CapabilityContract] = {}
         self.db=db
         self.scope=scope
         self._trusted_promotion_key=None
+        if bootstrap_verifier_key is None:
+            raw=os.environ.get("WRITERFORGE_BOOTSTRAP_VERIFY_KEY_HEX")
+            if raw is not None:
+                try:
+                    bootstrap_verifier_key=bytes.fromhex(raw)
+                except ValueError as exc:
+                    raise ValueError("SKILL_BOOTSTRAP_VERIFIER_INVALID") from exc
+        if bootstrap_verifier_key is not None and (
+            not isinstance(bootstrap_verifier_key,bytes) or
+            len(bootstrap_verifier_key)<16):
+            raise ValueError("SKILL_BOOTSTRAP_VERIFIER_INVALID")
+        self._bootstrap_verifier_key=bootstrap_verifier_key
         if self.db is not None:
             for row in self.db.conn.execute(
                 "SELECT skill_name,level,statement,dependencies_json,status,"
@@ -87,6 +100,62 @@ class SkillRegistry:
         self._trusted_promotion_key=key
 
     def register(self, contract: CapabilityContract) -> None:
+        """New unverified ACTIVE capabilities start at level 1 only.
+
+        Legacy imports keep their historically claimed level in SHADOW,
+        never call it mastered. A high ACTIVE initial declaration needs a
+        reviewer-signed, explicit software bootstrap attestation.
+        """
+        if (contract.level>1 and contract.status==SkillStatus.ACTIVE):
+            raise PermissionError("SKILL_BOOTSTRAP_ATTESTATION_REQUIRED")
+        return self._register_initial(contract)
+
+    def import_legacy_capability(self, contract: CapabilityContract, *,
+                                 provenance: str):
+        if not isinstance(provenance,str) or not provenance.strip():
+            raise ValueError("SKILL_BOOTSTRAP_LEGACY_PROVENANCE_REQUIRED")
+        self._register_initial(replace(
+            contract,status=SkillStatus.SHADOW))
+        return {"status":"UNVERIFIED_LEGACY_SHADOW",
+                "literary_mastery_verified":False}
+
+    @staticmethod
+    def bootstrap_payload(contract: CapabilityContract, *,
+                          reviewer_id: str,review_id: str):
+        if (not isinstance(contract,CapabilityContract) or
+            not isinstance(reviewer_id,str) or
+            not isinstance(review_id,str) or
+            not re.fullmatch(r"[A-Za-z0-9_-]{2,80}",reviewer_id) or
+            not re.fullmatch(r"[A-Za-z0-9_-]{2,80}",review_id)):
+            raise ValueError("SKILL_BOOTSTRAP_FIELDS_INVALID")
+        return {"contract":"writerforge.v64-high-level-bootstrap",
+                "name":contract.name,"level":contract.level,
+                "status":contract.status.value,
+                "statement":contract.statement,
+                "dependencies":contract.depends_on,
+                "revision":contract.revision,
+                "reviewer_id":reviewer_id,
+                "review_id":review_id,
+                "literary_mastery_verified":False}
+
+    def register_verified(self, contract: CapabilityContract, *,
+                          reviewer_id:str,review_id:str,signature:str):
+        if self._bootstrap_verifier_key is None:
+            raise PermissionError("SKILL_BOOTSTRAP_VERIFIER_REQUIRED")
+        payload=self.bootstrap_payload(contract,reviewer_id=reviewer_id,
+                                       review_id=review_id)
+        expected=hmac.new(
+            self._bootstrap_verifier_key,
+            json.dumps(payload,ensure_ascii=False,sort_keys=True,
+                       separators=(",",":"),allow_nan=False).encode(),
+            "sha256").hexdigest()
+        if not isinstance(signature,str) or not hmac.compare_digest(
+            expected,signature):
+            raise PermissionError("SKILL_BOOTSTRAP_ATTESTATION_INVALID")
+        self._register_initial(contract)
+        return {"accepted":True,"literary_mastery_verified":False}
+
+    def _register_initial(self, contract: CapabilityContract) -> None:
         """Create an initial capability contract exactly once.
 
         Registration is NOT a way to overwrite/promote an existing ID.
