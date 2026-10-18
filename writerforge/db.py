@@ -436,6 +436,32 @@ CREATE TABLE IF NOT EXISTS skill_capabilities (
     PRIMARY KEY(scope, skill_name)
 );
 
+-- V64: independent external authority for HIGH-GRADE skill bootstrap.
+-- Pre-V64 grade rows may remain, but lack of a receipt must never prove skill.
+CREATE TABLE IF NOT EXISTS skill_bootstrap_receipts (
+    scope TEXT NOT NULL,
+    skill_name TEXT NOT NULL,
+    contract_sha TEXT NOT NULL,
+    source_sha TEXT NOT NULL,
+    reviewer_id TEXT NOT NULL,
+    review_id TEXT NOT NULL,
+    signature TEXT NOT NULL,
+    receipt_sha TEXT NOT NULL,
+    PRIMARY KEY(scope,skill_name),
+    UNIQUE(scope,review_id)
+);
+CREATE TABLE IF NOT EXISTS story_ai_provenance (
+    project_id TEXT NOT NULL,
+    commit_id TEXT NOT NULL,
+    permit_sha TEXT NOT NULL,
+    permit_json TEXT NOT NULL,
+    PRIMARY KEY(project_id,commit_id),
+    FOREIGN KEY(project_id,commit_id)
+       REFERENCES story_commit_receipts(project_id,commit_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ai_provenance_receipt
+ON story_ai_provenance(project_id,commit_id);
+
 CREATE TABLE IF NOT EXISTS skill_upgrade_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     scope TEXT NOT NULL,
