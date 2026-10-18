@@ -145,7 +145,7 @@ class R2SourceGateway:
                     len(source_digests)!=1):
                     raise R2RetrievalError("R2_CATALOG_SOURCE_BLOB_MISSING_OR_WRONG_WORK")
                 raw=Path(source_path).read_bytes()
-                git=sha1(f"blob {len(raw)}\\0".encode("ascii")+raw).hexdigest()
+                git=sha1(f"blob {len(raw)}\0".encode("ascii")+raw).hexdigest()
                 if git!=known.git_blob_sha1:
                     raise R2RetrievalError("R2_ORIGINAL_CATALOG_EDITION_CHANGED")
                 decoded_sha=sha256(raw.decode("utf-8-sig").encode("utf-8")).hexdigest()
