@@ -119,6 +119,8 @@ class UserResourcePolicyTests(unittest.TestCase):
         self.assertTrue(a["literal_occurrence_only"])
         self.assertFalse(a["actual_original_sentences_exposed"])
         self.assertFalse(a["candidate_eligible_for_creative_execution"])
+        self.assertEqual(a["temporal_order_relations"],0)
+        self.assertTrue(a["index_order_is_not_story_time"])
         with sqlite3.connect(journal) as db:
             n=db.execute("SELECT COUNT(*) FROM fact_events").fetchone()[0]
             self.assertEqual(n,a["observed_events"])
