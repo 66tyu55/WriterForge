@@ -74,6 +74,14 @@ def main(argv: list[str] | None = None):
         help="per HTTP request timeout in seconds, max 90")
     worker_r2.add_argument("--max-requests",type=int,default=30,
         help="maximum complete-inventory HTTP calls, max 50")
+    literary_exam=sub.add_parser("r2-http-literary-exam",
+        help="WF reads a SHA-pinned literary original through Worker and independently answers a grounded retrieval question")
+    literary_exam.add_argument("--endpoint",
+        default=os.environ.get("WRITERFORGE_R2_HTTP_ENDPOINT"),
+        help="HTTPS Cloudflare Worker base URL")
+    literary_exam.add_argument("--question-file",
+        default="eval/v67_literary_source_question.json",
+        help="independent examiner's JSON question; contains NO expected answer")
     catalog=sub.add_parser("catalog",help="list verified historical Chinese originals")
     fetch_classic=sub.add_parser("fetch-classic",help="download and validate one pinned Chinese original")
     fetch_classic.add_argument("--work",required=True,choices=tuple(CLASSICS_CATALOG))
@@ -484,6 +492,14 @@ def main(argv: list[str] | None = None):
     reverse_restore.add_argument("--project",required=True)
     reverse_restore.add_argument("--snapshot",required=True)
     args=p.parse_args(argv)
+    if args.cmd=="r2-http-literary-exam":
+        from .r2_worker_http import WFWorkerR2Client
+        from .r2_literary_exam import run_literary_retrieval_exam
+        result=run_literary_retrieval_exam(
+            WFWorkerR2Client(endpoint=args.endpoint),
+            question_path=Path(args.question_file))
+        _emit(result)
+        return
     if args.cmd=="r2-http-inventory":
         # Runs entirely within WF's process; R2 Worker auth stays in WF's
         # environment, never goes through GitHub Actions or source control.
