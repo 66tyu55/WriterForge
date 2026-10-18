@@ -103,6 +103,7 @@ class WritingFlow:
         corrections: tuple[AuthorCorrection, ...] = (),
         finished_work_root: StoryWorkRoot | None = None,
         precommit_check: Callable[[], None] | None = None,
+        ai_provenance: dict | None = None,
     ) -> StoryCommitResult:
         self.runtime.require(Mode.WRITE)
         validate_origin(origin)
@@ -125,4 +126,5 @@ class WritingFlow:
         )
         return self.coordinator.commit(
             plan,work_root=finished_work_root,
-            precommit_check=precommit_check)
+            precommit_check=precommit_check,
+            ai_provenance=ai_provenance)
