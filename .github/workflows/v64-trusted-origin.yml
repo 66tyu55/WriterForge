@@ -11,6 +11,8 @@ on:
       - 'writerforge/verified_flow.py'
       - 'tests/test_v64_bootstrap_provenance.py'
       - 'tests/test_v12_evolution_taste.py'
+      - 'tests/test_v21_growing_companion.py'
+      - 'tests/test_v23_real_learning.py'
       - 'tests/test_v63_remaining_trust_boundaries.py'
       - 'scripts/audit_v64_trust.py'
       - '.github/workflows/v64-trusted-origin.yml'
