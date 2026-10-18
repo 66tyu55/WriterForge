@@ -135,6 +135,32 @@ class TrustedBootstrapTests(unittest.TestCase):
             finally:
                 db.close()
 
+    def test_unverified_old_high_grade_cannot_satisfy_dependencies(self):
+        with TemporaryDirectory() as folder:
+            db=WriterForgeDB(Path(folder)/"legacy-dependency.db")
+            try:
+                db.conn.execute(
+                    "INSERT INTO skill_capabilities("
+                    "scope,skill_name,level,status,revision,statement,"
+                    "dependencies_json) VALUES(?,?,?,?,?,?,?)",
+                    ("legacy","invented-master",9,"active",1,
+                     "unproven old grade","{}"))
+                db.conn.commit()
+                r=SkillRegistry(db=db,scope="legacy",
+                                bootstrap_verifier_key=BOOT_KEY)
+                r.register(CapabilityContract(
+                    "new-dependent",1,"depends on a grade",
+                    {"invented-master":5}))
+                self.assertFalse(r.bootstrap_verified("invented-master"))
+                self.assertEqual(r.get("invented-master").status,
+                                 SkillStatus.SHADOW)
+                problems=r.lagging()
+                self.assertTrue(any(x.skill=="new-dependent" and
+                                    x.dependency=="invented-master"
+                                    for x in problems))
+            finally:
+                db.close()
+
     def test_level_one_baseline_is_not_mistaken_for_verified_literary_mastery(self):
         reg=SkillRegistry()
         reg.register(CapabilityContract("baseline01",1,"untrained minimum"))
@@ -272,6 +298,25 @@ class AIProvenanceTests(unittest.TestCase):
             (self.project,"official01")).fetchone()
         self.assertIsNotNone(row)
         self.assertNotIn(self.text,row["permit_json"])
+
+    def test_assistant_permit_cannot_bind_to_nonexistent_source_snapshot(self):
+        from writerforge.ai_provenance import issue_ai_commit_permit
+        missing=self.sid+501
+        self.rt.exit()
+        self.rt.enter_write(missing)
+        h=sha256(self.text.encode("utf-8")).hexdigest()
+        permit=issue_ai_commit_permit(
+            key=AI_KEY,project_id=self.project,scene_id=self.scene,
+            commit_id="unpublished01",snapshot_id=missing,
+            body_sha256=h,candidate_sha256=h,author_approved=True)
+        with patch.dict("os.environ",{
+                "WRITERFORGE_AI_COMMIT_VERIFY_KEY_HEX":AI_KEY.hex()}):
+            with self.assertRaisesRegex((PermissionError,ValueError,RuntimeError),
+                                        "PROVENANCE_SOURCE_SNAPSHOT"):
+                self.commit_direct("assistant_generated","unpublished01",permit)
+        self.assertIsNone(self.db.conn.execute(
+            "SELECT 1 FROM story_commit_receipts WHERE commit_id='unpublished01'"
+        ).fetchone())
 
     def test_unsigned_or_unapproved_ai_permit_is_never_accepted(self):
         from writerforge.ai_provenance import issue_ai_commit_permit
