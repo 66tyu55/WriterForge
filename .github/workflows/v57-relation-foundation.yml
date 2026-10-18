@@ -30,7 +30,7 @@ jobs:
         run: python -m scripts.audit_v57_relations
       - name: Record SHA of new implementation and tests
         if: always()
-        run: sha256sum writerforge/fact_journal.py tests/test_v57_relation_foundation.py scripts/audit_v57_relations.py
+        run: sha256sum writerforge/fact_journal.py writerforge/cli.py tests/test_v57_relation_foundation.py scripts/audit_v57_relations.py
       - name: Upload V57 results even on failure
         if: always()
         uses: actions/upload-artifact@v4
