@@ -380,6 +380,45 @@ def accept_candidate(db: WriterForgeDB, runtime: RuntimeEngine, *,
     row=db.conn.execute("SELECT status FROM snapshots WHERE id=?",(sid,)).fetchone()
     if not row or row["status"]!="published":
         raise WritingExecutionError("source snapshot no longer published")
+    # A disk manifest may have been edited after generation. If this project
+    # has reviewed experiments, accepting AI prose without a frozen, exact
+    # decision receipt is prohibited. This verifies metadata consistency; it
+    # does NOT certify that literary actions were actually successful.
+    raw_key=os.environ.get("WRITERFORGE_EXPERIENCE_REVIEW_VERIFY_KEY_HEX")
+    if raw_key is None:
+        verifier_key=None
+    else:
+        try:
+            verifier_key=bytes.fromhex(raw_key)
+        except ValueError as exc:
+            raise WritingExecutionError("EXPERIENCE_VERIFIER_KEY_INVALID") from exc
+    bridge=ExperienceDecisionBridge(
+        db,runtime,reviewer_key=verifier_key)
+    expected=manifest.get("experience_decision")
+    if expected is None and bridge.has_approved(project_id=project_id):
+        raise WritingExecutionError("EXPERIENCE_FROZEN_DECISION_REQUIRED")
+    if expected is not None:
+        if not isinstance(expected,dict) or set(expected)!={
+                "attempt_id","decision_sha256",
+                "selected_operation_codes","source_snapshot_id",
+                "literary_quality_proven"}:
+            raise WritingExecutionError("EXPERIENCE_RECEIPT_SCHEMA_INVALID")
+        try:
+            recorded=bridge.validate_live_decision(
+                project_id=project_id,attempt_id=expected["attempt_id"])
+        except (ValueError,KeyError) as exc:
+            raise WritingExecutionError(
+                "EXPERIENCE_RECEIPT_NOT_AUTHENTIC") from exc
+        selected=[x["operation_code"] for x in recorded["decisions"]
+                  if x["decision"]=="SELECT"]
+        if (recorded["decision_sha256"]!=expected["decision_sha256"] or
+            recorded["scene_id"]!=manifest["scene_id"] or
+            recorded["source_snapshot_id"]!=sid or
+            expected["source_snapshot_id"]!=sid or
+            expected["selected_operation_codes"]!=selected or
+            expected["literary_quality_proven"] is not False):
+            raise WritingExecutionError("EXPERIENCE_RECEIPT_MISMATCH")
+
     flow=WritingFlow(db,runtime,project_id)
     result=flow.accept_draft(
         commit_id,manifest["scene_id"],body,origin="assistant_generated"
