@@ -275,6 +275,35 @@ class ExperienceDecisionBridge:
              "EXPERIENCE_DECISION_TAMPERED")
         return {**plan,"decision_sha256":row["plan_sha"]}
 
+    def validate_live_decision(self, *, project_id,attempt_id):
+        """Auditing a frozen receipt is distinct from reusing it for prose.
+
+        Before ANY fresh model generation or acceptance, recheck that every
+        approved decision still refers to the immutable source and that the
+        verifier key still authenticates the approval. The old frozen record
+        remains readable after revocation or source failure for forensics.
+        """
+        self.runtime.require(Mode.WRITE)
+        plan=self.read_decision(project_id=project_id,attempt_id=attempt_id)
+        need(plan["source_snapshot_id"]==self.runtime.pinned_snapshot_id,
+             "EXPERIENCE_SOURCE_SNAPSHOT_STALE")
+        for detail in plan["decisions"]:
+            row,candidate=self._lookup_candidate(
+                project_id,detail["experience_id"])
+            need(row["candidate_sha"]==detail["candidate_sha256"],
+                 "EXPERIENCE_CANDIDATE_IMMUTABLE")
+            review=self.db.conn.execute(
+                "SELECT * FROM experience_approvals "
+                "WHERE project_id=? AND experience_id=?",
+                (project_id,detail["experience_id"])).fetchone()
+            need(review is not None and
+                 review["approval_sha"]==detail["approval_sha256"],
+                 "EXPERIENCE_APPROVAL_MISSING_OR_CHANGED")
+            self._verify_approval(review)
+            self._source_verified(candidate["source_ref"],
+                                  plan["source_snapshot_id"])
+        return plan
+
     def decide(self, *, project_id,scene_id,attempt_id,goal,
                scene_signals,enabled=True):
         self.runtime.require(Mode.WRITE)
@@ -297,7 +326,8 @@ class ExperienceDecisionBridge:
         if prior:
             need(prior["request_sha"]==request_hash,
                  "EXPERIENCE_DECISION_IMMUTABLE")
-            return self.read_decision(project_id=project_id,attempt_id=attempt_id)
+            return self.validate_live_decision(
+                project_id=project_id,attempt_id=attempt_id)
         rows=self.db.conn.execute(
             "SELECT c.*,a.approval_sha,a.reviewer_id,a.review_id,"
             "a.signature FROM experience_candidates c "
