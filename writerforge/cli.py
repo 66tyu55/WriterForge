@@ -109,6 +109,11 @@ def main(argv: list[str] | None = None):
     offline.add_argument("--cache-dir",default="corpus/r2-readonly-cache")
     offline.add_argument("--record-candidate",
                          help="optional on-disk metadata ledger; not literary learning")
+    corpus_verify=sub.add_parser("corpus-verify",
+        help="explicit full SHA256 and SQLite audit of offline corpus cache")
+    corpus_verify.add_argument("--library",required=True)
+    corpus_verify.add_argument("--snapshot",required=True)
+    corpus_verify.add_argument("--cache-dir",default="corpus/r2-readonly-cache")
 
     status=sub.add_parser("status")
     status.add_argument("--work-id",default=WORK_ID)
@@ -260,6 +265,15 @@ def main(argv: list[str] | None = None):
         _emit(sync_r2(R2StudyVault(R2Config.from_environment()),
                       library=args.library,snapshot=args.snapshot,
                       cache=args.cache_dir))
+        return
+    if args.cmd=="corpus-verify":
+        from .corpus_foundation import verify_cache
+        verified=verify_cache(args.cache_dir,args.library,args.snapshot)
+        _emit({"format":"WF.corpus-explicit-integrity-audit.v1",
+               "library":args.library,"snapshot_sha256":args.snapshot,
+               "verified_cache_dir":str(verified),
+               "all_r2_blob_sha256_and_sqlite_valid":True,
+               "r2_network_calls":0,"model_calls":0})
         return
     if args.cmd in ("corpus-find","r2-query"):
         if args.cmd=="r2-query" and not args.snapshot:
