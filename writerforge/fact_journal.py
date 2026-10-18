@@ -1018,14 +1018,13 @@ class FactJournal:
                             fact: str, story_tick: int,
                             story_id: str | None = None,
                             as_of_recorded_seq: int | None = None,
+                            as_of_ledger_seq: int | None = None,
                             limit: int = 64,
                             cursor: str | None = None):
-        """Stable keyset replay of claim metadata, NOT a full state result.
+        """Keyset projection pins BOTH claim and relationship recording axes.
 
-        Output never includes the source text. A cursor is tied to the exact
-        query, row limit and immutable recorded-sequence snapshot. Its HMAC
-        prevents outside callers from forging offsets; it is NOT authorization,
-        and anyone with raw SQLite write access controls the local journal.
+        Cursor HMAC protects the client from forging the position. It does not
+        authenticate the underlying SQLite owner or certify literary truth.
         """
         self._temporal_query_validate(
             scene,scope,subject,fact,story_tick,as_of_recorded_seq)
@@ -1041,40 +1040,57 @@ class FactJournal:
                     cursor+"="*((-len(cursor))%4)).decode("utf-8"))
             except (ValueError,UnicodeError,TypeError) as exc:
                 raise FactLedgerError("FACT_TEMPORAL_CURSOR_INVALID") from exc
-            need(isinstance(token,dict) and set(token)=={
-                 "v","fingerprint","last_seq","asof","tag"} and
-                 type(token["v"]) is int and token["v"]==1 and
+            need(isinstance(token,dict),"FACT_TEMPORAL_CURSOR_INVALID")
+            need(token.get("v")==2, "FACT_TEMPORAL_CURSOR_VERSION_UNSUPPORTED")
+            need(set(token)=={
+                 "v","fingerprint","last_seq","asof","ledger_seq","tag"} and
                  type(token["last_seq"]) is int and token["last_seq"]>=0 and
                  type(token["asof"]) is int and token["asof"]>=0 and
+                 type(token["ledger_seq"]) is int and token["ledger_seq"]>=0 and
                  type(token["fingerprint"]) is str and
                  type(token["tag"]) is str,
                  "FACT_TEMPORAL_CURSOR_INVALID")
-            prior_asof=token["asof"]
             need(as_of_recorded_seq is None or
-                 as_of_recorded_seq==prior_asof,
+                 as_of_recorded_seq==token["asof"],
                  "FACT_TEMPORAL_CURSOR_SNAPSHOT_MISMATCH")
-            as_of_recorded_seq=prior_asof
-            proof=self._cursor_tag({
-                "v":1,"fingerprint":token["fingerprint"],
-                "last_seq":token["last_seq"],"asof":prior_asof})
-            need(hmac.compare_digest(proof,token["tag"]),
+            need(as_of_ledger_seq is None or
+                 as_of_ledger_seq==token["ledger_seq"],
+                 "FACT_TEMPORAL_CURSOR_SNAPSHOT_MISMATCH")
+            expected=self._cursor_tag({
+                "v":2,"fingerprint":token["fingerprint"],
+                "last_seq":token["last_seq"],"asof":token["asof"],
+                "ledger_seq":token["ledger_seq"]})
+            need(hmac.compare_digest(expected,token["tag"]),
                  "FACT_TEMPORAL_CURSOR_INVALID")
+            recorded_cutoff=token["asof"]
+            ledger_cutoff=self._global_cutoff(
+                ledger_seq=token["ledger_seq"],recorded_seq=None,
+                story_id=story_id)
             after_seq=token["last_seq"]
         else:
-            as_of_recorded_seq=self._recorded_snapshot(as_of_recorded_seq)
+            ledger_cutoff=self._global_cutoff(
+                ledger_seq=as_of_ledger_seq,recorded_seq=as_of_recorded_seq,
+                story_id=story_id)
+            recorded_cutoff=self._recorded_snapshot(as_of_recorded_seq)
             after_seq=0
         fingerprint=digest(canonical({
             "scene":scene,"scope":scope,"subject":subject,"fact":fact,
             "story_id":story_id,"story_tick":story_tick,
-            "asof":as_of_recorded_seq,"limit":limit}))
+            "asof":recorded_cutoff,"ledger_seq":ledger_cutoff,
+            "limit":limit}))
         if cursor is not None:
             need(token["fingerprint"]==fingerprint,
                  "FACT_TEMPORAL_CURSOR_SCOPE_MISMATCH")
         source,bind=self._temporal_source(
             scene=scene,scope=scope,subject=subject,
-            fact=fact,story_id=story_id)
+            fact=fact,story_id=story_id,as_of_ledger_seq=ledger_cutoff)
         query=(
-            "SELECT c.*, EXISTS(SELECT 1 FROM temporal_claims successor "
+            "SELECT c.*, EXISTS("
+            "SELECT 1 FROM temporal_claims successor "
+            "JOIN ledger_operations successor_clock "
+            "ON successor_clock.operation='CLAIM' AND "
+            "successor_clock.ref=successor.claim_id AND "
+            "successor_clock.global_seq<=? "
             "WHERE successor.supersedes_id=c.claim_id AND "
             "successor.recorded_seq<=?) AS was_superseded " + source +
             " AND c.story_from<=? AND "
@@ -1082,12 +1098,13 @@ class FactJournal:
             "AND c.recorded_seq>? AND c.recorded_seq<=? "
             "ORDER BY c.recorded_seq LIMIT ?")
         rows=self.db.execute(
-            query,[as_of_recorded_seq,*bind,story_tick,story_tick,
-                   after_seq,as_of_recorded_seq,limit+1]).fetchall()
+            query,[ledger_cutoff,recorded_cutoff,*bind,
+                   story_tick,story_tick,after_seq,
+                   recorded_cutoff,limit+1]).fetchall()
         page=rows[:limit]
         claims=[]
         for row in page:
-            self._verify_claim_row(row)
+            self._verify_claim_row(row,as_of_ledger_seq=ledger_cutoff)
             claims.append({
                 "claim_id":row["claim_id"],
                 "scene_id":row["scene"],
@@ -1103,16 +1120,18 @@ class FactJournal:
         more=len(rows)>limit
         next_cursor=None
         if more:
-            next_data={"v":1,"fingerprint":fingerprint,
+            next_data={"v":2,"fingerprint":fingerprint,
                        "last_seq":page[-1]["recorded_seq"],
-                       "asof":as_of_recorded_seq}
+                       "asof":recorded_cutoff,
+                       "ledger_seq":ledger_cutoff}
             next_data["tag"]=self._cursor_tag(next_data)
             next_cursor=base64.urlsafe_b64encode(
                 canonical(next_data).encode("utf-8")).decode("ascii").rstrip("=")
-        return {"format":"writerforge.v58-temporal-claim-page.v1",
+        return {"format":"writerforge.v59-temporal-claim-page.v1",
                 "story_id":story_id,"scene_id":scene,"scope":scope,
                 "subject_id":subject,"fact_id":fact,"story_tick":story_tick,
-                "as_of_recorded_seq":as_of_recorded_seq,
+                "as_of_recorded_seq":recorded_cutoff,
+                "as_of_ledger_seq":ledger_cutoff,
                 "page_count":len(claims),"has_more":more,
                 "next_cursor":next_cursor,"claims":claims,
                 "literary_truth_verified":False,
