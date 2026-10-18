@@ -162,9 +162,15 @@ class RealOriginalStudyTests(unittest.TestCase):
             accept_candidate(self.db,self.runtime,project_id="novel",
                              manifest_path=saved["manifest"],commit_id="c1",
                              explicitly_approved=False)
-        accepted=accept_candidate(self.db,self.runtime,project_id="novel",
-                                  manifest_path=saved["manifest"],commit_id="c1",
-                                  explicitly_approved=True)
+        # V64: only the host holding an independent signing key may issue
+        # a generated-prose acceptance permit. No real model call here.
+        with patch.dict("os.environ",{
+            "WRITERFORGE_AI_COMMIT_VERIFY_KEY_HEX":
+                b"synthetic-V64-V23-signer".hex()}):
+            accepted=accept_candidate(
+                self.db,self.runtime,project_id="novel",
+                manifest_path=saved["manifest"],commit_id="c1",
+                explicitly_approved=True)
         self.assertTrue(accepted["accepted"])
         self.assertEqual(self.db.conn.execute(
             "SELECT body FROM accepted_prose"
@@ -184,8 +190,24 @@ class PersistenceRecoveryTests(unittest.TestCase):
                 "character refusal","B","A",("more active choice",),
                 tags=("dialogue",),
             ))
-            reg=SkillRegistry(db,"project-a")
-            reg.register(CapabilityContract("dialogue",2,"line as action"))
+            # Legacy V23 high-level seed is a synthetic TEST fixture;
+            # V64 requires separate signer proof rather than self-declared L2.
+            from hashlib import sha256
+            import hmac
+            source_sha=sha256(b"synthetic-V23-fixture-proof").hexdigest()
+            key=b"synthetic-V64-V23-bootstrap-only-key"
+            reg=SkillRegistry(
+                db,"project-a",bootstrap_verifier_key=key)
+            contract=CapabilityContract("dialogue",2,"line as action")
+            proof=reg.bootstrap_attestation_payload(
+                contract,source_sha256=source_sha,
+                reviewer_id="issuer01",review_id="V23-bootstrap01")
+            signature=hmac.new(key,json.dumps(
+                proof,sort_keys=True,ensure_ascii=False,
+                separators=(",",":")).encode("utf-8"),"sha256").hexdigest()
+            reg.register(contract,bootstrap_attestation={
+                "source_sha256":source_sha,"reviewer_id":"issuer01",
+                "review_id":"V23-bootstrap01","signature":signature})
             evol=EvolutionEngine(db=db,scope="project-a")
             for n in range(3):
                 evol.record_failure(FailureEvent("dialogue","EMPTY_DIALOGUE",f"chapter-{n}"))
@@ -194,7 +216,8 @@ class PersistenceRecoveryTests(unittest.TestCase):
             self.assertEqual(
                 len(TasteMemory(db,"project-a").query(tags=("dialogue",))),1
             )
-            self.assertEqual(SkillRegistry(db,"project-a").get("dialogue").level,2)
+            self.assertEqual(SkillRegistry(db,"project-a",
+                                 bootstrap_verifier_key=key).get("dialogue").level,2)
             self.assertEqual(EvolutionEngine(db=db,scope="project-a")
                              .failure_clusters()[0].count,3)
             self.assertEqual(TasteMemory(db,"project-b").query(),[])
