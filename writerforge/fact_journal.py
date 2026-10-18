@@ -683,15 +683,41 @@ class FactJournal:
             self._verify_reader_disclosure(
                 event,row["subject_id"],row["story_from"])
 
-    def temporal_view(self, *, scene: str, scope: str, subject: str,
-                      fact: str, story_tick: int,
-                      as_of_recorded_seq: int | None = None,
-                      story_id: str | None = None):
-        """Bitemporal projection. Explicit story_id enables cross-chapter view.
+    def _temporal_source(self, *, scene, scope, subject, fact, story_id):
+        """Shared SQL filter: identical identity rules for views and pages."""
+        if story_id is None:
+            return ("FROM temporal_claims c WHERE c.scene=? AND "
+                    "c.subject_scope=? AND c.subject_id=? AND c.fact=?",
+                    [scene,scope,subject,fact])
+        need(key(story_id) and self._bound_story(scene) == story_id,
+             "FACT_TEMPORAL_STORY_SCOPE_NOT_REGISTERED")
+        # Check complete scope bindings before projection; do not silently
+        # trust a modified SHA in another chapter's local identity map.
+        for row in self.db.execute(
+                "SELECT * FROM story_scenes WHERE story_id=?",(story_id,)):
+            self._verify_story_binding(row)
+        for row in self.db.execute(
+                "SELECT sb.* FROM story_subjects sb JOIN story_scenes sc "
+                "ON sc.scene_id=sb.scene_id WHERE sc.story_id=?",
+                (story_id,)):
+            self._verify_subject_binding(row)
+        canonical_id = self._bound_subject(scene,scope,subject)
+        if canonical_id is None:
+            # Fail closed: a matching local display name is not identity.
+            return ("FROM temporal_claims c WHERE 0=1", [])
+        return (
+            "FROM temporal_claims c "
+            "JOIN story_scenes sc ON sc.scene_id=c.scene "
+            "JOIN story_subjects sb ON sb.scene_id=c.scene AND "
+            "sb.subject_scope=c.subject_scope AND "
+            "sb.subject_id=c.subject_id "
+            "WHERE sc.story_id=? AND sb.canonical_id=? AND "
+            "c.subject_scope=? AND c.fact=?",
+            [story_id,canonical_id,scope,fact])
 
-        Streams verified claims instead of truncating at the V55 64-row
-        *history* limit. Output references stay capped; no R2/LLM access.
-        """
+    @staticmethod
+    def _temporal_query_validate(scene, scope, subject, fact, story_tick,
+                                 as_of_recorded_seq):
         need(all(key(v) for v in (scene,subject,fact)),
              "FACT_TEMPORAL_QUERY_ID_INVALID")
         need(scope in ("ACTOR","READER"),"FACT_TEMPORAL_QUERY_SCOPE_INVALID")
@@ -700,71 +726,71 @@ class FactJournal:
         need(as_of_recorded_seq is None or (
             type(as_of_recorded_seq) is int and as_of_recorded_seq >= 0),
             "FACT_TEMPORAL_QUERY_AS_OF_INVALID")
-        if story_id is not None:
-            need(key(story_id) and self._bound_story(scene) == story_id,
-                 "FACT_TEMPORAL_STORY_SCOPE_NOT_REGISTERED")
-            registered = self.db.execute(
-                "SELECT * FROM story_scenes WHERE story_id=?",
-                (story_id,)).fetchall()
-            for bound in registered:
-                self._verify_story_binding(bound)
+
+    def _recorded_snapshot(self, as_of_recorded_seq):
         if as_of_recorded_seq is None:
-            as_of_recorded_seq = self.db.execute(
+            return self.db.execute(
                 "SELECT COALESCE(MAX(recorded_seq),0) FROM temporal_claims"
             ).fetchone()[0]
-        if story_id is None:
-            location_clause = "c.scene=?"
-            binds = [scene]
-        else:
-            location_clause = ("c.scene IN (SELECT scene_id FROM "
-                               "story_scenes WHERE story_id=?)")
-            binds = [story_id]
+        return as_of_recorded_seq
+
+    def temporal_view(self, *, scene: str, scope: str, subject: str,
+                      fact: str, story_tick: int,
+                      as_of_recorded_seq: int | None = None,
+                      story_id: str | None = None):
+        """Bounded complete state, independent story/recorded clocks.
+
+        A cross-chapter identity must be explicitly bound in EACH chapter.
+        Return a result only if every relevant claim was checked; otherwise
+        raise instead of creating a false 'KNOWN' from an incomplete subset.
+        """
+        self._temporal_query_validate(
+            scene,scope,subject,fact,story_tick,as_of_recorded_seq)
+        as_of_recorded_seq=self._recorded_snapshot(as_of_recorded_seq)
+        source, bind = self._temporal_source(
+            scene=scene,scope=scope,subject=subject,
+            fact=fact,story_id=story_id)
         query = (
             "SELECT c.*, EXISTS(SELECT 1 FROM temporal_claims successor "
             "WHERE successor.supersedes_id=c.claim_id AND "
-            "successor.recorded_seq<=?) AS was_superseded "
-            "FROM temporal_claims c WHERE " + location_clause +
-            " AND c.subject_scope=? AND c.subject_id=? AND c.fact=? AND "
-            "c.story_from<=? AND (c.story_until IS NULL OR c.story_until>?) "
+            "successor.recorded_seq<=?) AS was_superseded " + source +
+            " AND c.story_from<=? AND "
+            "(c.story_until IS NULL OR c.story_until>?) "
             "AND c.recorded_seq<=? ORDER BY c.recorded_seq")
         cursor = self.db.execute(
-            query, [as_of_recorded_seq,*binds,scope,subject,fact,
-                    story_tick,story_tick,as_of_recorded_seq])
-        states = set()
-        active_ids, superseded_ids = [], []
-        active_count = superseded_count = scanned = 0
+            query,[as_of_recorded_seq,*bind,story_tick,story_tick,
+                   as_of_recorded_seq])
+        states=set()
+        active_ids,superseded_ids=[],[]
+        active_count=superseded_count=scanned=0
         while True:
-            batch = cursor.fetchmany(64)
+            batch=cursor.fetchmany(64)
             if not batch:
                 break
-            scanned += len(batch)
-            need(scanned <= 8192, "FACT_TEMPORAL_SCAN_BUDGET_EXCEEDED")
+            scanned+=len(batch)
+            need(scanned<=8192,"FACT_TEMPORAL_SCAN_BUDGET_EXCEEDED")
             for claim in batch:
                 self._verify_claim_row(claim)
-                if story_id is not None:
-                    need(self._bound_story(claim["scene"]) == story_id,
-                         "FACT_TEMPORAL_CROSS_STORY_CLAIM")
                 if claim["was_superseded"]:
-                    superseded_count += 1
-                    if len(superseded_ids) < 64:
+                    superseded_count+=1
+                    if len(superseded_ids)<64:
                         superseded_ids.append(claim["claim_id"])
                 else:
-                    active_count += 1
+                    active_count+=1
                     states.add(claim["knowledge_state"])
-                    if len(active_ids) < 64:
+                    if len(active_ids)<64:
                         active_ids.append(claim["claim_id"])
         if len(states)>1 or "DISPUTED" in states:
-            resolution = "CONFLICT_UNRESOLVED"
+            resolution="CONFLICT_UNRESOLVED"
         elif len(states)==1:
-            resolution = next(iter(states))
+            resolution=next(iter(states))
         else:
-            resolution = "UNRECORDED"
+            resolution="UNRECORDED"
         return {
-            "format":"writerforge.v57-bitemporal-knowledge.v1",
+            "format":"writerforge.v58-bitemporal-knowledge.v1",
             "scene_id":scene,"story_id":story_id,
             "scope":scope,"subject_id":subject,"fact_id":fact,
-            "story_tick":story_tick,
-            "as_of_recorded_seq":as_of_recorded_seq,
+            "story_tick":story_tick,"as_of_recorded_seq":as_of_recorded_seq,
             "state":resolution,
             "active_claim_ids":active_ids,
             "superseded_claim_ids":sorted(superseded_ids),
@@ -775,9 +801,111 @@ class FactJournal:
             "superseded_claims_truncated":superseded_count>64,
             "story_truth_verified":False,
             "reviewer_authenticity_verified":False,
-            "language_model_calls":0,
-            "eligible_to_direct_writing":False,
+            "language_model_calls":0,"eligible_to_direct_writing":False,
         }
+
+    def temporal_claim_page(self, *, scene: str, scope: str, subject: str,
+                            fact: str, story_tick: int,
+                            story_id: str | None = None,
+                            as_of_recorded_seq: int | None = None,
+                            limit: int = 64,
+                            cursor: str | None = None):
+        """Stable keyset replay of claim metadata, NOT a full state result.
+
+        Output never includes the source text. A cursor is tied to the exact
+        query, row limit and immutable recorded-sequence snapshot. Its hash
+        detects accidental mutation but is NOT a user-authentication token.
+        """
+        self._temporal_query_validate(
+            scene,scope,subject,fact,story_tick,as_of_recorded_seq)
+        need(type(limit) is int and 1<=limit<=64,
+             "FACT_TEMPORAL_PAGE_SIZE_INVALID")
+        if story_id is not None:
+            need(key(story_id),"FACT_TEMPORAL_STORY_SCOPE_NOT_REGISTERED")
+        if cursor is not None:
+            need(isinstance(cursor,str) and 0<len(cursor)<=2048,
+                 "FACT_TEMPORAL_CURSOR_INVALID")
+            try:
+                token=json.loads(base64.urlsafe_b64decode(
+                    cursor+"="*((-len(cursor))%4)).decode("utf-8"))
+            except (ValueError,UnicodeError,TypeError) as exc:
+                raise FactLedgerError("FACT_TEMPORAL_CURSOR_INVALID") from exc
+            need(isinstance(token,dict) and set(token)=={
+                 "v","fingerprint","last_seq","asof","tag"} and
+                 type(token["v"]) is int and token["v"]==1 and
+                 type(token["last_seq"]) is int and token["last_seq"]>=0 and
+                 type(token["asof"]) is int and token["asof"]>=0 and
+                 type(token["fingerprint"]) is str and
+                 type(token["tag"]) is str,
+                 "FACT_TEMPORAL_CURSOR_INVALID")
+            prior_asof=token["asof"]
+            need(as_of_recorded_seq is None or
+                 as_of_recorded_seq==prior_asof,
+                 "FACT_TEMPORAL_CURSOR_SNAPSHOT_MISMATCH")
+            as_of_recorded_seq=prior_asof
+            proof=digest(canonical({
+                "v":1,"fingerprint":token["fingerprint"],
+                "last_seq":token["last_seq"],"asof":prior_asof}))
+            need(hmac.compare_digest(proof,token["tag"]),
+                 "FACT_TEMPORAL_CURSOR_INVALID")
+            after_seq=token["last_seq"]
+        else:
+            as_of_recorded_seq=self._recorded_snapshot(as_of_recorded_seq)
+            after_seq=0
+        fingerprint=digest(canonical({
+            "scene":scene,"scope":scope,"subject":subject,"fact":fact,
+            "story_id":story_id,"story_tick":story_tick,
+            "asof":as_of_recorded_seq,"limit":limit}))
+        if cursor is not None:
+            need(token["fingerprint"]==fingerprint,
+                 "FACT_TEMPORAL_CURSOR_SCOPE_MISMATCH")
+        source,bind=self._temporal_source(
+            scene=scene,scope=scope,subject=subject,
+            fact=fact,story_id=story_id)
+        query=(
+            "SELECT c.*, EXISTS(SELECT 1 FROM temporal_claims successor "
+            "WHERE successor.supersedes_id=c.claim_id AND "
+            "successor.recorded_seq<=?) AS was_superseded " + source +
+            " AND c.story_from<=? AND "
+            "(c.story_until IS NULL OR c.story_until>?) "
+            "AND c.recorded_seq>? AND c.recorded_seq<=? "
+            "ORDER BY c.recorded_seq LIMIT ?")
+        rows=self.db.execute(
+            query,[as_of_recorded_seq,*bind,story_tick,story_tick,
+                   after_seq,as_of_recorded_seq,limit+1]).fetchall()
+        page=rows[:limit]
+        claims=[]
+        for row in page:
+            self._verify_claim_row(row)
+            claims.append({
+                "claim_id":row["claim_id"],
+                "scene_id":row["scene"],
+                "recorded_seq":row["recorded_seq"],
+                "story_from":row["story_from"],
+                "story_until":row["story_until"],
+                "knowledge_state":row["knowledge_state"],
+                "evidence_event_id":row["evidence_event"],
+                "supersedes_id":row["supersedes_id"],
+                "superseded_at_snapshot":bool(row["was_superseded"]),
+                "claim_sha256":row["claim_sha"],
+            })
+        more=len(rows)>limit
+        next_cursor=None
+        if more:
+            next_data={"v":1,"fingerprint":fingerprint,
+                       "last_seq":page[-1]["recorded_seq"],
+                       "asof":as_of_recorded_seq}
+            next_data["tag"]=digest(canonical(next_data))
+            next_cursor=base64.urlsafe_b64encode(
+                canonical(next_data).encode("utf-8")).decode("ascii").rstrip("=")
+        return {"format":"writerforge.v58-temporal-claim-page.v1",
+                "story_id":story_id,"scene_id":scene,"scope":scope,
+                "subject_id":subject,"fact_id":fact,"story_tick":story_tick,
+                "as_of_recorded_seq":as_of_recorded_seq,
+                "page_count":len(claims),"has_more":more,
+                "next_cursor":next_cursor,"claims":claims,
+                "literary_truth_verified":False,
+                "source_text_included":False}
 
     def graph_neighbors(self,event_id: str, *, depth: int = 2):
         """Bounded fact-event adjacency; potential causality NEVER proof."""
