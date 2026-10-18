@@ -321,9 +321,10 @@ class FactJournal:
         content = canonical(record)
         h = digest(content)
         existing = self.db.execute(
-            "SELECT recorded_seq,claim_sha FROM temporal_claims WHERE claim_id=?",
+            "SELECT * FROM temporal_claims WHERE claim_id=?",
             (record["claim_id"],)).fetchone()
         if existing:
+            self._verify_claim_row(existing)
             need(existing["claim_sha"] == h, "FACT_TEMPORAL_CLAIM_IMMUTABLE")
             return {"claim_id": record["claim_id"],
                     "recorded_seq": existing["recorded_seq"],
