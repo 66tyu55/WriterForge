@@ -10,7 +10,7 @@ No account secrets, text dumps, sqlite mutations, uploading, arbitrary bucket
 names, or fallback to unverified web content.
 """
 from __future__ import annotations
-from hashlib import sha256
+from hashlib import sha1, sha256
 from pathlib import Path
 from urllib.parse import quote
 from dataclasses import dataclass
@@ -47,6 +47,8 @@ class R2Lookup:
     term: tuple[str,...]
     matches: tuple[dict,...]
     from_local_cache: bool
+    catalog_edition_verified: bool = False
+    private_source_blob_present: bool = False
 
     def public(self) -> dict:
         return {
@@ -59,7 +61,10 @@ class R2Lookup:
             "matched_source_units":list(self.matches),
             "match_count":len(self.matches),
             "from_verified_local_cache":self.from_local_cache,
-            "original_source_provenance_verified":True,
+            "r2_manifest_blobs_and_sqlite_verified":True,
+            "catalog_original_edition_verified":self.catalog_edition_verified,
+            "private_source_blob_present":self.private_source_blob_present,
+            "source_location_sha_crosschecked":True,
             "source_lexical_match_only":True,
             "literary_experience_semantics_verified":False,
             "independent_literary_review_performed":False,
@@ -126,6 +131,27 @@ class R2SourceGateway:
             if not works or len(works)>16:
                 raise R2RetrievalError("R2_STUDIED_WORK_COUNT_UNEXPECTED")
             source_digests={x["work_id"]:x["source_sha256"] for x in works}
+            # R2 integrity is NOT the same as independently verified original
+            # provenance. For strictly catalogued public-domain books, recheck
+            # the exact upstream Git blob and study-decoded full-source hash.
+            from .classics_catalog import CATALOG
+            catalog_edition_verified=False
+            known=next((b for b in CATALOG.values()
+                        if b.library==library),None)
+            if known:
+                source_path=restored.get("source")
+                if (not source_path or
+                    known.work_id not in source_digests or
+                    len(source_digests)!=1):
+                    raise R2RetrievalError("R2_CATALOG_SOURCE_BLOB_MISSING_OR_WRONG_WORK")
+                raw=Path(source_path).read_bytes()
+                git=sha1(f"blob {len(raw)}\\0".encode("ascii")+raw).hexdigest()
+                if git!=known.git_blob_sha1:
+                    raise R2RetrievalError("R2_ORIGINAL_CATALOG_EDITION_CHANGED")
+                decoded_sha=sha256(raw.decode("utf-8-sig").encode("utf-8")).hexdigest()
+                if decoded_sha!=source_digests[known.work_id]:
+                    raise R2RetrievalError("R2_ORIGINAL_TEXT_AND_STUDIED_WORK_DISAGREE")
+                catalog_edition_verified=True
             rt=RuntimeEngine()
             rt.enter_write(snap_id)
             # Source terms are lexical search; existing WF Xuehai retrieval
@@ -167,6 +193,8 @@ class R2SourceGateway:
             return R2Lookup(
                 library=restored["library"],snapshot=restored["snapshot"],
                 published_snapshot_id=snap_id,term=terms,matches=tuple(result),
-                from_local_cache=bool(restored["from_local_cache"]))
+                from_local_cache=bool(restored["from_local_cache"]),
+                catalog_edition_verified=catalog_edition_verified,
+                private_source_blob_present=bool(restored.get("source")))
         finally:
             conn.close()
