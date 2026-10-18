@@ -310,7 +310,7 @@ def main(argv: list[str] | None = None):
     exp_post.add_argument("--outcome",required=True,
         choices=("CLAIMED_APPLIED","NOT_APPLIED","UNCERTAIN"))
     exp_post.add_argument("--quote-file",help="optional exact 8..120 character draft span")
-        style_approve=sub.add_parser("prose-style-approve",help="approve ONE quality-reviewed prose reference for a project")
+    style_approve=sub.add_parser("prose-style-approve",help="approve ONE quality-reviewed prose reference for a project")
     style_approve.add_argument("--project",required=True)
     style_approve.add_argument("--file",required=True,help="author-approved ORIGINAL sample; never committed")
     style_approve.add_argument("--source-scope",help="bind reference to accepted project scene; stale edits invalidate it")
