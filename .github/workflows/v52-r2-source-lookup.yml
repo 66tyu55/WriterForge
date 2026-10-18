@@ -8,6 +8,7 @@ on:
       - 'writerforge/verified_flow.py'
       - 'writerforge/cli.py'
       - 'tests/test_v52_r2_native_lookup.py'
+      - 'scripts/probe_v52_live_r2_lookup.py'
   workflow_dispatch:
 permissions:
   contents: read
