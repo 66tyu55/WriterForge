@@ -347,6 +347,53 @@ class V65FormalWritingIntegrationTests(unittest.TestCase):
             finally:
                 db.close()
 
+    def test_wf_own_local_planner_can_produce_conditional_profile_and_persist(self):
+        from writerforge.cli import main
+        with TemporaryDirectory() as tmp:
+            brief=Path(tmp)/"own_scene_outline.txt"
+            brief.write_text(
+                "少年追赶已离岸的渡船，木板湿滑可能让契据落水；"
+                "船离开后行动机会消失，尚未到安静余波阶段。",
+                encoding="utf-8")
+            saved=Path(tmp)/"wf_scene_profile.json"
+            raw=profile()
+            raw["diagnosis_origin"]="WF_PLANNER"
+            response=json.dumps(raw,ensure_ascii=False)
+            with patch("writerforge.verified_flow.local_chat_completion",
+                       return_value=response) as wf_model:
+                capture=StringIO()
+                with redirect_stdout(capture):
+                    main(["scene-craft-diagnosis",
+                          "--scene","synthetic_scene",
+                          "--goal","少年必须在船离岸前追上离开的人。",
+                          "--brief-file",str(brief),
+                          "--model","synthetic-offline-planner",
+                          "--output-profile",str(saved)])
+            wf_model.assert_called_once()
+            args=wf_model.call_args
+            self.assertIn("UNCERTAIN",args.args[0].prompt)
+            self.assertIn("木板湿滑",args.args[0].prompt)
+            received=json.loads(capture.getvalue())
+            self.assertEqual(received["selected_ids"],[
+                "ENVIRONMENT_CHANGES_ACTION",
+                "SENTENCE_PACE_FOLLOWS_PRESSURE"])
+            self.assertTrue(saved.is_file())
+            stored=json.loads(saved.read_text(encoding="utf-8"))
+            self.assertEqual(stored["diagnosis_origin"],"WF_PLANNER")
+            self.assertFalse(received["literary_improvement_proven"])
+
+    def test_cli_diagnosis_without_model_is_instruction_only(self):
+        from writerforge.cli import main
+        output=StringIO()
+        with redirect_stdout(output):
+            main(["scene-craft-diagnosis",
+                  "--scene","synthetic_scene",
+                  "--goal","少年赶在渡船离岸之前找到送信的人。"])
+        doc=json.loads(output.getvalue())
+        self.assertEqual(doc["model_calls"],0)
+        self.assertIn("active_obstacle",doc["prompt"])
+        self.assertFalse(doc["wf_writing_quality_verified"])
+
     def test_cli_scene_craft_plan_without_any_literary_model(self):
         from writerforge.cli import main
         with TemporaryDirectory() as tmp:
