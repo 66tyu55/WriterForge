@@ -83,7 +83,7 @@ class WFOfflineFoundationTests(unittest.TestCase):
         self.assertEqual(clean(" \u200b老  殘\n"),"老殘")
 
     def test_offline_search_requires_explicit_sync_and_snapshot(self):
-        with self.assertRaisesRegex(CorpusIndexError,"NOT_INDEXED|MISSING"):
+        with self.assertRaisesRegex(CorpusIndexError,"NOT_SYNCED|NOT_INDEXED|MISSING"):
             self.lookup()
         self.sync()
         for term in ("%", "?", " a ", ""):
