@@ -74,10 +74,10 @@ class V55TemporalProjectionTests(unittest.TestCase):
         self.assertEqual(self.view(5)["state"],"FALSE")
 
     def test_same_story_time_two_independent_opinions_stay_conflicted(self):
-        self.db.append(event("a",3,"KNOWN"))
-        self.db.append(event("b",3,"FALSE"))
-        self.db.append_temporal_claim(claim("c1",3,"KNOWN","a"))
-        self.db.append_temporal_claim(claim("c2",3,"FALSE","b"))
+        self.db.append(event("aa",3,"KNOWN"))
+        self.db.append(event("bb",3,"FALSE"))
+        self.db.append_temporal_claim(claim("c1",3,"KNOWN","aa"))
+        self.db.append_temporal_claim(claim("c2",3,"FALSE","bb"))
         self.assertEqual(self.view(4)["state"],"CONFLICT_UNRESOLVED")
         self.assertEqual(set(self.view(4)["active_claim_ids"]),{"c1","c2"})
         self.assertFalse(self.view(4)["story_truth_verified"])
@@ -125,28 +125,28 @@ class V55TemporalProjectionTests(unittest.TestCase):
                   "second-evidence",ending=6,supersedes="first-version"))
 
     def test_graph_neighbors_have_real_edge_and_do_not_assert_causality(self):
-        self.db.append(event("a",1))
-        self.db.append(event("b",2,"KNOWN"))
-        self.db.append(event("c",3,"FALSE"))
-        self.db.link("a","b","BEFORE")
-        self.db.link("b","c","POTENTIAL_CAUSE")
-        result=self.db.graph_neighbors("a",depth=2)
+        self.db.append(event("aa",1))
+        self.db.append(event("bb",2,"KNOWN"))
+        self.db.append(event("cc",3,"FALSE"))
+        self.db.link("aa","bb","BEFORE")
+        self.db.link("bb","cc","POTENTIAL_CAUSE")
+        result=self.db.graph_neighbors("aa",depth=2)
         self.assertEqual(result["relation_count"],2)
-        self.assertEqual(result["visited_event_ids"],["a","b","c"])
+        self.assertEqual(result["visited_event_ids"],["aa","bb","cc"])
         self.assertFalse(result["narrative_causality_verified"])
         self.assertTrue(all(not v["relation_semantics_verified"]
                             for v in result["relations"]))
         with self.assertRaisesRegex(FactLedgerError,"DEPTH_INVALID"):
-            self.db.graph_neighbors("a",depth=100)
+            self.db.graph_neighbors("aa",depth=100)
         with sqlite3.connect(self.path) as raw:
             raw.execute("UPDATE fact_links SET relation='CONTRADICTS' "
-                        "WHERE source_event='a'")
+                        "WHERE source_event='aa'")
         with self.assertRaisesRegex(FactLedgerError,"RELATION_TAMPERED"):
-            self.db.graph_neighbors("a")
+            self.db.graph_neighbors("aa")
 
     def test_stored_claim_state_tampering_detected_during_read(self):
-        self.db.append(event("t",2,"UNKNOWN"))
-        self.db.append_temporal_claim(claim("genuine",2,"UNKNOWN","t"))
+        self.db.append(event("tt",2,"UNKNOWN"))
+        self.db.append_temporal_claim(claim("genuine",2,"UNKNOWN","tt"))
         with sqlite3.connect(self.path) as raw:
             raw.execute("UPDATE temporal_claims SET knowledge_state='KNOWN' "
                         "WHERE claim_id='genuine'")
