@@ -89,7 +89,7 @@ class WFOfflineFoundationTests(unittest.TestCase):
                 self.lookup((term,))
         no_match=self.lookup(("完全不存在的极其生僻组合",))
         self.assertEqual(no_match["match_count"],0)
-        self.assertFalse(no_match["literary_skill_promoted"])
+        self.assertTrue(no_match["unverified_lexical_comparison_only"])
 
     def test_tamper_original_or_index_refused(self):
         self.sync()
