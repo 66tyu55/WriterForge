@@ -198,6 +198,63 @@ class TrustedBootstrapTests(unittest.TestCase):
                 self.assertEqual(revived.get("genuine01").status,
                                  SkillStatus.ACTIVE)
                 self.assertTrue(revived.grade_verified("genuine01"))
+                # EvolutionEngine often opens the registry BEFORE binding
+                # the verifier, so re-authentication must work in that path.
+                recovered_engine=EvolutionEngine(
+                    db=db,scope="recovery",promotion_verifier_key=key)
+                self.assertEqual(
+                    recovered_engine.registry.get("genuine01").status,
+                    SkillStatus.ACTIVE)
+                self.assertTrue(
+                    recovered_engine.registry.grade_verified("genuine01"))
+            finally:
+                db.close()
+
+    def test_signed_two_step_promotion_chain_cannot_hide_corrupted_history(self):
+        from writerforge.evolution import EvolutionEngine,UpgradeCandidate,PromotionEvidence
+        key=b"synthetic-V64-multi-step-review-recovery"
+        with TemporaryDirectory() as folder:
+            db=WriterForgeDB(Path(folder)/"two-steps.db")
+            try:
+                r=SkillRegistry(db=db,scope="chain",
+                                promotion_verifier_key=key)
+                r.register(CapabilityContract("skillChain",1,"L1 baseline"))
+                engine=EvolutionEngine(registry=r,promotion_verifier_key=key)
+                for level in (2,3):
+                    candidate=UpgradeCandidate(
+                        skill="skillChain",new_level=level,
+                        capability_statement=f"synthetic L{level} bounded",
+                        evidence_id=f"proof{level}",
+                        requires_human_anchor=True,
+                        evidence=PromotionEvidence(
+                            capability_statement="synthetic proof",
+                            heldout_success=.93,transfer_success=.86,
+                            regression_success=.98,judge_stability=.96,
+                            repeated_failure_reduction=.43,runtime_regression=.01,
+                            human_anchor_count=1))
+                    payload=engine.promotion_attestation_payload(
+                        candidate,reviewer_id="external64",
+                        review_id=f"review{level}")
+                    engine.apply_upgrade(
+                        candidate,policy="manual",approved=True,
+                        attestation={"reviewer_id":"external64",
+                                     "review_id":f"review{level}",
+                                     "signature":sign(payload,key)})
+                db.close()
+                db=WriterForgeDB(Path(folder)/"two-steps.db")
+                recovered=SkillRegistry(db=db,scope="chain",
+                                        promotion_verifier_key=key)
+                self.assertEqual(recovered.get("skillChain").level,3)
+                self.assertEqual(recovered.get("skillChain").status,
+                                 SkillStatus.ACTIVE)
+                self.assertTrue(recovered.grade_verified("skillChain"))
+                db.conn.execute(
+                    "UPDATE skill_promotion_receipts SET signature=? "
+                    "WHERE scope='chain' AND new_level=2",("0"*64,))
+                db.conn.commit()
+                with self.assertRaisesRegex(PermissionError,"PROMOTION"):
+                    SkillRegistry(db=db,scope="chain",
+                                  promotion_verifier_key=key)
             finally:
                 db.close()
 
