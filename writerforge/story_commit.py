@@ -184,6 +184,13 @@ class StoryCommitCoordinator:
                     raise StoryCommitError(
                         "AI_PROVENANCE_REQUIRED_FOR_ASSISTANT")
                 effect=generated[0]
+                bound_source=conn.execute(
+                    "SELECT status FROM snapshots WHERE id=?",
+                    (self.runtime.pinned_snapshot_id,)).fetchone()
+                if (bound_source is None or
+                    bound_source["status"]!="published"):
+                    raise StoryCommitError(
+                        "AI_PROVENANCE_SOURCE_SNAPSHOT_NOT_PUBLISHED")
                 verified_provenance=validate_ai_commit_permit(
                     ai_provenance,key=trusted_commit_key(),
                     project_id=plan.project_id,
