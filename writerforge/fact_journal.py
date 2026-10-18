@@ -101,6 +101,10 @@ class FactJournal:
             supersedes_id TEXT, claim_sha TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS temporal_lookup
             ON temporal_claims(scene,subject_scope,subject_id,fact,story_from,recorded_seq);
+        -- Enforce no-fork atomically across SQLite connections, not only
+        -- via a check-then-insert preflight susceptible to writer races.
+        CREATE UNIQUE INDEX IF NOT EXISTS temporal_single_successor
+            ON temporal_claims(supersedes_id) WHERE supersedes_id IS NOT NULL;
         -- V57: explicit same-story identity; never infer from chapter names.
         CREATE TABLE IF NOT EXISTS story_scenes(
             scene_id TEXT PRIMARY KEY, story_id TEXT NOT NULL,
@@ -475,16 +479,19 @@ class FactJournal:
                 "SELECT 1 FROM temporal_claims WHERE supersedes_id=?",
                 (replaced,)).fetchone() is None,
                 "FACT_TEMPORAL_SUPERSESSION_ALREADY_USED")
-        with self.db:
-            cursor = self.db.execute(
-                "INSERT INTO temporal_claims("
-                "claim_id,scene,subject_scope,subject_id,fact,story_from,"
-                "story_until,knowledge_state,evidence_event,supersedes_id,claim_sha"
-                ") VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-                (record["claim_id"],record["scene_id"],record["subject_scope"],
-                 record["subject_id"],record["fact_id"],begin,end,
-                 record["knowledge_state"],record["evidence_event_id"],
-                 replaced,h))
+        try:
+            with self.db:
+                cursor = self.db.execute(
+                    "INSERT INTO temporal_claims("
+                    "claim_id,scene,subject_scope,subject_id,fact,story_from,"
+                    "story_until,knowledge_state,evidence_event,supersedes_id,claim_sha"
+                    ") VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    (record["claim_id"],record["scene_id"],record["subject_scope"],
+                     record["subject_id"],record["fact_id"],begin,end,
+                     record["knowledge_state"],record["evidence_event_id"],
+                     replaced,h))
+        except sqlite3.IntegrityError as exc:
+            raise FactLedgerError("FACT_TEMPORAL_CONCURRENT_WRITE_CONFLICT") from exc
         return {"claim_id":record["claim_id"],
                 "recorded_seq":cursor.lastrowid,"claim_sha256":h,
                 "replayed":False,"semantic_truth_verified":False}
