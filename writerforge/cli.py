@@ -88,6 +88,13 @@ def main(argv: list[str] | None = None):
                        help="for an authenticated sample, not a complete original book")
     learn.add_argument("--backup-r2",action="store_true",
                        help="back up after completed learning to your private R2 bucket")
+    r2_query=sub.add_parser("r2-query",
+        help="private R2 verified read-only original Xuehai search (not literary training)")
+    r2_query.add_argument("--library",required=True)
+    r2_query.add_argument("--snapshot",help="SHA256 snapshot to pin; omit for verified latest")
+    r2_query.add_argument("--term",action="append",required=True)
+    r2_query.add_argument("--limit",type=int,default=6)
+    r2_query.add_argument("--cache-dir",default="corpus/r2-readonly-cache")
     status=sub.add_parser("status")
     status.add_argument("--work-id",default=WORK_ID)
     context=sub.add_parser("draft-context")
@@ -110,6 +117,11 @@ def main(argv: list[str] | None = None):
     draft.add_argument("--model",required=True,help="model currently loaded in LM Studio")
     draft.add_argument("--api-base",default="http://127.0.0.1:1234/v1")
     draft.add_argument("--output-dir",default="writing_runs")
+    for command in (context,draft):
+        command.add_argument("--r2-library",help="private original source library")
+        command.add_argument("--r2-snapshot",help="required SHA256 snapshot for prose context")
+        command.add_argument("--r2-term",action="append",default=[])
+        command.add_argument("--r2-cache-dir",default="corpus/r2-readonly-cache")
     style_approve=sub.add_parser("prose-style-approve",help="approve ONE quality-reviewed prose reference for a project")
     style_approve.add_argument("--project",required=True)
     style_approve.add_argument("--file",required=True,help="author-approved ORIGINAL sample; never committed")
@@ -228,6 +240,13 @@ def main(argv: list[str] | None = None):
     reverse_restore.add_argument("--project",required=True)
     reverse_restore.add_argument("--snapshot",required=True)
     args=p.parse_args(argv)
+    if args.cmd=="r2-query":
+        from .r2_retrieval import R2SourceGateway
+        result=R2SourceGateway.from_environment().search(
+            library=args.library,snapshot=args.snapshot,
+            terms=tuple(args.term),cache_dir=args.cache_dir,limit=args.limit)
+        _emit(result.public())
+        return
     if args.cmd in ("reverse-core-init","reverse-core-status","reverse-core-restore"):
         from .reverse_craft import ReverseCraftCoordinator, WORK, EDITION
         from .reverse_core_vault import ReverseCoreVault
@@ -561,6 +580,8 @@ def main(argv: list[str] | None = None):
                 args.scene,args.goal,concerns=concerns,genre=args.genre,
                 reference_category=args.reference_category,
                 reference_name=args.reference_name,
+                r2_library=args.r2_library,r2_snapshot=args.r2_snapshot,
+                r2_terms=tuple(args.r2_term),r2_cache_dir=args.r2_cache_dir,
             )
             if args.cmd=="draft-context":
                 # Preview only: does NOT claim a model was called or produce prose.
