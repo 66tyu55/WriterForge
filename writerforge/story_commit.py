@@ -12,6 +12,10 @@ from .story import CanonPatchRequired
 from .story_work_tree import StoryWorkRoot
 from .work_tree_checkpoint import encode_finished_tree
 from .writing_companion import observe_accepted, apply_preference, validate_origin, validate_preference
+from .ai_provenance import (
+    AIProvenanceError,validate_ai_commit_permit,trusted_commit_key,
+)
+import os
 
 
 def _json(value: Any) -> str:
@@ -135,6 +139,7 @@ class StoryCommitCoordinator:
         *,
         work_root: StoryWorkRoot | None = None,
         precommit_check: Callable[[], None] | None = None,
+        ai_provenance: dict | None = None,
     ) -> StoryCommitResult:
         self.runtime.require(Mode.WRITE)
         if not plan.project_id or not plan.commit_id:
@@ -165,6 +170,57 @@ class StoryCommitCoordinator:
             # cannot slip between authorization and story COMMIT.
             if precommit_check is not None:
                 precommit_check()
+
+            # Final origin authorization is checked under THIS transaction
+            # after the SQLite writer lock. Caller-supplied callbacks are
+            # never sufficient for a generated-prose provenance claim.
+            generated=[
+                effect for effect in plan.effects
+                if effect.type==EffectType.ACCEPT_PROSE and
+                effect.payload.get("origin")=="assistant_generated"]
+            verified_provenance=None
+            if generated:
+                if len(generated)!=1 or ai_provenance is None:
+                    raise StoryCommitError(
+                        "AI_PROVENANCE_REQUIRED_FOR_ASSISTANT")
+                effect=generated[0]
+                verified_provenance=validate_ai_commit_permit(
+                    ai_provenance,key=trusted_commit_key(),
+                    project_id=plan.project_id,
+                    scene_id=effect.target,commit_id=plan.commit_id,
+                    snapshot_id=self.runtime.pinned_snapshot_id,
+                    body=effect.payload["body"])
+                decision_id=verified_provenance["experience_attempt_id"]
+                approval=conn.execute(
+                    "SELECT 1 FROM experience_approvals "
+                    "WHERE project_id=? LIMIT 1",
+                    (plan.project_id,)).fetchone()
+                if decision_id is None and approval is not None:
+                    raise StoryCommitError(
+                        "AI_PROVENANCE_EXPERIENCE_DECISION_REQUIRED")
+                if decision_id is not None:
+                    from .experience_decision import ExperienceDecisionBridge
+                    raw=os.environ.get(
+                        "WRITERFORGE_EXPERIENCE_REVIEW_VERIFY_KEY_HEX")
+                    try:
+                        review_key=bytes.fromhex(raw) if raw else None
+                    except ValueError as exc:
+                        raise StoryCommitError(
+                            "AI_PROVENANCE_REVIEW_KEY_INVALID") from exc
+                    bridge=ExperienceDecisionBridge(
+                        self.db,self.runtime,reviewer_key=review_key)
+                    live=bridge.validate_live_decision(
+                        project_id=plan.project_id,attempt_id=decision_id)
+                    if (live["decision_sha256"]!=
+                            verified_provenance["decision_sha256"] or
+                        live["scene_id"]!=effect.target or
+                        live["source_snapshot_id"]!=
+                            self.runtime.pinned_snapshot_id):
+                        raise StoryCommitError(
+                            "AI_PROVENANCE_EXPERIENCE_CONTEXT_MISMATCH")
+            elif ai_provenance is not None:
+                raise StoryCommitError(
+                    "AI_PROVENANCE_NOT_VALID_FOR_HUMAN_ORIGIN")
             prior = conn.execute(
                 """SELECT bundle_hash,work_fingerprint
                    FROM story_commit_receipts
@@ -173,6 +229,17 @@ class StoryCommitCoordinator:
             ).fetchone()
 
             if prior is not None:
+                if verified_provenance is not None:
+                    seen=conn.execute(
+                        "SELECT permit_sha,permit_json "
+                        "FROM story_ai_provenance "
+                        "WHERE project_id=? AND commit_id=?",
+                        (plan.project_id,plan.commit_id)).fetchone()
+                    if (seen is None or
+                        seen["permit_sha"]!=verified_provenance["permit_sha256"] or
+                        seen["permit_json"]!=verified_provenance["permit_json"]):
+                        raise StoryCommitError(
+                            "AI_PROVENANCE_REPLAY_MISMATCH")
                 if prior["bundle_hash"] != bundle_hash:
                     raise StoryCommitError(
                         f"commit_id {plan.commit_id!r} already used for a different effect bundle"
@@ -219,6 +286,15 @@ class StoryCommitCoordinator:
                     plan.work_fingerprint,
                 ),
             )
+
+            if verified_provenance is not None:
+                conn.execute(
+                    "INSERT INTO story_ai_provenance("
+                    "project_id,commit_id,permit_sha,permit_json)"
+                    " VALUES(?,?,?,?)",
+                    (plan.project_id,plan.commit_id,
+                     verified_provenance["permit_sha256"],
+                     verified_provenance["permit_json"]))
 
             for ordinal, effect in enumerate(ordered):
                 self._apply_effect(conn, plan.project_id, effect)
