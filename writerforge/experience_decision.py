@@ -520,6 +520,15 @@ class ExperienceDecisionBridge:
             self._verify_approval(review)
             self._source_verified(candidate["source_ref"],
                                   plan["source_snapshot_id"])
+            # Historical decisions remain auditable but can no longer be
+            # reactivated to generate new text after a failure/tombstone.
+            if detail["decision"]=="SELECT":
+                need(self._revocation_state(
+                    project_id,detail["experience_id"]) is None,
+                    "EXPERIENCE_SELECTED_POLICY_REVOKED")
+                need(self._feedback_state(
+                    project_id,detail["experience_id"]) is None,
+                    "EXPERIENCE_SELECTED_POLICY_QUARANTINED")
         return plan
 
     def decide(self, *, project_id,scene_id,attempt_id,goal,
@@ -564,7 +573,17 @@ class ExperienceDecisionBridge:
             self._source_verified(candidate["source_ref"],pinned)
             req=candidate["required_tags"]
             banned=candidate["forbidden_tags"]
-            if not enabled:
+            revocation=self._revocation_state(
+                project_id,candidate["experience_id"])
+            feedback=self._feedback_state(
+                project_id,candidate["experience_id"])
+            if revocation is not None:
+                outcome,why="SKIP","EXPERIENCE_REVOKED"
+            elif feedback=="NOT_APPLIED":
+                outcome,why="SKIP","PRIOR_NOT_APPLIED"
+            elif feedback=="UNCERTAIN":
+                outcome,why="UNCERTAIN","PRIOR_APPLICATION_UNCERTAIN"
+            elif not enabled:
                 outcome,why="SKIP","OPERATOR_DISABLED"
             elif any(values.get(x) is False for x in req) or any(
                     values.get(x) is True for x in banned):
