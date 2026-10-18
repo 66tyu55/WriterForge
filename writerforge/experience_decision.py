@@ -32,6 +32,13 @@ OPERATION_GUIDANCE = {
 
 MAX_POLICIES = 8
 MAX_SELECTED = 2
+MAX_FEEDBACK_SCAN = 128
+REVOCATION_REASONS = {
+    "SOURCE_REVIEW_DISPUTED", "NEGATIVE_INDEPENDENT_REVIEW",
+    "AUTHORITY_WITHDRAWN"
+}
+LEGACY_FAMILIES = {"V31_EXPERIMENT","V38_L2_CONFLICT"}
+LEGACY_ISSUES = {"SELF_REVIEW_UNVERIFIED","SEMANTIC_ROLE_DISPUTED"}
 
 
 class ExperiencePolicyError(ValueError):
@@ -134,7 +141,7 @@ class ExperienceDecisionBridge:
 
     def stage_candidate(self, *, project_id, experience_id, snapshot_id,
                         source_ref, required_tags, forbidden_tags,
-                        operation_code):
+                        operation_code, supersedes_experience_id=None):
         self.runtime.require(Mode.LEARN)
         need(is_id(project_id) and is_id(experience_id),
              "EXPERIENCE_ID_INVALID")
@@ -151,6 +158,27 @@ class ExperienceDecisionBridge:
                 "operation_code":operation_code,
                 "source_semantics_verified":False,
                 "status":"HYPOTHESIS_ONLY"}
+        if supersedes_experience_id is not None:
+            need(is_id(supersedes_experience_id) and
+                 supersedes_experience_id!=experience_id,
+                 "EXPERIENCE_REVISION_REFERENCE_INVALID")
+            prior_row,prior_candidate=self._lookup_candidate(
+                project_id,supersedes_experience_id)
+            previous_adverse=self._feedback_state(
+                project_id,supersedes_experience_id)
+            previous_revoked=self._revocation_state(
+                project_id,supersedes_experience_id)
+            need(previous_adverse is not None or previous_revoked is not None,
+                 "EXPERIENCE_REVISION_PRIOR_FAILURE_REQUIRED")
+            need(prior_candidate["operation_code"]!=operation_code or
+                 prior_candidate["required_tags"]!=req or
+                 prior_candidate["forbidden_tags"]!=deny,
+                 "EXPERIENCE_REVISION_MUST_CHANGE_BEHAVIOR")
+            # Record ancestry only for a NEW revision. Legacy V61 candidates
+            # retain their exact previous SHA/approval signature.
+            record["supersedes_experience_id"]=supersedes_experience_id
+            record["prior_candidate_sha256"]=prior_row["candidate_sha"]
+            record["revision_reason"]="PRIOR_ADVERSE_OR_REVOKED"
         h=digest(record)
         prior=self.db.conn.execute(
             "SELECT * FROM experience_candidates "
