@@ -121,12 +121,24 @@ class FactJournal:
         return {"event_id": item["event_id"], "event_sha256": record_sha,
                 "idempotent_replay": False, "semantic_truth_proven": False}
 
+    @staticmethod
+    def _assert_record_integrity(row):
+        original = {
+            "event_id": row["event_id"], "scene_id": row["scene"],
+            "actor_id": row["actor"], "fact_id": row["fact"],
+            "tick": row["tick"], "state": row["state"],
+            "role": row["role"], "evidence_sha256": row["evidence_sha"],
+        }
+        need(digest(canonical(original)) == row["event_sha"],
+             "FACT_STORED_EVENT_TAMPERED")
+        return original
+
     def state(self, *, scene: str, actor: str, fact: str, at_tick: int | None = None):
         need(all(key(x) for x in (scene, actor, fact)), "FACT_QUERY_KEY_INVALID")
         need(at_tick is None or type(at_tick) is int and 0 <= at_tick <= 10000000,
              "FACT_QUERY_TIME_INVALID")
         q = (
-            "SELECT tick,state,role,event_id,event_sha FROM fact_events "
+            "SELECT event_id,scene,actor,fact,tick,state,role,evidence_sha,event_sha FROM fact_events "
             "WHERE scene=? AND actor=? AND fact=? "
         )
         bind = [scene,actor,fact]
@@ -136,6 +148,8 @@ class FactJournal:
         q += "ORDER BY tick DESC,event_id LIMIT 65"
         rows = list(self.db.execute(q,bind))
         need(len(rows) <= 64, "FACT_QUERY_HISTORY_BUDGET_EXCEEDED")
+        for row in rows:
+            self._assert_record_integrity(row)
         if not rows:
             return {"format":"WF.fact-state.v1",
                     "scene":scene, "actor":actor,"fact":fact,
@@ -163,9 +177,11 @@ class FactJournal:
              source_event != target_event and relation in RELATIONS,
              "FACT_LINK_INVALID")
         records = self.db.execute(
-            "SELECT event_id,scene,tick,role FROM fact_events "
+            "SELECT event_id,scene,actor,fact,tick,state,role,evidence_sha,event_sha FROM fact_events "
             "WHERE event_id IN (?,?)", (source_event,target_event)).fetchall()
         need(len(records)==2, "FACT_LINK_REFERENCES_MISSING")
+        for row in records:
+            self._assert_record_integrity(row)
         source = next(x for x in records if x["event_id"]==source_event)
         target = next(x for x in records if x["event_id"]==target_event)
         need(source["scene"]==target["scene"],
