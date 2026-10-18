@@ -5,6 +5,7 @@ on:
     paths:
       - 'writerforge/experience_decision.py'
       - 'writerforge/verified_flow.py'
+      - 'writerforge/cli.py'
       - 'writerforge/evolution.py'
       - 'writerforge/db.py'
       - 'tests/test_v61_experience_decision.py'
