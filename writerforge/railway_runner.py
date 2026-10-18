@@ -34,6 +34,7 @@ def main() -> int:
               "attempted_remote_request": False,
               "no_github_actions": True})
         return 0
+    emit({**label, "status": "WF_HTTP_REQUEST_STARTED", "token_present": True, "token_printed": False})
     try:
         result = WFWorkerR2Client(endpoint=ENDPOINT).inventory()
     except WFWorkerAPIError as exc:
