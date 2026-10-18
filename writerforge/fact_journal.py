@@ -170,6 +170,144 @@ class FactJournal:
              "FACT_TEMPORAL_CURSOR_KEY_INVALID")
         self._cursor_key=bytes.fromhex(record[0])
         self.db.commit()
+        self._initialize_global_clock()
+
+    def _initialize_global_clock(self):
+        """V59: one durable write order for facts, identity and disclosures.
+
+        Raw SQL inserts receive the same order through SQLite triggers.
+        Old V58 databases lack trustworthy cross-table ordering. Bootstrap
+        marks that history as UNORDERED rather than inventing timestamps.
+        """
+        self.db.executescript("""
+        CREATE TABLE IF NOT EXISTS ledger_operations(
+            global_seq INTEGER PRIMARY KEY AUTOINCREMENT,
+            operation TEXT NOT NULL, ref TEXT NOT NULL,
+            UNIQUE(operation,ref));
+        CREATE TABLE IF NOT EXISTS ledger_bootstrap(
+            singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+            legacy_unordered INTEGER NOT NULL,
+            bootstrap_seq INTEGER NOT NULL,
+            legacy_claim_max INTEGER NOT NULL);
+        CREATE INDEX IF NOT EXISTS ledger_op_ref
+            ON ledger_operations(operation,ref,global_seq);
+        """)
+        self.db.execute("BEGIN IMMEDIATE")
+        try:
+            marker=self.db.execute(
+                "SELECT 1 FROM ledger_bootstrap WHERE singleton=1"
+            ).fetchone()
+            if marker is None:
+                sources=(
+                    ("EVENT","SELECT event_id FROM fact_events ORDER BY rowid"),
+                    ("SCENE","SELECT scene_id FROM story_scenes ORDER BY rowid"),
+                    ("SUBJECT","SELECT binding_sha FROM story_subjects ORDER BY rowid"),
+                    ("DISCLOSURE","SELECT receipt_sha FROM reader_disclosures ORDER BY rowid"),
+                    ("CLAIM","SELECT claim_id FROM temporal_claims ORDER BY recorded_seq"),
+                    ("LINK","SELECT link_sha FROM fact_links ORDER BY rowid"),
+                )
+                legacy_rows=0
+                for operation, query in sources:
+                    for row in self.db.execute(query):
+                        self.db.execute(
+                            "INSERT OR IGNORE INTO ledger_operations(operation,ref)"
+                            " VALUES(?,?)",(operation,row[0]))
+                        legacy_rows+=1
+                last=self.ledger_head()
+                max_claim=self.db.execute(
+                    "SELECT COALESCE(MAX(recorded_seq),0) FROM temporal_claims"
+                ).fetchone()[0]
+                self.db.execute(
+                    "INSERT INTO ledger_bootstrap VALUES(1,?,?,?)",
+                    (int(legacy_rows>0),last,max_claim))
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        # Installed after any legacy backfill. Each trigger runs atomically
+        # in the same transaction as the original row INSERT.
+        self.db.executescript("""
+        CREATE TRIGGER IF NOT EXISTS wf_clock_event_insert
+        AFTER INSERT ON fact_events BEGIN
+            INSERT INTO ledger_operations(operation,ref)
+            VALUES('EVENT',NEW.event_id);
+        END;
+        CREATE TRIGGER IF NOT EXISTS wf_clock_scene_insert
+        AFTER INSERT ON story_scenes BEGIN
+            INSERT INTO ledger_operations(operation,ref)
+            VALUES('SCENE',NEW.scene_id);
+        END;
+        CREATE TRIGGER IF NOT EXISTS wf_clock_subject_insert
+        AFTER INSERT ON story_subjects BEGIN
+            INSERT INTO ledger_operations(operation,ref)
+            VALUES('SUBJECT',NEW.binding_sha);
+        END;
+        CREATE TRIGGER IF NOT EXISTS wf_clock_disclosure_insert
+        AFTER INSERT ON reader_disclosures BEGIN
+            INSERT INTO ledger_operations(operation,ref)
+            VALUES('DISCLOSURE',NEW.receipt_sha);
+        END;
+        CREATE TRIGGER IF NOT EXISTS wf_clock_claim_insert
+        AFTER INSERT ON temporal_claims BEGIN
+            INSERT INTO ledger_operations(operation,ref)
+            VALUES('CLAIM',NEW.claim_id);
+        END;
+        CREATE TRIGGER IF NOT EXISTS wf_clock_link_insert
+        AFTER INSERT ON fact_links BEGIN
+            INSERT INTO ledger_operations(operation,ref)
+            VALUES('LINK',NEW.link_sha);
+        END;
+        """)
+
+    def ledger_head(self):
+        return self.db.execute(
+            "SELECT COALESCE(MAX(global_seq),0) FROM ledger_operations"
+        ).fetchone()[0]
+
+    def _operation_seq(self, operation, ref):
+        row=self.db.execute(
+            "SELECT global_seq FROM ledger_operations "
+            "WHERE operation=? AND ref=?",(operation,ref)).fetchone()
+        need(row is not None,"FACT_GLOBAL_OPERATION_MISSING")
+        return row[0]
+
+    def _visible_operation(self, operation, ref, at_ledger_seq):
+        return self.db.execute(
+            "SELECT 1 FROM ledger_operations WHERE operation=? "
+            "AND ref=? AND global_seq<=?",
+            (operation,ref,at_ledger_seq)).fetchone() is not None
+
+    def _global_cutoff(self, *, ledger_seq, recorded_seq, story_id):
+        """Convert old claim-only as_of to new full recording clock.
+
+        The old SQLite DB's pre-V59 inter-table order is unrecoverable, so
+        reject historical identity projections instead of backdating it.
+        """
+        info=self.db.execute(
+            "SELECT * FROM ledger_bootstrap WHERE singleton=1"
+        ).fetchone()
+        need(info is not None,"FACT_GLOBAL_LEDGER_BOOTSTRAP_MISSING")
+        explicit=ledger_seq is not None
+        if ledger_seq is not None:
+            need(type(ledger_seq) is int and
+                 0<=ledger_seq<=self.ledger_head(),
+                 "FACT_GLOBAL_LEDGER_TIME_INVALID")
+        elif recorded_seq is not None:
+            latest=self.db.execute(
+                "SELECT claim_id FROM temporal_claims "
+                "WHERE recorded_seq<=? ORDER BY recorded_seq DESC LIMIT 1",
+                (recorded_seq,)).fetchone()
+            ledger_seq=self._operation_seq("CLAIM",latest[0]) if latest else 0
+        else:
+            ledger_seq=self.ledger_head()
+        need(not (info["legacy_unordered"] and explicit and
+                  ledger_seq<info["bootstrap_seq"]),
+             "FACT_GLOBAL_LEGACY_ORDER_UNPROVABLE")
+        need(not (info["legacy_unordered"] and story_id is not None and
+                  recorded_seq is not None and
+                  recorded_seq<=info["legacy_claim_max"]),
+             "FACT_GLOBAL_LEGACY_ORDER_UNPROVABLE")
+        return ledger_seq
 
     def close(self):
         self.db.close()
@@ -189,12 +327,14 @@ class FactJournal:
         if prior:
             self._verify_story_binding(prior)
             need(prior["binding_sha"] == proof, "FACT_STORY_BINDING_IMMUTABLE")
-            return {"binding_sha256": proof, "replayed": True}
+            return {"binding_sha256": proof, "replayed": True,
+                    "recorded_global_seq":self._operation_seq("SCENE",scene_id)}
         with self.db:
             self.db.execute(
                 "INSERT INTO story_scenes VALUES(?,?,?,?)",
                 (scene_id, story_id, chapter_index, proof))
-        return {"binding_sha256": proof, "replayed": False}
+        return {"binding_sha256": proof, "replayed": False,
+                "recorded_global_seq":self._operation_seq("SCENE",scene_id)}
 
     @staticmethod
     def _verify_story_binding(row):
@@ -236,12 +376,14 @@ class FactJournal:
         if prior:
             self._verify_subject_binding(prior)
             need(prior["binding_sha"] == h, "FACT_SUBJECT_IDENTITY_IMMUTABLE")
-            return {"binding_sha256":h,"replayed":True}
+            return {"binding_sha256":h,"replayed":True,
+                    "recorded_global_seq":self._operation_seq("SUBJECT",h)}
         with self.db:
             self.db.execute(
                 "INSERT INTO story_subjects VALUES(?,?,?,?,?)",
                 (scene_id,scope,subject_id,canonical_id,h))
-        return {"binding_sha256":h,"replayed":False}
+        return {"binding_sha256":h,"replayed":False,
+                "recorded_global_seq":self._operation_seq("SUBJECT",h)}
 
     @staticmethod
     def _verify_subject_binding(row):
@@ -317,6 +459,7 @@ class FactJournal:
             self._verify_reader_disclosure(ev,reader_subject,disclosure_tick)
             need(prior["receipt_sha"]==h,"FACT_READER_DISCLOSURE_IMMUTABLE")
             return {"receipt_sha256":h,"replayed":True,
+                    "recorded_global_seq":self._operation_seq("DISCLOSURE",h),
                     "story_truth_verified":False}
         with self.db:
             self.db.execute(
@@ -324,6 +467,7 @@ class FactJournal:
                 (event_id,reader_subject,disclosure_tick,ev["event_sha"],
                  signature,h))
         return {"receipt_sha256":h,"replayed":False,
+                "recorded_global_seq":self._operation_seq("DISCLOSURE",h),
                 "story_truth_verified":False}
 
     def _verify_reader_disclosure(self, ev, reader_subject, at_tick):
@@ -608,6 +752,7 @@ class FactJournal:
             need(existing["claim_sha"] == h, "FACT_TEMPORAL_CLAIM_IMMUTABLE")
             return {"claim_id": record["claim_id"],
                     "recorded_seq": existing["recorded_seq"],
+                    "recorded_global_seq":self._operation_seq("CLAIM",record["claim_id"]),
                     "claim_sha256": h, "replayed": True,
                     "semantic_truth_verified": False}
         evidence = self.db.execute(
@@ -674,6 +819,7 @@ class FactJournal:
             raise FactLedgerError("FACT_TEMPORAL_CONCURRENT_WRITE_CONFLICT") from exc
         return {"claim_id":record["claim_id"],
                 "recorded_seq":cursor.lastrowid,"claim_sha256":h,
+                "recorded_global_seq":self._operation_seq("CLAIM",record["claim_id"]),
                 "replayed":False,"semantic_truth_verified":False}
 
     @staticmethod
