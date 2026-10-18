@@ -16,6 +16,24 @@ from writerforge import (
 )
 
 
+
+# V64 migration of old high-grade synthetic fixtures: external issuer's
+# attestation is only a controlled test permit, NOT literary quality proof.
+V64_BOOT_KEY=b"synthetic-V64-V12-bootstrap-key"
+
+def seed_high_skill(reg,contract,receipt):
+    import hmac,json,hashlib
+    source_sha=hashlib.sha256(("synthetic:"+receipt).encode()).hexdigest()
+    payload=reg.bootstrap_attestation_payload(
+        contract,source_sha256=source_sha,
+        reviewer_id="syntheticIssuer",review_id=receipt)
+    sig=hmac.new(V64_BOOT_KEY,json.dumps(
+        payload,ensure_ascii=False,sort_keys=True,
+        separators=(",",":")).encode("utf-8"),"sha256").hexdigest()
+    reg.register(contract,bootstrap_attestation={
+        "source_sha256":source_sha,"reviewer_id":"syntheticIssuer",
+        "review_id":receipt,"signature":sig})
+
 class V12EvolutionTasteTests(unittest.TestCase):
     def test_reactive_cache_reuses_unchanged_dependencies(self):
         rt = ReactiveSkillRuntime()
@@ -116,10 +134,10 @@ class V12EvolutionTasteTests(unittest.TestCase):
             db.close()
 
     def test_skill_promotion_marks_only_dependents_for_revalidation(self):
-        r = SkillRegistry()
-        r.register(CapabilityContract("character_engine", 4, "bounded character decisions"))
-        r.register(CapabilityContract("dialogue_craft", 4, "goal-driven dialogue", {"character_engine": 4}))
-        r.register(CapabilityContract("prose_rhythm", 4, "functional sentence rhythm"))
+        r = SkillRegistry(bootstrap_verifier_key=V64_BOOT_KEY)
+        seed_high_skill(r,CapabilityContract("character_engine", 4, "bounded character decisions"),"v12_char_v64")
+        seed_high_skill(r,CapabilityContract("dialogue_craft", 4, "goal-driven dialogue", {"character_engine": 4}),"v12_dialogue_v64")
+        seed_high_skill(r,CapabilityContract("prose_rhythm", 4, "functional sentence rhythm"),"v12_rhythm_v64")
         # V63 migration of a historic positive fixture. The prior V12 and
         # V62 branch results remain unchanged; direct registry promotion
         # is now a genuine privilege bypass and MUST be refused.
@@ -151,9 +169,9 @@ class V12EvolutionTasteTests(unittest.TestCase):
         self.assertEqual(r.get("prose_rhythm").status, SkillStatus.ACTIVE)
 
     def test_capability_lag_is_detected(self):
-        r = SkillRegistry()
-        r.register(CapabilityContract("character_engine", 4, "bounded character decisions"))
-        r.register(CapabilityContract("dialogue_craft", 5, "advanced subtext", {"character_engine": 5}))
+        r = SkillRegistry(bootstrap_verifier_key=V64_BOOT_KEY)
+        seed_high_skill(r,CapabilityContract("character_engine", 4, "bounded character decisions"),"v12_char_v64")
+        seed_high_skill(r,CapabilityContract("dialogue_craft", 5, "advanced subtext", {"character_engine": 5}),"v12_advanced_v64")
         lags = r.lagging()
         self.assertEqual(len(lags), 1)
         self.assertEqual(lags[0].dependency, "character_engine")
@@ -254,8 +272,8 @@ class V12StorySenseTests(unittest.TestCase):
 class V12EvolutionEngineControlTests(unittest.TestCase):
     def test_subjective_upgrade_can_self_apply_only_after_gate_and_external_anchor(self):
         from writerforge import EvolutionEngine, SkillRegistry, CapabilityContract, UpgradeCandidate, PromotionEvidence
-        reg = SkillRegistry()
-        reg.register(CapabilityContract("dialogue_craft", 4, "basic goal-driven dialogue"))
+        reg = SkillRegistry(bootstrap_verifier_key=V64_BOOT_KEY)
+        seed_high_skill(reg,CapabilityContract("dialogue_craft", 4, "basic goal-driven dialogue"),"v12_basic_v64")
         import hmac, json
         external_key=b"synthetic-V12-external-verifier-key"
         engine = EvolutionEngine(registry=reg,promotion_verifier_key=external_key)
