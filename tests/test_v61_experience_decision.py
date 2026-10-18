@@ -230,7 +230,8 @@ class V61ExperienceDecisionTests(unittest.TestCase):
         self.stage()
         self.approve()
         self.write()
-        flow=VerifiedWritingFlow(self.db,self.runtime,"project01")
+        flow=VerifiedWritingFlow(self.db,self.runtime,"project01",
+                                 experience_review_key=KEY)
         fake=[{"entry_id":1,"work_id":"synthetic_work",
                "location":[1,1,1],"function":"narration","effect":"unverified"}]
         with patch.object(flow.xuehai,"query",return_value=fake):
