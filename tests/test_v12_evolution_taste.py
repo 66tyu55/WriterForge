@@ -16,6 +16,24 @@ from writerforge import (
 )
 
 
+
+# V64 synthetic reviewer explicitly signs historical test baselines.
+# Original V12/V63 branches remain frozen; no real literary level is inferred.
+_BOOTSTRAP_FIXTURE_KEY=b"synthetic-V64-fixture-bootstrap-key"
+def _verified_fixture(reg,cap):
+    import hmac, json
+    reg._bootstrap_verifier_key=_BOOTSTRAP_FIXTURE_KEY
+    payload=reg.bootstrap_payload(
+        cap,reviewer_id="fixture_reviewer",review_id="fixture_baseline")
+    signature=hmac.new(
+        _BOOTSTRAP_FIXTURE_KEY,
+        json.dumps(payload,ensure_ascii=False,sort_keys=True,
+                   separators=(",",":")).encode("utf-8"),"sha256").hexdigest()
+    return reg.register_verified(
+        cap,reviewer_id="fixture_reviewer",review_id="fixture_baseline",
+        signature=signature)
+
+
 class V12EvolutionTasteTests(unittest.TestCase):
     def test_reactive_cache_reuses_unchanged_dependencies(self):
         rt = ReactiveSkillRuntime()
@@ -117,9 +135,9 @@ class V12EvolutionTasteTests(unittest.TestCase):
 
     def test_skill_promotion_marks_only_dependents_for_revalidation(self):
         r = SkillRegistry()
-        r.register(CapabilityContract("character_engine", 4, "bounded character decisions"))
-        r.register(CapabilityContract("dialogue_craft", 4, "goal-driven dialogue", {"character_engine": 4}))
-        r.register(CapabilityContract("prose_rhythm", 4, "functional sentence rhythm"))
+        _verified_fixture(r,CapabilityContract("character_engine", 4, "bounded character decisions"))
+        _verified_fixture(r,CapabilityContract("dialogue_craft", 4, "goal-driven dialogue", {"character_engine": 4}))
+        _verified_fixture(r,CapabilityContract("prose_rhythm", 4, "functional sentence rhythm"))
         # V63 migration of a historic positive fixture. The prior V12 and
         # V62 branch results remain unchanged; direct registry promotion
         # is now a genuine privilege bypass and MUST be refused.
@@ -152,8 +170,8 @@ class V12EvolutionTasteTests(unittest.TestCase):
 
     def test_capability_lag_is_detected(self):
         r = SkillRegistry()
-        r.register(CapabilityContract("character_engine", 4, "bounded character decisions"))
-        r.register(CapabilityContract("dialogue_craft", 5, "advanced subtext", {"character_engine": 5}))
+        _verified_fixture(r,CapabilityContract("character_engine", 4, "bounded character decisions"))
+        _verified_fixture(r,CapabilityContract("dialogue_craft", 5, "advanced subtext", {"character_engine": 5}))
         lags = r.lagging()
         self.assertEqual(len(lags), 1)
         self.assertEqual(lags[0].dependency, "character_engine")
@@ -255,7 +273,7 @@ class V12EvolutionEngineControlTests(unittest.TestCase):
     def test_subjective_upgrade_can_self_apply_only_after_gate_and_external_anchor(self):
         from writerforge import EvolutionEngine, SkillRegistry, CapabilityContract, UpgradeCandidate, PromotionEvidence
         reg = SkillRegistry()
-        reg.register(CapabilityContract("dialogue_craft", 4, "basic goal-driven dialogue"))
+        _verified_fixture(reg,CapabilityContract("dialogue_craft", 4, "basic goal-driven dialogue"))
         import hmac, json
         external_key=b"synthetic-V12-external-verifier-key"
         engine = EvolutionEngine(registry=reg,promotion_verifier_key=external_key)
