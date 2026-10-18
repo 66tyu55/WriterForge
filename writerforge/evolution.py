@@ -56,11 +56,26 @@ class SkillRegistry:
     Raw SQLite write access and arbitrary Python monkeypatching are outside
     this API security boundary; this is not a privilege sandbox.
     """
-    def __init__(self, db=None, scope: str="__system__"):
+    def __init__(self, db=None, scope: str="__system__",
+                 bootstrap_verifier_key:bytes|None=None):
         self._skills: dict[str, CapabilityContract] = {}
         self.db=db
         self.scope=scope
         self._trusted_promotion_key=None
+        if bootstrap_verifier_key is None:
+            raw=os.environ.get("WRITERFORGE_SKILL_BOOTSTRAP_VERIFY_KEY_HEX")
+            if raw is not None:
+                try:
+                    bootstrap_verifier_key=bytes.fromhex(raw)
+                except ValueError as exc:
+                    raise ValueError("SKILL_BOOTSTRAP_KEY_INVALID") from exc
+        if bootstrap_verifier_key is not None and (
+            not isinstance(bootstrap_verifier_key,bytes)
+            or len(bootstrap_verifier_key)<16):
+            raise ValueError("SKILL_BOOTSTRAP_KEY_INVALID")
+        self._bootstrap_key=bootstrap_verifier_key
+        self._verified_initial_grades=set()
+        self._legacy_unverified=set()
         if self.db is not None:
             for row in self.db.conn.execute(
                 "SELECT skill_name,level,statement,dependencies_json,status,"
@@ -70,11 +85,86 @@ class SkillRegistry:
                     row["skill_name"],int(row["level"]),row["statement"],
                     json.loads(row["dependencies_json"]),
                     SkillStatus(row["status"]),int(row["revision"]))
+                if c.level>1:
+                    receipt=self.db.conn.execute(
+                        "SELECT * FROM skill_bootstrap_receipts "
+                        "WHERE scope=? AND skill_name=?",
+                        (self.scope,c.name)).fetchone()
+                    if receipt is not None and self._bootstrap_key is not None:
+                        self._validate_bootstrap(c,{
+                            "source_sha256":receipt["source_sha"],
+                            "reviewer_id":receipt["reviewer_id"],
+                            "review_id":receipt["review_id"],
+                            "signature":receipt["signature"]},
+                            receipt=receipt)
+                        self._verified_initial_grades.add(c.name)
+                    else:
+                        # Fail closed in the *read model*: never rewrite
+                        # uncertain historical grades or silently promote.
+                        self._legacy_unverified.add(c.name)
+                        c=replace(c,status=SkillStatus.SHADOW)
                 self._skills[c.name]=c
 
     @staticmethod
     def _snapshot(item: CapabilityContract) -> CapabilityContract:
         return replace(item,depends_on=dict(item.depends_on))
+
+    def bootstrap_attestation_payload(self,contract:CapabilityContract,*,
+                                       source_sha256:str,reviewer_id:str,
+                                       review_id:str):
+        """Exact contract + source SHA + scope; provenance, not literary truth."""
+        ident=re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{1,79}\\Z")
+        if (not isinstance(contract,CapabilityContract)
+            or not isinstance(source_sha256,str)
+            or not re.fullmatch(r"[0-9a-f]{64}",source_sha256)
+            or not all(isinstance(v,str) and ident.fullmatch(v)
+                       for v in (reviewer_id,review_id))):
+            raise ValueError("SKILL_BOOTSTRAP_FIELDS_INVALID")
+        return {
+            "protocol":"writerforge.v64-controlled-skill-bootstrap",
+            "scope":self.scope,
+            "capability":asdict(self._snapshot(contract)),
+            "source_receipt_sha256":source_sha256,
+            "reviewer_id":reviewer_id,"review_id":review_id,
+            "permission":"BOOTSTRAP_HIGH_GRADE",
+            "literary_ability_verified_by_software":False,
+        }
+
+    def _validate_bootstrap(self,contract,attestation,*,receipt=None):
+        if self._bootstrap_key is None:
+            raise PermissionError("SKILL_BOOTSTRAP_KEY_REQUIRED")
+        fields={"source_sha256","reviewer_id","review_id","signature"}
+        if not isinstance(attestation,dict) or set(attestation)!=fields:
+            raise PermissionError("SKILL_BOOTSTRAP_ATTESTATION_REQUIRED")
+        try:
+            payload=self.bootstrap_attestation_payload(
+                contract,source_sha256=attestation["source_sha256"],
+                reviewer_id=attestation["reviewer_id"],
+                review_id=attestation["review_id"])
+            body=json.dumps(payload,ensure_ascii=False,sort_keys=True,
+                            separators=(",",":"),allow_nan=False).encode("utf-8")
+            expected=hmac.new(self._bootstrap_key,body,"sha256").hexdigest()
+            supplied=attestation["signature"]
+        except (TypeError,ValueError,KeyError) as exc:
+            raise PermissionError("SKILL_BOOTSTRAP_ATTESTATION_INVALID") from exc
+        if (not isinstance(supplied,str)
+            or not hmac.compare_digest(expected,supplied)):
+            raise PermissionError("SKILL_BOOTSTRAP_ATTESTATION_INVALID")
+        contract_sha=sha256(json.dumps(
+            payload["capability"],ensure_ascii=False,sort_keys=True,
+            separators=(",",":"),allow_nan=False).encode("utf-8")).hexdigest()
+        receipt_sha=sha256(json.dumps({
+            "payload":payload,"signature":supplied},
+            ensure_ascii=False,sort_keys=True,
+            separators=(",",":"),allow_nan=False).encode("utf-8")).hexdigest()
+        if receipt is not None and (
+                receipt["contract_sha"]!=contract_sha or
+                receipt["receipt_sha"]!=receipt_sha):
+            raise PermissionError("SKILL_BOOTSTRAP_RECEIPT_TAMPERED")
+        return contract_sha,receipt_sha
+
+    def bootstrap_verified(self,name:str)->bool:
+        return name in self._verified_initial_grades
 
     def _bind_promotion_verifier(self,key:bytes|None):
         if key is None:
@@ -86,7 +176,8 @@ class SkillRegistry:
             raise PermissionError("SKILL_PROMOTION_VERIFIER_IMMUTABLE")
         self._trusted_promotion_key=key
 
-    def register(self, contract: CapabilityContract) -> None:
+    def register(self, contract: CapabilityContract, *,
+                 bootstrap_attestation:dict|None=None) -> None:
         """Create an initial capability contract exactly once.
 
         Registration is NOT a way to overwrite/promote an existing ID.
@@ -96,6 +187,18 @@ class SkillRegistry:
         if not isinstance(contract,CapabilityContract):
             raise TypeError("SKILL_REGISTRATION_SCHEMA_INVALID")
         proposed=self._snapshot(contract)
+        bootstrap_meta=None
+        if proposed.level>1:
+            contract_sha,receipt_sha=self._validate_bootstrap(
+                proposed,bootstrap_attestation)
+            bootstrap_meta=(
+                self.scope,proposed.name,contract_sha,
+                bootstrap_attestation["source_sha256"],
+                bootstrap_attestation["reviewer_id"],
+                bootstrap_attestation["review_id"],
+                bootstrap_attestation["signature"],receipt_sha)
+        elif bootstrap_attestation is not None:
+            raise ValueError("SKILL_BOOTSTRAP_NOT_REQUIRED_FOR_LEVEL_ONE")
         old=self._skills.get(proposed.name)
         if old is not None:
             if old!=proposed:
@@ -124,12 +227,20 @@ class SkillRegistry:
                      proposed.statement,
                      json.dumps(proposed.depends_on,ensure_ascii=False,
                                 sort_keys=True)))
+                if bootstrap_meta is not None:
+                    conn.execute(
+                        "INSERT INTO skill_bootstrap_receipts("
+                        "scope,skill_name,contract_sha,source_sha,"
+                        "reviewer_id,review_id,signature,receipt_sha)"
+                        " VALUES(?,?,?,?,?,?,?,?)",bootstrap_meta)
                 conn.commit()
             except Exception:
                 if conn.in_transaction:
                     conn.rollback()
                 raise
         self._skills[proposed.name]=proposed
+        if bootstrap_meta is not None:
+            self._verified_initial_grades.add(proposed.name)
 
     def get(self,name:str)->CapabilityContract:
         return self._snapshot(self._skills[name])
@@ -173,6 +284,8 @@ class SkillRegistry:
         if not decision.accepted:
             raise ValueError("SKILL_PROMOTION_EVIDENCE_GATE_NOT_PASSED")
         item=self._skills[candidate.skill]
+        if candidate.skill in self._legacy_unverified:
+            raise PermissionError("SKILL_BOOTSTRAP_LEGACY_GRADE_UNVERIFIED")
         if candidate.new_level!=item.level+1:
             raise ValueError("SKILL_PROMOTION_LEVEL_INVALID")
 
