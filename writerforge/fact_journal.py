@@ -101,11 +101,105 @@ class FactJournal:
             supersedes_id TEXT, claim_sha TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS temporal_lookup
             ON temporal_claims(scene,subject_scope,subject_id,fact,story_from,recorded_seq);
+        -- V57: explicit same-story identity; never infer from chapter names.
+        CREATE TABLE IF NOT EXISTS story_scenes(
+            scene_id TEXT PRIMARY KEY, story_id TEXT NOT NULL,
+            chapter_index INTEGER NOT NULL, binding_sha TEXT NOT NULL);
+        CREATE INDEX IF NOT EXISTS story_chapter_lookup
+            ON story_scenes(story_id,chapter_index);
+        -- Ingest sequence is distinct from fiction/story time.
+        CREATE TABLE IF NOT EXISTS event_import_receipts(
+            recorded_seq INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id TEXT NOT NULL UNIQUE, ingest_kind TEXT NOT NULL,
+            event_sha TEXT NOT NULL);
         """)
         self.db.commit()
 
     def close(self):
         self.db.close()
+
+    def register_scene(self, *, story_id: str, scene_id: str,
+                       chapter_index: int):
+        """Explicit binding, not an inference from strings or lexical hits."""
+        need(key(story_id) and key(scene_id) and
+             type(chapter_index) is int and 0 <= chapter_index <= 10000000,
+             "FACT_STORY_BINDING_INVALID")
+        binding = canonical({"story_id": story_id, "scene_id": scene_id,
+                             "chapter_index": chapter_index})
+        proof = digest(binding)
+        prior = self.db.execute(
+            "SELECT * FROM story_scenes WHERE scene_id=?", (scene_id,)
+        ).fetchone()
+        if prior:
+            self._verify_story_binding(prior)
+            need(prior["binding_sha"] == proof, "FACT_STORY_BINDING_IMMUTABLE")
+            return {"binding_sha256": proof, "replayed": True}
+        with self.db:
+            self.db.execute(
+                "INSERT INTO story_scenes VALUES(?,?,?,?)",
+                (scene_id, story_id, chapter_index, proof))
+        return {"binding_sha256": proof, "replayed": False}
+
+    @staticmethod
+    def _verify_story_binding(row):
+        proof = digest(canonical({
+            "story_id": row["story_id"], "scene_id": row["scene_id"],
+            "chapter_index": row["chapter_index"]}))
+        need(proof == row["binding_sha"], "FACT_STORY_BINDING_TAMPERED")
+
+    def _bound_story(self, scene):
+        row = self.db.execute(
+            "SELECT * FROM story_scenes WHERE scene_id=?", (scene,)
+        ).fetchone()
+        if row:
+            self._verify_story_binding(row)
+            return row["story_id"]
+        return None
+
+    def _same_story(self, left_scene, right_scene):
+        if left_scene == right_scene:
+            return True
+        left = self._bound_story(left_scene)
+        right = self._bound_story(right_scene)
+        return left is not None and left == right
+
+    def append_flashback(self, item, *, story_id: str):
+        """Explicit out-of-order ingestion; NEVER edits old events or story time.
+
+        Requires a pre-registered chapter/story; ordinary append() keeps V54
+        strict chronological behavior. SQLite ingest sequence is independent.
+        """
+        checked_event(item)
+        need(key(story_id) and self._bound_story(item["scene_id"]) == story_id,
+             "FACT_FLASHBACK_UNREGISTERED_STORY")
+        record_sha = digest(canonical(item))
+        existing = self.db.execute(
+            "SELECT * FROM fact_events WHERE event_id=?",
+            (item["event_id"],)).fetchone()
+        if existing is not None:
+            self._assert_record_integrity(existing)
+            need(existing["event_sha"] == record_sha,
+                 "FACT_IMMUTABLE_EVENT_REPLACEMENT_FORBIDDEN")
+            receipt = self.db.execute(
+                "SELECT recorded_seq FROM event_import_receipts WHERE event_id=?",
+                (item["event_id"],)).fetchone()
+            return {"event_id": item["event_id"],
+                    "event_sha256": record_sha, "replayed": True,
+                    "recorded_seq": receipt[0] if receipt else None,
+                    "semantic_truth_proven": False}
+        with self.db:
+            self.db.execute(
+                "INSERT INTO fact_events VALUES(?,?,?,?,?,?,?,?,?)",
+                (item["event_id"],item["scene_id"],item["actor_id"],
+                 item["fact_id"],item["tick"],item["state"],item["role"],
+                 item["evidence_sha256"],record_sha))
+            cursor = self.db.execute(
+                "INSERT INTO event_import_receipts"
+                "(event_id,ingest_kind,event_sha) VALUES(?,?,?)",
+                (item["event_id"],"EXPLICIT_FLASHBACK",record_sha))
+        return {"event_id": item["event_id"],"event_sha256": record_sha,
+                "recorded_seq": cursor.lastrowid,"replayed": False,
+                "semantic_truth_proven": False}
 
     def append(self, item):
         checked_event(item)
@@ -131,6 +225,10 @@ class FactJournal:
                 (item["event_id"], item["scene_id"], item["actor_id"],
                  item["fact_id"], item["tick"], item["state"],
                  item["role"], item["evidence_sha256"], record_sha))
+            self.db.execute(
+                "INSERT INTO event_import_receipts"
+                "(event_id,ingest_kind,event_sha) VALUES(?,?,?)",
+                (item["event_id"],"NORMAL_APPEND",record_sha))
         return {"event_id": item["event_id"], "event_sha256": record_sha,
                 "idempotent_replay": False, "semantic_truth_proven": False}
 
@@ -197,7 +295,7 @@ class FactJournal:
             self._assert_record_integrity(row)
         source = next(x for x in records if x["event_id"]==source_event)
         target = next(x for x in records if x["event_id"]==target_event)
-        need(source["scene"]==target["scene"],
+        need(self._same_story(source["scene"],target["scene"]),
              "FACT_LINK_CROSS_SCENE_FORBIDDEN")
         if relation in ("BEFORE","POTENTIAL_CAUSE"):
             need(source["tick"] < target["tick"],
@@ -340,12 +438,24 @@ class FactJournal:
              "FACT_TEMPORAL_EVIDENCE_SCOPE_MISMATCH")
         need(evidence["actor"] != "index_witness",
              "FACT_LEXICAL_INDEX_NOT_CHARACTER_KNOWLEDGE")
+        if record["knowledge_state"] == "KNOWN":
+            need(evidence["state"] == "KNOWN",
+                 "FACT_KNOWLEDGE_UNSUPPORTED_BY_EVIDENCE")
         if record["subject_scope"] == "ACTOR":
             need(evidence["actor"] == record["subject_id"],
                  "FACT_ACTOR_KNOWLEDGE_EVIDENCE_MISMATCH")
             if record["knowledge_state"] == "KNOWN":
                 need(begin >= evidence["tick"],
                      "FACT_ACTOR_KNOWS_BEFORE_EVIDENCE_EVENT")
+        elif record["knowledge_state"] == "KNOWN":
+            need(begin >= evidence["tick"],
+                 "FACT_READER_KNOWS_BEFORE_EVIDENCE_EVENT")
+            # Explicit REVEAL or narrator observation may disclose to reader.
+            # A character's private THINK alone must NEVER be inherited.
+            need(evidence["role"] == "REVEAL" or
+                 (evidence["actor"] == "narrator" and
+                  evidence["role"] == "OBSERVE"),
+                 "FACT_READER_DISCLOSURE_REQUIRED")
         if replaced is not None:
             old = self.db.execute(
                 "SELECT * FROM temporal_claims WHERE claim_id=?", (replaced,)
@@ -402,11 +512,12 @@ class FactJournal:
 
     def temporal_view(self, *, scene: str, scope: str, subject: str,
                       fact: str, story_tick: int,
-                      as_of_recorded_seq: int | None = None):
-        """Reconstruct what records claimed at two independent time axes.
+                      as_of_recorded_seq: int | None = None,
+                      story_id: str | None = None):
+        """Bitemporal projection. Explicit story_id enables cross-chapter view.
 
-        Story time != file/import order != chapter-reading order. Does NOT
-        interpret prose or infer a character actually knows a fact.
+        Streams verified claims instead of truncating at the V55 64-row
+        *history* limit. Output references stay capped; no R2/LLM access.
         """
         need(all(key(v) for v in (scene,subject,fact)),
              "FACT_TEMPORAL_QUERY_ID_INVALID")
@@ -416,22 +527,59 @@ class FactJournal:
         need(as_of_recorded_seq is None or (
             type(as_of_recorded_seq) is int and as_of_recorded_seq >= 0),
             "FACT_TEMPORAL_QUERY_AS_OF_INVALID")
+        if story_id is not None:
+            need(key(story_id) and self._bound_story(scene) == story_id,
+                 "FACT_TEMPORAL_STORY_SCOPE_NOT_REGISTERED")
+            registered = self.db.execute(
+                "SELECT * FROM story_scenes WHERE story_id=?",
+                (story_id,)).fetchall()
+            for bound in registered:
+                self._verify_story_binding(bound)
         if as_of_recorded_seq is None:
             as_of_recorded_seq = self.db.execute(
                 "SELECT COALESCE(MAX(recorded_seq),0) FROM temporal_claims"
             ).fetchone()[0]
-        matches = self.db.execute(
-            "SELECT * FROM temporal_claims WHERE scene=? AND "
-            "subject_scope=? AND subject_id=? AND fact=? AND "
-            "story_from<=? AND (story_until IS NULL OR story_until>?) AND "
-            "recorded_seq<=? ORDER BY recorded_seq LIMIT 65",
-            (scene,scope,subject,fact,story_tick,story_tick,
-             as_of_recorded_seq)).fetchall()
-        need(len(matches) <= 64, "FACT_TEMPORAL_QUERY_BUDGET_EXCEEDED")
-        for claim in matches: self._verify_claim_row(claim)
-        superseded = {x["supersedes_id"] for x in matches if x["supersedes_id"]}
-        active = [x for x in matches if x["claim_id"] not in superseded]
-        states = {x["knowledge_state"] for x in active}
+        if story_id is None:
+            location_clause = "c.scene=?"
+            binds = [scene]
+        else:
+            location_clause = ("c.scene IN (SELECT scene_id FROM "
+                               "story_scenes WHERE story_id=?)")
+            binds = [story_id]
+        query = (
+            "SELECT c.*, EXISTS(SELECT 1 FROM temporal_claims successor "
+            "WHERE successor.supersedes_id=c.claim_id AND "
+            "successor.recorded_seq<=?) AS was_superseded "
+            "FROM temporal_claims c WHERE " + location_clause +
+            " AND c.subject_scope=? AND c.subject_id=? AND c.fact=? AND "
+            "c.story_from<=? AND (c.story_until IS NULL OR c.story_until>?) "
+            "AND c.recorded_seq<=? ORDER BY c.recorded_seq")
+        cursor = self.db.execute(
+            query, [as_of_recorded_seq,*binds,scope,subject,fact,
+                    story_tick,story_tick,as_of_recorded_seq])
+        states = set()
+        active_ids, superseded_ids = [], []
+        active_count = superseded_count = scanned = 0
+        while True:
+            batch = cursor.fetchmany(64)
+            if not batch:
+                break
+            scanned += len(batch)
+            need(scanned <= 8192, "FACT_TEMPORAL_SCAN_BUDGET_EXCEEDED")
+            for claim in batch:
+                self._verify_claim_row(claim)
+                if story_id is not None:
+                    need(self._bound_story(claim["scene"]) == story_id,
+                         "FACT_TEMPORAL_CROSS_STORY_CLAIM")
+                if claim["was_superseded"]:
+                    superseded_count += 1
+                    if len(superseded_ids) < 64:
+                        superseded_ids.append(claim["claim_id"])
+                else:
+                    active_count += 1
+                    states.add(claim["knowledge_state"])
+                    if len(active_ids) < 64:
+                        active_ids.append(claim["claim_id"])
         if len(states)>1 or "DISPUTED" in states:
             resolution = "CONFLICT_UNRESOLVED"
         elif len(states)==1:
@@ -439,13 +587,19 @@ class FactJournal:
         else:
             resolution = "UNRECORDED"
         return {
-            "format":"writerforge.v55-bitemporal-knowledge.v1",
-            "scene_id":scene,"scope":scope,"subject_id":subject,"fact_id":fact,
+            "format":"writerforge.v57-bitemporal-knowledge.v1",
+            "scene_id":scene,"story_id":story_id,
+            "scope":scope,"subject_id":subject,"fact_id":fact,
             "story_tick":story_tick,
             "as_of_recorded_seq":as_of_recorded_seq,
             "state":resolution,
-            "active_claim_ids":[x["claim_id"] for x in active],
-            "superseded_claim_ids":sorted(superseded),
+            "active_claim_ids":active_ids,
+            "superseded_claim_ids":sorted(superseded_ids),
+            "active_claim_count":active_count,
+            "superseded_claim_count":superseded_count,
+            "claim_count_examined":scanned,
+            "active_claims_truncated":active_count>64,
+            "superseded_claims_truncated":superseded_count>64,
             "story_truth_verified":False,
             "reviewer_authenticity_verified":False,
             "language_model_calls":0,
@@ -487,7 +641,7 @@ class FactJournal:
                         (counterpart,)).fetchone()
                     need(record is not None,"FACT_GRAPH_LINK_TO_MISSING_EVENT")
                     self._assert_record_integrity(record)
-                    need(record["scene"]==source["scene"],
+                    need(self._same_story(record["scene"],source["scene"]),
                          "FACT_GRAPH_CROSS_SCENE_RELATION")
                     if not any(v["link_sha256"]==edge["link_sha"] for v in links):
                         links.append({"link_sha256":edge["link_sha"],
