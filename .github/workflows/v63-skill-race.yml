@@ -1,0 +1,61 @@
+name: V63 skill authority and two-writer race red team (no models)
+on:
+  push:
+    branches: [v63-skill-authority-and-concurrency]
+    paths:
+      - 'writerforge/evolution.py'
+      - 'writerforge/experience_decision.py'
+      - 'writerforge/verified_flow.py'
+      - 'writerforge/story_commit.py'
+      - 'writerforge/writing_flow.py'
+      - 'tests/test_v63_authority_concurrency.py'
+      - 'tests/test_v12_evolution_taste.py'
+      - 'scripts/audit_v63_authority.py'
+      - 'scripts/audit_v63_full_architecture.py'
+      - '.github/workflows/v63-skill-race.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  v63-synthetic-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - name: Independent V63 pre-fix/after-fix receipt
+        run: python -m scripts.audit_v63_authority
+      - name: Existing evolution registry suite
+        run: python -m unittest discover -s tests -p 'test_v12_evolution_taste.py' -v
+      - name: V61-V62 earlier experience contracts
+        run: |
+          python -m unittest discover -s tests -p 'test_v61_experience_decision.py' -v
+          python -m unittest discover -s tests -p 'test_v62_experience_negative_transfer.py' -v
+      - name: Full project regression (no model/R2)
+        run: python -m unittest discover -s tests -q
+      - name: Whole-repo authority/callgraph analysis
+        if: always()
+        run: |
+          if test -f scripts/audit_v63_full_architecture.py; then
+            python -m scripts.audit_v63_full_architecture
+          fi
+      - name: SHA receipt and source verification
+        if: always()
+        run: |
+          sha256sum writerforge/evolution.py writerforge/experience_decision.py writerforge/story_commit.py writerforge/writing_flow.py writerforge/verified_flow.py tests/test_v63_authority_concurrency.py scripts/audit_v63_authority.py
+          for p in v63_relation_regression_receipt.json v63_full_architecture_receipt.json; do
+            if test -f "$p"; then sha256sum "$p"; fi
+          done
+      - name: Freeze even red evidence, never mutate earlier artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: V63_Whole_WF_Skill_Concurrency_Audit
+          path: |
+            v63_relation_regression_receipt.json
+            v63_full_architecture_receipt.json
+          if-no-files-found: warn
+          retention-days: 90
