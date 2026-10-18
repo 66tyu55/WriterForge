@@ -7,6 +7,7 @@ coordinator and companion without exposing a separate learning command.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Callable
 
 from .db import WriterForgeDB
 from .runtime import RuntimeEngine, Mode
@@ -101,6 +102,7 @@ class WritingFlow:
         origin: str = "accepted",
         corrections: tuple[AuthorCorrection, ...] = (),
         finished_work_root: StoryWorkRoot | None = None,
+        precommit_check: Callable[[], None] | None = None,
     ) -> StoryCommitResult:
         self.runtime.require(Mode.WRITE)
         validate_origin(origin)
@@ -121,4 +123,6 @@ class WritingFlow:
             self.project_id, commit_id, effects,
             work_fingerprint=work_fingerprint,
         )
-        return self.coordinator.commit(plan, work_root=finished_work_root)
+        return self.coordinator.commit(
+            plan,work_root=finished_work_root,
+            precommit_check=precommit_check)
