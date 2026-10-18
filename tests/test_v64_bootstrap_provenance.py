@@ -273,6 +273,83 @@ class AIProvenanceTests(unittest.TestCase):
             (self.project,"signed01")).fetchone()
         self.assertEqual(len(rec[0]),64)
 
+    def test_approved_experience_requires_matching_frozen_decision_at_commit(self):
+        from writerforge.experience_decision import ExperienceDecisionBridge
+        from writerforge.ai_provenance import issue_ai_commit_permit
+        reviewer_key=b"synthetic-V64-experience-review-key"
+        excerpt="synthetic verified locator, no novel"
+        source_sha=sha256(excerpt.encode("utf-8")).hexdigest()
+        self.db.conn.execute(
+            "INSERT INTO studied_works(work_id,title,source_uri,"
+            "source_sha256,chapter_count) VALUES(?,?,?,?,?)",
+            ("synthetic64","Synthetic work","test://source64",
+             sha256(b"test-work64").hexdigest(),1))
+        self.db.conn.execute(
+            "INSERT INTO studied_chapters(work_id,chapter,chapter_sha256,"
+            "heading,source_spans,retrieval_entries,snapshot_id)"
+            " VALUES(?,?,?,?,?,?,?)",
+            ("synthetic64",1,source_sha,"Synthetic",1,1,self.sid))
+        self.db.conn.execute(
+            "INSERT INTO source_spans(work_id,chapter,paragraph,sentence,"
+            "excerpt,source_sha256,tracks_json,craft_json)"
+            " VALUES(?,?,?,?,?,?,?,?)",
+            ("synthetic64",1,1,1,excerpt,source_sha,"{}","{}"))
+        self.db.conn.commit()
+        learn=RuntimeEngine();learn.enter_learn()
+        bridge=ExperienceDecisionBridge(
+            self.db,learn,reviewer_key=reviewer_key)
+        bridge.stage_candidate(
+            project_id=self.project,experience_id="lesson64",
+            snapshot_id=self.sid,
+            source_ref={"work_id":"synthetic64","chapter":1,
+                        "paragraph":1,"sentence":1,
+                        "source_sha256":source_sha},
+            required_tags=["knowledge_limited"],
+            forbidden_tags=["omniscient"],
+            operation_code="CHECK_KNOWLEDGE")
+        authorization=bridge.approval_payload(
+            project_id=self.project,experience_id="lesson64",
+            reviewer_id="external64",review_id="review64")
+        bridge.approve_candidate(
+            project_id=self.project,experience_id="lesson64",
+            reviewer_id="external64",review_id="review64",
+            signature=sign(authorization,reviewer_key))
+        h=sha256(self.text.encode("utf-8")).hexdigest()
+        missing=issue_ai_commit_permit(
+            key=AI_KEY,project_id=self.project,scene_id=self.scene,
+            commit_id="missing64",snapshot_id=self.sid,
+            body_sha256=h,candidate_sha256=h,
+            author_approved=True)
+        with patch.dict("os.environ",{
+                "WRITERFORGE_AI_COMMIT_VERIFY_KEY_HEX":AI_KEY.hex(),
+                "WRITERFORGE_EXPERIENCE_REVIEW_VERIFY_KEY_HEX":
+                    reviewer_key.hex()}):
+            with self.assertRaisesRegex((RuntimeError,PermissionError),
+                                        "EXPERIENCE_DECISION_REQUIRED"):
+                self.commit_direct("assistant_generated","missing64",missing)
+            self.assertEqual(self.db.conn.execute(
+                "SELECT COUNT(*) FROM story_commit_receipts"
+                ).fetchone()[0],0)
+            selected=ExperienceDecisionBridge(
+                self.db,self.rt,reviewer_key=reviewer_key).decide(
+                    project_id=self.project,scene_id=self.scene,
+                    attempt_id="attempt64",goal="synthetic decision",
+                    scene_signals={"knowledge_limited":True,
+                                   "omniscient":False})
+            self.assertEqual(selected["decisions"][0]["decision"],"SELECT")
+            valid=issue_ai_commit_permit(
+                key=AI_KEY,project_id=self.project,scene_id=self.scene,
+                commit_id="matching64",snapshot_id=self.sid,
+                body_sha256=h,candidate_sha256=h,
+                author_approved=True,
+                decision_sha256=selected["decision_sha256"],
+                experience_attempt_id="attempt64")
+            result=self.commit_direct(
+                "assistant_generated","matching64",valid)
+        self.assertTrue(result.committed)
+        self.assertEqual(self.db.conn.execute(
+            "SELECT COUNT(*) FROM story_ai_provenance").fetchone()[0],1)
+
     def test_official_accept_candidate_signs_provenance_only_with_trusted_host(self):
         packet=self.make_packet()
         folder=Path(self.tmp.name)/"candidates"
