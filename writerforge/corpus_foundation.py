@@ -96,6 +96,8 @@ def build_index(cache,library,snapshot):
     root=verify_cache(cache,library,snapshot)
     src=root/"study.sqlite3"
     source_sha=_digest(src)[0]
+    source_size=src.stat().st_size
+    source_mtime_ns=src.stat().st_mtime_ns
     dest=root/"corpus-index.sqlite3"
     if dest.exists():
         db=ro_db(dest)
@@ -168,6 +170,8 @@ def build_index(cache,library,snapshot):
         db.execute("CREATE INDEX gram_lookup ON grams(gram,unit_id)")
         total_unique=db.execute("SELECT COUNT(*) FROM units").fetchone()[0]
         for k,v in {"snapshot":snapshot,"source_sha":source_sha,
+                    "source_size":str(source_size),
+                    "source_mtime_ns":str(source_mtime_ns),
                     "total_units":str(count),"unique_units":str(total_unique),
                     "method":"NFKC+Unicode-control-filter+dedup+2gram-v1",
                     "literary_quality_verified":"false"}.items():
@@ -212,15 +216,25 @@ def search_disk(cache,*,library,snapshot,terms,limit=6):
         n=clean(term)
         require(len(n)>=2,"CORPUS_TERM_TOO_SHORT")
         if n not in needles:needles.append(n)
-    root=verify_cache(cache,library,snapshot)
+    root=root_of(cache,library,snapshot)
+    manifest=root/"manifest.json"
+    # O(1)-sized manifest check; full blob SHA happens ONLY in sync/verify.
+    require(manifest.is_file() and digest(manifest.read_bytes())==snapshot,
+            "CORPUS_MANIFEST_CHANGED")
     path=root/"corpus-index.sqlite3"
     require(path.is_file(),"CORPUS_NOT_INDEXED_RUN_R2_SYNC")
     db=ro_db(path)
     try:
         m=dict(db.execute("SELECT key,value FROM meta"))
+        source=root/"study.sqlite3"
+        require(source.is_file(),"CORPUS_R2_SOURCE_MISSING")
+        st=source.stat()
         require(m.get("snapshot")==snapshot and
-                m.get("source_sha")==_digest(root/"study.sqlite3")[0],
+                m.get("source_size")==str(st.st_size) and
+                m.get("source_mtime_ns")==str(st.st_mtime_ns),
                 "CORPUS_INDEX_SOURCE_CHANGED")
+        # Here we rely on the full SHA/SQLite audit done at sync time.
+        # A forensic integrity recheck must explicitly run verify_cache().
         results={}
         for needle in needles:
             for row in db.execute(
@@ -249,6 +263,8 @@ def search_disk(cache,*,library,snapshot,terms,limit=6):
                 "source_prose_sent_to_writer":False,
                 "unverified_lexical_comparison_only":True,
                 "result_completeness_not_guaranteed":True,
-                "per_term_shortlist_cap":SCAN_CAP}
+                "per_term_shortlist_cap":SCAN_CAP,
+                "full_sha_verified_at_sync_not_on_each_lookup":True,
+                "per_lookup_cache_check":"manifest_sha_and_source_file_stat"}
     finally:
         db.close()
