@@ -268,5 +268,92 @@ class V59GlobalClockTests(unittest.TestCase):
         new=self.register("chapter02",chapter=2)
         self.assertGreater(new["recorded_global_seq"],stamp)
 
+    def test_graph_does_not_retroactively_include_later_edge(self):
+        self.register()
+        self.db.append(ev("graph-source",2,state="KNOWN"))
+        self.db.append(ev("graph-target",6,state="KNOWN"))
+        before=self.db.ledger_head()
+        self.db.link("graph-source","graph-target","BEFORE")
+        self.assertEqual(self.db.graph_neighbors("graph-source",depth=1)
+                         ["relation_count"],1)
+        historical=self.db.graph_neighbors(
+            "graph-source",depth=1,as_of_ledger_seq=before)
+        self.assertEqual(historical["relation_count"],0)
+        with self.assertRaisesRegex(FactLedgerError,"EVENT_NOT_AVAILABLE_AS_OF"):
+            self.db.graph_neighbors("graph-target",depth=1,
+                                    as_of_ledger_seq=1)
+
+    def test_graph_cross_chapter_link_rejects_future_scope(self):
+        self.db.append(ev("before-chapter",3))
+        self.db.append(ev("after-chapter",8,scene="chapter02"))
+        frozen=self.db.ledger_head()
+        self.register()
+        self.register("chapter02",chapter=2)
+        self.db.link("before-chapter","after-chapter","BEFORE")
+        graph=self.db.graph_neighbors(
+            "before-chapter",as_of_ledger_seq=frozen)
+        self.assertEqual(graph["relation_count"],0)
+
+    def test_cli_exposes_full_global_clock_and_historical_queries(self):
+        import json
+        from io import StringIO
+        from contextlib import redirect_stdout
+        from writerforge.cli import main
+
+        def cli(*args):
+            stream=StringIO()
+            with redirect_stdout(stream):
+                main(list(args))
+            return json.loads(stream.getvalue())
+
+        for scene,index in (("chapter01","1"),("chapter02","2")):
+            cli("fact-story-bind","--journal",str(self.path),
+                "--story-id","novelA","--scene",scene,
+                "--chapter-index",index)
+        cli("fact-subject-bind","--journal",str(self.path),
+            "--scene","chapter01","--scope","ACTOR","--subject","hero",
+            "--canonical-id","protagonist")
+        self.db.append(ev("cli-knowledge",3,state="KNOWN"))
+        self.db.append_temporal_claim(cl(
+            "cli-history",3,"KNOWN","cli-knowledge"))
+        frozen=cli("fact-ledger-head","--journal",str(self.path))
+        self.assertEqual(frozen["global_seq"],self.db.ledger_head())
+        cli("fact-subject-bind","--journal",str(self.path),
+            "--scene","chapter02","--scope","ACTOR","--subject","hero",
+            "--canonical-id","protagonist")
+        old=cli("fact-view","--journal",str(self.path),
+                "--scene","chapter02","--story-id","novelA",
+                "--scope","ACTOR","--subject","hero","--fact","seal",
+                "--story-tick","9","--ledger-seq",str(frozen["global_seq"]))
+        now=cli("fact-view","--journal",str(self.path),
+                "--scene","chapter02","--story-id","novelA",
+                "--scope","ACTOR","--subject","hero","--fact","seal",
+                "--story-tick","9")
+        self.assertEqual(old["state"],"UNRECORDED")
+        self.assertEqual(now["state"],"KNOWN")
+        page=cli("fact-page","--journal",str(self.path),
+                 "--scene","chapter02","--story-id","novelA",
+                 "--scope","ACTOR","--subject","hero","--fact","seal",
+                 "--story-tick","9","--ledger-seq",str(frozen["global_seq"]))
+        self.assertEqual(page["page_count"],0)
+
+    def test_two_connections_observe_monotone_clock_and_rollback(self):
+        other=FactJournal(self.path)
+        try:
+            first=self.register()
+            second=other.register_scene(story_id="novelA",
+                                        scene_id="chapter02",chapter_index=2)
+            self.assertLess(first["recorded_global_seq"],
+                            second["recorded_global_seq"])
+            at=other.ledger_head()
+            with self.assertRaisesRegex(FactLedgerError,"IMMUTABLE"):
+                other.register_scene(story_id="otherNovel",
+                                     scene_id="chapter01",chapter_index=1)
+            self.assertEqual(self.db.ledger_head(),at)
+            self.assertEqual(other.ledger_head(),at)
+        finally:
+            other.close()
+
+
 if __name__=="__main__":
     unittest.main()
