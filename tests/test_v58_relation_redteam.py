@@ -317,5 +317,84 @@ class V58RedTeamTests(unittest.TestCase):
             self.assertEqual(page["claims"][0]["claim_id"],"reader-known")
 
 
+    def test_cross_database_replay_cursors_cannot_be_reused(self):
+        # Two fresh journals with identical public facts must have different
+        # signing secrets, so an attacker cannot replay cursor from another.
+        from pathlib import Path
+        other=FactJournal(Path(self.temporary.name)/"other.sqlite3")
+        try:
+            for db in (self.db,other):
+                for i in range(2):
+                    src=f"same-event-{i}"
+                    db.append(event(src,2+i))
+                    db.append_temporal_claim(
+                        claim(f"same-claim-{i}",2+i,"UNKNOWN",src))
+            first=self.db.temporal_claim_page(
+                scene="chapter01",scope="ACTOR",subject="hero",
+                fact="seal",story_tick=10,limit=1)
+            with self.assertRaisesRegex(FactLedgerError,"CURSOR"):
+                other.temporal_claim_page(
+                    scene="chapter01",scope="ACTOR",subject="hero",
+                    fact="seal",story_tick=10,limit=1,
+                    cursor=first["next_cursor"])
+        finally:
+            other.close()
+
+    def test_8193_claim_history_refuses_incomplete_state_but_pages_all(self):
+        # Bulk *valid synthetic* SQL fixture avoids thousands of tiny commits.
+        # This does not model novel semantics, models replay exhaustiveness.
+        from writerforge.fact_journal import digest
+        events=[]
+        claims=[]
+        count=8193
+        for i in range(count):
+            name=f"large-event-{i:05d}"
+            ev=event(name,i+1)
+            events.append((
+                ev["event_id"],ev["scene_id"],ev["actor_id"],ev["fact_id"],
+                ev["tick"],ev["state"],ev["role"],ev["evidence_sha256"],
+                digest(canonical(ev))))
+            c=claim(f"large-claim-{i:05d}",i+1,"UNKNOWN",name)
+            claims.append((
+                c["claim_id"],c["scene_id"],c["subject_scope"],
+                c["subject_id"],c["fact_id"],c["story_from"],c["story_until"],
+                c["knowledge_state"],c["evidence_event_id"],
+                c["supersedes_id"],digest(canonical(c))))
+        with self.db.db:
+            self.db.db.executemany(
+                "INSERT INTO fact_events VALUES(?,?,?,?,?,?,?,?,?)",events)
+            self.db.db.executemany(
+                "INSERT INTO temporal_claims("
+                "claim_id,scene,subject_scope,subject_id,fact,"
+                "story_from,story_until,knowledge_state,evidence_event,"
+                "supersedes_id,claim_sha) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                claims)
+        with self.assertRaisesRegex(FactLedgerError,"SCAN_BUDGET_EXCEEDED"):
+            self.db.temporal_view(
+                scene="chapter01",scope="ACTOR",subject="hero",
+                fact="seal",story_tick=9000)
+        first=self.db.temporal_claim_page(
+            scene="chapter01",scope="ACTOR",subject="hero",
+            fact="seal",story_tick=9000,limit=64)
+        self.assertEqual(first["page_count"],64)
+        asof=first["as_of_recorded_seq"]
+        seen=set(x["claim_id"] for x in first["claims"])
+        pages=1
+        cursor=first["next_cursor"]
+        while cursor:
+            page=self.db.temporal_claim_page(
+                scene="chapter01",scope="ACTOR",subject="hero",
+                fact="seal",story_tick=9000,limit=64,
+                as_of_recorded_seq=asof,cursor=cursor)
+            ids=[x["claim_id"] for x in page["claims"]]
+            self.assertTrue(seen.isdisjoint(ids))
+            seen.update(ids)
+            cursor=page["next_cursor"]
+            pages+=1
+            self.assertLessEqual(pages,130)
+        self.assertEqual(len(seen),count)
+        self.assertEqual(pages,129)
+
+
 if __name__=="__main__":
     unittest.main()
