@@ -25,6 +25,8 @@ def run():
                          terms=("老殘",),cache_dir=destination,limit=6)
     if not first.matches:
         raise ValueError("REAL_R2_XUEHAI_DID_NOT_FIND_GROUNDED_CHINESE_TERM")
+    if not first.catalog_edition_verified:
+        raise ValueError("REAL_R2_SOURCE_NOT_EXACT_CATALOGUED_ORIGINAL")
     if not all(r["work_id"]==book.work_id for r in first.matches):
         raise ValueError("WRONG_WORK_ID_IN_REAL_R2_EVIDENCE")
     # R2 stores the exact original *bytes*, while OriginalStudy stores
@@ -61,6 +63,7 @@ def run():
         "verified_exact_chinese_source_matches":len(first.matches),
         "verified_fresh_r2_restore":True,
         "verified_cached_sha_replay":True,
+        "catalog_original_edition_verified":True,
         "original_literary_semantics_verified":False,
         "new_model_calls":0,
         "remote_storage_writes":0,
