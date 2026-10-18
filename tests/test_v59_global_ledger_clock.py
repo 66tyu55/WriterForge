@@ -355,5 +355,67 @@ class V59GlobalClockTests(unittest.TestCase):
             other.close()
 
 
+    def test_insert_and_clock_roll_back_in_same_transaction(self):
+        record=ev("transaction-must-rollback",3,state="UNKNOWN")
+        data=(record["event_id"],record["scene_id"],record["actor_id"],
+              record["fact_id"],record["tick"],record["state"],
+              record["role"],record["evidence_sha256"],
+              digest(canonical(record)))
+        original=self.db.ledger_head()
+        with self.assertRaises(sqlite3.IntegrityError):
+            with self.db.db:
+                self.db.db.execute(
+                    "INSERT INTO fact_events VALUES(?,?,?,?,?,?,?,?,?)",data)
+                self.db.db.execute(
+                    "INSERT INTO fact_events VALUES(?,?,?,?,?,?,?,?,?)",data)
+        self.assertEqual(self.db.ledger_head(),original)
+        self.assertIsNone(self.db.db.execute(
+            "SELECT event_id FROM fact_events WHERE event_id=?",
+            (record["event_id"],)).fetchone())
+
+    def test_first_migration_holds_writer_lock_until_triggers_installed(self):
+        # Intercept the first CREATE TRIGGER. An independent writer MUST NOT
+        # slip a fact into the gap between legacy backfill and trigger creation.
+        from unittest.mock import patch
+        from writerforge import fact_journal
+        dbfile=Path(self.temp.name)/"simultaneous-upgrade.sqlite3"
+        real_connect=sqlite3.connect
+        probe={"attempted":False,"blocked":False,"accepted":False}
+        record=ev("writer-during-initialize",2)
+        args=(record["event_id"],record["scene_id"],record["actor_id"],
+              record["fact_id"],record["tick"],record["state"],
+              record["role"],record["evidence_sha256"],
+              digest(canonical(record)))
+        class InterceptConnection(sqlite3.Connection):
+            def execute(self, query, parameters=()):
+                if ("CREATE TRIGGER IF NOT EXISTS wf_clock_event_insert" in query):
+                    probe["attempted"]=True
+                    rival=real_connect(dbfile,timeout=0.01)
+                    try:
+                        rival.execute(
+                            "INSERT INTO fact_events VALUES(?,?,?,?,?,?,?,?,?)",
+                            args)
+                        rival.commit()
+                        probe["accepted"]=True
+                    except sqlite3.OperationalError as error:
+                        probe["blocked"]="locked" in str(error).lower()
+                    finally:
+                        rival.close()
+                return super().execute(query,parameters)
+        def connect_with_probe(*args,**kwargs):
+            return real_connect(*args,factory=InterceptConnection,**kwargs)
+        with patch.object(fact_journal.sqlite3,"connect",connect_with_probe):
+            started=FactJournal(dbfile)
+            try:
+                self.assertTrue(probe["attempted"])
+                self.assertTrue(probe["blocked"])
+                self.assertFalse(probe["accepted"])
+                self.assertEqual(started.ledger_head(),0)
+                started.append(record)
+                self.assertEqual(started.ledger_head(),1)
+            finally:
+                started.close()
+
+
 if __name__=="__main__":
     unittest.main()
