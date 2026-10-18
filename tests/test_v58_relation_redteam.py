@@ -218,5 +218,104 @@ class V58RedTeamTests(unittest.TestCase):
                 story_tick=10,limit=1)
 
 
+    def test_cursor_forged_hash_cannot_skip_unseen_pages(self):
+        # The old cursor used public SHA256 rather than keyed integrity.
+        # A caller could edit last_seq + recompute SHA to fake completeness.
+        from writerforge.fact_journal import digest
+        for i in range(3):
+            source=f"forge-source-{i}"
+            self.db.append(event(source,2+i))
+            self.db.append_temporal_claim(
+                claim(f"forge-claim-{i}",2+i,"UNKNOWN",source))
+        first=self.db.temporal_claim_page(
+            scene="chapter01",scope="ACTOR",subject="hero",
+            fact="seal",story_tick=10,limit=1)
+        self.assertTrue(first["has_more"])
+        token=json.loads(base64.urlsafe_b64decode(
+            first["next_cursor"]+"="*((-len(first["next_cursor"]))%4)
+        ).decode("utf-8"))
+        token["last_seq"]=999999
+        token["tag"]=digest(canonical({
+            k:v for k,v in token.items() if k!="tag"}))
+        forged=base64.urlsafe_b64encode(canonical(token).encode("utf-8")
+            ).decode("ascii").rstrip("=")
+        with self.assertRaisesRegex(FactLedgerError,"CURSOR"):
+            self.db.temporal_claim_page(
+                scene="chapter01",scope="ACTOR",subject="hero",
+                fact="seal",story_tick=10,limit=1,
+                as_of_recorded_seq=first["as_of_recorded_seq"],
+                cursor=forged)
+
+    def test_cursor_restart_stays_bound_to_original_snapshot(self):
+        for i in range(3):
+            source=f"restart-source-{i}"
+            self.db.append(event(source,3+i))
+            self.db.append_temporal_claim(
+                claim(f"restart-claim-{i}",3+i,"UNKNOWN",source))
+        first=self.db.temporal_claim_page(
+            scene="chapter01",scope="ACTOR",subject="hero",
+            fact="seal",story_tick=12,limit=1)
+        self.db.close()
+        self.db=FactJournal(self.path)
+        second=self.db.temporal_claim_page(
+            scene="chapter01",scope="ACTOR",subject="hero",
+            fact="seal",story_tick=12,limit=1,
+            cursor=first["next_cursor"])
+        self.assertEqual(second["claims"][0]["claim_id"],"restart-claim-1")
+        self.assertEqual(first["as_of_recorded_seq"],
+                         second["as_of_recorded_seq"])
+
+    def test_cli_authenticated_disclosure_identity_and_page_roundtrip(self):
+        import os
+        from io import StringIO
+        from contextlib import redirect_stdout
+        from unittest.mock import patch
+        from writerforge.cli import main
+
+        def cmd(*args):
+            stdout=StringIO()
+            with redirect_stdout(stdout):
+                main(list(args))
+            return json.loads(stdout.getvalue())
+
+        root=str(self.path)
+        ev=event("cli-public-note",7,actor="narrator",
+                 state="KNOWN",role="REVEAL")
+        source_file=Path(self.temporary.name)/"source.json"
+        source_file.write_text(json.dumps(ev),encoding="utf-8")
+        signed={"event_id":ev["event_id"],
+                "reader_subject":"reader-A",
+                "disclosure_tick":9,
+                "signature":receipt_signature(ev,"reader-A",9)}
+        disclosure_file=Path(self.temporary.name)/"signed-disclosure.json"
+        disclosure_file.write_text(json.dumps(signed),encoding="utf-8")
+        known=claim("reader-known",9,"KNOWN",ev["event_id"],
+                    scope="READER",subject="reader-A")
+        known_file=Path(self.temporary.name)/"reader-claim.json"
+        known_file.write_text(json.dumps(known),encoding="utf-8")
+        with patch.dict(os.environ,{"WRITERFORGE_READER_VERIFY_KEY_HEX":
+                                     TRUSTED_KEY.hex()}):
+            cmd("fact-record","--journal",root,"--file",str(source_file))
+            cmd("fact-story-bind","--journal",root,
+                "--story-id","novelA","--scene","chapter01",
+                "--chapter-index","1")
+            cmd("fact-subject-bind","--journal",root,
+                "--scene","chapter01","--scope","READER",
+                "--subject","reader-A","--canonical-id","audience-A")
+            cmd("fact-disclosure","--journal",root,
+                "--file",str(disclosure_file))
+            cmd("fact-claim","--journal",root,"--file",str(known_file))
+            result=cmd("fact-view","--journal",root,"--scene","chapter01",
+                       "--scope","READER","--subject","reader-A",
+                       "--story-tick","10","--fact","seal",
+                       "--story-id","novelA")
+            self.assertEqual(result["state"],"KNOWN")
+            page=cmd("fact-page","--journal",root,"--scene","chapter01",
+                     "--scope","READER","--subject","reader-A",
+                     "--story-tick","10","--fact","seal",
+                     "--story-id","novelA","--limit","1")
+            self.assertEqual(page["claims"][0]["claim_id"],"reader-known")
+
+
 if __name__=="__main__":
     unittest.main()
