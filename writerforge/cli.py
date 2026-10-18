@@ -256,11 +256,50 @@ def main(argv: list[str] | None = None):
     draft.add_argument("--api-base",default="http://127.0.0.1:1234/v1")
     draft.add_argument("--output-dir",default="writing_runs")
     for command in (context,draft):
+        command.add_argument("--experience-attempt-id",
+            help="frozen LEARN-derived writing decision id")
+        command.add_argument("--experience-signals-file",
+            help="bounded JSON of explicit scene facts (true/false/null)")
+        command.add_argument("--experience-disabled",action="store_true",
+            help="record explicit SKIP for reviewed experimental policies")
         command.add_argument("--r2-library",help="private original source library")
         command.add_argument("--r2-snapshot",help="required SHA256 snapshot for prose context")
         command.add_argument("--r2-term",action="append",default=[])
         command.add_argument("--r2-cache-dir",default="corpus/r2-readonly-cache")
-    style_approve=sub.add_parser("prose-style-approve",help="approve ONE quality-reviewed prose reference for a project")
+    exp_stage=sub.add_parser("experience-stage",
+        help="LEARN: stage a source-locator-backed hypothetical operation")
+    exp_stage.add_argument("--project",required=True)
+    exp_stage.add_argument("--experience-id",required=True)
+    exp_stage.add_argument("--snapshot",required=True,type=int)
+    exp_stage.add_argument("--file",required=True,help="typed JSON <=8KiB, no original prose")
+    exp_review=sub.add_parser("experience-approve",
+        help="LEARN: verify externally signed controlled-use permit")
+    exp_review.add_argument("--project",required=True)
+    exp_review.add_argument("--experience-id",required=True)
+    exp_review.add_argument("--file",required=True,help="reviewer_id,review_id,signature")
+    exp_decide=sub.add_parser("experience-decide",
+        help="WRITE: freeze a typed policy SELECT/SKIP/UNCERTAIN decision")
+    exp_decide.add_argument("--project",required=True)
+    exp_decide.add_argument("--scene",required=True)
+    exp_decide.add_argument("--attempt-id",required=True)
+    exp_decide.add_argument("--snapshot",type=int,required=True)
+    exp_decide.add_argument("--goal",required=True)
+    exp_decide.add_argument("--signals-file",required=True)
+    exp_decide.add_argument("--disabled",action="store_true")
+    exp_read=sub.add_parser("experience-read",
+        help="read frozen plan metadata without original prose or model calls")
+    exp_read.add_argument("--project",required=True)
+    exp_read.add_argument("--attempt-id",required=True)
+    exp_post=sub.add_parser("experience-postwrite",
+        help="WRITE: verify exact anchor presence and record a post-draft claim")
+    exp_post.add_argument("--project",required=True)
+    exp_post.add_argument("--attempt-id",required=True)
+    exp_post.add_argument("--experience-id",required=True)
+    exp_post.add_argument("--draft-file",required=True)
+    exp_post.add_argument("--outcome",required=True,
+        choices=("CLAIMED_APPLIED","NOT_APPLIED","UNCERTAIN"))
+    exp_post.add_argument("--quote-file",help="optional exact 8..120 character draft span")
+        style_approve=sub.add_parser("prose-style-approve",help="approve ONE quality-reviewed prose reference for a project")
     style_approve.add_argument("--project",required=True)
     style_approve.add_argument("--file",required=True,help="author-approved ORIGINAL sample; never committed")
     style_approve.add_argument("--source-scope",help="bind reference to accepted project scene; stale edits invalidate it")
