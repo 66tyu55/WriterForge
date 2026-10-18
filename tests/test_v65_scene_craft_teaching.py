@@ -373,6 +373,8 @@ class V65FormalWritingIntegrationTests(unittest.TestCase):
             args=wf_model.call_args
             self.assertIn("UNCERTAIN",args.args[0].prompt)
             self.assertIn("木板湿滑",args.args[0].prompt)
+            self.assertIn("场景语义诊断器",
+                          args.kwargs["system_role_instruction"])
             received=json.loads(capture.getvalue())
             self.assertEqual(received["selected_ids"],[
                 "ENVIRONMENT_CHANGES_ACTION",
