@@ -697,3 +697,14 @@
 4. `writerforge/cli.py` 开放 `fact-story-bind`、`fact-flashback`、`fact-view --story-id`，已有真实端到端CLI合成测试通过；V54旧测试12/12、V55旧测试9/9、V57新测试12/12，合计33/33，见绿色 [Actions #39100156422](https://github.com/66tyu55/WriterForge/actions/runs/39100156422)。新JSON报告SHA `327a661d0ee7f5da6749f8be5b29a6d97d0efcac723a323fa28b9eafdf99e485`；证据artifact ID `12125889031`。
 5. 本次没有文学训练、R2同步、模型调用、原文覆盖，也未合并main；V49 `THIRD_STRIKE_FAILED` 未改变。SHA 不能证明文学来源真实性；读者披露及作品/角色身份仍属显式声明，不能由关键词或语言模型擅自推定；旧 `state()` 64条保护和图搜索48边限制仍待专项设计。
 6. 下一次恢复：先读本节→完整V57文档→CI链接及哈希；继续不同作品同名角色、跨章变更、伪造来源和超长分页压力测试。不要重复文学训练，也不允许把V56红色报告覆盖成绿色。
+
+## 44. 【2026-10-18 V58二次红队与修复】同名人物身份、可信披露和分页游标伪造
+
+**最新恢复入口（仅V58分支）：[V58完整红队、修复、哈希与待解边界](V58_RELATION_REDTEAM_AND_REPAIR_20261018.md)。正式 `main`、旧V56原始红色审计和V57旧绿色结果均未覆盖。**
+
+1. 先冻结第42节/原V56及第43节/V57。本轮另建 `v58-relation-redteam-hardening`，从原V57分支衍生；不重新训练文学、不调用模型、不访问R2。
+2. 独立新反例先跑红：[Actions #39102724949](https://github.com/66tyu55/WriterForge/actions/runs/39102724949)：旧33通过、新V58 `0/7`，其中两项确凿错误接受为**同名角色跨章错误合并**和**自标 `REVEAL` 欺骗读者知识屏障**；另五项是尚无接口的ERROR，不允许全部称为已证实漏洞。原JSON SHA `84dc7204bdbdd6e81c0cdb391d1780f18de720047b0ea1685881ce16c6279b19`，证据artifact ID `12127521456`。
+3. 修复后继续构造新的分页攻击，记录第二次红色：[Actions #39103323696](https://github.com/66tyu55/WriterForge/actions/runs/39103323696) 新用例9/10通过，攻击者可更改游标 `last_seq` 并重新计算公开SHA，使大量记录被伪装成“已读完”。原JSON SHA `9e4cf4b3da9eaf1c9c3b9d588158b0985ecd7f76afbba6814f59dd2cd49a75f3`，artifact ID `12127313192`。
+4. 代码修复：显式 `bind_subject` 规范身份；READER/KNOWN 必须通过独立HMAC签名披露验证（不认证文学语义）；时间/受众与证据事件绑定；游标改为每数据库持久随机HMAC密钥；记录序号快照分页；V58 CLI 接入 `fact-subject-bind`、`fact-disclosure`、`fact-page`。V55/V57分支的旧测试不动，本分支正向夹具透明迁移以满足新签名契约。
+5. 最新真实CI：[Actions #39103469679](https://github.com/66tyu55/WriterForge/actions/runs/39103469679)：V54 12/12、V55 9/9、V57 12/12、V58 12/12，合计**45/45合成结构测试**。验证8,193条历史：完整状态计算超8192拒绝，129页元数据可无损遍历。新JSON SHA `482bb71d6253a06d5414cd4fb9c275eb650fbc2d45d7fa7807de82e76e2d946e`，artifact ID `12127497908`；全部代码/test SHA见V58完整报告。
+6. **严禁夸大**：身份与叙事披露的可信来源目前仍依赖受控输入/验证者。SQLite DB所有者可篡改本地HMAC游标密钥。尤其`as_of_recorded_seq`目前未覆盖“身份绑定/披露授权发生在何时”的统一登记时钟——未来补绑有可能改变旧历史的投影范围，下一轮优先专测此项。不能声称语义因果、真实角色解析、完整双时轴或文学自主写作已经完成。V49 `THIRD_STRIKE_FAILED` 不变。
