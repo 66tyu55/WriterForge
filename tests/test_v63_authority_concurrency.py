@@ -69,7 +69,7 @@ class SkillAuthorityTests(unittest.TestCase):
         registry=SkillRegistry()
         registry.register(CapabilityContract("craft02",1,"original"))
         with self.assertRaisesRegex((ValueError,PermissionError),"IMMUTABLE|EXISTS"):
-            registry.register(CapabilityContract("craft02",8,"unreviewed"))
+            registry.register(CapabilityContract("craft02",1,"unreviewed replacement"))
         self.assertEqual(registry.get("craft02").level,1)
 
     def test_get_and_all_cannot_mutate_live_registry_or_be_persisted(self):
