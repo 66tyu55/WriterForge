@@ -153,6 +153,34 @@ class V55TemporalProjectionTests(unittest.TestCase):
         with self.assertRaisesRegex(FactLedgerError,"STORED_CLAIM_TAMPERED"):
             self.view(3)
 
+    def test_standard_cli_uses_same_journal_for_two_clock_and_graph_queries(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from writerforge.cli import main
+        self.db.append(event("learned-by-actor",4,"KNOWN"))
+        p=Path(self.working.name)/"explicit-claim.json"
+        p.write_text(json.dumps(
+            claim("recorded-knowledge",4,"KNOWN","learned-by-actor"),
+            ensure_ascii=False),encoding="utf-8")
+        with redirect_stdout(StringIO()) as buf:
+            main(["fact-claim","--journal",str(self.path),
+                  "--file",str(p)])
+        receipt=json.loads(buf.getvalue())
+        self.assertFalse(receipt["semantic_truth_verified"])
+        with redirect_stdout(StringIO()) as buf:
+            main(["fact-view","--journal",str(self.path),
+                  "--scene","storyscene","--scope","ACTOR",
+                  "--subject","witness","--fact","door",
+                  "--story-tick","4","--recorded-seq","1"])
+        result=json.loads(buf.getvalue())
+        self.assertEqual(result["state"],"KNOWN")
+        with redirect_stdout(StringIO()) as buf:
+            main(["fact-graph","--journal",str(self.path),
+                  "--event","learned-by-actor","--depth","1"])
+        graph=json.loads(buf.getvalue())
+        self.assertEqual(graph["root_event_id"],"learned-by-actor")
+        self.assertFalse(graph["narrative_causality_verified"])
+
     def test_unstructured_text_cannot_be_accepted_as_fact(self):
         with self.assertRaisesRegex(FactLedgerError,"TEMPORAL_SCHEMA_INVALID"):
             self.db.append_temporal_claim({"raw_novel_sentence":"She opened the door"})
