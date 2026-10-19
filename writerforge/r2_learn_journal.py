@@ -189,6 +189,50 @@ class WFLearnJournal:
                     "WF_LEARN_WRITER_TOKEN_NOT_SEPARATE")
         self._transport=transport or self.reader._opener.open
 
+    def require_writer_ready(self):
+        """Authorised zero-write R2 permission check BEFORE any paid model.
+
+        Prevent passing private prose to a model if WF cannot persist the
+        locked PASS A reaction to private R2. This gate is not a guarantee
+        of subsequent availability, which is why each write is read back.
+        """
+        require(bool(self.writer),
+                "WF_LEARN_WRITER_KEY_NOT_CONFIGURED")
+        req=Request(
+            self.reader.endpoint+"/r2/learn/writer-ready",
+            method="GET",
+            headers={
+                "Authorization":"Bearer "+self.writer,
+                "Accept":"application/json",
+                "User-Agent":"WF-LEARN-Writer-Preflight-V75/1",
+            })
+        try:
+            with self._transport(req,timeout=self.reader.timeout) as response:
+                require(response.status==200,
+                        "WF_LEARN_WRITER_PREFLIGHT_HTTP_FAILED")
+                raw=response.read(513)
+                require(len(raw)<=512,
+                        "WF_LEARN_WRITER_PREFLIGHT_OVERSIZE")
+        except HTTPError as exc:
+            raise WFLearnJournalError(
+                "WF_LEARN_WRITER_PREFLIGHT_HTTP_"+str(exc.code)) from None
+        except (URLError,TimeoutError,OSError):
+            raise WFLearnJournalError(
+                "WF_LEARN_WRITER_PREFLIGHT_NETWORK_FAILED") from None
+        try:
+            body=json.loads(raw)
+        except (UnicodeError,ValueError):
+            raise WFLearnJournalError(
+                "WF_LEARN_WRITER_PREFLIGHT_RESPONSE_INVALID") from None
+        require(isinstance(body,dict) and
+                body.get("ok") is True and
+                body.get("writer_ready") is True and
+                body.get("immutable_events") is True and
+                body.get("requires_first_read_seal") is True and
+                body.get("source_writes_allowed") is False,
+                "WF_LEARN_WRITER_PREFLIGHT_CONTRACT_FAILED")
+        return True
+
     def _http(self,method,key,payload=None):
         require(key.startswith(PREFIX) and
                 method in ("GET","PUT"),
