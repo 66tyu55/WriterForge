@@ -81,7 +81,8 @@ class IndependentV80ChapterEvidenceTests(unittest.TestCase):
             self.reader,source_path=self.path,
             original_key=KEY,source_sha256=SOURCE_SHA,
             chapters=self.chapters,
-            last_batch_sha=self.batch.last_batch_pointer)
+            last_batch_sha=self.batch.last_batch_pointer,
+            source_encoding="utf-8")
 
     def test_independent_examination_source_coverage_and_mixed_pilot(self):
         result=self.run_audit()
