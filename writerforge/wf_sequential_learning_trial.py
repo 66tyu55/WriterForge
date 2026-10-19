@@ -57,6 +57,9 @@ class WFSequentialLearningTrial:
                 type(expected_unit_count) is int and
                 2<=expected_unit_count<=MAX_TRIAL_UNITS,
                 "WF_LEARN_TRIAL_SIZE_OR_STATE_INVALID")
+        # Must authenticate a dedicated append-only R2 writer BEFORE asking
+        # DeepSeek to process any portion of the private original.
+        self.journal.require_writer_ready()
         self.rt.enter_learn()
         prev=None
         newly_written=0
@@ -147,6 +150,7 @@ class WFSequentialLearningTrial:
                "human_literary_mastery_verified":False,
                "full_chapter_read":False,
                "r2_first_read_checkpoint_verified":True,
+               "writer_permission_preflight_passed":True,
             }
         finally:
             self.rt.exit()
