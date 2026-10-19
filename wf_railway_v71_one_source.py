@@ -20,6 +20,8 @@ pkg.__package__="writerforge"
 sys.modules["writerforge"]=pkg
 
 print("WF_V71_ONE_SOURCE_SQL_RUN_STARTED",flush=True)
+sys.stderr.write("WF_V71_ONE_SOURCE_START_STDERR\n")
+sys.stderr.flush()
 def emit(o):
     print(json.dumps(o,ensure_ascii=False,sort_keys=True),flush=True)
 
@@ -30,7 +32,10 @@ def main():
         return 1
     try:
         from writerforge.private_r2_sql_smoke import index_one_real_source
-        data=index_one_real_source("https://wf-r2-api.3227482831.workers.dev")
+        emit({"status":"WF_V71_ENTRY_RUNNING","model_calls":0})
+        data=index_one_real_source(
+            "https://wf-r2-api.3227482831.workers.dev",
+            progress=lambda stage: emit({"status":stage, "source_text_logged":False}))
         emit({"status":"WF_V71_REAL_R2_ONE_SOURCE_INDEXED_TEMPORARILY",**data})
         return 0
     except Exception as exc:
