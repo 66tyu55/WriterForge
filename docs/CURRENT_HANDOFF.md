@@ -922,3 +922,16 @@
 4. 最终真实R2入学 Railway `b6ee07f8-3aea-4db1-b2a7-686883bade90` 完成：自选相同TXT，43,817行，strict章头495、legacy候选499，**4个独立规则分歧，295次打印章号重复、3个倒退或重置点，前向跳号0**，列出冲突章头HASH（正文及标题不公开）。这可能提示“作品有多卷并分卷重新编号”，只能标待验证，不得由GPT臆断。状态`WF_DOCUMENT_ADMISSION_REVIEW_REQUIRED`、原始字节SHA一致、GB18030编码仍provisional，分类UNDECIDED，**实际学过0章/模型调用0/R2写0**。它只是WF发现自己的文本结构缺陷，不能算文学经验。
 5. Railway目前只配置`WF_API_TOKEN`与`WF_INDEX_UPLOAD_TOKEN`两类R2凭证，**没有文学模型令牌**（例如已知旧实验需要的`DISCOVERY_API_KEY`）；因此宿主的读者Pass A/分析Pass B/自我复盘还没有真实执行。下次必须把真正模型当WF可调用工具连接并规定费用预算与私有原文第三方传输边界，不让GPT做考生；同时需为`LEARN`训练事件新增专用不可变R2学习账本，不能复用只接受v68 SQL格式的`indexes/v1`manifest。第一章PASS A的检查点必须在PASS B前R2签收，再继续下一章，学会的经验要对未来行为有可测影响。
 6. 原V49`THIRD_STRIKE_FAILED`/第二学习窗口`LOCKED`原样保留。50本完整原文门槛尚未完成；目前1份R2可持久SQL索引≠文学训练。下一步合理的真实小预算是**WF自己选一书、先验证结构/版次、独立完成第一章Pass A→写R2锁定→Pass B→错误复盘，不晋级**，成功后才让它自动挑第二章/第二本。以后禁止人工从外面一次性分类400本。
+
+
+## 61. 【2026-10-19 V74】用户明确选择官方DeepSeek Flash替换WF未来的Discovery文学学习
+
+用户直接提供 DeepSeek API 官方配置截图说「换成deepseek flash吧」。冻结WF文学LEARN新模型唯一选择：**官方DeepSeek `deepseek-flash`**，OpenAI Chat Completions兼容端点`https://api.deepseek.com/chat/completions`，密钥环境变量`DEEPSEEK_API_KEY`。不再让新WF文学LEARN回退到原Discovery/OpenRouter，不用已退休的`deepseek-v4-flash`字面名称。原Discovery实验脚本和原V49不通过/第二学习窗口LOCKED保持历史记录。详细说明：[V74模型接入说明](V74_DEEPSEEK_FLASH_WF_LEARN_20261019.md)。
+
+- V74新分支`v74-deepseek-flash-wf-learn`从V73继承，增加`writerforge/deepseek_flash_model.py`及`writerforge/wf_learn_model_registry.py`，仅在WF独立LEARN调用时提供受限角色（来源分类、首次阅读、文学分析）的官方DeepSeek Flash JSON适配器；原文/密钥不在公开日志。强制 HTTPS固定主机、禁止3xx转发Bearer、`response_format=json_object`+system JSON合同、固定`thinking.type=disabled`作为当前低预算结构化试验、单次输出<=1500 token、输入<=16KiB、整个工作最多4次/4800预留输出token，解析并检查finish_reason/内容，超时不自动二次付费。后续更高思考能力需单独预算/日志验证，不能偷偷展开数亿token训练。
+- 新的WF模型注册表始终报告provider=deepseek/model=deepseek-flash，`DISCOVERY_API_KEY`不作为Fallback。即使用户已有新密钥，也**不能因为模型能返回JSON就绕过V73原著分卷章号冲突、第一读PASS A必须先存R2不可变学海日志、第二段PASS B才可调用的纪律**。R2独立WF LEARN学习日志当前尚未部署，所以本阶段不自动执行真实章节训练或算文学晋级。
+- 用户的现有Railway服务`wf-python-r2`于本次检查仍只有`WF_API_TOKEN`、`WF_INDEX_UPLOAD_TOKEN`两个R2 Secret，**没有`DEEPSEEK_API_KEY`**。用户需直接到Railway服务Variables设置自己的DeepSeek密钥，不粘贴到GPT、公共GitHub、worker源码。Cloudflare Worker/R2原著无需迁移或更换密钥。调用DeepSeek真实文学片段时，当前片段会通过用户选定的第三方API传送到DeepSeek服务器；联通探针只使用合成JSON字串，无私有小说传输。
+- **真实测试** Railway合成回归部署`31ff6322-1a0b-47e0-b830-309e341fec25`：累计**79/79通过**，0错误、0失败；对DeepSeek请求JSON合同、敏感错误不外泄、超时不重试、来源章节冲突/旧R2 SQL、安全Token隔离统一回归；实际DeepSeek调用0、R2读取0、写0。此成绩是软件API适配的离线模拟，**不是已经连通并成功使用DeepSeek官方API**。
+- 新脚本`wf_railway_v74_deepseek_probe.py`只有Railway已配置`DEEPSEEK_API_KEY`时才向官方DeepSeek发一条合成JSON最小请求（单次120输出tokens），不带任何原文；缺失时按`WF_V74_WAITING_FOR_DEEPSEEK_API_KEY`安全不联网。探针成功只证明模型能用，仍不代表WF已自主分类/学完一章。最后将Railway服务启动改`python -u wf_railway_v74_safe_idle.py`，防止后台自动付费与源文件曝光；若无环境密钥则用户完成设置后需另运行探针。
+
+**下次第一关**：核对Railway `DEEPSEEK_API_KEY`变量名存在（不要取值），再单次真实合成API健康探针；只有用户认可这一外部模型可接收私有章节片段、WF的不可变R2 LEARN账本和V73章节冲突都解决后才能真正WF自己进入第一章PASS A。不让GPT代写读者反应、考官替其选书或自动推进文学状态。
