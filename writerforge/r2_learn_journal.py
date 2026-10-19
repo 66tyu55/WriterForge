@@ -257,6 +257,45 @@ class WFLearnJournal:
             "literary_quality_graduated":False,
         }
 
+    def fetch_event(self,*,ident,stage,unit=None):
+        """Cold-restart discovery: one exact R2 event, no listing/full book.
+
+        Returns None for a genuinely missing event; corrupt or out-of-scope
+        data fails closed rather than becoming a new model-created record.
+        """
+        require(isinstance(ident,dict) and
+                set(ident)=={
+                    "source_key_sha256","source_sha256",
+                    "chapter","chapter_body_sha256"
+                },
+                "WF_LEARN_FETCH_IDENTITY_INVALID")
+        key=path_for(
+            source_key_sha=ident["source_key_sha256"],
+            source_sha=ident["source_sha256"],
+            chapter=ident["chapter"],stage=stage,unit=unit,
+        )
+        try:
+            raw,headers=self._http("GET",key)
+        except WFLearnJournalError as exc:
+            if str(exc)=="WF_LEARN_REMOTE_EVENT_MISSING":
+                return None
+            raise
+        try:
+            doc=json.loads(raw.decode("utf-8"))
+        except (UnicodeError,ValueError):
+            raise WFLearnJournalError("WF_LEARN_COLD_EVENT_NOT_JSON") from None
+        validation(doc)
+        for name,value in ident.items():
+            require(doc.get(name)==value,
+                    "WF_LEARN_COLD_EVENT_SOURCE_IDENTITY_CHANGED")
+        require(doc["stage"]==stage and
+                (unit is None or doc.get("unit")==unit),
+                "WF_LEARN_COLD_EVENT_WRONG_POSITION")
+        content_sha=hexdigest(raw)
+        require(headers.get("x-wf-learn-sha256")==content_sha,
+                "WF_LEARN_COLD_EVENT_TAMPERED")
+        return {"event_sha256":content_sha,"doc":doc}
+
     def read(self,doc,expect_sha=None):
         rawdoc=validation(doc)
         key=path_for(
