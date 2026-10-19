@@ -12,6 +12,8 @@ from .deepseek_flash_model import (
     FlashBudget, MODEL, PROVIDER, TOKEN_ENV, learner_provider_status,
 )
 
+from .wf_api_usage_supervisor import MeteredDeepSeekFlashModel
+
 WF_LEARN_MODEL_ID = MODEL
 WF_LEARN_PROVIDER = PROVIDER
 WF_LEGACY_DISCOVERY_USED = False
@@ -34,7 +36,7 @@ def model_status(environ=None) -> dict:
 
 def new_wf_learn_model(*,budget=None,api_key=None,transport=None):
     """One strict DeepSeek client, owned by WF LEARN; never implicit fallback."""
-    return DeepSeekFlashModel(
+    return MeteredDeepSeekFlashModel(
         api_key=api_key,
         budget=budget if budget is not None else FlashBudget(),
         transport=transport,
