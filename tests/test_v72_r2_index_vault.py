@@ -220,10 +220,10 @@ class V72PersistentIndexTests(unittest.TestCase):
     def test_identity_and_source_key_must_match(self):
         sender=FakeVault(self.objects)
         receipt=self.publish(sender)
+        doc=sender.read_manifest(SOURCE_KEY,receipt["manifest_sha256"])
         with self.assertRaisesRegex(R2IndexError,"OTHER_SOURCE"):
-            sender.read_manifest(
-                "writerforge/v1/private-reading/科幻/别的/正文.txt",
-                receipt["manifest_sha256"])
+            validate_manifest(doc,original_key=
+               "writerforge/v1/private-reading/科幻/别的/正文.txt")
 
 if __name__=="__main__":
     unittest.main()
