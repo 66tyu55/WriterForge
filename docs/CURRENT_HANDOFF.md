@@ -937,3 +937,18 @@
 **下次第一关**：核对Railway `DEEPSEEK_API_KEY`变量名存在（不要取值），再单次真实合成API健康探针；只有用户认可这一外部模型可接收私有章节片段、WF的不可变R2 LEARN账本和V73章节冲突都解决后才能真正WF自己进入第一章PASS A。不让GPT代写读者反应、考官替其选书或自动推进文学状态。
 
 **V74最终安全状态**：Railway部署 `e467dff7-4383-4f9a-b050-8ec89fc33272` SUCCESS，已固定启动 `python -u wf_railway_v74_safe_idle.py`，日志 `WF_V74_SAFE_IDLE_DEEPSEEK_FLASH_SELECTED`；确定WF新LEARN选择 `deepseek-flash`、旧Discovery未选、`DEEPSEEK_API_KEY`仍缺、DeepSeek模型真实请求0、原著读取0、R2写0、没有自动训练。下次用户仅需在Railway原服务设置自己申请的 `DEEPSEEK_API_KEY`（禁止贴聊天），助手再启动 `wf_railway_v74_deepseek_probe.py` 用合成JSON验证一次真正API；独立WF R2学习日志未部署前PASS A/B继续锁定。
+
+
+## 63. 【2026-10-19 V75】DeepSeek Flash官方真实连通；WF自己的R2首读顺序封存协议离线通过94/94，尚未部署学习写入通道
+
+**用户最后说「ok」表示Railway已经配置前面选定的`DEEPSEEK_API_KEY`**。助手没有读取/输出密钥值，只检查名字存在。真正DeepSeek官方API只调用一条人工合成JSON：Railway`106940c9-c1fb-4d51-a852-43adf5aec6f7`，`WF_V74_DEEPSEEK_FLASH_REAL_API_PROBE_OK`，退出0，输入113 tokens、输出12 tokens；私人R2原著0字节、原R2写0。这已经**证明模型连接成功**，无需再让用户重复配置DeepSeek，正式逐章读书仍尚未执行。
+
+**用户前面纠正的根本原则仍在**：书的类型判断、章号、逐句阅读、首读反应、技巧分析、错误经验和下一次学习选择都属于WF自驱的LEARN，不由GPT考官代学。V73真实章头495 vs旧499/4处差异/295次印刷章号重复/3次号段重置尚未由WF模型+原文证据审定；GB18030编码原著版次仍provisional。原V49第三轮失败与第二课程LOCKED不可改变。
+
+本轮新隔离分支 `v75-wf-immutable-learn-journal` 从V74继承，完整证据 [V75不可变R2 LEARN账本交接](V75_WF_LEARN_IMMUTABLE_R2_HANDOFF_20261019.md)。新增：
+- `writerforge/r2_learn_journal.py`：为PASS A每个顺序单位生成独立不可变R2事件，事件包含原来源Key哈希/原文字节SHA/章正文SHA、模型模拟读者反应及SHA链；读取已有锁定事件以从断点恢复、不重复调用付费模型；整段A存完后才seal，PASS B必须引用seal和已经保存的来源单元SHA，全部R2 readback验hash。
+- `writerforge/wf_sequential_learning_trial.py`：仅**2~3个当前顺序原文单位**的实验执行器，调用官方DeepSeek Flash JSON模型；一次只让它见到当前单位（未来句/段不能提前出现在请求里），每次首读回答立即签R2，全部A封存之后才能调B。重启后跳过R2已保存的A/B事件，且不会重复付费调用。它是小预算协议试验，**不能算已学完一整章、更不能算文学水平达标**。
+- `cloudflare/wf-r2-worker-readonly.js`候选：保留所有V72真实SQL索引和原著读取接口，新增`GET/PUT /r2/learn/event`和`GET /r2/learn/writer-ready`。原R2 Reader Token只能读，原SQL Index Writer Token也不能写学习记录；**新第三个独立`WF_LEARN_UPLOAD_TOKEN`** 才可按严格`writerforge/v1/learn/v1/`路径创建仅8KiB以内不可变JSON，禁止覆写/DELETE、禁止未签A就写B、B证据必须存在。writer-ready是0R2写认证探针，WF在向DeepSeek传任何私人文本片段前必须先通过此探针，避免模型调用后无法保存首读。
+- 模拟R2 Worker + Python真实模拟测试：初次`11cf6dba-472d-4f1c-af36-bf58502a12f4`测试因合成Worker URL未通过`.workers.dev`语法门槛而13错（保留）；修夹具后`c31c51a5-ce9c-4385-9857-d71cfd6c812b` 92/92；增加中途重启不重复首读`f9071a1b-38d6-4226-b8c9-84ea95cecc6a` 93/93；最终加必须**先认证R2写入权限才可向DeepSeek发送原著**`c19ac34c-4d7e-44c3-8a9e-777c53543da5` 94/94通过，均0真实R2、0真实DeepSeek/0原著读取。Worker JS注入式本地模拟12条权限/顺序/证据写入用例状态完全符合预期，Writer-ready独立权限200，旧Reader/IndexWriter分别401，旧health200。这些**都不是V75线上R2学海写入验收**。
+- **真正用户介入的唯一下一关**：用户还需在现有Cloudflare `wf-r2-api` Worker 新增独立Secret`WF_LEARN_UPLOAD_TOKEN`，保留`WF_R2`绑定及两个旧Secret，将V75候选JS部署一次；同时在原Railway`wf-python-r2` Variables添加同名同值第三Secret（**绝不能贴到聊天/GitHub**）。这是为了保持旧SQL写入与新文学账本写入权限分离，不能拿SQL索引Writer默许扩大到文学记录。助手目前没有Cloudflare管理权限，不会擅自声称已部署。
+- 用户完成配置后，先用Railway新程序做真实`writer-ready`纯鉴权、只读认证测试，通过后才让WF选择经过文档边界及编码核验的原著，执行**一个2—3片段**的先A后B实际序列，存R2后用新的Railway进程冷读，先校验安全证据，不急着处理全部43/400部，也绝不把模型自评当文学等级晋级。模型连接已真实成功不需要重复付费联通。
