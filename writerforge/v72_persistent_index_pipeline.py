@@ -19,7 +19,7 @@ from .bulk_inbox import BulkCatalog
 from .private_reading_remote import WFPrivateReadingClient
 from .private_reading_topology import analyze_private_topology
 from .private_r2_sql_smoke import (
-    choose_one_source,download_one_verified,SourceIndexSmokeError,
+    candidate_sources,download_one_verified,SourceIndexSmokeError,
 )
 from .source_encoding_guard import (
     detect_decoding_for_index,SourceEncodingError,
@@ -48,36 +48,36 @@ def publish_one(*,endpoint=WORKER_ENDPOINT,read_token=None,
             if info["all_folders_complete"] is not True:
                 raise SourceIndexSmokeError("WF_V72_INVENTORY_INCOMPLETE")
             shape=analyze_private_topology(cat,complete=True)
-            record,_=choose_one_source(cat)
-            original_key=record["object_key"]
-            ref={"key":original_key,"size":record["size_bytes"],
-                 "etag":record["etag"]}
             report("WF_V72_METADATA_SCAN_VERIFIED")
-            existing=vault.find_matching(ref)
-            if len(existing)>1:
-                raise R2IndexError("WF_V72_MULTIPLE_PUBLISHED_VERSIONS_NEED_PIN")
-            if len(existing)==1:
-                # No raw TXT download, no re-indexing, no write call.
-                report("WF_V72_EXISTING_INDEX_VERIFIED")
-                with vault.restore(ref,existing[0]["manifest_sha256"]) as (db,manifest):
-                    count=db.execute("SELECT COUNT(*) FROM units").fetchone()[0]
-                    if count != manifest["units"]:
-                        raise R2IndexError("WF_V72_EXISTING_INDEX_COUNTS_WRONG")
-                    return {
-                      "status":"WF_V72_ALREADY_INDEXED_IN_PRIVATE_R2",
-                      "source_category":record["category"],
-                      "manifest_sha256":existing[0]["manifest_sha256"],
-                      "source_key_sha256":key_sha(original_key),
-                      "indexed_units":count,
-                      "original_downloaded":False,
-                      "reindex_performed":False,
-                      "index_is_durable_in_r2":True,
-                      "sql_read_only_restore_verified":True,
-                      "original_novel_edited":False,
-                      "r2_writes_this_run":0,
-                      "literary_model_calls":0,
-                      "literary_quality_verified":False,
-                    }
+            # Full scan uses bounded metadata only; never redownload a
+            # previously published index to decide that it exists.
+            chosen=None
+            reused=0
+            for row in candidate_sources(cat):
+                ref={"key":row["object_key"],"size":row["size_bytes"],
+                     "etag":row["etag"]}
+                existing=vault.find_matching(ref)
+                if len(existing)>1:
+                    raise R2IndexError("WF_V72_MULTIPLE_PUBLISHED_VERSIONS_NEED_PIN")
+                if existing:
+                    reused+=1
+                    continue
+                chosen=(row,ref)
+                break
+            if chosen is None:
+                report("WF_V72_ALL_ELIGIBLE_SOURCE_REFS_INDEXED")
+                return {
+                  "status":"WF_V72_ALL_ELIGIBLE_INDEXES_ALREADY_ON_R2",
+                  "already_indexed_source_keys":reused,
+                  "original_downloaded":False,
+                  "reindex_performed":False,
+                  "r2_writes_this_run":0,
+                  "source_files_persisted_on_railway":False,
+                  "index_is_durable_in_r2":True,
+                  "literary_quality_verified":False,
+                }
+            record,ref=chosen
+            original_key=record["object_key"]
             report("WF_V72_NO_INDEX_YET_BUILD_STARTED")
             source_file=folder/"source.txt"
             original=download_one_verified(client,record,source_file)
