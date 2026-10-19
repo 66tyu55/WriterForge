@@ -5,6 +5,7 @@
  *
  * V69 adds strictly scoped read-only private-reading list and ranged content.
  * V72 adds content-addressed, separately authenticated index-only writes.
+ * V75 proposes standalone immutable WF LEARN PASS-A/PASS-B journals.
  * Existing /r2/object, /health,
  * /r2/status and /r2/inventory responses stay compatible with V66.
  */
@@ -26,6 +27,10 @@ const INDEX_MAX_PART = 1024 * 1024;  // Each upload <=1MiB.
 const INDEX_MANIFEST_CAP = 64 * 1024;
 const INDEX_MAX_PARTS = 256;       // <=256MiB indexed book.
 const INDEX_REF_LIST_PAGE = 32;
+const LEARN_ROOT = PREFIX + "learn/v1/";
+const LEARN_MAX_EVENT = 8 * 1024;
+const LEARN_MAX_UNITS = 2000;
+
 
 
 
@@ -307,6 +312,213 @@ async function indexListRefs(env,url) {
   });
 }
 
+
+function learnKey(key) {
+  if (typeof key !== "string" || key.length > 300 ||
+      !key.startsWith(LEARN_ROOT)) return null;
+  const tail = key.slice(LEARN_ROOT.length);
+  const m = /^([0-9a-f]{64})\/([0-9a-f]{64})\/([0-9]{6})\/(first\/([0-9]{6})|seal|analysis)\.json$/.exec(tail);
+  if (!m) return null;
+  const chapter = Number(m[3]);
+  const unit = m[5] ? Number(m[5]) : null;
+  if (!Number.isSafeInteger(chapter) || chapter < 1 ||
+      chapter > LEARN_MAX_UNITS ||
+      (unit !== null && (!Number.isSafeInteger(unit) ||
+       unit < 1 || unit > LEARN_MAX_UNITS))) return null;
+  return {
+    key, keyHash:m[1], sourceHash:m[2], chapter, unit,
+    stage:m[4].startsWith("first/") ? "first_read" : m[4],
+    root: LEARN_ROOT+m[1]+"/"+m[2]+"/"+m[3]+"/",
+  };
+}
+function learnDocShape(doc, item) {
+  if (!doc || typeof doc !== "object" || Array.isArray(doc) ||
+      doc.format !== "wf.learn.event.v1" ||
+      doc.stage !== item.stage ||
+      doc.source_key_sha256 !== item.keyHash ||
+      doc.source_sha256 !== item.sourceHash ||
+      doc.chapter !== item.chapter ||
+      !isHexSHA(doc.chapter_body_sha256) ||
+      doc.model_id !== "deepseek-flash" ||
+      doc.literary_mastery_verified !== false) return false;
+  const limitString = (t,n=160) =>
+    typeof t === "string" && t.length <= n &&
+    !/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(t);
+  const names = Object.keys(doc);
+  let allowed = new Set([
+    "format","stage","source_key_sha256","source_sha256","chapter",
+    "chapter_body_sha256","model_id","literary_mastery_verified",
+  ]);
+  if (item.stage === "first_read") {
+    ["unit","source_unit_sha256","previous_event_sha256",
+     "future_source_seen","reaction"].forEach(x=>allowed.add(x));
+    const prev=doc.previous_event_sha256;
+    const reaction=doc.reaction;
+    if (doc.unit !== item.unit || !isHexSHA(doc.source_unit_sha256) ||
+        doc.future_source_seen !== false ||
+        (item.unit===1 ? prev!==null : !isHexSHA(prev)) ||
+        !reaction || typeof reaction!=="object" ||
+        Array.isArray(reaction) ||
+        Object.keys(reaction).sort().join(",") !== [
+          "attention","confusion","curiosity","prediction",
+          "question","tension","urge_to_continue","what_changed",
+        ].sort().join(",") ||
+        !["attention","curiosity","confusion","tension",
+          "urge_to_continue"].every(k=>Number.isInteger(reaction[k]) &&
+             reaction[k]>=0 && reaction[k]<=5) ||
+        !["question","prediction","what_changed"].every(
+          k=>limitString(reaction[k]))) return false;
+  } else if (item.stage === "seal") {
+    ["units_read","last_first_read_sha256","future_source_seen"].forEach(
+      x=>allowed.add(x));
+    if (!Number.isSafeInteger(doc.units_read) || doc.units_read < 1 ||
+        doc.units_read > LEARN_MAX_UNITS ||
+        !isHexSHA(doc.last_first_read_sha256) ||
+        doc.future_source_seen !== false) return false;
+  } else if (item.stage === "analysis") {
+    ["first_read_seal_sha256","mechanisms",
+     "independent_reviewed"].forEach(x=>allowed.add(x));
+    if (!isHexSHA(doc.first_read_seal_sha256) ||
+        doc.independent_reviewed !== false ||
+        !Array.isArray(doc.mechanisms) || doc.mechanisms.length<1 ||
+        doc.mechanisms.length>6) return false;
+    for (const mech of doc.mechanisms) {
+      if (!mech || typeof mech!=="object" || Array.isArray(mech) ||
+          Object.keys(mech).sort().join(",")!==
+          ["unit","evidence_unit_sha256","mechanism","reader_effect",
+           "uncertainty"].sort().join(",") ||
+          !Number.isSafeInteger(mech.unit) || mech.unit<1 ||
+          mech.unit>LEARN_MAX_UNITS ||
+          !isHexSHA(mech.evidence_unit_sha256) ||
+          !limitString(mech.mechanism) ||
+          !limitString(mech.reader_effect) ||
+          !limitString(mech.uncertainty)) return false;
+    }
+  } else return false;
+  return names.length===allowed.size &&
+    names.every(k=>allowed.has(k));
+}
+async function learnHeadVerified(env,key,digest) {
+  const found=await env.WF_R2.head(key);
+  return found && found.size>0 && found.size<=LEARN_MAX_EVENT &&
+      found.customMetadata?.sha256===digest;
+}
+async function learnWrite(request,env,url) {
+  if(request.method!=="PUT") return fail(405,"WF_LEARN_WRITE_METHOD_DENIED");
+  const params=[...url.searchParams.entries()];
+  if(params.length!==1 || params[0][0]!=="key") {
+    return fail(400,"WF_LEARN_KEY_REQUIRED");
+  }
+  const item=learnKey(params[0][1]);
+  if(!item) return fail(403,"WF_LEARN_OUTSIDE_NAMESPACE");
+  const length=sizeInt(request.headers.get("Content-Length"));
+  if(length===null || length<100 || length>LEARN_MAX_EVENT) {
+    return fail(413,"WF_LEARN_EVENT_SIZE_INVALID");
+  }
+  const bytes=await request.arrayBuffer();
+  if(bytes.byteLength!==length) return fail(400,"WF_LEARN_LENGTH_MISMATCH");
+  let doc;
+  try{doc=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(bytes));}
+  catch{return fail(400,"WF_LEARN_JSON_INVALID");}
+  if(!learnDocShape(doc,item))return fail(400,"WF_LEARN_SCHEMA_INVALID");
+  const sha=hexOf(await crypto.subtle.digest("SHA-256",bytes));
+  const existing=await env.WF_R2.head(item.key);
+  if(existing) {
+    if(existing.size===length && existing.customMetadata?.sha256===sha) {
+      return json({ok:true,created:false,sha256:sha,immutable:true});
+    }
+    return fail(409,"WF_LEARN_EVENT_ALREADY_LOCKED");
+  }
+  if(item.stage==="first_read"){
+    const sealed=await env.WF_R2.head(item.root+"seal.json");
+    if(sealed)return fail(409,"WF_LEARN_FIRST_READ_ALREADY_SEALED");
+    if(item.unit>1){
+      const prev=item.root+"first/"+
+        String(item.unit-1).padStart(6,"0")+".json";
+      if(!await learnHeadVerified(env,prev,doc.previous_event_sha256)) {
+        return fail(409,"WF_LEARN_PREVIOUS_UNIT_NOT_LOCKED");
+      }
+    }
+  } else if(item.stage==="seal"){
+    const last=item.root+"first/"+
+      String(doc.units_read).padStart(6,"0")+".json";
+    if(!await learnHeadVerified(env,last,doc.last_first_read_sha256)) {
+      return fail(409,"WF_LEARN_CANNOT_SEAL_INCOMPLETE_PASS_A");
+    }
+  } else if(item.stage==="analysis"){
+    const seal=item.root+"seal.json";
+    if(!await learnHeadVerified(env,seal,doc.first_read_seal_sha256)) {
+      return fail(409,"WF_LEARN_PASS_A_MUST_BE_LOCKED_FIRST");
+    }
+    // Evidence must refer to an existing first-read source unit SHA, not a
+    // fabricated unit number or a source sentence supplied by the examiner.
+    for(const mech of doc.mechanisms) {
+      const key=item.root+"first/"+
+        String(mech.unit).padStart(6,"0")+".json";
+      const rec=await env.WF_R2.get(key);
+      if(!rec?.body || rec.size>LEARN_MAX_EVENT) {
+        return fail(409,"WF_LEARN_ANALYSIS_EVIDENCE_MISSING");
+      }
+      let ev;
+      try {ev=JSON.parse(await rec.text());}
+      catch{return fail(409,"WF_LEARN_ANALYSIS_EVIDENCE_CORRUPTED");}
+      if(ev.stage!=="first_read" ||
+         ev.source_unit_sha256!==mech.evidence_unit_sha256 ||
+         ev.source_sha256!==item.sourceHash ||
+         ev.chapter_body_sha256!==doc.chapter_body_sha256) {
+        return fail(409,"WF_LEARN_ANALYSIS_EVIDENCE_UNVERIFIED");
+      }
+    }
+  }
+  const stored=await env.WF_R2.put(item.key,bytes,{
+    onlyIf:new Headers({"If-None-Match":"*"}),
+    customMetadata:{sha256:sha,stage:item.stage},
+    httpMetadata:{contentType:"application/json"},
+  });
+  if(!stored) {
+    if(await learnHeadVerified(env,item.key,sha)) {
+      return json({ok:true,created:false,sha256:sha,immutable:true});
+    }
+    return fail(409,"WF_LEARN_ATOMIC_CREATE_CONFLICT");
+  }
+  if(stored.size!==length || stored.customMetadata?.sha256!==sha) {
+    return fail(502,"WF_LEARN_WRITE_CONFIRMATION_FAILED");
+  }
+  return json({ok:true,created:true,sha256:sha,immutable:true});
+}
+async function learnRead(request,env,url) {
+  if(request.method!=="GET" && request.method!=="HEAD") {
+    return fail(405,"WF_LEARN_READ_METHOD_DENIED");
+  }
+  const args=[...url.searchParams.entries()];
+  if(args.length!==1 || args[0][0]!=="key") {
+    return fail(400,"WF_LEARN_KEY_REQUIRED");
+  }
+  const item=learnKey(args[0][1]);
+  if(!item) return fail(403,"WF_LEARN_OUTSIDE_NAMESPACE");
+  const meta=await env.WF_R2.head(item.key);
+  if(!meta)return fail(404,"WF_LEARN_EVENT_NOT_FOUND");
+  if(!meta.customMetadata?.sha256 || meta.size<100 ||
+      meta.size>LEARN_MAX_EVENT) {
+    return fail(502,"WF_LEARN_STORAGE_CORRUPTED");
+  }
+  const headers={
+    "Content-Type":"application/json; charset=utf-8",
+    "Cache-Control":"no-store",
+    "X-WF-Learn-SHA256":meta.customMetadata.sha256,
+    "Content-Length":String(meta.size),
+    "X-Content-Type-Options":"nosniff",
+  };
+  if(request.method==="HEAD")return new Response(null,{status:200,headers});
+  const result=await env.WF_R2.get(item.key);
+  if(!result?.body || result.size!==meta.size ||
+      result.httpEtag!==meta.httpEtag ||
+      result.customMetadata?.sha256!==meta.customMetadata.sha256) {
+    return fail(502,"WF_LEARN_EVENT_CHANGED_DURING_READ");
+  }
+  return new Response(result.body,{status:200,headers});
+}
+
 function objectHeaders(obj) {
   return {
     "Cache-Control": "no-store",
@@ -407,6 +619,17 @@ export default {
       }
       if (!env.WF_R2) return fail(503, "WF_R2_BINDING_MISSING");
       const url = new URL(request.url);
+      if (url.pathname === "/r2/learn/event" && request.method === "PUT") {
+        if (!env.WF_LEARN_UPLOAD_TOKEN ||
+            env.WF_LEARN_UPLOAD_TOKEN === env.WF_API_TOKEN ||
+            env.WF_LEARN_UPLOAD_TOKEN === env.WF_INDEX_UPLOAD_TOKEN) {
+          return fail(503,"WF_LEARN_WRITER_SECRET_REQUIRED");
+        }
+        if (!(await authorized(request,env.WF_LEARN_UPLOAD_TOKEN))) {
+          return fail(401,"WF_LEARN_WRITER_UNAUTHORIZED");
+        }
+        return await learnWrite(request,env,url);
+      }
       if (url.pathname === "/r2/index/write") {
         if (!env.WF_INDEX_UPLOAD_TOKEN ||
             env.WF_INDEX_UPLOAD_TOKEN === env.WF_API_TOKEN) {
@@ -419,6 +642,9 @@ export default {
       }
       if (!(await authorized(request, env.WF_API_TOKEN))) {
         return fail(401, "WF_UNAUTHORIZED");
+      }
+      if (url.pathname === "/r2/learn/event") {
+        return await learnRead(request,env,url);
       }
       if (url.pathname === "/r2/index/object") {
         return await getObject(request,env,url,false,true);
