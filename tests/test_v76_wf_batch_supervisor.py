@@ -210,8 +210,8 @@ class ReaderOnlyExaminerNotSelfScoreTests(unittest.TestCase):
                     reader_token="synthetic-reader-token-for-test-long-enough",
                     writer_token=None,
                     index_writer_token=None,
+                    read_only=True,
                 )
-                self.writer=None
                 self.records=records
             def fetch_event(self,*,ident,stage,unit=None):
                 return self.records.get((stage,unit))
