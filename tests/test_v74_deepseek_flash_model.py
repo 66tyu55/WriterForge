@@ -9,6 +9,7 @@ import os
 import unittest
 from urllib.error import HTTPError
 from io import BytesIO
+from unittest.mock import patch
 
 from writerforge.deepseek_flash_model import (
     API_URL, MODEL, PROVIDER, TOKEN_ENV,
@@ -175,17 +176,25 @@ class DeepSeekProviderTests(unittest.TestCase):
         class UnsafeBody(BytesIO):
             def read(self,*args):
                 raise AssertionError("private failure body must not be read")
-        def throw(_req):
-            error=HTTPError(API_URL,403,"forbidden",{},
-                            UnsafeBody(b"private-prose"))
-            # Exercise _real_transport by temporarily swapping opener,
-            # not a genuine network request. The model itself rejects
-            # injected error without exposing raw source.
-            raise error
-        fake=DeepSeekFlashModel(api_key=DUMMY_KEY,transport=throw)
-        with self.assertRaises(HTTPError):
-            fake.ask_json(role="first_read",system=self.system,user="synthetic")
-        self.assertEqual(fake.budget.calls_reserved,1)
+        class FakeOpener:
+            def open(self,req,timeout):
+                raise HTTPError(API_URL,403,"forbidden",{},
+                                UnsafeBody(b"private-prose"))
+        with patch("writerforge.deepseek_flash_model.build_opener",
+                   return_value=FakeOpener()):
+            model=DeepSeekFlashModel(api_key=DUMMY_KEY)
+            with self.assertRaisesRegex(DeepSeekFlashError,
+                                        "WF_FLASH_HTTP_403"):
+                model.ask_json(role="first_read",system=self.system,
+                               user="synthetic")
+        self.assertEqual(model.budget.calls_reserved,1)
+
+    def test_analysis_bridge_denied_before_persistent_first_read_checkpoint(self):
+        with self.assertRaisesRegex(DeepSeekFlashError,
+                                    "SECOND_PASS_REQUIRES_R2_LEARN_JOURNAL"):
+            self.model.call_for_scene(
+                role="craft_analysis",system=self.system)
+        self.assertEqual(len(self.transport.received),0)
 
     def test_scene_adapter_keeps_data_inside_WF(self):
         call=self.model.call_for_scene(role="first_read",
