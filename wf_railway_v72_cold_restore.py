@@ -23,6 +23,11 @@ def main():
     if not os.getenv("WF_API_TOKEN"):
         emit({"status":"WF_V72_READ_TOKEN_MISSING","network_attempted":False})
         return 1
+    # The Railway service may own a writer variable, but this process must
+    # have no writer credential at all: test strictly reader-only recovery.
+    os.environ.pop("WF_INDEX_UPLOAD_TOKEN", None)
+    emit({"status":"WF_V72_READ_ONLY_PROCESS_WRITER_TOKEN_DISABLED",
+          "writer_token_available_to_this_process":False})
     try:
         from tempfile import TemporaryDirectory
         from writerforge.bulk_inbox import BulkCatalog
