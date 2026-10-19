@@ -13,7 +13,7 @@ print(json.dumps({
    "status":"WF_V76_SAFE_IDLE_B00_AUDITED_LEARN_NOT_UNLOCKED",
    "last_completed_batch":"B00-20261019-WF-SELF-ADMISSION",
    "last_batch_receipt_sha256":
-       "090d78da2933bfde99a272d3f518a4d576a67d79c445da170c14803fb705336a",
+       "090d78da2933bfde99b272d3f518a4d576a67d79c445da170c14803fb705336a",
    "last_batch_sources_examined":6,
    "last_batch_strictly_eligible_sources":0,
    "current_trial_books_allowed_to_train":0,
