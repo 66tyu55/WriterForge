@@ -57,8 +57,8 @@ class V82TrainingContractTests(unittest.TestCase):
             code.index("os.environ.pop(secret,None)"),
             code.index("from writerforge.v82_independent_exam import"))
         self.assertIn("read_only=True",code)
-        self.assertIn("PENDING_REAL_V82_BATCH_SHA",code)
-        self.assertIn("PENDING_REAL_V82_JOURNAL_SHA",code)
+        self.assertRegex(code,r'V82_BATCH="(?:PENDING_REAL_V82_BATCH_SHA|[a-f0-9]{64})"')
+        self.assertRegex(code,r'V82_JOURNAL="(?:PENDING_REAL_V82_JOURNAL_SHA|[a-f0-9]{64})"')
         self.assertNotIn("new_wf_learn_model",code)
 
 if __name__=="__main__":
