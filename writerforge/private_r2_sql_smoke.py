@@ -36,7 +36,7 @@ def require(ok, code):
     if not ok:
         raise SourceIndexSmokeError(code)
 
-def choose_one_source(catalog: BulkCatalog):
+def candidate_sources(catalog: BulkCatalog):
     """Only unambiguous, single-TXT, non-archive parent folders.
 
     No keyword matching, no model ranking and no inspection of novel titles.
@@ -73,6 +73,10 @@ def choose_one_source(catalog: BulkCatalog):
     # Stable smallest-first by size, then content-independent key digest.
     candidates.sort(key=lambda r:(
         r["size_bytes"],sha256(r["object_key"].encode("utf8")).hexdigest()))
+    return candidates
+
+def choose_one_source(catalog: BulkCatalog):
+    candidates=candidate_sources(catalog)
     return candidates[0],len(candidates)
 
 def download_one_verified(client: WFPrivateReadingClient, row, target):
