@@ -59,6 +59,7 @@ class WFSequentialLearningTrial:
                 "WF_LEARN_TRIAL_SIZE_OR_STATE_INVALID")
         self.rt.enter_learn()
         prev=None
+        newly_written=0
         iterator=iter(units)
         try:
             for ordinal in range(1,expected_unit_count+1):
@@ -69,31 +70,48 @@ class WFSequentialLearningTrial:
                         30<=len(piece)<=MAX_UNIT_CHARACTERS,
                         "WF_LEARN_TRIAL_SOURCE_WINDOW_INVALID")
                 source_unit_sha=hexdigest(piece.encode("utf-8"))
-                # No next-unit or future chapter text exists in this prompt.
-                response=self.model.ask_json(
-                    role="first_read",
-                    system=(
-                        "你是WriterForge自己的首次阅读者。"
-                        "这仅是阅读片段试验，不是正式人类读者测量。"
-                        "你只允许看当前一段，不得推断或杜撰未来章节。"
-                        '仅输出JSON对象，必须恰好具有'
-                        ' attention,curiosity,confusion,tension,'
-                        'urge_to_continue 五个0至5整数，及'
-                        ' question,prediction,what_changed 三个不超过160字字符串。'
-                    ),
-                    user=(
-                      f"这是本章按序解锁的第{ordinal}段；"
-                      "以下内容不可复述或复制到外部日志：\n"+
-                      piece
-                    ),
-                    max_tokens=400,
-                )
-                require(reaction_schema(response),
-                        "WF_LEARN_TRIAL_FIRST_REACTION_INVALID")
-                receipt=self.journal.append_first_read(
-                    ident=self.ident,unit=ordinal,
-                    source_unit_sha=source_unit_sha,
-                    previous_record_sha=prev,reaction=response)
+                old=self.journal.fetch_event(
+                    ident=self.ident,stage="first_read",unit=ordinal)
+                if old is not None:
+                    locked=old["doc"]
+                    require(
+                        locked["source_unit_sha256"]==source_unit_sha and
+                        locked["previous_event_sha256"]==prev,
+                        "WF_LEARN_RESUME_EXISTING_UNIT_SOURCE_CHANGED")
+                    # R2 event is already sealed individually. Never ask the
+                    # model to 'read for the first time' again after restart.
+                    receipt={
+                        "event_sha256":old["event_sha256"],
+                        "unit":ordinal,"created":False,
+                        "r2_reader_readback_verified":True,
+                    }
+                else:
+                    # Only the CURRENT unlocked source unit goes to DeepSeek.
+                    response=self.model.ask_json(
+                        role="first_read",
+                        system=(
+                            "你是WriterForge自己的首次阅读者。"
+                            "这仅是阅读片段试验，不是正式人类读者测量。"
+                            "你只允许看当前一段，不得推断或杜撰未来章节。"
+                            '仅输出JSON对象，必须恰好具有'
+                            ' attention,curiosity,confusion,tension,'
+                            'urge_to_continue 五个0至5整数，及'
+                            ' question,prediction,what_changed 三个不超过160字字符串。'
+                        ),
+                        user=(
+                            f"这是本章按序解锁的第{ordinal}段；"
+                            "以下内容不可复述或复制到外部日志：\\n"+
+                            piece
+                        ),
+                        max_tokens=400,
+                    )
+                    require(reaction_schema(response),
+                            "WF_LEARN_TRIAL_FIRST_REACTION_INVALID")
+                    receipt=self.journal.append_first_read(
+                        ident=self.ident,unit=ordinal,
+                        source_unit_sha=source_unit_sha,
+                        previous_record_sha=prev,reaction=response)
+                    newly_written+=1
                 prev=receipt["event_sha256"]
                 self._unit_hashes.append(source_unit_sha)
                 self._unit_texts.append(piece)
@@ -104,14 +122,25 @@ class WFSequentialLearningTrial:
                 pass
             else:
                 raise WFSequentialLearnError("WF_LEARN_TRIAL_EXTRA_SOURCE_UNSEEN")
-            sealed=self.journal.seal_first_read(
-                ident=self.ident,units=expected_unit_count,
-                last_record_sha=prev)
-            self._seal_sha=sealed["event_sha256"]
+            old_seal=self.journal.fetch_event(
+                ident=self.ident,stage="seal")
+            if old_seal is None:
+                sealed=self.journal.seal_first_read(
+                    ident=self.ident,units=expected_unit_count,
+                    last_record_sha=prev)
+                self._seal_sha=sealed["event_sha256"]
+            else:
+                locked=old_seal["doc"]
+                require(locked["units_read"]==expected_unit_count and
+                        locked["last_first_read_sha256"]==prev,
+                        "WF_LEARN_RESUME_SEAL_SOURCE_CHANGED")
+                self._seal_sha=old_seal["event_sha256"]
             return {
                "status":"WF_LEARN_PASS_A_R2_LOCKED",
                "units_seen_in_order":len(self._unit_hashes),
-               "first_read_events_written":len(self._first_receipts),
+               "first_read_events_stored":len(self._first_receipts),
+               "first_read_events_new_this_run":newly_written,
+               "model_repeat_reads_avoided":len(self._first_receipts)-newly_written,
                "r2_first_read_seal_sha256":self._seal_sha,
                "model_calls":self.model.budget.calls_reserved,
                "reader_reactions_are_model_self_reports":True,
@@ -135,6 +164,21 @@ class WFSequentialLearningTrial:
             last_first_read_sha256=self._first_receipts[-1]["event_sha256"],
             future_source_seen=False)
         self.journal.read(seal,expect_sha=self._seal_sha)
+        existing_b=self.journal.fetch_event(
+            ident=self.ident,stage="analysis")
+        if existing_b is not None:
+            require(existing_b["doc"]["first_read_seal_sha256"]==
+                    self._seal_sha,
+                    "WF_LEARN_RESUME_ANALYSIS_WRONG_PASS_A_SEAL")
+            return {
+                "status":"WF_LEARN_PASS_B_ALREADY_LOCKED",
+                "pass_a_seal_sha256":self._seal_sha,
+                "pass_b_record_sha256":existing_b["event_sha256"],
+                "model_calls_total":self.model.budget.calls_reserved,
+                "paid_model_analysis_repeated":False,
+                "full_chapter_completed":False,
+                "literary_skill_promotion_allowed":False,
+            }
         self.rt.enter_learn()
         try:
             excerpts="\n".join(
