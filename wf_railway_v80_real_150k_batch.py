@@ -33,7 +33,13 @@ B00_SHA="c35fa66232f2851f17767615f3447ff4822587a52f3106e189eb5d61cf3262e4"
 ORIGINAL_KEY_HASH="370400053cded15ca89e3232e7be84b28aa20ca70542150138bef6201dc7cb22"
 ORIGINAL_SHA="0f00a16f6a0c121404a28257f3aa728468c9dae78d464ff1341746a45c41ddbd"
 ORIGINAL_BYTES=4009069
-PREVIOUS_V79_JOURNAL_SHA="b7ace511e422c8973a35c0cc4d75229d0c11c7ddcefe4db97eda6b6098bc1210"
+PREVIOUS_V79_JOURNAL_SHA="3d12c9e555cfa7b1dd0ce5074e57ec3473bc6d22735e0677b8808b3d953f9e49"
+# Frozen progress after V80's first 12 new chapter-1 units and one failed
+# (but billed) analysis-schema attempt. These tokens count against SAME 150k.
+V80_PRIOR_PROMPT_TOKENS=11243
+V80_PRIOR_OUTPUT_TOKENS=2271
+V80_PRIOR_CALLS=13
+V80_PRIOR_RESERVED_OUTPUT_TOKENS=14300
 MAX_CHAPTERS=6
 MAX_TOTAL_TOKENS=150000
 
@@ -58,6 +64,13 @@ def main():
             endpoint=ENDPOINT,checkpoint_sha=PREVIOUS_V79_JOURNAL_SHA,
             progress=emit)
         journal.require_writer_ready()
+        emit({"status":"WF_V80_RESUMING_WITH_PREVIOUS_PAID_TOKENS_ACCOUNTED",
+              "previous_real_provider_requests":V80_PRIOR_CALLS,
+              "previous_provider_reported_tokens":(
+                  V80_PRIOR_PROMPT_TOKENS+V80_PRIOR_OUTPUT_TOKENS),
+              "original_reading_units_1_to_15_already_locked":True,
+              "old_sealed_V79_three_unit_evidence_preserved":True,
+              "automatic_repeat_model_reads":False})
         emit({"status":"WF_V80_EXISTING_WRITER_READY_V79_CHECKPOINT_RESTORED",
               "previous_V79_checkpoint_sha256":PREVIOUS_V79_JOURNAL_SHA,
               "archived_pilot_events":len(journal.event_addresses),
@@ -119,7 +132,15 @@ def main():
                 budget=FlashBudget(
                     max_calls=96,
                     max_reserved_output_tokens=MAX_TOTAL_TOKENS,
-                    max_total_tokens=MAX_TOTAL_TOKENS)
+                    max_total_tokens=MAX_TOTAL_TOKENS,
+                    calls_reserved=V80_PRIOR_CALLS,
+                    tokens_reserved=V80_PRIOR_RESERVED_OUTPUT_TOKENS,
+                    prompt_tokens_reported=V80_PRIOR_PROMPT_TOKENS,
+                    completion_tokens_reported=V80_PRIOR_OUTPUT_TOKENS,
+                    conservative_tokens_committed=(
+                        V80_PRIOR_PROMPT_TOKENS+V80_PRIOR_OUTPUT_TOKENS),
+                    calls_with_provider_usage=V80_PRIOR_CALLS,
+                    calls_by_role={"first_read":12,"craft_analysis":1})
                 model=new_wf_learn_model(budget=budget)
                 batch=WFLargeChapterBatch(
                     journal=journal,model=model,
@@ -148,6 +169,8 @@ def main():
                    "last_experience_cas_sha256":
                        batch.previous_experience_sha,
                    "token_usage":model.public_usage_report(),
+                   "cumulative_batch_budget":budget.public_receipt(),
+                   "prior_paid_requests_included":V80_PRIOR_CALLS,
                    "original_text_ever_printed":False,
                    "R2_LEARN_native_route_deployed":False,
                    "automatic_reschedule":False,
