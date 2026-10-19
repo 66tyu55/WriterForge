@@ -881,3 +881,19 @@
 5. **最重要的未完成**：Railway目前没有持久卷，因此本次原文临时文件与SQLite都在任务退出后自动清理，`sql_persisted_after_exit=false`。现在仅证明“一本真实私有作品可以在WF内临时索引和词面回查”；**不是**43本SQL准备好，更不是达到50部公认完整作品、作品理解、文学技巧毕业或写作能力提高。源文件完整SHA不能证明原著版次或与既有别名为同一作品。
 6. 下一阶段须在成本/权限授权后给原有Railway服务增加有界持久工作卷（或创建独立、最小权限的R2索引备份服务），再实现按书SQL幂等记录、崩溃后孤儿shard验源恢复、原文全SHA去重、定额分批处理25→43个TXT并保留9个RAR同目录待审；按目录/作品/章节/句子分级查，不每次重复下载原书。用户无需重传，禁止擅自扩大现有只读Bearer权限。R2原始书不因索引操作修改。为确保后台失败可追溯，原始失败收据保留。
 7. V49文学终审`THIRD_STRIKE_FAILED`、第二课程`LOCKED`继续有效；GB18030临时技术索引及自选检索词没有文学语义真实性保证。不自动训练、不写文学答案、不把原著摘录灌给WRITE。
+
+
+## 58. 【2026-10-19 V72】用户明确选 Cloudflare R2 永久索引，禁止另买/创建 Railway 持久卷
+
+用户最新指令：「存储在R2--吧--不然我怕到时候来回迁移」。从现在起**原著、WF按书SQLite检索索引、版本清单都长期保管在已有`writerforge-private-library`私有R2**；Railway只运行Python和临时按需恢复单本SQLite，绝不创建或绑定2GB Railway Volume。此决定优先于前段建议的云端持久卷。详细方案、接口合同和部署依赖：[V72 R2私有持久索引](V72_R2_PERSISTENT_INDEX_PRIVATE_20261019.md)。
+
+1. 可信历史不变：V69四目录79个实际R2对象、V70检测43 TXT/34独立文件路径候选、V71线上R2一部3636548字节真实科幻TXT建立65573 SQL单元/499可疑章头，按GB18030临时编码，SQL内部字面命中1，全部过程R2写0。**V71旧索引只在一次性临时目录，未保存在R2**，不能反向冒充持久化通过。真实运行 `508673b0-9685-41ce-8777-664c516960c4`，原编码失败、第一次CRASHED等红色历史不修改。
+2. 新隔离分支 `v72-r2-persistent-index-vault` 从V71继承；正式main、已有用户原著、已部署Cloudflare Worker和当前Railway Reader Token不改变。Worker候选 `cloudflare/wf-r2-worker-readonly.js` 增加独立 `WF_INDEX_UPLOAD_TOKEN` 写入授权，仅受限 `writerforge/v1/indexes/v1/`，不可复制/删除原著；Writer Secret不得等于旧 `WF_API_TOKEN`，缺失则拒绝写入；读服务继续使用旧Bearer及旧源接口。
+3. 新永久R2格式：`indexes/v1/chunks/{sha256}.bin` + `indexes/v1/refs/{sha256-of-original-object-key}/{manifest-sha256}.json`；每个块1MiB，SHA内容寻址，只允许创建不可覆盖，**manifest最后发布**且Worker先HEAD验证引用块；中断后只需续传缺失块，重试完全幂等，失败的未引用块不会被当成已发布SQL；source SHA、原R2 ETag、全SQLite SHA、各块SHA、索引schema/GB18030暂定状态均标入小manifest，不写原文片段或原始书名进去。
+4. `writerforge/r2_index_vault.py` 在WF Python进程直接向Worker逐块上传SQLite而非原始小说；另一个新WF进程可只用Reader Token按指定原R2源Key哈希找索引，按需下载、验证每块及全SQL SHA/quick_check/表中源身份并以 `mode=ro` + `query_only=ON`打开，查询完临时目录自动销毁。R2才是永久源，不存在Railway数据迁移。源对象ETag/字节变更时阻止旧索引，发现多个同源旧清单要求明确版本，不能挑最有利结果。
+5. `writerforge/v72_persistent_index_pipeline.py` 沿用V71严格按类别、单TXT无RAR混放、文件大小≤16MiB的自动选择，先查询已有manifest并跳过，才处理下一部并发布SQL；每次仅1部，绝不依赖GPT或GitHub Actions选正文。每步保留来源完整SHA；GB18030仅作暂定技术索引，禁止进入已验证文学经验。
+6. **真实测试/验证边界**：Railway `17174b98-43f9-47d5-b667-f6155dda0b1e` 的 **44/44 Python纯合成结构测试全部通过**（旧35+新9），包括R2模拟上传/重启冷恢复/断线续传/伪造块拒绝/旧ETag拒绝/无读Token升级；Worker JS自制模拟也证明旧health=200，Reader读Token上传=401，Writer仅索引路径上传=200，源对象路径写入=403，manifest和Refs独立只读查询、chunk Range206。**这些都不是Cloudflare正式线上索引写入证明**：实际新接口还未由用户Deploy，专门Secret也未设置，真实新R2写入计数0；不许冒称R2永久索引已经存在。
+7. **下一步唯一用户参与**：在现有Cloudflare `wf-r2-api` Worker中保留原 `WF_R2` 绑定及 `WF_API_TOKEN`，**新建随机且不同的 `WF_INDEX_UPLOAD_TOKEN` Secret**，将V72候选单文件Worker JS正式Deploy一次；同一密钥值由用户自己在原Railway服务`wf-python-r2` Variables设置，**绝不贴到GPT/GitHub**。用户说「V72部署完毕」后，助手才通过Railway连接器使用`wf_railway_v72_publish_one.py`处理一份真实原文的SQL上传，并换另一个真实进程`wf_railway_v72_cold_restore.py`只用读Token冷恢复，证明退出后索引仍在R2。
+8. 云端真持久化验证后才设计更大规模的R2持久全库`catalog`显示编号与断点队列、50→400本工作调度、RAR安全解包、多书跨类检索；这批能力**本轮尚未生产完成**，用户不可误以为400本现在均具备永久SQL索引。使用标准R2存储有存储与请求计费/标准免费额度，见官方 `https://developers.cloudflare.com/r2/pricing/`，Railway运行计算额外计费。V49第三次文学终审`THIRD_STRIKE_FAILED`及第二窗口`LOCKED`一律不因工程存储成功改变。
+
+最终原则：新版本WF可以脱离Railway旧实例恢复指定R2 SQLite索引，老原著不复制进ChatGPT、不改写、不移存到公共仓库。旧部署安全闲置，不反复拉小说或自动付费训练。
