@@ -240,6 +240,11 @@ class DeepSeekFlashModel:
         PASS A remotely before permitting a fresh PASS B model invocation.
         """
         require(role in ROLES,"WF_FLASH_ROLE_UNSUPPORTED")
+        # No immutable R2 WF LEARN first-read ledger exists in V73/V74.
+        # Do not allow this convenience bridge to launch an analyst after
+        # locally saving a mutable first-read result.
+        require(role=="first_read",
+                "WF_FLASH_SECOND_PASS_REQUIRES_R2_LEARN_JOURNAL")
         def wf_call(prompt: str) -> str:
             record = self.ask_json(
                 role=role,system=system,user=prompt,max_tokens=max_tokens
