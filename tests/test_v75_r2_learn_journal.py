@@ -59,12 +59,23 @@ class SimulatedR2Worker:
         self.requests=[]
         self.source_bytes_seen=False
         self.writer_calls=0
+        self.allow_writer_ready=True
     def error(self,req,status):
         raise HTTPError(req.full_url,status,"rejected",{},BytesIO(b""))
     def open(self,req,timeout=None):
         url=urlsplit(req.full_url)
         params=parse_qs(url.query)
         self.requests.append(req.get_method())
+        if url.path=="/r2/learn/writer-ready":
+            if (req.get_method()!="GET" or
+                req.get_header("Authorization")!="Bearer "+WRITER or
+                not self.allow_writer_ready):
+                self.error(req,401)
+            return DummyResponse(canonical({
+                "ok":True,"writer_ready":True,"immutable_events":True,
+                "source_writes_allowed":False,
+                "requires_first_read_seal":True,
+            }))
         if url.path!="/r2/learn/event" or set(params)!={"key"}:
             self.error(req,403)
         key=params["key"][0]
@@ -419,6 +430,28 @@ class ImmutableLearnJournalTests(unittest.TestCase):
         already=third.analyse_after_lock()
         self.assertEqual(already["status"],"WF_LEARN_PASS_B_ALREADY_LOCKED")
         self.assertEqual(no_model.budget.calls_reserved,0)
+
+    def test_learn_writer_permission_checked_before_model_receives_source(self):
+        self.remote.allow_writer_ready=False
+        touched=[0]
+        def fake_model(_request):
+            touched[0]+=1
+            raise AssertionError("source cannot reach model without R2 journal")
+        model=DeepSeekFlashModel(
+            api_key="synthetic-deepseek-secret-not-real",
+            transport=fake_model)
+        learner=WFSequentialLearningTrial(
+            model=model,journal=self.journal,
+            original_key=ORIGINAL_KEY,source_sha=SOURCE_HASH,
+            chapter=1,chapter_body_sha=CHAPTER_HASH)
+        unit1=("沙滩上出现两列不明脚印，风吹过海岸，旅人感到疑惑。"*2)
+        unit2=("周围的人都停下了脚步，等待第一个人说出之前发现的事情。"*2)
+        with self.assertRaisesRegex(WFLearnJournalError,
+                                     "PREFLIGHT_HTTP_401"):
+            learner.first_read((unit1,unit2),expected_unit_count=2)
+        self.assertEqual(touched,[0])
+        self.assertEqual(self.remote.writer_calls,0)
+        self.assertEqual(model.budget.calls_reserved,0)
 
     def test_analysis_does_not_certify_mastery(self):
         _,_,sealed=self.finish()
