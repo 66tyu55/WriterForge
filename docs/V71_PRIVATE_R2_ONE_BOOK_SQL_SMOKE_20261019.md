@@ -41,3 +41,16 @@ Railway新的独立Python自检部署 `b996f8a9-1c41-4324-b74b-e453a8989bea` 真
 Railway受控重试 `325fc217-2258-4a89-b3ad-10c2a9bbf1d9`，这次真实运行输出阶段日志：`WF_V71_INVENTORY_STARTED` → `WF_V71_INVENTORY_VERIFIED` → `WF_V71_CANDIDATE_SELECTED` → `WF_V71_RANGE_DOWNLOAD_STARTED` → `WF_V71_RANGE_DOWNLOAD_SHA_COMPLETE` → `WF_V71_SQL_BUILD_STARTED`。**失败确切原因** `BULK_ENCODING_UNCERTAIN_EXPLICIT_ENCODING_REQUIRED`，退出1。说明真实R2私有TXT的单文件Range读取和完整SHA计算已完成，SQLite索引因非确认UTF8编码**按设计拒绝**。没有小说文本、私有对象名或API Token泄露，R2无写入；不能称为SQL成功。
 
 随后新增 `writerforge/source_encoding_guard.py`：仅用标准库辨别UTF8/BOM以及严格解码的GB18030候选；对无BOM传统中文编码要求样本Han字比例、标点比例与控制字符约束，严禁`errors=ignore/replace`；不能完全排除Big5等同字节合法性歧义，所以其结果标`LIKELY_LEGACY_CHINESE_STRICT_DECODING`/临时验证，**不得用于正式文学学习经验或解释真值**。原始R2 bytes永不改动。新增6项合成测试包括GB18030源码正确编索引、UTF8/UTF16 BOM、二进制拒绝；`wf_railway_v71_charset_then_live.py`先运行累计35项合成测试，全通过才允许下一次16MiB上限的真实单源索引请求。历史编码红色日志不得重写为成功。
+
+## V71 首次完整真实 R2→临时SQLite→内部检索闭环（已成功）
+
+最终线上 Railway 部署 `508673b0-9685-41ce-8777-664c516960c4` 真实启动了 `wf_railway_v71_charset_then_live.py`。先运行合成**35/35**全部通过，再由**WF Python进程自身**调用用户既有Cloudflare Worker/R2、按保守目录拓扑与大小自动选一部（未预选作者/原文/检索关键词），零模型、零远端写、零正文/文件名进入任何公开日志。
+
+- 真实目录 metadata SHA 与 V70严格一致；四目录79对象。符合单TXT父目录、10KiB~16MiB且与RAR不混放的下一步可选技术候选数**25**。这仍不是25部审定完整作品。
+- 自动选中的技术试验对象在`科幻`类别，Key仅用SHA表示；真实源大小`3636548` bytes，Range分块读取共**5个HTTP请求**（含HEAD），端到端源下载约`4287.36ms`；获得完整原字节SHA256，校验单文件HTTP Range/长度/ETag一致。
+- 原先 GBK/GB18030 严格失败的实际问题通过`writerforge/source_encoding_guard.py`确定为`LIKELY_LEGACY_CHINESE_STRICT_DECODING`；以`gb18030`完整严格读入**索引副本**，不修改R2源字节、不使用`replace/ignore`，但缺独立版次/GB18030人工校对，故**provisional_legacy_decoding=true、literary_learning_allowed=false**。
+- 真正由`BulkCatalog.index_text_file`建立临时SQLite FTS5 trigram倒排索引；扫描`65573`个索引单元，检测到`499`个章节式标题（不等于已验证499个完整章节），SQL构建`1973.95ms`；源索引SHA与下载原文字节SHA对齐，临时库内部自行派生一次无外部参考词面回查，命中`1`条。回查仅证明内部检索工作，**没有文学语义、泛化或外部考试**。
+- 完整成功标记 `WF_V71_REAL_R2_ONE_SOURCE_INDEXED_TEMPORARILY`、`WF_V71_ENCODING_RUN_EXIT=0`；`source_files_persisted_after_exit=false`、`sql_persisted_after_exit=false`、`r2_source_or_index_write_requests=0`、`model_calls=0`。历史首次CRASHED与第一次编码失败如实保留，不修改/重试抹除。
+- 试验私人源文件SHA和私有Key仅存在于用户授权的Railway日志，不放到公共GitHub报告中。不得拿这一个“自选源字串命中”当作者文学技巧理解/50本学习成绩。
+
+**下一唯一工程门槛**：为原有Railway服务配置**有持久、可验证备份的独立SQL工作存储**（Railway volume或严格独立的Cloudflare R2索引写入服务），否则每次Job退出按书索引便消失；应由用户先确认对可能计费云存储的授权。只有完成此步，才能迭代处理从25个候选到43个TXT、再扩展400本，设计每本按SHA幂等、断点、反作弊、总下载/磁盘上限、待审版次/编码隔离；严禁用户原创/版权保护资料进入GPT和公共Actions。
