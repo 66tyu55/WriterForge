@@ -4,7 +4,7 @@
 
 - V82 已经完成同一冻结仙侠原著前15章的来源读取及独立哈希/顺序审计；不重新付费阅读 1-15章。
 - V82最终 batch：`d46ffec05927dfba3f2819089e76e79f720db2a2f3f6793b56965ac6413c177f`
-- V82最终 journal：`3da56cc46115548c5198a65cb6124e3c03d9bdf1f0460950177735a99d1cb2`
+- V82最终 journal：`3da56cc46115548c5198a65cb6124e3c03d9bdfdb1f0460950177735a99d1cb2`
 - V82第15章经验：`ddbf86e87e3bf44900b4e5e4d8ffc2de99c9ed5d3c5aec98a69bfd8eb7cf2fe7`
 - 首次V83零模型预检部署 `b74ee778-b0a3-407c-9d2f-2d574323a527` 显示第16章3491字、9单位、源SHA `eb87f7342ef3e7e6d0886497e6b44fe78687bf1752c6213aad25690f911265a7`、模型调用0、R2写0。其后的 Railway `df2ad4da-91df-45eb-b7cb-1ebb47c1fbc8` 虽状态 SUCCESS，**实际启动的仍是V83只读来源预检脚本**（日志 `WF_V83_SOURCE_PLAN_EXIT=0`），不能当做第16章付费训练完成；应另建真正有独立commit/deployment-ID的真实训练部署，核查进程 `WF_V83_CH16_REAL_TRAINING_START`、R2结果和结束码。
 - 训练只解锁第16章，独立150000输入+输出Token上限、最多24请求，不开自动循环、不解锁17章。任何异常停止后先检查已写入R2 checkpoint，禁止盲重试。
