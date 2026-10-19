@@ -31,8 +31,9 @@ from .r2_learn_journal import (
 )
 
 FORMAT="wf.learn.provisional.cas-checkpoint.v79"
-CHECKPOINT_MAX=64*1024
+CHECKPOINT_MAX=256*1024
 EVENT_MAX=8192
+MAX_FROZEN_EVENTS=320
 SHA=re.compile(r"^[0-9a-f]{64}$")
 
 def need(ok,code):
@@ -55,6 +56,7 @@ class WFProvisionalR2CASJournal(WFLearnJournal):
             endpoint=endpoint,read_token=self.reader.token,
             write_token=None if read_only else self.writer,timeout=80)
         self.progress=progress
+        self.allow_prior_pilot_tail=False
         self.event_addresses={}
         self.checkpoint_sha=None
         self.previous_checkpoint_sha=None
@@ -112,6 +114,31 @@ class WFProvisionalR2CASJournal(WFLearnJournal):
 
     def _verify_ordering(self,doc,key):
         stage=doc["stage"]
+        if (stage=="first_read" and self.allow_prior_pilot_tail and
+            doc["chapter"]==1 and doc["unit"]>=4):
+            # ONLY the old V79 chapter-1 pilot is extendable. Its original
+            # 3-unit seal and analysis remain immutable historical evidence.
+            # The V80 mixed-history full-chapter certificate must separately
+            # disclose that earlier analysis preceded remaining readings.
+            firstroot=key.split("/first/")[0]+"/"
+            old_seal=self.event_addresses.get(firstroot+"seal.json")
+            old_analysis=self.event_addresses.get(firstroot+"analysis.json")
+            need(old_seal is not None and old_analysis is not None,
+                 "WF_V80_INITIAL_PILOT_EVIDENCE_MISSING")
+            original_seal=json.loads(self._get_content(old_seal))
+            need(original_seal["units_read"]==3 and
+                 original_seal["source_sha256"]==doc["source_sha256"] and
+                 original_seal["chapter_body_sha256"]==
+                 doc["chapter_body_sha256"],
+                 "WF_V80_INITIAL_PILOT_SEAL_WRONG_SOURCE")
+            earlier=path_for(source_key_sha=doc["source_key_sha256"],
+                 source_sha=doc["source_sha256"],
+                 chapter=1,stage="first_read",unit=doc["unit"]-1)
+            need(self.event_addresses.get(earlier)==
+                 doc["previous_event_sha256"],
+                 "WF_V80_PILOT_CONTINUATION_CHAIN_INVALID")
+            return
+
         root=key.rsplit("/",1)[0]+"/"
         if stage=="first_read":
             root=key.split("/first/")[0]+"/"
@@ -252,7 +279,7 @@ class WFProvisionalR2CASJournal(WFLearnJournal):
              doc.get("storage_namespace")=="indexes/v1/chunks",
              "WF_V79_CHECKPOINT_SCHEMA_INVALID")
         events=doc.get("event_addresses")
-        need(isinstance(events,dict) and 1<=len(events)<=8 and
+        need(isinstance(events,dict) and 1<=len(events)<=MAX_FROZEN_EVENTS and
              all(isinstance(k,str) and
                  k.startswith("writerforge/v1/learn/v1/") and
                  isinstance(v,str) and SHA.fullmatch(v)
