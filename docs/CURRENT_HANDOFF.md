@@ -955,3 +955,18 @@
 
 
 **V75当前真实safe-idle状态补充**：Railway`5803a081-8090-4a2b-8f67-0d6d53b9ebe1` SUCCESS，启动`python -u wf_railway_v75_safe_idle.py`，`WF_V75_SAFE_IDLE_LEARN_JOURNAL_PENDING_DEPLOY`；DeepSeek官方Key已经有且合成API探针通过，WF R2 Reader/SQL Writer密钥也存在，但**第三个独立LEARN Writer Secret `WF_LEARN_UPLOAD_TOKEN`尚无**，V75候选Worker尚未由用户部署。safe idle绝不触发真实原文/模型/R2写，生产原V72 SQLite索引仍在用户R2。下步不需要重设DeepSeek，只要部署已有Worker候选和新LEARN专用Secret，然后先真实writer-ready零写探针，再WF小单位学习实验。 
+
+
+## 64. 【2026-10-19 V76】用户要求批次学习+独立监督：真实B00已审6份私有R2文本、0本通过，不可伪称训练
+
+最新用户指令截图：DeepSeek后台 **1次API、125 tokens、<¥0.01**，要求「设定批次--先阅读什么--一批阅读几本--阅读的要求是什么---WF是否糊弄自己--监督--开始」。前述125 tokens**正好是V74一次真实合成联通探针113输入+12输出**，并非读书训练。考官冻结了批次范围、来源选择和反作弊门槛，不人工点名挑易书、不给WF小说标准答案，WF自驱模型仍为官方`deepseek-flash`。详情见 [V76批次与反作弊协议及真实结果](V76_WF_BATCH_EXAMINER_PROTOCOL_20261019.md)。
+
+- B00（**本次真正执行**）：从R2的仙侠→历史→科幻三个目录**仅作为存储类别提示**，每类1个目标、最多2个按大小与原Key-SHA稳定排序的备选，限制10KiB—8MiB一份、最多6份/48MiB总量。挑书过程在读取正文前就冻结完整Key哈希的preselection摘要`c35fa66232f2851f17767615f3447ff4822587a52f3106e189eb5d61cf3262e4`，不能看过WF表现不好就临时换书。
+- B00真实Railway部署`082f665b-23f7-447e-a75d-182e3c306e7a`、`WF_B00_READ_ONLY_ADMISSION_AUDIT_COMPLETED`，退出0。完整R2扫描79对象，按严格预算检查6份**原始TXT**，真正下载/解码共**31,000,917字节**，**0份达到严格结构+编码全通过**、0模型、0R2写、0章文学学习；原著/文件名未进GPT或GitHub。该批总收据SHA`090d78da2933bfde99b272d3f518a4d576a67d79c445da170c14803fb705336a`。
+- 分类概况：仙侠1号源4,009,069字节，WF严格/旧解析都是**465/465章头候选**，只有GB18030编码仍provisional，并不说明作者文学类别已确定；仙侠2号源1,356/1,357候选、重号/跳号/编码待复核。历史两源分别508/510和988/988，均有其他章号/编码冲突。科幻1号源正是已知495/499章头分歧；第2源严格解析触发`WF_ADMISSION_EMPTY_CHAPTER`。**没有人替WF修答案或偷偷删除异常章节**。下步应让WF自己对编码/章号提供独立原文证据，尤其仙侠465/465候选最接近程序准入，但不能因用户要求开始就擅自降低事先冻结的标准。
+- 后续批次政策：B01只有1本/2—3个连续原文单位的PASS A签收→PASS B实验，**最多4次模型调用、2,000预留输出tokens**，不算学完一章；B02在B01/R2证据/全章逐单位覆盖能力均通过之后才准3书各完整第一章；B03未来每批3—5本，未启用自动任务。WF自行判断类别及章节，考官只查事实与能力迁移。
+- 反作弊底层新增`writerforge/wf_batch_supervisor.py`：不接受模型提供的全True JSON作为完成证据，必须使用另一**只有R2读权限**的程序逐条从R2检查PASS A顺序来源单位SHA、不可变封存和PASS B引用原文，输入与已认证原始章的来源单位SHA复算；任何完整章节覆盖、未来文本请求泄漏、实际DeepSeek账单对账没证明，就**拒绝宣布整章通过**。不授予文学晋级。V75 PASS A/B真正线上日志仍待部署。
+- 费用监督新增`writerforge/wf_api_usage_supervisor.py`并将新的`WF_LEARN`模型注册默认改为计量版DeepSeekFlash：记录请求UTC、hash、角色、预算、模型回答实际输入/输出tokens以及失败；超时可能扣费也保留记录，不凭没有响应当0元；DeepSeek后台截图只在相同时段/没有别的App调用时能与WF报告核对，否则诚实标`UNRECONCILED`。不记录原文、答案或密钥。
+- 真正Railway离线回归：103/103→新增独立R2审计测试夹具5项NameError红色（保留）→109/109修正→最终`1f96d207-fa6b-4f9b-b6dd-39da541018fa` **117/117通过**，0模型与R2访问，不能冒充文学训练。
+- 当前仍只具备R2读、SQLite Index Writer及已经实测可用的DeepSeek官方模型。**独立文学R2 Writer `WF_LEARN_UPLOAD_TOKEN` 尚未配置，Cloudflare V75 LEARN Worker代码仍是Github候选未真实部署**。用户须在现有Cloudflare`wf-r2-api`和Railway服务新增同名、相同内容、与现有两Token不同的新Secret，保留R2绑定，部署候选Worker一次；密钥不可发送GPT。之后先零付费writer-ready鉴权探针，才允许DeepSeek见一段私有原文→R2真实首读签收，绝不先模型后补账。
+- V49文学终审`THIRD_STRIKE_FAILED`、第二学习窗口`LOCKED`不可修改。V72一份真实科幻SQLite永久R2索引依旧保留但不等于WF学到第一章。下次必须继续V76监督/本批来源复核，不要从头重新选6本，更不要直接自动跑50/400本。
