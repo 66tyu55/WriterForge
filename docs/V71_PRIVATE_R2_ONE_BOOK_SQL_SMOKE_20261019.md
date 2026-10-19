@@ -22,3 +22,10 @@
 下一步将把既有Railway `wf-python-r2` 一次性启动命令切换成 `python -u wf_railway_v71_one_source.py`，必须通过新固定提交SHA触发新建构建（Railway原`redeploy`曾复用旧启动脚本，不能重复犯错）。正式运行时只输出文件类别、字节量、原文字节SHA256、索引句段计数、耗时、内部命中数以及临时文件销毁/写入0/模型0，不输出标题、private Key或原文。
 
 未经真实日志不得声称V71线上成功、已完成50本或已解决索引持久化。文学终审V49 `THIRD_STRIKE_FAILED` 和第二学习窗口锁定不变。
+
+## 真实部署故障留痕（不把退出码冒充成功）
+
+V71 首次实际R2读取试跑：Railway部署 `f4b658d6-8e47-4630-9a58-ad1787e0d63a`，固定提交 `55d1a7889cc2ab015b997347c0fcef8087f55bea`，服务启动配置 `python -u wf_railway_v71_one_source.py`。生产容器 **CRASHED**，相关部署日志仅 `Starting Container`，**没有打印** Python源码最前面的 `WF_V71_ONE_SOURCE_SQL_RUN_STARTED`，没有成功、失败JSON或完整文件SHA。Railway自动诊断为空；没有证据证明本次进程真正完成了原文下载、SQL或异常处理。此运行**不能算成功**。
+
+Railway资源快照显示内存峰值约0.018 GB、CPU很低，未见明确OOM证据，但这不构成完整根因证明。为免盲目反复读取私人小说，新增 `wf_railway_v71_boot_check.py` 作为**不联网R2**的启动/日志双通道探针，只检查部署源码文件存在、环境Token变量名存在（不打印值）和Python版本，确保启动路径后再决定是否重新运行真实索引。原先23/29测试绿色不动。
+
