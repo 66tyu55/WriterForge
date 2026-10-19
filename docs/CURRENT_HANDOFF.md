@@ -1034,3 +1034,16 @@
 
 
 **V80 安全待命最终部署（连接恢复后）**：Railway `b0d2584c-1436-4673-a346-a0c71fcd67a3` `SUCCESS`，`python -u wf_railway_v80_safe_idle.py`，`WF_V80_SAFE_IDLE_150K_LIMIT_APPLIED`；日志核实此次0模型调用、0原著下载、0R2写、0自动新批次，密钥仍只有既有三种。原六章/73请求/83,363 Tokens的V80数据及独立考官 `7f739347-8099-4b28-8598-2d70ad7accfa` `WF_V80_INDEPENDENT_R2_FULL_CHAPTER_PROVENANCE_PASSED` 不因安全待命而丢失；恢复起点是 batch SHA `f606f5216f82fd40a7893cfe8942e2454efe94b9f1389110bdc37f19f3a4f227` 和journal SHA `0b24a62a697b11e140477225728375fc406cd035fe921ad8ca5476b48a674240`。不要重复支付首6章；后续文学迁移盲考未做，V49失败/文学第二窗口LOCK保持。
+
+
+## 69. 【2026-10-19 V81】第7—10章真正训练完成，独立R2来源核验通过；跨作品两臂真实对照已执行，未证明文学进步
+
+用户先同意「从第7章继续训练，同时加入独立文学测试」，后说「继续」。不能重新收费训练V79/V80以前十章；需基于同一个冻结B00仙侠作品与永久SHA记录继续。详见 [V81真实训练和跨作品对照报告](V81_CH7_10_REAL_TRAINING_AND_TRANSFER_20261019.md)。
+
+1. **真正的新训练完成**。Railway b1596b80-43c9-49c8-8d00-a86d44f91102，状态 WF_V81_CH7_TO_10_R2_BATCH_COMPLETED / WF_V81_TRAINING_EXIT=0。WF从已独立核实的V80第6章R2进度和经验恢复，不再阅读/付费以前六章。第7—10章单位分别9/8/10/12，共39个首读单位，4个完整先A后B章节，后验分析/每章经验复盘单独存R2实验性CAS。51次真实DeepSeek Flash请求、44771输入+12900输出=57671 Tokens，属此V81独立150000输入+输出token硬上限内。V81最终journal SHA 61a52125708a180b3305e28721d6e1797c0ab619df18a1bac7822988707a9c33，batch SHA e28490de3f0b17875ed23418726a8b8692b3029c1501b30da314080f4edb0901，第10章经验SHA feee04808c6b14f84c16989d98b031937a897395f3d008c43e17b3449f9077e3。B00原著与旧V80指纹未换，不复制源码文本到GPT/GitHub。
+2. **真正独立考官通过**。Railway ae6b3368-c45a-423e-b16b-1259e27b9b5d 的全新纯读进程（无DeepSeek/Writer秘钥）恢复121条R2事件地址，从私有R2原著重算全部39来源单位哈希、PASS A顺序/封存、PASS B引用、历史第6章经验和7—10章经验链，返回 WF_V81_INDEPENDENT_R2_CH7_TO_10_PROVENANCE_PASSED / EXIT=0。第1—10章累计来源覆盖10章，其中第2—10章共9章严格全首读后析；第1章V79三段先分析历史永久保留，不伪称全程纯先读后析。
+3. **另一个作品的独立对照真执行**。不让GPT指定容易的小说或正确答案：从B00冻结的历史类第一候选（不同于仙侠训练书）只取首2连续原文单位，SHA precommit ab587b5472a4258e057e1ba6ed5b79df0f0ba7405882e85a8170bde82ba228d2，顺序固定「带WF第10章旧经验→不给经验的基线」。Railway真实 f308aaae-6dd2-46b2-9766-f12765363f67，2次官方DeepSeek Flash，1616输入＋435输出=2051 Tokens。两组模型输出内容SHA不同，但两组引用相同两个来源单位，**不能证明有经验组质量更优**。R2最终对照CAS SHA 88a3bf2c34f5fd21400236af375b38df94392403f4b3b3edbc2e352b962049d4。
+4. **跨作品对照独立来源审核通过，不等于文学毕业**。Railway 8e23b4ba-d7a4-4c5a-b018-90fe51b4a58a，独立纯Reader进程按R2实际内容校验预注册、另一本历史类原文相同两单位hash、两组模型回答和比较对象，WF_V81_BLIND_TRANSFER_R2_READER_EXAM_PASSED/EXIT=0。未审定哪组文学分析更正确/有洞察力/可迁移；原V49 THIRD_STRIKE_FAILED、第二课程窗口LOCKED完全不变。模型自己写经验并影响下一步提示，不等于模型权重真的学会或人类心理实验成立。
+5. **测试、权限和存储边界**：Railway模拟回归156/156，增补跨作品对照测试后162/162，零模拟测试费。学海事件和对照CAS仍放旧Cloudflare真正有权限的 writerforge/v1/indexes/v1/chunks/{sha}.bin，不是Native LEARN路由已经在线；只是隔离的小型哈希实验记录，不能宣称正式文学经验库完工。原有DEEPSEEK_API_KEY/WF_API_TOKEN/WF_INDEX_UPLOAD_TOKEN三个变量有效，无第四个秘钥、无需重复部署Worker。人民币计费还没直接核对官方后台，不能猜定价。
+6. **下一起点**：本次明确只授权第7—10章与独立对照测试，后续第11章或更多付费训练要新批准/新批次，不得自动继续、不重跑已付费十章。经验因果迁移的强测应采用盲序审看两组匿名答案、原文真证据、对照跨作品多题随机化等，不能凭本次单场「答案不同」给WF晋级。完成后Railway必须切回单次安全待命，不继续计费。
+
