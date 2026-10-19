@@ -11,6 +11,7 @@ from writerforge.wf_batch_supervisor import (
    GENRES,BATCH_ID,SOURCE_BYTES_MAX,MAX_SOURCES_DOWNLOADED,
    BatchPlan,WFBatchAuditError,frozen_preselection,
    classify_admission,independent_claim_gate,
+   independently_recheck_r2_events,ReaderOnlyR2Evidence,
 )
 
 PREFIX="writerforge/v1/private-reading/"
