@@ -122,6 +122,30 @@ class V73WFAdmissionTests(unittest.TestCase):
             "PROVISIONAL_ENCODING_REQUIRES_VERIFICATION")
         self.assertFalse(status["WF_first_read_executed"])
 
+    def test_two_independent_heading_rules_disagree_requires_review(self):
+        text=("第1章 初遇\n"+"旅人走过山道，耳边传来回声。\n"*60+
+              "第2卷 不等于章节\n"+"这是一处可能为卷名的独立标记。\n"*60+
+              "第2章 告别\n"+"这个章节暂时没有更多答案。\n"*60)
+        doc,_=self.admit(text)
+        self.assertEqual(doc["document_scan"]["legacy_sql_heading_candidates"],3)
+        self.assertEqual(doc["document_scan"]["chapters_detected"],2)
+        self.assertEqual(doc["document_scan"]["boundary_rule_disagreements"],1)
+        self.assertEqual(len(doc["document_scan"]["disagreement_heading_hashes"]),1)
+        self.assertEqual(doc["training_gate"],
+                         "WF_CHAPTER_BOUNDARY_PARSERS_DISAGREE")
+        self.assertEqual(doc["status"],
+                         "WF_DOCUMENT_ADMISSION_REVIEW_REQUIRED")
+        self.assertEqual(doc["learned_chapters"],0)
+
+    def test_chinese_printed_numbers_are_read_but_not_guessed(self):
+        text=("第一章 问路\n"+"陌生人徘徊在森林的边缘。\n"*65+
+              "第二章 返回\n"+"另一名旅人从远处走来。\n"*65)
+        doc,_=self.admit(text)
+        self.assertEqual(doc["document_scan"]["numbered_chapters"],2)
+        self.assertEqual(doc["first_chapter"]["printed_number"],1)
+        self.assertEqual(doc["document_scan"]["boundary_rule_disagreements"],0)
+        self.assertEqual(doc["learned_chapters"],0)
+
     def test_foreign_private_source_rejected(self):
         text=("第1章 起\n"+"听到远处的叫声。\n"*55+
               "第2章 止\n"+"道路变得更加狭窄。\n"*55)
