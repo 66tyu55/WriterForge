@@ -986,3 +986,21 @@
 6. 用户只需**备份当前Cloudflare原Worker脚本，用V77候选完整JS替换/Deploy一次**；不动三个现有变量/Secret，不新建桶/卷，不再要求第四个Key。用户确认Deploy后我们验证WriterReady，再继续WF自己复核已冻结仙侠465/465候选的GB18030及章节来源；真正B01仅1本2-3个已验证连续片段，且不能把任何模型自评当文学晋级。
 7. `V49 THIRD_STRIKE_FAILED`和第二文学课程窗口`LOCKED`保留；DeepSeek官方`deepseek-flash`之前已在Railway合成API探针真实调用成功，不需要用户再配一次。
 
+
+
+## 66. 【2026-10-19 V78】继续：真正Cloudflare共享Writer接口401；WF自己核查冻结仙侠原文编码，首章3个连续单位已准备（无付费/原著泄露）
+
+用户说「继续」，不得再重复索要第四个Secret、不得挑新书、不得伪报WF文学训练。新隔离分支 `v78-wf-frozen-source-encoding-review` 继承V77，原三Secret仍是`DEEPSEEK_API_KEY`/`WF_API_TOKEN`/`WF_INDEX_UPLOAD_TOKEN`。详情见 [V78真实编码/首读预演/受阻接口](V78_FROZEN_XIANXIA_BYTE_AND_B01_PREFLIGHT_20261019.md)。
+
+**真实线上接口失败**：Railway`29322cf2-2f96-40d1-9dc6-909188a326a9`以已配置旧`WF_INDEX_UPLOAD_TOKEN`请求生产Worker `GET /r2/learn/writer-ready`，返回`WF_LEARN_WRITER_PREFLIGHT_HTTP_401`。零R2写、零原著下载/付费模型，退出1，**说明线上LEARN写入还不支持当前V77共用Token方案，绝不是用户漏配第四密钥**；禁止绕过认证。
+
+**V78完整来源字节核验成功**：真正Railway`7d469287-6862-4d01-b42e-363b7d32da40`从B00预注册名单SHA`c35fa66232f2851f17767615f3447ff4822587a52f3106e189eb5d61cf3262e4`找到完全同一份仙侠来源，来源Key匿名SHA`370400053cded15ca89e3232e7be84b28aa20ca70542150138bef6201dc7cb22`，原始文件4,009,069字节及整本SHA`0f00a16f6a0c121404a28257f3aa728468c9dae78d464ff1341746a45c41ddbd`一致。全文件`gb18030`与`gbk`均严格解码/字节往返完全同Unicode文本，`big5`、`cp950`及`utf-8`全文件严格失败；完整2032427个字符，U+FFFD替代0/非法控制0/乱码标记0。465个严/宽章头规则完全一致、章号冲突0/倒退0。此是强**技术解码**证据，不能冒充作者原版证明，`source_edition_human_confirmed=false`；不能事后把V76 B00原本0/6严格准入改成通过。
+
+**V78首章三单位已由WF自行准备**：真正Railway `57025b6e-18db-4e15-887e-91a04c10bbe4`，从原首章物理第14—83行提取正文6022字符，采用保留全部字符、优先中文断句点的连续切分，按当前规则共有**15个来源单位**，只准备最前3个，长度434/428/434字；对应每单位SHA以及前三单位合并SHA`9a4e2126b13aa1f368c8b58d3860a119f144d1f2149dca6614c8df417b141a13`均有机器凭据，不公开原文。原著0修改、DeepSeek实际调用0、R2写0、文学完整章节0。B01是**另外注明版本的小片段协议实验**，不更改B00严格来源标准。
+ 
+**已开发可直接调用的下一阶段脚本但** **不可在401状态启动**：
+- `wf_railway_v78_b01_one_book.py`：既有Writer先认证R2 writer-ready，成功才读取相同冻结源文、提3个首章片段、调用注册的计量版`deepseek-flash`至多4次/2000输出tokens，顺序PASS A按单位R2签收，seal后PASS B，成功只报告三单位程序签收不报告文学晋级。
+- `wf_railway_v78_reader_only_exam.py`：完全新容器去除DeepSeek与Index Writer环境变量，独立同一来源三单位SHA重新取R2锁定PASS A/封存/PASS B对照，只有读权限。这里的词面/模型反馈不能自证文学掌握或全章覆盖。
+- 全套本地同接口合成测试+安全AST：首次因无BOM UTF8不能以`utf8-sig`字节往返的测试误断出现1失败保留，修正后127/127→132/132→最后Railway`e72d6fac-35db-4788-a919-58b90ccb279f` **136/136通过**，模型0/真实R2请求0（模拟）；以上真来源试验单独日志另验。
+
+**下一门槛只要一次Cloudflare Worker部署，不要新增或重新设置任何密钥**：把本分支`cloudflare/wf-r2-worker-readonly.js`完整源码更新到原有`wf-r2-api`（保留`WF_R2`binding及2个原Cloudflare Secret），用户点Deploy。然后由助手再跑原`wf_railway_v77_shared_writer_probe.py`，确认200与Reader401后才能启动真实B01。当前助手只有GitHub/Railway连接，没有Cloudflare管理员写接口，不能冒称GitHub代码更新已导致Worker线上更新。不触发GitHub Actions，不让ChatGPT读取小说正文。旧V49`THIRD_STRIKE_FAILED`和第二学习窗口`LOCKED`保持。
