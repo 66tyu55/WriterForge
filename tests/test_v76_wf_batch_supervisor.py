@@ -150,5 +150,138 @@ class IndependentBatchAuditTests(unittest.TestCase):
             reader_receipts={})
         self.assertEqual(result["code"],"SOURCE_SWITCHED")
 
+
+
+class ReaderOnlyExaminerNotSelfScoreTests(unittest.TestCase):
+    def setUp(self):
+        from writerforge.r2_learn_journal import (
+           WFLearnJournal,identity,event_doc,canonical,hexdigest,
+        )
+        self.base_key=PREFIX+"仙侠/完全合成作品/正文.txt"
+        self.src_hash="a"*64
+        self.body_sha="b"*64
+        self.unit_hashes=("c"*64,"d"*64)
+        self.ident=identity(
+            source_key=self.base_key,source_sha=self.src_hash,
+            chapter=1,chapter_body_sha=self.body_sha,
+        )
+        self.records={}
+        previous=None
+        for i,h in enumerate(self.unit_hashes,1):
+            event=event_doc(
+                stage="first_read",ident=self.ident,unit=i,
+                source_unit_sha256=h,
+                previous_event_sha256=previous,
+                future_source_seen=False,
+                reaction={
+                    "attention":3,"curiosity":4,"confusion":1,"tension":2,
+                    "urge_to_continue":4,"question":"为什么？",
+                    "prediction":"后面还有情节","what_changed":"多了一个问题",
+                })
+            previous=hexdigest(canonical(event))
+            self.records[("first_read",i)]={
+              "event_sha256":previous,"doc":event,
+            }
+        seal=event_doc(stage="seal",ident=self.ident,units_read=2,
+                  last_first_read_sha256=previous,future_source_seen=False)
+        seal_sha=hexdigest(canonical(seal))
+        self.records[("seal",None)]={
+            "event_sha256":seal_sha,"doc":seal,
+        }
+        analyst=event_doc(
+            stage="analysis",ident=self.ident,
+            first_read_seal_sha256=seal_sha,
+            mechanisms=[{
+                "unit":1,"evidence_unit_sha256":self.unit_hashes[0],
+                "mechanism":"合成阅读机制",
+                "reader_effect":"自述的阅读效果",
+                "uncertainty":"不是人类的证明",
+            }],
+            independent_reviewed=False,
+        )
+        self.records[("analysis",None)]={
+           "event_sha256":hexdigest(canonical(analyst)),"doc":analyst,
+        }
+        class Reader(WFLearnJournal):
+            def __init__(self,records):
+                super().__init__(
+                    endpoint="https://synthetic.workers.dev",
+                    reader_token="synthetic-reader-token-for-test-long-enough",
+                    writer_token=None,
+                    index_writer_token=None,
+                )
+                self.writer=None
+                self.records=records
+            def fetch_event(self,*,ident,stage,unit=None):
+                return self.records.get((stage,unit))
+        self.reader=Reader(self.records)
+
+    def audit(self):
+        return independently_recheck_r2_events(
+            reader=self.reader,original_key=self.base_key,
+            original_sha256=self.src_hash,
+            chapter=1,chapter_body_sha256=self.body_sha,
+            source_unit_hashes=self.unit_hashes,
+        )
+
+    def test_independent_r2_chain_rechecked_but_still_not_literary_mastery(self):
+        result=self.audit()
+        self.assertIsInstance(result,ReaderOnlyR2Evidence)
+        self.assertTrue(result.protocol_verified_from_r2)
+        self.assertEqual(result.unit_count,2)
+        self.assertEqual(len(result.first_read_seal_sha256),64)
+        self.assertFalse(result.independent_complete_chapter_coverage_verified)
+        self.assertFalse(result.future_prompt_content_audited)
+        self.assertFalse(result.provider_billing_reconciled)
+        claim=independent_claim_gate(
+            registered_source_sha=self.src_hash,
+            self_report={"source_sha256":self.src_hash,
+                         "claims_complete_chapter":True},
+            reader_receipts=result)
+        self.assertEqual(claim["code"],
+                         "COMPLETE_CHAPTER_COVERAGE_NOT_PROVEN")
+
+    def test_forged_all_green_flags_are_rejected(self):
+        proof={k:True for k in (
+            "pass_a_immutable","pass_a_units_complete",
+            "no_future_unit_exposure","pass_b_after_seal",
+            "all_craft_refs_match_source",
+            "usage_within_pre_registered_budget",
+        )}
+        claim=independent_claim_gate(
+            registered_source_sha=self.src_hash,
+            self_report={"source_sha256":self.src_hash,
+                         "claims_complete_chapter":True},
+            reader_receipts=proof)
+        self.assertEqual(claim["code"],
+                         "UNTRUSTED_SELF_REPORTED_R2_CHECKS")
+
+    def test_reader_only_role_cannot_be_replaced_by_writer(self):
+        self.reader.writer="synthetic-writer-present"
+        with self.assertRaisesRegex(WFBatchAuditError,
+                                    "MUST_USE_R2_READER_ONLY"):
+            self.audit()
+
+    def test_modified_first_read_hash_must_fail_independent_check(self):
+        self.records[("first_read",2)]["doc"][
+            "source_unit_sha256"]="e"*64
+        with self.assertRaisesRegex(WFBatchAuditError,
+                                    "FIRST_READ_SOURCE_OR_ORDER_CHANGED"):
+            self.audit()
+
+    def test_changed_pass_a_seal_blocks_audit(self):
+        self.records[("seal",None)]["doc"][
+           "last_first_read_sha256"]="f"*64
+        with self.assertRaisesRegex(WFBatchAuditError,
+                                    "PASS_A_SEAL_NOT_CONSISTENT"):
+            self.audit()
+
+    def test_fake_pass_b_source_ref_blocks_audit(self):
+        self.records[("analysis",None)]["doc"][
+            "mechanisms"][0]["evidence_unit_sha256"]="f"*64
+        with self.assertRaisesRegex(WFBatchAuditError,
+                                    "FAKE_SOURCE_EVIDENCE"):
+            self.audit()
+
 if __name__=="__main__":
     unittest.main()
