@@ -97,10 +97,11 @@ ANALYSIS_SYSTEM=(
     "不得使用未来章节、作者评价或外部搜索。"
     "不得自我宣布掌握文学技巧，也不能给自己晋级。"
     '只输出JSON对象：{"mechanisms":[{"unit":1,'
-    '"evidence_unit_sha256":"64位SHA",'
     '"mechanism":"叙事机制假说",'
     '"reader_effect":"首读效果推断",'
     '"uncertainty":"不确定来源"}]}。'
+    "unit必须由你根据真实阅读自行选择，来源SHA将由WF"
+    "从该unit的已验证原文计算后绑定，模型不能自行编造哈希。"
     "最多6项，不允许无证据的机制。"
 )
 REFLECT_SYSTEM=(
@@ -250,12 +251,30 @@ class WFLargeChapterBatch:
         need(isinstance(res,dict) and
              set(res)=={"mechanisms"} and
              isinstance(res["mechanisms"],list) and
-             1<=len(res["mechanisms"])<=6 and
-             all(mechanism_schema(m) and
-                 1<=m["unit"]<=len(hashes) and
-                 m["evidence_unit_sha256"]==hashes[m["unit"]-1]
-                 for m in res["mechanisms"]),
-             "WF_V80_ANALYSIS_EVIDENCE_JSON_INVALID")
+             1<=len(res["mechanisms"])<=6,
+             "WF_V80_ANALYSIS_RESPONSE_NOT_BOUNDED")
+        mechanisms=[]
+        for row in res["mechanisms"]:
+            need(isinstance(row,dict) and
+                 set(row) in (
+                    {"unit","mechanism","reader_effect","uncertainty"},
+                    {"unit","evidence_unit_sha256","mechanism",
+                     "reader_effect","uncertainty"}) and
+                 type(row.get("unit")) is int and
+                 1<=row["unit"]<=len(hashes),
+                 "WF_V80_ANALYSIS_SOURCE_UNIT_INVALID")
+            index=row["unit"]-1
+            trusted_hash=hashes[index]
+            # WF computes provenance from source; it never copies an LLM-
+            # invented SHA. An explicit wrong hash must still fail closed.
+            if "evidence_unit_sha256" in row:
+                need(row["evidence_unit_sha256"]==trusted_hash,
+                     "WF_V80_ANALYST_FORGED_EVIDENCE_SHA")
+            enriched={**row,"evidence_unit_sha256":trusted_hash}
+            need(mechanism_schema(enriched),
+                 "WF_V80_ANALYSIS_MECHANISM_INVALID")
+            mechanisms.append(enriched)
+        res={"mechanisms":mechanisms}
         if chapter_no!=PILOT_CHAPTER:
             event=self.journal.append_analysis(
                 ident=ident,
@@ -327,6 +346,7 @@ class WFLargeChapterBatch:
         return sha
 
     def complete(self,*,chapter,windows):
+        strategy_from_previous=self.previous_experience_sha
         ident=identity(
             source_key=self.key,source_sha=self.source_sha,
             chapter=chapter.ordinal,chapter_body_sha=chapter.body_sha256)
@@ -383,6 +403,7 @@ class WFLargeChapterBatch:
            "strict_full_chapter_pass_a_before_any_pass_b":
                strict_first_read_then_analysis,
            "R2_journal_native_LEARN_namespace_deployed":False,
+           "previous_experience_sha256_used_in_prompts":strategy_from_previous,
            "transfer_to_next_chapter_not_quality_proof":True,
            "literary_mastery_certified":False,
         }
