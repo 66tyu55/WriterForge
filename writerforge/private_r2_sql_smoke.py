@@ -170,8 +170,12 @@ def _locally_check_search(catalog,book_id,category,shards):
             "real_source_excerpt_returned":False,
             "independent_relevance_or_literary_understanding_proven":False}
 
-def index_one_real_source(endpoint):
+def index_one_real_source(endpoint, *, progress=None):
     """Total transfer <=16MiB from ONE source. Every file ephemeral."""
+    def announce(step):
+        if progress is not None:
+            progress(step)
+    announce("WF_V71_INVENTORY_STARTED")
     client=WFPrivateReadingClient(endpoint=endpoint,timeout=60)
     with TemporaryDirectory(prefix="wf-v71-one-book-") as scratch:
         root=Path(scratch)
@@ -181,17 +185,24 @@ def index_one_real_source(endpoint):
             require(metadata.get("all_folders_complete") is True,
                     "WF_V71_INVENTORY_INCOMPLETE")
             shape=analyze_private_topology(cat,complete=True)
+            announce("WF_V71_INVENTORY_VERIFIED")
             row,eligible=choose_one_source(cat)
+            announce("WF_V71_CANDIDATE_SELECTED")
             target=root/"source.txt"
+            announce("WF_V71_RANGE_DOWNLOAD_STARTED")
             transferred=download_one_verified(client,row,target)
+            announce("WF_V71_RANGE_DOWNLOAD_SHA_COMPLETE")
+            announce("WF_V71_SQL_BUILD_STARTED")
             started=perf_counter()
             result=cat.index_text_file(
                 row["object_key"],target,root/"shards")
             building_ms=round((perf_counter()-started)*1000,2)
+            announce("WF_V71_SQL_BUILD_FINISHED")
             require(result.get("source_sha256")==transferred["source_sha256"],
                     "WF_V71_SQL_INDEX_SOURCE_HASH_CHANGED")
             lookup=_locally_check_search(cat,result["book_id"],
                                          row["category"],root/"shards")
+            announce("WF_V71_INTERNAL_SQL_LOOKUP_FINISHED")
             return {
               "format":"wf.private-r2-one-book-sql-smoke.v1",
               "transport":"WF_RAILWAY_PYTHON_TO_WORKER_TO_R2",
