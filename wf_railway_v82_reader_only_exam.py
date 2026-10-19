@@ -128,6 +128,20 @@ def main():
             finally:
                 catalog.close()
     except Exception as e:
+        # Never log exception repr or original prose. Only the exception
+        # TYPE and sanitized Python function/line reference for diagnosis.
+        import traceback
+        stack=traceback.extract_tb(e.__traceback__)
+        suspect=stack[-1] if stack else None
+        emit({
+            "status":"WF_V82_READONLY_AUDITOR_SAFE_DIAGNOSTIC",
+            "exception_class":type(e).__name__,
+            "code_location_file":Path(suspect.filename).name if suspect else None,
+            "code_location_function":suspect.name if suspect else None,
+            "code_location_line":suspect.lineno if suspect else None,
+            "private_original_or_secret_emitted":False,
+            "paid_model_calls":0,"r2_writes":0,
+        })
         code=str(e)
         if not code.startswith((
             "WF_V82_","WF_V80_","WF_V79_","WF_LEARN_",
