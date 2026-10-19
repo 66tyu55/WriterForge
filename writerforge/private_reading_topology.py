@@ -29,12 +29,13 @@ def _require(ok, code):
         raise BulkCorpusError(code)
 
 
-def analyze_private_topology(catalog: BulkCatalog) -> dict:
+def analyze_private_topology(catalog: BulkCatalog, *, complete=False) -> dict:
     """Analyze one COMPLETE four-folder snapshot, not a partial R2 page.
 
     The caller guarantees that all directory cursors have been consumed
     before invoking this function. The returned object has NO raw names/keys.
     """
+    _require(complete is True, "WF_V70_INCOMPLETE_INVENTORY")
     _require(isinstance(catalog,BulkCatalog),
              "WF_V70_CATALOG_REQUIRED")
     source=catalog.conn.execute(
