@@ -37,3 +37,11 @@
 ## 当前执行回执
 
 （Railway离线测试、真实DeepSeek探针状态和safe-idle部署须在后续日志实际出现后填写，绝不预写通过。）
+
+## V74 已取得真实 Railway 回执（模型连接仍待用户API Key）
+
+1. Railway真实Python离线回归部署 `31ff6322-1a0b-47e0-b830-309e341fec25` 成功，`WF_V74_OFFLINE_REPORT`：79/79 passed，0 error/failure，0 DeepSeek调用，0 Discovery调用、0真实R2读写；以合成JSON HTTP数据检验严格输出/截断/超时/权限/模型名。
+2. Railway真实安全模型探针部署 `0149afea-973b-4115-a94a-a6e2759fdca4`成功，`WF_V74_WF_LEARN_MODEL_SELECTED` 显示`model=deepseek-flash`、`provider=deepseek`、`discovery_used=false`；随即`WF_V74_WAITING_FOR_DEEPSEEK_API_KEY`，`key_present=false`、`no_network_requests=true`、`model_calls=0`、`originals_sent_to_deepseek=false`、`R2_mutations=0`，程序退出0。**因此适配器与项目配置切换已完成，官方DeepSeek的真实API联通尚未验证，也没有启动WF文学PASS A/B。**
+3. Railway服务变量列表只有原有 `WF_API_TOKEN` 和 `WF_INDEX_UPLOAD_TOKEN`；`DEEPSEEK_API_KEY` 是新增需求，必须用户自行申请官方API Key并仅在Railway `wf-python-r2` Variables里配置，不得给GPT/GitHub。Cloudflare的R2 Worker无须改动。即使Key上线，文学原著片段送DeepSeek前仍要先保护分卷/章节冲突和私有R2不可变首读学习日志。
+
+模型迁移目标现已固定，切忌因为错误的API Key返回401就自动回退Discovery/OpenRouter。后续恢复时先查询Railway密钥**名称**是否存在，再手动执行一条仅合成文本的DeepSeek探针，绝不重复无意义地下载私有小说。
