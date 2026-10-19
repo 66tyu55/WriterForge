@@ -952,3 +952,6 @@
 - 模拟R2 Worker + Python真实模拟测试：初次`11cf6dba-472d-4f1c-af36-bf58502a12f4`测试因合成Worker URL未通过`.workers.dev`语法门槛而13错（保留）；修夹具后`c31c51a5-ce9c-4385-9857-d71cfd6c812b` 92/92；增加中途重启不重复首读`f9071a1b-38d6-4226-b8c9-84ea95cecc6a` 93/93；最终加必须**先认证R2写入权限才可向DeepSeek发送原著**`c19ac34c-4d7e-44c3-8a9e-777c53543da5` 94/94通过，均0真实R2、0真实DeepSeek/0原著读取。Worker JS注入式本地模拟12条权限/顺序/证据写入用例状态完全符合预期，Writer-ready独立权限200，旧Reader/IndexWriter分别401，旧health200。这些**都不是V75线上R2学海写入验收**。
 - **真正用户介入的唯一下一关**：用户还需在现有Cloudflare `wf-r2-api` Worker 新增独立Secret`WF_LEARN_UPLOAD_TOKEN`，保留`WF_R2`绑定及两个旧Secret，将V75候选JS部署一次；同时在原Railway`wf-python-r2` Variables添加同名同值第三Secret（**绝不能贴到聊天/GitHub**）。这是为了保持旧SQL写入与新文学账本写入权限分离，不能拿SQL索引Writer默许扩大到文学记录。助手目前没有Cloudflare管理权限，不会擅自声称已部署。
 - 用户完成配置后，先用Railway新程序做真实`writer-ready`纯鉴权、只读认证测试，通过后才让WF选择经过文档边界及编码核验的原著，执行**一个2—3片段**的先A后B实际序列，存R2后用新的Railway进程冷读，先校验安全证据，不急着处理全部43/400部，也绝不把模型自评当文学等级晋级。模型连接已真实成功不需要重复付费联通。
+
+
+**V75当前真实safe-idle状态补充**：Railway`5803a081-8090-4a2b-8f67-0d6d53b9ebe1` SUCCESS，启动`python -u wf_railway_v75_safe_idle.py`，`WF_V75_SAFE_IDLE_LEARN_JOURNAL_PENDING_DEPLOY`；DeepSeek官方Key已经有且合成API探针通过，WF R2 Reader/SQL Writer密钥也存在，但**第三个独立LEARN Writer Secret `WF_LEARN_UPLOAD_TOKEN`尚无**，V75候选Worker尚未由用户部署。safe idle绝不触发真实原文/模型/R2写，生产原V72 SQLite索引仍在用户R2。下步不需要重设DeepSeek，只要部署已有Worker候选和新LEARN专用Secret，然后先真实writer-ready零写探针，再WF小单位学习实验。 
