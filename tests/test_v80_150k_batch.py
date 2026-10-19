@@ -280,5 +280,60 @@ class V80CASChapterTests(unittest.TestCase):
         self.assertEqual(len(self.journal.event_addresses),5+2+4+2)
         self.assertEqual(self.journal.checkpoint_sha is not None,True)
 
+    def test_analysis_wrapped_in_valid_json_without_rediscovering_source(self):
+        class WrappedModel(ArtificialWFModel):
+            def ask_json(self,*,role,system,user,max_tokens):
+                result=super().ask_json(
+                    role=role,system=system,user=user,max_tokens=max_tokens)
+                if role=="craft_analysis" and "本章所有单位" in user:
+                    return {"mechanisms":result["mechanisms"],
+                            "summary":"模型给了多余但非证据字段"}
+                return result
+        model=WrappedModel()
+        batch=WFLargeChapterBatch(
+            journal=self.journal,model=model,
+            original_key=SOURCE,source_sha=SOURCE_SHA)
+        receipt=batch.complete(chapter=self.chapter1,windows=self.units)
+        self.assertFalse(
+            receipt["strict_full_chapter_pass_a_before_any_pass_b"])
+        self.assertEqual(receipt["unit_count"],5)
+        self.assertGreater(model.budget.calls_reserved,2)
+
+    def test_one_paid_format_revision_when_prior_analysis_schema_invalid(self):
+        class FixableModel(ArtificialWFModel):
+            bad_once=True
+            def ask_json(self,*,role,system,user,max_tokens):
+                if (role=="craft_analysis" and "本章所有单位" in user
+                    and self.bad_once):
+                    self.bad_once=False
+                    self.budget.reserve(
+                        role,max_tokens,len((system+user).encode())+200)
+                    self.budget.add_usage({
+                        "prompt_tokens":83,"completion_tokens":50})
+                    self.calls.append((role,user,max_tokens))
+                    return {"summary":"原先格式不合格但记录了分析"}
+                if role=="craft_analysis" and "不合格结构化分析" in user:
+                    self.budget.reserve(
+                        role,max_tokens,len((system+user).encode())+200)
+                    self.budget.add_usage({
+                        "prompt_tokens":110,"completion_tokens":60})
+                    self.calls.append((role,user,max_tokens))
+                    return {"mechanisms":[{
+                         "unit":1,"mechanism":"来自原分析的机制",
+                         "reader_effect":"有限度的阅读效果推断",
+                         "uncertainty":"合成文本不能证明迁移能力",
+                    }]}
+                return super().ask_json(
+                    role=role,system=system,user=user,max_tokens=max_tokens)
+        model=FixableModel()
+        batch=WFLargeChapterBatch(
+            journal=self.journal,model=model,
+            original_key=SOURCE,source_sha=SOURCE_SHA)
+        receipt=batch.complete(chapter=self.chapter1,windows=self.units)
+        self.assertEqual(receipt["unit_count"],5)
+        self.assertTrue(any(
+           "不合格结构化分析" in user for role,user,t in model.calls))
+        self.assertLess(model.budget.conservative_tokens_committed,150000)
+
 if __name__=="__main__":
     unittest.main()
