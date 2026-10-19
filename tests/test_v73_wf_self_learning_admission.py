@@ -58,16 +58,18 @@ class V73WFAdmissionTests(unittest.TestCase):
     def test_printed_number_gap_stops_instead_of_faking_chapter_two(self):
         text="第1章 甲\n"+"短句重复，原文不改。\n"*45
         text+="第3章 乙\n"+"另一段内容继续。\n"*55
-        with self.assertRaisesRegex(WFLearnAdmissionError,
-                                     "NONCONSECUTIVE"):
-            self.admit(text)
+        status,_=self.admit(text)
+        self.assertEqual(status["document_scan"]["printed_order_forward_gaps"],1)
+        self.assertEqual(status["training_gate"],"WF_CHAPTER_PRINTED_GAPS_NEED_REVIEW")
+        self.assertEqual(status["learned_chapters"],0)
 
     def test_duplicate_chapter_numbers_stop(self):
         text="第1章 甲\n"+"第一章内容。\n"*65
         text+="第1章 乙\n"+"第二段内容。\n"*55
-        with self.assertRaisesRegex(WFLearnAdmissionError,
-                                     "DUPLICATE"):
-            self.admit(text)
+        status,_=self.admit(text)
+        self.assertEqual(status["document_scan"]["duplicate_printed_numbers"],1)
+        self.assertEqual(status["training_gate"],"WF_CHAPTER_PRINTED_NUMBER_COLLISIONS_NEED_REVIEW")
+        self.assertEqual(status["learned_chapters"],0)
 
     def test_no_chapter_boundaries_does_not_fabricate_learning(self):
         text=("一个很长的故事开始了。\n"*150)
