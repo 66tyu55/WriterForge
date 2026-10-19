@@ -1,0 +1,55 @@
+# V81｜仙侠第7～10章真实训练、独立R2审计和跨作品经验迁移对照（2026-10-19）
+
+## V81 已核实的真实生产记录
+
+用户此前同意“从第7章继续，同时加入独立文学测试”，本次说“继续”，不应重新读1～6章，也不应因为新对话重复请求模型或索要第4个Cloudflare Secret。用户现有 `DEEPSEEK_API_KEY`、`WF_API_TOKEN`、`WF_INDEX_UPLOAD_TOKEN` 足够调用旧受限R2 CAS索引写入接口。
+
+同一部冻结的仙侠原著：B00冻结选择摘要 `c35fa66232f2851f17767615f3447ff4822587a52f3106e189eb5d61cf3262e4`，来源 SHA256 `0f00a16f6a0c121404a28257f3aa728468c9dae78d464ff1341746a45c41ddbd`，第6章旧经验 SHA `1d0ee736b199f9af4c04543ba4d7d620ca8e1565b31b25ca673bef610c2b2d9d`。V81先以R2只读恢复V80旧终态并核来源/经验，才开始新章节，未重复支付1～6章。
+
+### 真实训练部署（非模拟）
+
+Railway部署 `b1596b80-43c9-49c8-8d00-a86d44f91102`，`python -u wf_railway_v81_ch7_to10.py`，日志 `WF_V81_CH7_TO_10_R2_BATCH_COMPLETED` / `WF_V81_TRAINING_EXIT=0`。结果：
+
+| 章节 | 完整原文单位 | 严格先A签收后B分析 | 本章经验R2 SHA |
+|---|---:|---|---|
+| 7 | 9 | 是 | `e5c422270d39136e7bcc170cb2bdadd2c364ad7af2f74d8f861986541fcd805d` |
+| 8 | 8 | 是 | `f2bc38e375a14425dc85ca21d74b475228b9804846ef6a671ceb7d452e1e5a90` |
+| 9 | 10 | 是 | `e02fe38908b9e4ca7274cb8cf80274eed3e5cfa62bffbea7ac785e07e81ec74d` |
+| 10 | 12 | 是 | `feee04808c6b14f84c16989d98b031937a897395f3d008c43e17b3449f9077e3` |
+
+共新增**39个原文单位、4章清洁PASS A→PASS B**。本批**51次真实 DeepSeek Flash 请求**、输入**44,771**、输出**12,900**、总计**57,671 Tokens**，低于此批独立预算150,000；该请求数无超时/缺失供应商usage的报告，官方实际人民币账单尚未独立核对。模型自述的“读者反应”和“文学机制”仅为可追溯的假说，不允许直接当作文学水平增长证据。
+
+V81真实训练最终可恢复R2 CAS指针：
+
+- 本批进度 SHA：`e28490de3f0b17875ed23418726a8b8692b3029c1501b30da314080f4edb0901`
+- 学习事件总日志 SHA：`61a52125708a180b3305e28721d6e1797c0ab619df18a1bac7822988707a9c33`
+- 第10章最终经验 SHA：`feee04808c6b14f84c16989d98b031937a897395f3d008c43e17b3449f9077e3`
+
+上述是旧Cloudflare Worker已真正部署的**实验性R2 CAS内容块**（`writerforge/v1/indexes/v1/chunks/{sha}.bin`），**不是**Cloudflare原生LEARN写路由已上线；不得捏造正式文学晋级。R2原著未修改，GPT/GitHub未收到原文正文，现有三个密钥未改。
+
+### 真实独立考官（已正式通过）
+
+从V81训练退出后的**另一个全新 Railway 进程**执行 `wf_railway_v81_reader_only_exam.py`，部署 `ae6b3368-c45a-423e-b16b-1259e27b9b5d`：启动即清除DeepSeek和R2 Writer环境变量，只持有R2 Reader。先恢复R2 CAS目录中**121条事件地址**，再从R2独立下载同一份原著并计算第7、8、9、10章每一个来源单位SHA，对照39条PASS A首读、每章seal、PASS B分析的真实unit SHA引用及从第6章延续来的每章经验记录。日志 `WF_V81_INDEPENDENT_R2_CH7_TO_10_PROVENANCE_PASSED`，`WF_V81_INDEPENDENT_COLD_EXAM_EXIT=0`。考官模型调用0、R2写入0；报告明确保持以下未证实：
+
+- `actual_experience_improved_literary_quality_proven=false`
+- `independent_literary_transfer_exam_passed=false`
+- `future_text_not_leaked_to_provider_independently_verified=false`
+- `provider_billing_portal_reconciled=false`
+
+考官证明的是**真实完整原文来源覆盖、不可变存储与前后章节经验链**，不代表每段DeepSeek分析语义正确，也不允许修改V49 `THIRD_STRIKE_FAILED` /第二文学课程窗口`LOCKED`。
+
+### 离线反作弊测试
+
+真实 Railway Python 部署 `5fa93abb-7d54-4dd7-8ede-ce979a183778` 执行新旧R2及V81审计合成回归，共**156/156通过**（零真实R2/DeepSeek请求）。加入真实跨书对照方案的6个独立单元测试，第二次回归`21e7162a-f80d-427d-a57d-63efcd86d2d9` **162/162全部通过**。测试不等于文学成绩。
+
+## 跨作品经验迁移盲测（进行中，尚未确认真实结果）
+
+用户要求“WF自己学习、独立监督、防糊弄”，本轮在真正训练审计后增设另一**历史类未训练原文**的受限对照；不能让模型自我评分。严格使用原B00已冻结的`历史`目录第一个候选（不按回答内容临时选简易片段），全源SHA和可逆解码验证后只取第一候选章首2个**连续原文单位**。先确定两组固定读取片段和决定调用先后次序的SHA，写入不可变R2 CAS预注册对象后才准模型见到文字。
+
+同一官方`deepseek-flash`严格仅两次付费调用：一次不给第10章经验（基线），另一次额外提供第10章自己写出的`next_strategy`（经验条件）；每组**原文单位完全一样**，后一组不能看到前一组回答。WF模型自行回答question/hypothesis/uncertainty/focus和1～2真实来源单位引用，不由GPT考官安排关键词或正确答案。两份模型自述与预注册协议各自按SHA存私有R2 CAS，另外发布成对比较SHA供**全新读权限-only进程重新核验**。
+
+**这不是独立文学质量毕业考试**：同一模型的两组输出不同可能仅仅是提示词条件变化，证明不了“之前读十章真正学会了文学”，更不能自我晋级。真实模型请求/结果/用量及独立R2审计必须等其运行完毕再填，不预写通过。若新来源编码、多重章号或JSON错误导致前置检查失败，明确报告阻塞，禁止为了凑成功自动挑第二本或重付费。
+
+## 下一步
+
+运行 `wf_railway_v81_blind_transfer_probe.py` 对照、冻结/登记全部CAS指针，再运行独立 `wf_railway_v81_transfer_reader_exam.py` 读回证据（后者在真实产出后填入PAIR_SHA）。结束把Railway切回单次不联网安全待命，防止V81已付费训练被重复执行。不添加第四个Secret、不改原著、不自动触发GitHub Actions。新的训练起点是**第11章**，但是否继续应优先结合跨作品真实对照及独立文学能力盲测结果。
