@@ -56,3 +56,8 @@ Railway部署 `5022a7ef-dd5e-41c4-bf1b-c9631e5d1d48`，执行`python -u wf_railw
 - 真实Railway纯合成回归 `f9d88ae3-16a8-41ee-afec-bc797a1b9b03`：继承旧V68–V78并新增V79断点恢复Mock，**140/140通过**，实际DeepSeek0、原R2读写0。随后才跑上述2次真正远端进程，不能把140合成测试替代真实训练。
 - V78已有 `136/136`、源完整技术解码、原文前缀hash有效，不再要求用户重复上传/换书/新建Key。
 - **下步**：先冻结本轮五条模型自述的私有来源+Hash，设计不预先泄露答案的独立小型迁移测试；随后由WF自己继续首章剩余12/15单位，每章需要预算与阶段扩容，不能因这三段已经跑通就冒充整章完成。完整V49 `THIRD_STRIKE_FAILED`、第二课程`LOCKED`保持；当前 **文学学完章节数仍为0**。如迁移到原生LEARN Worker接口，以此CAS checkpoint和记录hash为来源迁移，无需再次调用DeepSeek付费重学。
+
+
+## 训练后服务已恢复安全待命
+
+Railway最后部署 `ae099ff2-e20a-479f-b7dc-77f23575e3d2` SUCCESS，执行 `python -u wf_railway_v79_safe_idle.py`，真实状态`WF_V79_SAFE_IDLE_REAL_B01_3_UNITS_CONFIRMED`。本进程模型调用0/R2读写0，付费批次自动运行关闭，确认用户原有3种凭证齐全无需第四种。完整B01流程已实际使用4次DeepSeek请求（2526输入/731输出）且独立只读进程恢复成功。本轮没有声明任何整章毕业，正式LEARN路由尚未部署。
