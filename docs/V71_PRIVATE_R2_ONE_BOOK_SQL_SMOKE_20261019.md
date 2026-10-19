@@ -35,3 +35,9 @@ Railway资源快照显示内存峰值约0.018 GB、CPU很低，未见明确OOM�
 Railway新的独立Python自检部署 `b996f8a9-1c41-4324-b74b-e453a8989bea` 真正输出 `WF_V71_BOOT_SANITY_OK`，同时stderr独立 marker 出现，退出成功；Python 3.13.16，目标 `wf_railway_v71_one_source.py` 文件真实存在，模块存在，既有 `WF_API_TOKEN` 环境变量名配置存在。此次 **0 网络请求/0原著读**。这说明基础启动环境可工作，但不足以解释上次CRASHED的全部原因。
 
 接下来在源代码加入**阶段性安全收据**（inventory开始/完成、候选选择、Range下载开始/哈希完成、SQL构建开始/完成、内部查询完成），仅显示固定状态码不输出小说文件名或文本；运行入口开头stdout+stderr双标记。只进行**一次**新的受控试跑，首次不明崩溃历史原样保留；若再出现不明CRASHED，则停止无证据重试、转入更底层的Railway启动诊断。
+
+## 首次成功接触原始TXT但严格编码拒绝（真实负例）
+
+Railway受控重试 `325fc217-2258-4a89-b3ad-10c2a9bbf1d9`，这次真实运行输出阶段日志：`WF_V71_INVENTORY_STARTED` → `WF_V71_INVENTORY_VERIFIED` → `WF_V71_CANDIDATE_SELECTED` → `WF_V71_RANGE_DOWNLOAD_STARTED` → `WF_V71_RANGE_DOWNLOAD_SHA_COMPLETE` → `WF_V71_SQL_BUILD_STARTED`。**失败确切原因** `BULK_ENCODING_UNCERTAIN_EXPLICIT_ENCODING_REQUIRED`，退出1。说明真实R2私有TXT的单文件Range读取和完整SHA计算已完成，SQLite索引因非确认UTF8编码**按设计拒绝**。没有小说文本、私有对象名或API Token泄露，R2无写入；不能称为SQL成功。
+
+随后新增 `writerforge/source_encoding_guard.py`：仅用标准库辨别UTF8/BOM以及严格解码的GB18030候选；对无BOM传统中文编码要求样本Han字比例、标点比例与控制字符约束，严禁`errors=ignore/replace`；不能完全排除Big5等同字节合法性歧义，所以其结果标`LIKELY_LEGACY_CHINESE_STRICT_DECODING`/临时验证，**不得用于正式文学学习经验或解释真值**。原始R2 bytes永不改动。新增6项合成测试包括GB18030源码正确编索引、UTF8/UTF16 BOM、二进制拒绝；`wf_railway_v71_charset_then_live.py`先运行累计35项合成测试，全通过才允许下一次16MiB上限的真实单源索引请求。历史编码红色日志不得重写为成功。
