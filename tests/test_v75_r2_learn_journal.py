@@ -132,7 +132,7 @@ class ImmutableLearnJournalTests(unittest.TestCase):
     def setUp(self):
         self.remote=SimulatedR2Worker()
         self.journal=WFLearnJournal(
-            endpoint="https://wf-r2-api.synthetic.invalid",
+            endpoint="https://wf-r2-api.synthetic.workers.dev",
             reader_token=READER,writer_token=WRITER,
             index_writer_token=INDEX_WRITER,
             transport=self.remote.open)
@@ -171,7 +171,7 @@ class ImmutableLearnJournalTests(unittest.TestCase):
             }])
         self.assertTrue(review["created"])
         fresh=WFLearnJournal(
-            endpoint="https://wf-r2-api.synthetic.invalid",
+            endpoint="https://wf-r2-api.synthetic.workers.dev",
             reader_token=READER,writer_token=None,index_writer_token=INDEX_WRITER,
             transport=self.remote.open)
         doc=event_doc(stage="seal",ident=ID,units_read=2,
@@ -234,14 +234,14 @@ class ImmutableLearnJournalTests(unittest.TestCase):
         with self.assertRaisesRegex(WFLearnJournalError,
                                     "WRITER_TOKEN_NOT_SEPARATE"):
             WFLearnJournal(
-                endpoint="https://wf-r2-api.synthetic.invalid",
+                endpoint="https://wf-r2-api.synthetic.workers.dev",
                 reader_token=READER,writer_token=READER,
                 index_writer_token=INDEX_WRITER,
                 transport=self.remote.open)
         with self.assertRaisesRegex(WFLearnJournalError,
                                     "WRITER_TOKEN_NOT_SEPARATE"):
             WFLearnJournal(
-                endpoint="https://wf-r2-api.synthetic.invalid",
+                endpoint="https://wf-r2-api.synthetic.workers.dev",
                 reader_token=READER,writer_token=INDEX_WRITER,
                 index_writer_token=INDEX_WRITER,
                 transport=self.remote.open)
