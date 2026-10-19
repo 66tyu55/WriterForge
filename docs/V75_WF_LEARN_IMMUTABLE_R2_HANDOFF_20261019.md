@@ -34,3 +34,10 @@ V73真实问题不变：WF 自主选择一份真实R2科幻TXT做文档入学检
 4. 技术试验成功后才扩展到每章完整来源单位、分类依据、八线、章后学习复盘及R2个人经验状态；后续需评估模型输出大小与R2操作次数/预算，不能一次付费学习400本。
 
 **禁止变更**：不得上传原著至公共GitHub/GPT聊天；不得把自己设计好的分类作为WF已经理解；不得启动GitHub Actions邮件通知；不得因技术进度篡改V49失败/文学晋级状态。不需要再配置DeepSeek模型Token，那个连接已真实成功。
+
+
+## 最终Railway安全待命生产证据
+
+部署 `5803a081-8090-4a2b-8f67-0d6d53b9ebe1`，原`wf-python-r2`运行`wf_railway_v75_safe_idle.py`，真实`SUCCESS`与`WF_V75_SAFE_IDLE_LEARN_JOURNAL_PENDING_DEPLOY`。已有DeepSeek Key存在，官方API上一阶段`106940c9-c1fb-4d51-a852-43adf5aec6f7`已用一条合成JSON测试成功；原R2 reader/index writer存在，新的`WF_LEARN_UPLOAD_TOKEN`仍不存在，Cloudflare V75 LEARN接口未线上验证。这个safe idle运行费用模型调用0、R2读取0、R2写0、不执行任何文学训练，不创建Railway卷。V75代码已保存在独立分支而非已覆盖实际Cloudflare Worker。
+
+用户后续明确确认Cloudflare部署和同名Railway LEARN专用Secret前，严禁偷偷调用真实小说进行PASS A/B。V49文学毕业历史失败/第二窗口LOCK仍保留。
