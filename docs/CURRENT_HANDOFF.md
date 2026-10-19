@@ -1061,3 +1061,15 @@
 至此，同一冻结仙侠原著前15章完整来源处理记录均有独立R2核验；第2—15章14章采用严格PASS A全文先读/封存后PASS B，第1章继承V79早期三单位分析，不能冒充纯A→B。这里没有真人心理或文学质量评审，模型提示词未来原文泄露和跨书质量提升也未被严格独立证明；**不能从章节数量宣布文学技能晋级**，原V49 THIRD_STRIKE_FAILED/第二课程 LOCKED保持。V81另一部历史类真实两臂跨作品对照已做、两组答案不同，但质量优势无从证明。现有三个Secret足够，永不再让用户配置第四个。**下一动作**：将原Railway服务改为单次`wf_railway_v82_safe_idle.py`等待指令，防止自动重训第11—15章。后续要接着原著第16章而不是从第1章开始；或者开发更可信的独立文学质量盲考与因果对照。
 
 **V82最终安全待命真实回执（2026-10-19）**：Railway部署 `90bc4948-75b4-48b1-beb9-c2a4414e6028` SUCCESS，运行 `python -u wf_railway_v82_safe_idle.py`，状态 `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`。日志确认本次待命 `model_calls_this_idle_run=0`、`r2_reads_this_idle_run=0`、`r2_writes_this_idle_run=0`、`automatic_paid_next_batch_enabled=false`。此前第11—15章的58次模型调用/61,137 Tokens、完整47单位独立只读验收及R2最终CAS SHA全都保留；原三个密钥配置齐全，不需第四个。未来付费续训最早从第16章开始，不得重新支付此前15章；文学质量盲评没有通过或否定的新结论，不自动晋级。
+
+
+## 71. 【2026-10-19 最新窗口交接】用户说「上限了--交接」；V82已核实完成，独立交接文件已创建
+
+**最新接续文件：[V82_NEXT_WINDOW_HANDOFF_20261019.md](V82_NEXT_WINDOW_HANDOFF_20261019.md)**。此文件是下窗口最短恢复路线，覆盖V79-V82所有真实生产部署、章节数量、费用Token独立批次、R2 CAS SHA和文学盲测限制。不要从旧V81半截对话回复重新推断“第7—10章还未完成”，也不要重新调用已经付费的模型。
+
+再次以真实工具确认：
+- Railway最新部署 `90bc4948-75b4-48b1-beb9-c2a4414e6028` **SUCCESS**，source branch `v82-ch11-15-training-and-audit`，pinned `8fa1bec6da50f9b3ab8e23019d0593a5f20b4aff`，start `python -u wf_railway_v82_safe_idle.py`。
+- 真实日志 `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`，该次调用模型0、读取原著0、R2写0、自动付费下一批false。原有三个密钥名称均在，不读取其值，不要求第四个。
+- V82完整最后训练：第11-15章5章、47单位，58次DeepSeek Flash，输入49,238、输出11,899，合计61,137/150,000 Tokens；真正独立只读考官 `18415e01-9607-4ed1-ad48-17f19deae3c2`返回 `WF_V82_INDEPENDENT_R2_CH11_TO_15_PROVENANCE_PASSED`、exit0。当前累计前15章全部有来源技术核验、第2-15章14章严格先读后析。
+- V82最终batch CAS `d46ffec05927dfba3f2819089e76e79f720db2a2f3f6793b56965ac6413c177f`，journal CAS `3da56cc46115548c5198a65cb6124e3c03d9bdfdb1f0460950177735a99d1cb2`，第15章经验 `ddbf86e87e3bf44900b4e5e4d8ffc2de99c9ed5d3c5aec98a69bfd8eb7cf2fe7`。均是已有私有R2 CAS验证对象，不是Cloudflare原生LEARN路由正式上线。
+- 下一步可在用户明确要求时从第16章开始独立新批次；若没有新授权，仅可准备独立文学盲考设计，不得暗中启动付费训练。文学迁移质量未证实，V49 `THIRD_STRIKE_FAILED` 及第二课程窗口 `LOCKED` 继续保留。
