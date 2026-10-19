@@ -37,6 +37,7 @@ DEFAULT_TIMEOUT_SECONDS = 75
 # Default one preflight plus one first-read, two analysis calls per opt-in run.
 MAX_CALLS = 192
 MAX_RESERVED_OUTPUT_TOKENS = 150000
+LEGACY_DEFAULT_RESERVED_OUTPUT_TOKENS = 4800
 
 
 class DeepSeekFlashError(RuntimeError):
@@ -57,7 +58,7 @@ class _NoRedirect(HTTPRedirectHandler):
 @dataclass
 class FlashBudget:
     max_calls: int = MAX_CALLS
-    max_reserved_output_tokens: int = MAX_RESERVED_OUTPUT_TOKENS
+    max_reserved_output_tokens: int = LEGACY_DEFAULT_RESERVED_OUTPUT_TOKENS
     calls_reserved: int = 0
     tokens_reserved: int = 0
     prompt_tokens_reported: int = 0
