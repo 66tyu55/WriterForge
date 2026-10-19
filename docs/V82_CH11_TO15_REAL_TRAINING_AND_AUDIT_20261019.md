@@ -39,3 +39,5 @@
 前两次V82只读考官失败是Python脚本读取旧版`v81_last_experience_sha256`造成的KeyError，修正为`v82_last_experience_sha256`后才取得以上真结果。**不得抹除失败审计，也无需重新付费训练第11—15章**。
 
 本批完成后，WF在此仙侠来源中累计处理前15章，严格先读后析的为第2—15章14章，第1章因V79提早分析永久保留混合历史。后续可由已经冻结的第15章CAS经验开始新批次第16章，但在没有新的指令前不能自动续跑更多付费请求。
+
+**V82最终安全待命真实回执（2026-10-19）**：Railway部署 `90bc4948-75b4-48b1-beb9-c2a4414e6028` SUCCESS，运行 `python -u wf_railway_v82_safe_idle.py`，状态 `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`。日志确认本次待命 `model_calls_this_idle_run=0`、`r2_reads_this_idle_run=0`、`r2_writes_this_idle_run=0`、`automatic_paid_next_batch_enabled=false`。此前第11—15章的58次模型调用/61,137 Tokens、完整47单位独立只读验收及R2最终CAS SHA全都保留；原三个密钥配置齐全，不需第四个。未来付费续训最早从第16章开始，不得重新支付此前15章；文学质量盲评没有通过或否定的新结论，不自动晋级。
