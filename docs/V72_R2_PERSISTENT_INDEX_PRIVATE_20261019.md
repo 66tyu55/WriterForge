@@ -51,3 +51,9 @@ Worker仍允许原V67/V69只读接口；新增路径：
 ## 后续验收与安全界限
 
 V49 `THIRD_STRIKE_FAILED`、第二课程窗口`LOCKED`不因完成R2存储而改变。本版本不调用文学模型、不写原著、不把检索摘录塞入WRITE，也不暗示已验证人工文学理解。冷恢复+SQL查询属于工程能力；真正意义上的独立文学回答须以后另外设计盲测。
+
+## 安全等待模式的实际Railway机器结果（补录）
+
+部署 `5ea343ea-cccf-48e6-84b7-6b99fcc388b6` 已真正在现有 `wf-python-r2` 服务运行，状态 SUCCESS：`WF_V72_AWAITING_OWNER_R2_INDEX_WRITER_SETUP`，`read_token_name_configured=true`、`separate_writer_token_name_configured=false`、`cloudflare_worker_routes_verified_live=false`、`index_written_to_real_r2=false`、`network_attempted=false`、`railway_volume_created=false`、`cloudflare_mutations=0`。当前固定启动指令 `python -u wf_railway_v72_wait_setup.py` 且restart policy NEVER，不会后台循环或触发真实R2上传。原本44/44合成测试通过的部署 `17174b98-43f9-47d5-b667-f6155dda0b1e`独立保留。
+
+V72真实索引入R2尚须用户完成Cloudflare Worker一次部署、在Cloudflare和Railway各添加**同名且相同内容**的新写入Secret。没有Cloudflare管理接口能由GPT替用户安装该Secret；不可把用户新值粘贴聊天或公共GitHub。真实上传、持久恢复结果待未来两次独立Railway单次运行验证。
