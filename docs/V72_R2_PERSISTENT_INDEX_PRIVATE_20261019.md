@@ -63,3 +63,12 @@ V72真实索引入R2尚须用户完成Cloudflare Worker一次部署、在Cloudfl
 用户说「试试吧」后，Railway变量名审计证明原`WF_API_TOKEN`和独立`WF_INDEX_UPLOAD_TOKEN`均已配置（不读取、不打印值）。新增 `wf_railway_v72_safe_live_probe.py`，由原Railway服务运行真正的Cloudflare Worker / R2认证接口测试；真实部署 `006f6a7e-614a-4741-b5fa-0ca7376007cd`：`WF_V72_LIVE_READER_AND_WRITER_ROUTES_VERIFIED`，退出0。真实reader身份访问空合成source hash的索引Refs返回成功；writer身份故意上传哈希不符的极短随机字节包，被Worker如预期返回422/拒绝，证明新写入Token已可认证、SHA校验启用；该探针0原著下载、0真实R2索引对象创建、0原著修改。**这只是写入权限/拒绝测试，不是正式持久索引发布结果**。
 
 之后才允许调用单书`wf_railway_v72_publish_one.py`（带一书预算和索引写入），真实结果另记。紧接着必须另起一个**全新**Railway Python进程，以`wf_railway_v72_cold_restore.py`、仅reader凭证恢复索引并验SQLite，方可宣称永久存储完成。失败时保留错误并停止重复写入；不改真实R2源对象。
+
+## 2026-10-19 V72 真实双进程生产验收（非Mock，永久索引已在用户私有R2）
+
+用户回复「试试吧」后，先确认Railway的独立索引写入变量名已配置、和原有只读变量分开，不读取/回显密钥值。
+
+1. 独立权限门槛，Railway `006f6a7e-614a-4741-b5fa-0ca7376007cd`：已用旧Reader成功读取空哈希索引清单，新的Writer Token身份向 **SHA错误的虚拟chunk key** 发送极短PUT，Worker正确返回422，0对象创建；`WF_V72_LIVE_READER_AND_WRITER_ROUTES_VERIFIED`、退出0。
+2. 第一份真正R2永久索引发布，Railway部署 `fb5c2321-d45d-4fd0-9ec7-307e3ae68086`，程序 `wf_railway_v72_publish_one.py`：用户私有R2四目录扫描成功，从`科幻`类别依保守小文件规则选出一个真实TXT（3636548字节），原始文件 SHA256为`85a22ee62328f2948cd4c2239d9930a939d3b36d221b49510f9896e739e9d920`。WF创建36,274,176字节真实SQLite FTS5索引、65,573索引单元、499疑似章节标题，按1MiB切块，**新写入35块+不可变manifest**至用户现有私有R2。`index_sha256=a3eb5e24bb858a078ece3d5e56ffc4805e9e51eebe53715037701049422d7ec8`，`manifest_sha256=01510d79c6d5b60212e3f4dc051901ee8cfabd0481070c33248630dc2b7b787a`，以现有Reader路由成功恢复/检查SHA/SQLite，`WF_V72_INDEX_PERSISTED_IN_PRIVATE_R2`，`WF_V72_R2_PUBLISH_EXIT=0`。原著0写/模型0调用，无任何私有章节、书名正文到GPT/公共GitHub。编码仍为`provisional_legacy_charset=true`，不可计文学能力晋级。
+3. **最关键的跨进程恢复**，另建Railway全新部署`cc78dd59-27f9-4336-91c3-3da41c7783e8`，程序`wf_railway_v72_cold_restore.py`启动时首先在该进程环境内 `os.environ.pop("WF_INDEX_UPLOAD_TOKEN",None)`，由真实日志确认`writer_token_available_to_this_process=false`，只留Reader Token。它从R2恢复完整**36,274,176字节**索引，验证原R2源ETag对应/manifest/所有数据块SHA/整库SHA/SQLite quick_check、读权限及65,573条单元，用内部自生成字面查询成功回读。状态`WF_V72_COLD_RESTART_RESTORE_VERIFIED`、`WF_V72_COLD_RESTORE_EXIT=0`；**0原始小说正文下载、0写入请求、未用Railway持久卷**。此证据正式证明：至少**一份**真实WF SQLite索引在用户私有R2存储后，跨Railway容器仍然可检索，且只读Token已足够完成恢复。
+4. **停止条件**：以上只对应一部TXT，不说明目前已建立43或400部SQL。50部统一文学成果门槛及原V49 `THIRD_STRIKE_FAILED`/第二窗口`LOCKED`不变；未对文学语义做考试。下一阶段须把每类别递增编号/单源稳定索引等元数据持久化成安全R2 catalog、完成真正的跨书查询和批处理状态机，统一保障断点恢复、多版本裁决、无重复上传、原著变化后的索引失效。不许在未限定预算时批量建完400本。
