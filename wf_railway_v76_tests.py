@@ -38,6 +38,7 @@ tests=(
  "test_v74_wf_model_selection.py",
  "test_v75_r2_learn_journal.py",
  "test_v76_wf_batch_supervisor.py",
+ "test_v76_wf_api_usage_supervisor.py",
 )
 suite=unittest.TestSuite()
 for name in tests:
