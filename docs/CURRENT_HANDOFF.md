@@ -897,3 +897,5 @@
 8. 云端真持久化验证后才设计更大规模的R2持久全库`catalog`显示编号与断点队列、50→400本工作调度、RAR安全解包、多书跨类检索；这批能力**本轮尚未生产完成**，用户不可误以为400本现在均具备永久SQL索引。使用标准R2存储有存储与请求计费/标准免费额度，见官方 `https://developers.cloudflare.com/r2/pricing/`，Railway运行计算额外计费。V49第三次文学终审`THIRD_STRIKE_FAILED`及第二窗口`LOCKED`一律不因工程存储成功改变。
 
 最终原则：新版本WF可以脱离Railway旧实例恢复指定R2 SQLite索引，老原著不复制进ChatGPT、不改写、不移存到公共仓库。旧部署安全闲置，不反复拉小说或自动付费训练。
+
+**最新实际Railway安全等待**：部署 `5ea343ea-cccf-48e6-84b7-6b99fcc388b6` completed/SUCCESS，`WF_V72_AWAITING_OWNER_R2_INDEX_WRITER_SETUP`，只有旧读Token已配置，新`WF_INDEX_UPLOAD_TOKEN`仍未配置；0网络、0新R2写、0持久卷、没有自动执行原文扫描。最新V72分支文档提交不影响已固定的Railway正在运行的旧commit。用户在现有Cloudflare与Railway完成独立索引上传Secret配置且Worker正式部署后，才由助手重新固定V72精确提交并运行真实单书上传+独立冷恢复。
