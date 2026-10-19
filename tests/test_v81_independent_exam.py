@@ -139,7 +139,7 @@ class V81ExamEvidenceTests(unittest.TestCase):
     def test_original_chapter_tampering_fails_closed(self):
         original=self.source.read_text(encoding="utf8")
         self.source.write_text(
-            original.replace("钟声改变", "风声改变",1),encoding="utf8")
+            original.replace("第7段合成", "第7段冒充",1),encoding="utf8")
         with self.assertRaisesRegex(
             WFV81ExamError,"ORIGINAL_CONTENT_CHANGED"):
             self.examine()
