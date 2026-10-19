@@ -34,7 +34,7 @@ MAX_PUBLIC_ERRORS=80
 # Only headings at physical line boundaries, never guessed literary meaning.
 CHAPTER_LINE=re.compile(
     r"^\s*第(?P<printed>[0-9一二三四五六七八九十百千万零〇○两兩]{1,15})"
-    r"(?P<kind>章|回|节|節)\s*(?P<title>.{0,120})\s*$"
+    r"(?P<kind>章|回|节|節)(?:[：:\s\u3000]+(?P<title>.{1,120}))?\s*$"
 )
 ALTERNATE_LINE=re.compile(r"^\s*(序章|楔子|尾声|尾聲|终章|終章)\s*$")
 HASH=re.compile(r"[a-f0-9]{64}\Z")
