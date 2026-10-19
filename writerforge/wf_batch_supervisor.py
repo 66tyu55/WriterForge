@@ -365,7 +365,7 @@ def independently_recheck_r2_events(*,reader,original_key,
     """
     from .r2_learn_journal import WFLearnJournal,identity
     check(isinstance(reader,WFLearnJournal) and
-          reader.writer is None,
+          reader.read_only is True and reader.writer is None,
           "WF_SUPERVISOR_MUST_USE_R2_READER_ONLY_PROCESS")
     check(1<=len(source_unit_hashes)<=2000 and
           all(bool(SHA.fullmatch(str(x))) for x in source_unit_hashes),
