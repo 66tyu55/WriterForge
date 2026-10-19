@@ -265,6 +265,82 @@ class WFProvisionalR2CASJournal(WFLearnJournal):
             "ok":True,"sha256":sha,"created":created,"immutable":True,
         }),{}
 
+    def restore_anchored_suffix(
+        self, *,
+        final_checkpoint_sha,
+        independently_verified_prior_sha,
+        first_new_chapter=11,
+        last_new_chapter=15,
+    ):
+        """Cold Reader-only incremental restore without re-reading old books.
+
+        The earlier pointer must be one which a DIFFERENT pure-reader
+        process has already independently audited. Both R2 checkpoint
+        bodies are re-fetched by immutable SHA. Every earlier key/hash is
+        required unchanged in the new checkpoint, and only allowed chapter
+        suffixes may appear. The fresh examiner must still fetch & validate
+        EACH newly added event and compare against actual original units.
+
+        This is not a claim that the full intermediate checkpoint chain or
+        literature quality has been independently verified.
+        """
+        need(self.read_only is True and self.writer is None,
+             "WF_V82_INCREMENTAL_RESTORE_REQUIRES_READER_ONLY")
+        need(type(first_new_chapter) is int and
+             type(last_new_chapter) is int and
+             1<=first_new_chapter<=last_new_chapter<=2000,
+             "WF_V82_INCREMENTAL_CHAPTER_SCOPE_INVALID")
+        def parse(sha):
+            raw=self._get_content(sha)
+            try:doc=json.loads(raw.decode("utf-8"))
+            except (ValueError,UnicodeError):
+                raise WFLearnJournalError(
+                    "WF_V82_INCREMENTAL_CHECKPOINT_JSON_INVALID") from None
+            need(isinstance(doc,dict) and doc.get("format")==FORMAT and
+                 doc.get("single_writer") is True and
+                 doc.get("native_learn_route_deployed") is False and
+                 doc.get("literary_mastery_verified") is False and
+                 doc.get("storage_namespace")=="indexes/v1/chunks",
+                 "WF_V82_INCREMENTAL_CHECKPOINT_SCHEMA_INVALID")
+            events=doc.get("event_addresses")
+            need(isinstance(events,dict) and
+                 1<=len(events)<=MAX_FROZEN_EVENTS and
+                 all(isinstance(k,str) and
+                     k.startswith("writerforge/v1/learn/v1/") and
+                     isinstance(v,str) and SHA.fullmatch(v)
+                     for k,v in events.items()),
+                 "WF_V82_INCREMENTAL_CHECKPOINT_REFERENCES_INVALID")
+            return doc,events
+
+        previous,old_events=parse(independently_verified_prior_sha)
+        current,new_events=parse(final_checkpoint_sha)
+        need(len(new_events)>len(old_events) and
+             all(new_events.get(k)==value
+                 for k,value in old_events.items()),
+             "WF_V82_INCREMENTAL_PREVIOUS_TRAINING_WAS_REWRITTEN")
+        extras={k:v for k,v in new_events.items() if k not in old_events}
+        for key in extras:
+            chunks=key.split("/")
+            need(len(chunks)>=8 and chunks[6].isdecimal() and
+                 first_new_chapter<=int(chunks[6])<=last_new_chapter,
+                 "WF_V82_INCREMENTAL_NEW_EVENT_OUTSIDE_CHAPTER_RANGE")
+        self.event_addresses=dict(new_events)
+        self.checkpoint_sha=final_checkpoint_sha
+        self.previous_checkpoint_sha=current.get(
+            "previous_checkpoint_sha256")
+        return {
+            "status":"WF_V82_PREVIOUS_R2_RECEIPTS_PRESERVED",
+            "independently_audited_prior_checkpoint_sha256":
+                independently_verified_prior_sha,
+            "current_checkpoint_sha256":final_checkpoint_sha,
+            "unchanged_prior_event_count":len(old_events),
+            "new_event_count_requiring_independent_review":len(extras),
+            "all_prior_r2_event_pointers_unchanged":True,
+            "fresh_new_event_bodies_to_be_verified_by_examiner":True,
+            "all_intermediate_checkpoints_verified":False,
+            "literary_quality_independently_verified":False,
+        }
+
     def restore_pointer(self,checkpoint_sha):
         """Cold restore via the SHA pointer from previous Railway receipts."""
         raw=self._get_content(checkpoint_sha)
