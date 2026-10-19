@@ -63,3 +63,8 @@ V81真实训练最终可恢复R2 CAS指针：
 独立只读考官另起Railway部署 8e23b4ba-d7a4-4c5a-b018-90fe51b4a58a，运行 wf_railway_v81_transfer_reader_exam.py，去除DeepSeek与R2 Writer密钥，仅R2 Reader读同一B00候选的原文字节并重算两个单位SHA，校验实验预注册、两个CAS回答、排序与比较对象；真实结果 WF_V81_BLIND_TRANSFER_R2_READER_EXAM_PASSED，退出码0。考官DeepSeek调用0／R2写0。
 
 综上：**第7—10章真训练与来源审计通过；跨作品两臂实验真实性通过；跨作品文学判断是否真正提高，仍未通过可靠的独立质量考核。** 不升级WF文学层次，不修改V49 THIRD_STRIKE_FAILED、第二课程LOCKED，不声明Cloudflare原生LEARN路由已经部署。实验记录仍用旧R2内容寻址受限对象库，三个旧密钥不变。
+
+
+## V81 最终 Railway 安全待命
+
+真实Railway部署 719d9f66-509a-4a48-8c5b-f23e15538050 已 SUCCESS，启动 python -u wf_railway_v81_safe_idle.py，日志状态 WF_V81_SAFE_IDLE_10_CHAPTERS_AND_TRANSFER_AUDITED。本次安全待命进程 DeepSeek调用0、R2写0、原著下载0、后续自动付费批次关闭。三个既有凭证仍齐备，没有第四密钥，也未创建Railway持久盘。训练独立考官 ae6b3368-c45a-423e-b16b-1259e27b9b5d 成功；盲对照独立考官 8e23b4ba-d7a4-4c5a-b018-90fe51b4a58a 成功。**成功指向真实来源和程序签收，不是文学能力晋级**。后续应从第11章继续，不允许重复前10章付费训练，也不能自动继续预算。
