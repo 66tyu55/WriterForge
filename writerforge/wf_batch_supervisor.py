@@ -17,6 +17,7 @@ authority, usage receipts, external blind assessment and independent tests.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Sequence
 from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -311,6 +312,110 @@ def preflight_one_batch(*,endpoint=WORKER,progress=None,
             catalog.close()
 
 
+
+@dataclass(frozen=True)
+class ReaderOnlyR2Evidence:
+    """Reader-only evidence reconstructed from real, immutable R2 events.
+
+    NOT a dictionary copied from WF's self-report. Only proves protocol and
+    source binding, not literary understanding or human emotional response.
+    """
+    source_sha256: str
+    source_key_sha256: str
+    chapter_body_sha256: str
+    unit_count: int
+    first_read_chain_sha256: str
+    first_read_seal_sha256: str
+    analysis_sha256: str
+    protocol_verified_from_r2: bool
+    independent_complete_chapter_coverage_verified: bool
+    future_prompt_content_audited: bool
+    provider_billing_reconciled: bool
+
+    def public_receipt(self):
+        return {
+           "source_sha256":self.source_sha256,
+           "source_key_sha256":self.source_key_sha256,
+           "chapter_body_sha256":self.chapter_body_sha256,
+           "unit_count":self.unit_count,
+           "first_read_chain_sha256":self.first_read_chain_sha256,
+           "first_read_seal_sha256":self.first_read_seal_sha256,
+           "analysis_sha256":self.analysis_sha256,
+           "reader_only_r2_evidence_verified":
+              self.protocol_verified_from_r2,
+           "full_chapter_coverage_verified":
+              self.independent_complete_chapter_coverage_verified,
+           "future_prompt_content_audited":
+              self.future_prompt_content_audited,
+           "provider_billing_reconciled":
+              self.provider_billing_reconciled,
+           "literary_quality_verified":False,
+        }
+
+
+def independently_recheck_r2_events(*,reader,original_key,
+                                    original_sha256,chapter,
+                                    chapter_body_sha256,
+                                    source_unit_hashes:Sequence[str]):
+    """Re-fetch ALL expected first-read/seal/analysis R2 events in order.
+
+    The source-unit SHA list must come from a separate, reader-only parsing
+    of the original text. Current V76 does NOT certify complete-chapter
+    coverage or audit DeepSeek request prompts/billing yet.
+    """
+    from .r2_learn_journal import WFLearnJournal,identity
+    check(isinstance(reader,WFLearnJournal) and
+          reader.writer is None,
+          "WF_SUPERVISOR_MUST_USE_R2_READER_ONLY_PROCESS")
+    check(1<=len(source_unit_hashes)<=2000 and
+          all(bool(SHA.fullmatch(str(x))) for x in source_unit_hashes),
+          "WF_SUPERVISOR_EXPECTED_SOURCE_UNITS_MISSING")
+    ident=identity(source_key=original_key,source_sha=original_sha256,
+                   chapter=chapter,chapter_body_sha=chapter_body_sha256)
+    expected_prev=None
+    hashes=[]
+    for i,known_unit_sha in enumerate(source_unit_hashes,1):
+        saved=reader.fetch_event(ident=ident,stage="first_read",unit=i)
+        check(saved is not None,"WF_SUPERVISOR_MISSING_R2_FIRST_READ_UNIT")
+        record=saved["doc"]
+        check(record["source_unit_sha256"]==known_unit_sha and
+              record["previous_event_sha256"]==expected_prev and
+              record["future_source_seen"] is False,
+              "WF_SUPERVISOR_R2_FIRST_READ_SOURCE_OR_ORDER_CHANGED")
+        expected_prev=saved["event_sha256"]
+        hashes.append(expected_prev)
+    seal=reader.fetch_event(ident=ident,stage="seal")
+    check(seal is not None,"WF_SUPERVISOR_R2_PASS_A_SEAL_MISSING")
+    check(seal["doc"]["units_read"]==len(source_unit_hashes) and
+          seal["doc"]["last_first_read_sha256"]==hashes[-1] and
+          seal["doc"]["future_source_seen"] is False,
+          "WF_SUPERVISOR_R2_PASS_A_SEAL_NOT_CONSISTENT")
+    analysis=reader.fetch_event(ident=ident,stage="analysis")
+    check(analysis is not None,
+          "WF_SUPERVISOR_R2_PASS_B_ANALYSIS_MISSING")
+    check(analysis["doc"]["first_read_seal_sha256"]==
+          seal["event_sha256"],
+          "WF_SUPERVISOR_ANALYSIS_WITHOUT_LOCKED_FIRST_READ")
+    for mechanism in analysis["doc"]["mechanisms"]:
+        index=mechanism["unit"]-1
+        check(0<=index<len(source_unit_hashes) and
+              mechanism["evidence_unit_sha256"]==
+              source_unit_hashes[index],
+              "WF_SUPERVISOR_FAKE_SOURCE_EVIDENCE")
+    return ReaderOnlyR2Evidence(
+        source_sha256=original_sha256,
+        source_key_sha256=ident["source_key_sha256"],
+        chapter_body_sha256=chapter_body_sha256,
+        unit_count=len(source_unit_hashes),
+        first_read_chain_sha256=sha256(canonical(hashes)).hexdigest(),
+        first_read_seal_sha256=seal["event_sha256"],
+        analysis_sha256=analysis["event_sha256"],
+        protocol_verified_from_r2=True,
+        independent_complete_chapter_coverage_verified=False,
+        future_prompt_content_audited=False,
+        provider_billing_reconciled=False,
+    )
+
 def independent_claim_gate(*,registered_source_sha:str,
                            self_report:dict,reader_receipts:dict|None):
     """Independent examiner checks machine evidence, NEVER grades its prose.
@@ -331,18 +436,19 @@ def independent_claim_gate(*,registered_source_sha:str,
     if self_report.get("claims_complete_chapter") is not True:
         return {"verdict":"NO_COMPLETION_CLAIM",
                 "code":"PARTIAL_EXPERIMENT_ONLY"}
-    if not isinstance(reader_receipts,dict):
+    if reader_receipts is None:
         return {"verdict":"REJECTED","code":"NO_INDEPENDENT_R2_READ_RECEIPT"}
-    required=("pass_a_immutable","pass_a_units_complete",
-              "no_future_unit_exposure","pass_b_after_seal",
-              "all_craft_refs_match_source",
-              "usage_within_pre_registered_budget")
-    missing=[key for key in required if
-             reader_receipts.get(key) is not True]
-    if missing:
-        return {"verdict":"REJECTED",
-                "code":"UNVERIFIED_CHAPTER_COMPLETION",
-                "failed_checks":missing}
+    if not isinstance(reader_receipts,ReaderOnlyR2Evidence):
+        return {"verdict":"REJECTED","code":"UNTRUSTED_SELF_REPORTED_R2_CHECKS"}
+    if (reader_receipts.source_sha256 != registered_source_sha or
+        not reader_receipts.protocol_verified_from_r2):
+        return {"verdict":"REJECTED","code":"R2_EVIDENCE_NOT_BOUND_TO_SOURCE"}
+    if not reader_receipts.independent_complete_chapter_coverage_verified:
+        return {"verdict":"REJECTED","code":"COMPLETE_CHAPTER_COVERAGE_NOT_PROVEN"}
+    if not reader_receipts.future_prompt_content_audited:
+        return {"verdict":"REJECTED","code":"FUTURE_SOURCE_EXPOSURE_NOT_AUDITED"}
+    if not reader_receipts.provider_billing_reconciled:
+        return {"verdict":"REJECTED","code":"PROVIDER_USAGE_NOT_RECONCILED"}
     return {
         "verdict":"PROCEDURE_PASSED_NOT_LITERARY_MASTERY",
         "independent_literary_transfer_test_still_required":True,
