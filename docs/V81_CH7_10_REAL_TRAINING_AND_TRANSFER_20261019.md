@@ -53,3 +53,13 @@ V81真实训练最终可恢复R2 CAS指针：
 ## 下一步
 
 运行 `wf_railway_v81_blind_transfer_probe.py` 对照、冻结/登记全部CAS指针，再运行独立 `wf_railway_v81_transfer_reader_exam.py` 读回证据（后者在真实产出后填入PAIR_SHA）。结束把Railway切回单次不联网安全待命，防止V81已付费训练被重复执行。不添加第四个Secret、不改原著、不自动触发GitHub Actions。新的训练起点是**第11章**，但是否继续应优先结合跨作品真实对照及独立文学能力盲测结果。
+
+## V81 跨作品对照真实执行及独立考官验收
+
+真实Railway部署 f308aaae-6dd2-46b2-9766-f12765363f67 运行两臂对照，状态 WF_V81_HELDOUT_TWO_ARM_CONTRAST_R2_SAVED，退出0。使用B00冻结的另一部历史类私有R2原著，其SHA为 e3fb51aa6d9ed50f79c7c9d60361a366c4a168b8593d1cdaaec65784e46f8cd8，不是先前仙侠训练原著。原文严格解码并截取第一章开头两段：edee746c5eb19e9111e07570c9785afe05e8e73689cc8cb542076c6d11d72518、e1f39e0e8fc55cf89e05ecf94ff547df075ec332b972c40a8a19437a2d1fdb2f。调用DeepSeek前将相同材料、臂次固定顺序写入R2，预注册SHA ab587b5472a4258e057e1ba6ed5b79df0f0ba7405882e85a8170bde82ba228d2。调用顺序为经验组先、无经验基线后；两臂都不能获得前一个模型的回答。
+
+真实模型2调用，输入1616 Tokens、输出435 Tokens，总2051 Tokens，与第7—10章训练的51请求／57671 Tokens独立计费。经验组CAS SHA 65bc7cace24f68eeb9ab8d4212433b2b28a00c4fd080a22a42216b9316659954，基线组CAS SHA c6bbd10370454d56a868714b162df6144515d3bd57aafe7aaa5bcbe399c9d853，比较结果CAS SHA 88a3bf2c34f5fd21400236af375b38df94392403f4b3b3edbc2e352b962049d4。两组回答SHA不同，但引用的原文单位均为1和2，**差异不能独立证明文学质量提升**；也可能只是提示词条件变化。
+
+独立只读考官另起Railway部署 8e23b4ba-d7a4-4c5a-b018-90fe51b4a58a，运行 wf_railway_v81_transfer_reader_exam.py，去除DeepSeek与R2 Writer密钥，仅R2 Reader读同一B00候选的原文字节并重算两个单位SHA，校验实验预注册、两个CAS回答、排序与比较对象；真实结果 WF_V81_BLIND_TRANSFER_R2_READER_EXAM_PASSED，退出码0。考官DeepSeek调用0／R2写0。
+
+综上：**第7—10章真训练与来源审计通过；跨作品两臂实验真实性通过；跨作品文学判断是否真正提高，仍未通过可靠的独立质量考核。** 不升级WF文学层次，不修改V49 THIRD_STRIKE_FAILED、第二课程LOCKED，不声明Cloudflare原生LEARN路由已经部署。实验记录仍用旧R2内容寻址受限对象库，三个旧密钥不变。
