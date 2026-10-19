@@ -15,6 +15,7 @@ from tempfile import TemporaryDirectory
 from time import perf_counter
 import re
 import sqlite3
+from urllib.parse import quote
 
 from .bulk_inbox import BulkCatalog, PRIVATE_READING, parse_key
 from .private_reading_remote import (
@@ -139,7 +140,7 @@ def _locally_check_search(catalog,book_id,category,shards):
     # Internally derive a query from a real indexed unit. Do not print the
     # unit or keyword, and do not pretend this is independent literary proof.
     conn=sqlite3.connect(
-        "file:"+path.resolve().as_uri().split("file://",1)[1]+"?mode=ro",
+        "file:"+quote(str(path.resolve()),safe="/")+"?mode=ro",
         uri=True)
     try:
         from_row=conn.execute(
@@ -201,7 +202,8 @@ def index_one_real_source(endpoint):
               "candidate_sources_within_bytes_budget":eligible,
               "selected_key_sha256":sha256(
                   row["object_key"].encode("utf8")).hexdigest(),
-              "download_verified":True,
+              "download_integrity_checked":True,
+              "independent_source_origin_verified":False,
               "source_sha256":transferred["source_sha256"],
               "source_bytes":transferred["bytes"],
               "source_request_count":transferred["requests"],
