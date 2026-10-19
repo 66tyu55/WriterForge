@@ -6,8 +6,9 @@ R2 can WF write a PASS A seal. PASS B analyses MUST reference that seal and
 evidence from actual locked units. No READ/WRITE mixing and no ChatGPT
 literary decisions.
 
-The R2 storage Writer secret is separate from both the original-reader token
-and the existing SQL-index writer token. Until the user deploys the candidate
+The R2 learning writer shares the already configured SQL-index writer secret,
+with separate, strictly validated storage namespaces. This reduces isolation
+between index and LEARN writers but does not permit writing original novels. Until the user deploys the candidate
 V75 Cloudflare Worker AND separately sets WF_LEARN_UPLOAD_TOKEN in Cloudflare
 and Railway, this module cannot mutate real R2.
 
@@ -174,19 +175,29 @@ class WFLearnJournal:
     """Append-only R2 journal. Client sees current locked R2 state."""
 
     def __init__(self,*,endpoint,reader_token=None,writer_token=None,
-                 index_writer_token=None,timeout=60,transport=None):
+                 index_writer_token=None,timeout=60,transport=None,
+                 read_only=False):
         self.reader=WFWorkerR2Client(
             endpoint=endpoint,token=reader_token,timeout=timeout)
-        self.writer=(writer_token if writer_token is not None else
-                     os.environ.get("WF_LEARN_UPLOAD_TOKEN"))
+        require(type(read_only) is bool,
+                "WF_LEARN_READ_ONLY_MODE_INVALID")
         index=(index_writer_token if index_writer_token is not None else
                os.environ.get("WF_INDEX_UPLOAD_TOKEN"))
+        # WF source reader and independent examiner are strictly read-only.
+        # The ONLY accepted LEARN writer in V77 is the existing index writer;
+        # no fourth DEEPSEEK/R2/Cloudflare variable is required.
+        require(not read_only or writer_token is None,
+                "WF_LEARN_READ_ONLY_MODE_WITH_WRITE_TOKEN")
+        self.writer=(None if read_only else
+                     writer_token if writer_token is not None else index)
         if self.writer is not None:
             require(isinstance(self.writer,str) and
                     24<=len(self.writer)<=1024 and
                     "\r" not in self.writer and "\n" not in self.writer and
-                    self.writer!=self.reader.token and self.writer!=index,
-                    "WF_LEARN_WRITER_TOKEN_NOT_SEPARATE")
+                    self.writer!=self.reader.token and
+                    (index is None or self.writer==index),
+                    "WF_LEARN_WRITER_NOT_EXISTING_INDEX_ROLE")
+        self.read_only=read_only
         self._transport=transport or self.reader._opener.open
 
     def require_writer_ready(self):
