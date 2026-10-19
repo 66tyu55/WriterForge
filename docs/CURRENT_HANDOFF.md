@@ -1016,3 +1016,6 @@
 - **独立考官已经真实验证**：另一个全新Railway部署`6fbb6ffc-362f-4939-b778-2a539ab257d5`，Python启动即从环境移除DeepSeek及R2 Writer密钥，加载上述checkpoint，用原Reader读回R2的5个CAS事件和同一本原始小说SHA，独立计算头3来源单元哈希，对照首读顺序、seal、分析引用，状态`WF_V79_R2_CAS_PASS_A_B_FRESH_PROCESS_VERIFIED`、`WF_V79_COLD_CAS_EXAM_EXIT=0`，模型0/R2写0，是真正跨进程证据，而不是训练进程自报。**监督只确认来源/程序顺序/记录保存，不证明模型分析质量正确、未来提示词全文未泄漏、学完完整章节或人类读者情感真实**，旧V49失败与学习窗口LOCK不变。
 - V79新`writerforge/v79_provisional_r2_cas_journal.py`兼容WF的PASS A/B接口，严格SHA写入/回读、每次事件签checkpoint以及只读按hash恢复；`wf_railway_v79_real_b01.py`真实付费一批一书三单位；`wf_railway_v79_cas_cold_exam.py`另进程真考官；`wf_railway_v79_safe_idle.py`安全待命。新旧全部**140/140合成测试通过**（Railway`f9d88ae3-16a8-41ee-afec-bc797a1b9b03`，测试无付费/R2真实访问）；V79真正成果只来自上面两次真实Railway部署。
 - 本轮已经**完成了真正的WF模型阅读行为及R2实验经验落盘**，但按预注册纪律**完整学完文学章节数仍0**：只读了15个单位中的3个；模型生成的阅读反应与分析不能当作可信文学能力晋级。下一阶段应在有实际新预算与按章索引前把本次记录的SHA锁定，然后由WF自行读同一章后12单位、进行按章完整复盘及独立转移小测；不能重新点名更易书、重跑已付费3单元或拿单次B01当毕业。Native LEARN Worker的新部署可后续再迁移元数据/指针，不需要再重新上传小说或配置密钥。**不要再要求第四个Key。**
+
+
+**V79最终安全状态**：Railway新部署`ae099ff2-e20a-479f-b7dc-77f23575e3d2` SUCCESS，`WF_V79_SAFE_IDLE_REAL_B01_3_UNITS_CONFIRMED`，0新的模型请求和R2读写，已真实锁定3个首读单位+1个文学分析，checkpoint`b7ace511e422c8973a35c0cc4d75229d0c11c7ddcefe4db97eda6b6098bc1210`。后续不要重复付费处理前三单位。
