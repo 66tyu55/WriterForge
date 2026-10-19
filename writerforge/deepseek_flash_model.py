@@ -28,15 +28,15 @@ PROVIDER = "deepseek"
 API_URL = "https://api.deepseek.com/chat/completions"
 TOKEN_ENV = "DEEPSEEK_API_KEY"
 ROLES = frozenset(("genre_classification", "first_read", "craft_analysis"))
-MAX_INPUT_BYTES = 16 * 1024
-MAX_RESPONSE_BYTES = 64 * 1024
-MAX_COMPLETION_TOKENS_PER_CALL = 1500
+MAX_INPUT_BYTES = 512 * 1024
+MAX_RESPONSE_BYTES = 3 * 1024 * 1024
+MAX_COMPLETION_TOKENS_PER_CALL = 150000
 DEFAULT_COMPLETION_TOKENS = 650
 MAX_TIMEOUT_SECONDS = 120
 DEFAULT_TIMEOUT_SECONDS = 75
 # Default one preflight plus one first-read, two analysis calls per opt-in run.
-MAX_CALLS = 4
-MAX_RESERVED_OUTPUT_TOKENS = 4800
+MAX_CALLS = 192
+MAX_RESERVED_OUTPUT_TOKENS = 150000
 
 
 class DeepSeekFlashError(RuntimeError):
@@ -63,19 +63,44 @@ class FlashBudget:
     prompt_tokens_reported: int = 0
     completion_tokens_reported: int = 0
     calls_by_role: dict[str, int] = field(default_factory=dict)
+    # None leaves old tiny-call tests unchanged. 150000 enables a new WF
+    # full-chapter batch across multiple requests, NOT one giant answer.
+    max_total_tokens: int | None = None
+    conservative_tokens_committed: int = 0
+    last_request_reserved: int = 0
+    calls_with_provider_usage: int = 0
+    calls_with_uncertain_usage: int = 0
 
     def reserve(self, role: str, requested: int, payload_bytes: int) -> None:
         require(
             role in ROLES and
-            type(requested) is int and 50 <= requested <= MAX_COMPLETION_TOKENS_PER_CALL and
+            type(requested) is int and
+            50 <= requested <= MAX_COMPLETION_TOKENS_PER_CALL and
             type(payload_bytes) is int and 0 < payload_bytes <= MAX_INPUT_BYTES and
-            1 <= self.max_calls <= 4 and
+            1 <= self.max_calls <= MAX_CALLS and
             50 <= self.max_reserved_output_tokens <= MAX_RESERVED_OUTPUT_TOKENS and
             self.calls_reserved < self.max_calls and
             self.tokens_reserved + requested <= self.max_reserved_output_tokens,
             "WF_FLASH_CALL_OR_TOKEN_BUDGET_EXCEEDED",
         )
-        # Reserve before network: even timeouts may have incurred a bill.
+        if self.max_total_tokens is not None:
+            require(type(self.max_total_tokens) is int and
+                    self.max_total_tokens == 150000,
+                    "WF_FLASH_TOTAL_BUDGET_CONFIGURATION_INVALID")
+            # Conservative upper estimate: input UTF8 bytes (tokenization
+            # cannot spend more ordinary text tokens than its byte stream)
+            # plus message/role overhead and reserved maximum output.
+            # Failed/timeout requests retain full reserve (may bill).
+            estimated=payload_bytes + 1024 + requested
+            require(
+                self.conservative_tokens_committed + estimated <=
+                self.max_total_tokens,
+                "WF_FLASH_TOTAL_150K_TOKEN_CAP_REACHED",
+            )
+            self.conservative_tokens_committed += estimated
+            self.last_request_reserved = estimated
+            self.calls_with_uncertain_usage += 1
+        # Reserve BEFORE network, including transport timeouts.
         self.calls_reserved += 1
         self.tokens_reserved += requested
         self.calls_by_role[role] = self.calls_by_role.get(role, 0) + 1
@@ -85,10 +110,20 @@ class FlashBudget:
             return
         prompt = usage.get("prompt_tokens")
         answer = usage.get("completion_tokens")
+        good=(type(prompt) is int and prompt >= 0 and
+              type(answer) is int and answer >= 0)
         if type(prompt) is int and prompt >= 0:
             self.prompt_tokens_reported += prompt
         if type(answer) is int and answer >= 0:
             self.completion_tokens_reported += answer
+        if self.max_total_tokens is not None and good:
+            # Replace conservative held tokens with supplier's actual usage.
+            # If provider reports unexpectedly > reserved, fail future calls.
+            self.conservative_tokens_committed += (
+                prompt + answer - self.last_request_reserved)
+            self.last_request_reserved=0
+            self.calls_with_provider_usage += 1
+            self.calls_with_uncertain_usage -= 1
 
     def public_receipt(self) -> dict:
         return {
@@ -100,6 +135,10 @@ class FlashBudget:
             "completion_tokens_reported": self.completion_tokens_reported,
             "calls_by_role": dict(self.calls_by_role),
             "model_decisions_not_verified_literary_truth": True,
+            "max_total_training_tokens": self.max_total_tokens,
+            "tokens_committed_or_held": self.conservative_tokens_committed,
+            "calls_with_provider_usage": self.calls_with_provider_usage,
+            "calls_with_uncertain_usage": self.calls_with_uncertain_usage,
         }
 
 
@@ -166,8 +205,8 @@ class DeepSeekFlashModel:
         """
         require(role in ROLES, "WF_FLASH_ROLE_UNSUPPORTED")
         require(
-            isinstance(system, str) and 10 <= len(system) <= 8000 and
-            isinstance(user, str) and 1 <= len(user) <= 12000 and
+            isinstance(system, str) and 10 <= len(system) <= 32000 and
+            isinstance(user, str) and 1 <= len(user) <= 180000 and
             ("JSON" in system or "json" in system),
             "WF_FLASH_JSON_PROMPT_INVALID",
         )
