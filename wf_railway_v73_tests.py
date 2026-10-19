@@ -5,6 +5,8 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent
 os.chdir(ROOT)
+# Synthetic tests must NEVER inherit production writer authority.
+os.environ.pop("WF_INDEX_UPLOAD_TOKEN",None)
 pkg=types.ModuleType("writerforge")
 pkg.__path__=[str(ROOT/"writerforge")]
 pkg.__package__="writerforge"
