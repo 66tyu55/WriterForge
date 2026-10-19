@@ -970,3 +970,5 @@
 - 真正Railway离线回归：103/103→新增独立R2审计测试夹具5项NameError红色（保留）→109/109修正→最终`1f96d207-fa6b-4f9b-b6dd-39da541018fa` **117/117通过**，0模型与R2访问，不能冒充文学训练。
 - 当前仍只具备R2读、SQLite Index Writer及已经实测可用的DeepSeek官方模型。**独立文学R2 Writer `WF_LEARN_UPLOAD_TOKEN` 尚未配置，Cloudflare V75 LEARN Worker代码仍是Github候选未真实部署**。用户须在现有Cloudflare`wf-r2-api`和Railway服务新增同名、相同内容、与现有两Token不同的新Secret，保留R2绑定，部署候选Worker一次；密钥不可发送GPT。之后先零付费writer-ready鉴权探针，才允许DeepSeek见一段私有原文→R2真实首读签收，绝不先模型后补账。
 - V49文学终审`THIRD_STRIKE_FAILED`、第二学习窗口`LOCKED`不可修改。V72一份真实科幻SQLite永久R2索引依旧保留但不等于WF学到第一章。下次必须继续V76监督/本批来源复核，不要从头重新选6本，更不要直接自动跑50/400本。
+
+**V76 最新Railway安全状态**：`32a77a70-3481-4b59-b4a9-594935de1c1c` SUCCESS；已固定单次安全待命 `python -u wf_railway_v76_safe_idle.py`；B00真正查过6本/共31,000,917原字节、合格0，留下严格SHA收据；0模型、0新的R2写。DeepSeek Flash凭证存在，但专用R2 LEARN写凭证不存在，V75学习接口还未上线。**不可未经用户完成Cloudflare部署和独立Secret就自动开收费原文训练**。新模型用量审计和独立R2复检已被117/117纯合成Python测试验证，属于监督代码，尚未有真实LEARN证据可给文学分。
