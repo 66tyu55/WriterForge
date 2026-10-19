@@ -24,8 +24,8 @@ from writerforge.wf_sequential_learning_trial import (
 from writerforge.deepseek_flash_model import DeepSeekFlashModel,FlashBudget
 
 READER="synthetic-private-source-reader-token-0123456"
-WRITER="synthetic-dedicated-learn-writer-token-abcdef"
 INDEX_WRITER="synthetic-existing-index-writer-token-abcdef"
+WRITER=INDEX_WRITER
 ORIGINAL_KEY="writerforge/v1/private-reading/仙侠/合成小说/测试.txt"
 SOURCE_HASH=sha256(b"synthetic original novel, not user text").hexdigest()
 CHAPTER_HASH=sha256(b"synthetic chapter").hexdigest()
@@ -184,6 +184,7 @@ class ImmutableLearnJournalTests(unittest.TestCase):
         fresh=WFLearnJournal(
             endpoint="https://wf-r2-api.synthetic.workers.dev",
             reader_token=READER,writer_token=None,index_writer_token=INDEX_WRITER,
+            read_only=True,
             transport=self.remote.open)
         doc=event_doc(stage="seal",ident=ID,units_read=2,
                 last_first_read_sha256=b["event_sha256"],
@@ -241,20 +242,50 @@ class ImmutableLearnJournalTests(unittest.TestCase):
                  "mechanism":"测试","reader_effect":"测试","uncertainty":"测试",
               }])
 
-    def test_reader_and_index_tokens_cannot_write_learn(self):
+    def test_existing_index_writer_can_write_only_learning_namespace(self):
         with self.assertRaisesRegex(WFLearnJournalError,
-                                    "WRITER_TOKEN_NOT_SEPARATE"):
+                                    "WRITER_NOT_EXISTING_INDEX_ROLE"):
             WFLearnJournal(
                 endpoint="https://wf-r2-api.synthetic.workers.dev",
                 reader_token=READER,writer_token=READER,
                 index_writer_token=INDEX_WRITER,
                 transport=self.remote.open)
+        reused=WFLearnJournal(
+            endpoint="https://wf-r2-api.synthetic.workers.dev",
+            reader_token=READER,writer_token=INDEX_WRITER,
+            index_writer_token=INDEX_WRITER,
+            transport=self.remote.open)
+        self.assertEqual(reused.writer,INDEX_WRITER)
+        receipt=reused.append_first_read(
+            ident=ID,unit=1,source_unit_sha=self.unit1,
+            previous_record_sha=None,reaction=make_reaction())
+        self.assertTrue(receipt["r2_reader_readback_verified"])
+        self.assertEqual(self.remote.writer_calls,1)
+
+    def test_reader_only_mode_never_inherits_existing_writer(self):
+        readonly=WFLearnJournal(
+            endpoint="https://wf-r2-api.synthetic.workers.dev",
+            reader_token=READER,
+            index_writer_token=INDEX_WRITER,
+            read_only=True,
+            transport=self.remote.open)
+        self.assertIsNone(readonly.writer)
         with self.assertRaisesRegex(WFLearnJournalError,
-                                    "WRITER_TOKEN_NOT_SEPARATE"):
+                                    "WRITER_KEY_NOT_CONFIGURED"):
+            readonly.require_writer_ready()
+        with self.assertRaisesRegex(WFLearnJournalError,
+                                    "WRITER_KEY_NOT_CONFIGURED"):
+            readonly.append_first_read(
+                ident=ID,unit=1,source_unit_sha=self.unit1,
+                previous_record_sha=None,reaction=make_reaction())
+
+    def test_explicit_read_only_cannot_be_passed_writer_token(self):
+        with self.assertRaisesRegex(WFLearnJournalError,
+                                    "READ_ONLY_MODE_WITH_WRITE_TOKEN"):
             WFLearnJournal(
                 endpoint="https://wf-r2-api.synthetic.workers.dev",
                 reader_token=READER,writer_token=INDEX_WRITER,
-                index_writer_token=INDEX_WRITER,
+                index_writer_token=INDEX_WRITER,read_only=True,
                 transport=self.remote.open)
 
     def test_no_source_text_field_allowed_in_events(self):
