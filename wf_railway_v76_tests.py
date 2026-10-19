@@ -44,6 +44,7 @@ tests=(
  "test_v78_runner_phase_gates.py",
  "test_v79_provisional_r2_cas.py",
  "test_v80_150k_batch.py",
+ "test_v80_independent_exam.py",
 )
 suite=unittest.TestSuite()
 for name in tests:
