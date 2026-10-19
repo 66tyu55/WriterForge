@@ -168,6 +168,7 @@ class WFPrivateReadingClient(WFWorkerR2Client):
         for folder in FOLDERS:
             cursor=None
             seen=set()
+            seen_object_keys=set()
             counted=0
             total=0
             pages=0
@@ -178,6 +179,9 @@ class WFPrivateReadingClient(WFWorkerR2Client):
                 records,continuation,_=self.list_page(folder,cursor=cursor)
                 pages+=1
                 for rec in records:
+                    if rec["key"] in seen_object_keys:
+                        raise PrivateReadingError("WF_PRIVATE_DUPLICATE_LIST_KEY")
+                    seen_object_keys.add(rec["key"])
                     counted+=1
                     total+=rec["size"]
                     info=parse_key(rec["key"])
