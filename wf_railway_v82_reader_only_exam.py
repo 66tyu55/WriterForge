@@ -69,8 +69,13 @@ def main():
         from writerforge.v82_independent_exam import examine_v82
 
         examiner=WFProvisionalR2CASJournal(
-            endpoint=ENDPOINT,read_only=True,
-            checkpoint_sha=V82_JOURNAL)
+            endpoint=ENDPOINT,read_only=True)
+        restored=examiner.restore_anchored_suffix(
+            final_checkpoint_sha=V82_JOURNAL,
+            independently_verified_prior_sha=PRIOR_JOURNAL,
+            first_new_chapter=11,
+            last_new_chapter=15)
+        emit(restored)
         if examiner.writer is not None or not examiner.read_only:
             raise ValueError("WF_V82_EXAM_READER_ROLE_HAS_WRITER")
         emit({
@@ -80,7 +85,7 @@ def main():
             "model_or_writer_keys_available":False,
             "original_prose_logged":False,
         })
-        with TemporaryDirectory(prefix="wf-v81-cold-audit-") as directory:
+        with TemporaryDirectory(prefix="wf-v82-cold-audit-") as directory:
             root=Path(directory)
             catalog=BulkCatalog(root/"catalog.sqlite3")
             try:
