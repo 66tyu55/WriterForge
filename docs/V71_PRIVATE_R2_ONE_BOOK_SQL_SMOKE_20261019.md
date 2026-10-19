@@ -1,0 +1,24 @@
+# V71｜直接R2单TXT → WF流式读取 → 临时SQLite → 内部检索回读（2026-10-19）
+
+## 背景与固定可信来源
+
+用户真实私有R2路径为 `writerforge/v1/private-reading/` 四目录。V69真实扫描79对象、共577574142字节。V70真实拓扑 `c6caee3c-50e1-4126-9002-52ec24f9104c` 发现43个TXT：34个单TXT路径候选、9个TXT与RAR同目录，没有任何父目录下有两个TXT。**这里只是文件候选，还没验证完整小说/去重。**
+
+## 实现（单本小预算、绝无模型）
+
+- 新开发分支 `v71-private-r2-one-book-sql-smoke` 从V70独立继承，不改main/现有Cloudflare Worker/R2书库。继续复用已部署的受限 LIST/HEAD/Range GET Bearer Token，只读授权不升级为写入。
+- `writerforge/private_r2_sql_smoke.py`：WF仅按四目录元数据和大小选择一个 `历史/仙侠/科幻` 类目录下**只有一个TXT且没有RAR或其他同目录文件**的候选；选择顺序为文件小→稳定哈希，不读取文件名含义、不由宿主挑选原文或检索词。源大小范围10KiB至16MiB，每次Range GET最多1MiB，总请求数≤17、只下载一份文件。
+- 每个Range响应验证Content-Range、Content-Length、ETag和总长度一致，分块写入Railway的独立临时目录，计算原文完整SHA256（完整性检查，**不是版权版次或文学来源认证**）；再用已有V68 `BulkCatalog.index_text_file` 生成SHA命名的临时按书SQLite，按章/段/句建立字面索引。这个过程中用户原文件只在用户R2与WF的Railway临时运行环境，**不会经GPT或公共GitHub传输正文**。
+- 最后 WF 在临时索引里自行选一个内部出现的字串，仅验证 SQL词面回读命中且无误；不公开检索词/小说原句。**这不是未见问题的盲测，也不证明文学理解。**
+- Railway没有卷，临时SQLite和源文件退出后自动销毁；明确报告 `sql_persisted_after_exit=false`。持续50—400本的可检索库仍必须设计独立持久化。
+- TXT编码当前支持UTF8/BOM及明确指定格式；遇到未知编码会诚实退出，**不对用户小说猜GBK或当成解析成功**。不自动把RAR当一部新书，也不下载压缩包。
+
+## 已通过反例测试及历史留痕
+
+新增 `tests/test_v71_private_r2_sql_smoke.py` 与 `wf_railway_v71_tests.py`。Railway真实Python部署 `e666b3e2-865f-4f8b-9b9a-7c4dad6dc19d` 运行累计**29项合成单测通过、0失败0错误0跳过**。新项包括选择不混RAR的父目录、跨1MiB分块、断块/ETag变化拒绝、SHA验源、真实SQLite短句索引和内部只读字面回读。**测试本身未连接真实R2**，不可算实际小说完成索引。
+
+## 待填写的真实R2结果
+
+下一步将把既有Railway `wf-python-r2` 一次性启动命令切换成 `python -u wf_railway_v71_one_source.py`，必须通过新固定提交SHA触发新建构建（Railway原`redeploy`曾复用旧启动脚本，不能重复犯错）。正式运行时只输出文件类别、字节量、原文字节SHA256、索引句段计数、耗时、内部命中数以及临时文件销毁/写入0/模型0，不输出标题、private Key或原文。
+
+未经真实日志不得声称V71线上成功、已完成50本或已解决索引持久化。文学终审V49 `THIRD_STRIKE_FAILED` 和第二学习窗口锁定不变。
