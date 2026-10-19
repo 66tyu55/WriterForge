@@ -96,6 +96,8 @@ def _scan_document(path,encoding):
     """
     chapters=[]
     seen_printed=set()
+    duplicate_printed_numbers=0
+    duplicated_heading_hashes=[]
     prelude_chars=0
     physical_lines=0
     total_chars=0
@@ -134,8 +136,11 @@ def _scan_document(path,encoding):
                      "WF_ADMISSION_TOO_MANY_CHAPTER_HEADERS")
                 heading=line.strip()
                 if printed is not None:
-                    need(printed not in seen_printed,
-                         "WF_ADMISSION_DUPLICATE_PRINTED_CHAPTER")
+                    if printed in seen_printed:
+                        duplicate_printed_numbers+=1
+                        if len(duplicated_heading_hashes)<8:
+                            duplicated_heading_hashes.append(
+                                sha256(heading.encode("utf-8")).hexdigest())
                     seen_printed.add(printed)
                 chapter={
                     "ordinal":len(chapters)+1,
@@ -170,11 +175,8 @@ def _scan_document(path,encoding):
     # headings without a verified numeral map remain unknown, not invented.
     numeric=[c.printed_number for c in chapters
              if c.printed_number is not None]
-    if numeric:
-        need(all(a<b for a,b in zip(numeric,numeric[1:])),
-             "WF_ADMISSION_PRINTED_CHAPTER_ORDER_NONMONOTONIC")
-        need(all(b==a+1 for a,b in zip(numeric,numeric[1:])),
-             "WF_ADMISSION_NONCONSECUTIVE_PRINTED_CHAPTERS")
+    backward=sum(b<=a for a,b in zip(numeric,numeric[1:]))
+    gaps=sum(b>a+1 for a,b in zip(numeric,numeric[1:]))
     for ch in chapters:
         need(ch.body_characters>0,"WF_ADMISSION_EMPTY_CHAPTER")
     return chapters,{
@@ -182,6 +184,11 @@ def _scan_document(path,encoding):
        "chapters_detected":len(chapters),
        "numbered_chapters":len(numeric),
        "chapters_with_unverified_numerals":len(chapters)-len(numeric),
+       "duplicate_printed_numbers":duplicate_printed_numbers,
+       "duplicate_heading_hashes":duplicated_heading_hashes,
+       "printed_order_backward_or_equal_steps":backward,
+       "printed_order_forward_gaps":gaps,
+       "gaps_may_be_volume_or_missing_chapters_not_resolved":gaps>0,
        "prelude_characters":prelude_chars,
        "prelude_requires_review":prelude_chars>1200,
        "ordinal_numbers_are_internal_not_source_authentication":True,
@@ -271,6 +278,12 @@ def admit_source(path,*,original_key,verified_original_sha256,
            "status":"WF_DOCUMENT_ADMITTED_LEARN_ENGINE_PENDING",
         }
         reasons=[]
+        if scan["duplicate_printed_numbers"]>0:
+            reasons.append("WF_CHAPTER_PRINTED_NUMBER_COLLISIONS_NEED_REVIEW")
+        if scan["printed_order_backward_or_equal_steps"]>0:
+            reasons.append("WF_CHAPTER_PRINTED_ORDER_NEEDS_REVIEW")
+        if scan["printed_order_forward_gaps"]>0:
+            reasons.append("WF_CHAPTER_PRINTED_GAPS_NEED_REVIEW")
         if scan["boundary_rule_disagreements"]>0:
             reasons.append("WF_CHAPTER_BOUNDARY_PARSERS_DISAGREE")
         if guard["provisional_legacy_decoding"]:
