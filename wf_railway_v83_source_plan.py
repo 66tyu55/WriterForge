@@ -106,7 +106,7 @@ def main():
                   "available_future_chapters_checked":len(counts),
                   "prior_v82_batch_sha256":"d46ffec05927dfba3f2819089e76e79f720db2a2f3f6793b56965ac6413c177f",
                   "previous_V82_checkpoint_sha256":
-                      "3da56cc46115548c5198a65cb6124e3c03d9bdf1f0460950177735a99d1cb2",
+                      "3da56cc46115548c5198a65cb6124e3c03d9bdfdb1f0460950177735a99d1cb2",
                   "original_text_in_log":False,
                   "model_calls":0,"r2_writes":0,
                 })
