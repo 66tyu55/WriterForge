@@ -2,7 +2,7 @@
 
 Starts from PRECISE R2 CAS checkpoints of independently verified V81.
 Never revisits/repays ten completed chapters. Loads the model's OWN
-chapter-10 experience, feeds its "next_strategy" into chapter-7 reads.
+chapter-10 experience, feeds its "next_strategy" into chapter-11 reads.
 Applies strictly complete PASS A before PASS B, each unit stored in R2
 content-addressed immutable objects and locally read-back verified.
 Stops if the user-agreed 150k aggregate budget or 96 requests is reached.
@@ -122,7 +122,7 @@ def main():
                 batch=WFLargeChapterBatch(
                     journal=journal,model=model,original_key=original_key,
                     source_sha=SOURCE_SHA,progress=emit,batch_id="WF-V82-CH11-15-150K")
-                # Keep chain back to V80 final checkpoint, but V82 budget
+                # Keep chain back to V81 final checkpoint, but V82 budget
                 # is a NEW independent 150k batch (not accumulated tokens).
                 batch.last_batch_pointer=PREV_BATCH
                 batch.previous_experience_sha=PREV_EXPERIENCE
