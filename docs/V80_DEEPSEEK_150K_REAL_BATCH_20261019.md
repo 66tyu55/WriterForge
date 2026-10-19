@@ -54,3 +54,16 @@
 **这三个地址均为已由R2成功回读校验的不可变SHA指针**，未泄露小说题名/正文。未来更换Railway运行环境时从中恢复，不必从头下载/重练已付款章节。旧Native`learn/v1` Worker专用服务端顺序审查仍未上线，使用的仍为V79实验性`indexes/v1/chunks/`内容哈希块，不能声称原生LEARN系统全部完成。
 
 独立考官下一部署 `7f739347-8099-4b28-8598-2d70ad7accfa` 使用不带DeepSeek/Writer权限的全新进程重新读取原著、复算全部单位SHA、检查R2首读顺序、分析依赖、经验链以及总token限额。**审计结果须以实际日志核实，不得提前标绿。** 为避免把先前第1章V79提早分析的历史当作标准章节读者模型证据，V80考官分别报告“6章来源覆盖”与“5章清洁PASS A→B”，继续拒绝文学水平自动晋级。
+
+## 2026-10-19 连接恢复后的独立考官正式结果（新增）
+
+用户说「连接中断了--继续」后，先用 Railway 插件读取原先实际部署 `7f739347-8099-4b28-8598-2d70ad7accfa` 的新日志（没有重跑训练或额外消耗 DeepSeek），现已确认：
+
+- 状态：`WF_V80_INDEPENDENT_R2_FULL_CHAPTER_PROVENANCE_PASSED`，`WF_V80_READER_ONLY_BATCH_EXAM_EXIT=0`。
+- 考官是**新 Railway 进程**，起始即移除 `DEEPSEEK_API_KEY`、`WF_INDEX_UPLOAD_TOKEN` 等写入/模型令牌，只留旧 R2 Reader。真实 R2 只读重新获得原始整本来源和 CAS 批次进度，核对源SHA、六章完整单位、每个来源单元哈希/前后顺序、先读记录、A封存、B的实际来源引用、逐章经验链。
+- 第1—6章全量签收单位数分别为 **15、12、14、6、6、9**，共 **62 个**，其原文完整覆盖证据全部通过。由于第1章前3单位存在V79提前文学分析的真实历史，只有**第2—6章5章**符合“本章全部A签收之后第一次B分析”的严格式样。第1章原文虽全部读取，但`clean_first_read_before_any_analysis=false`，历史问题不可涂抹。
+- R2最终批次指针 `f606f5216f82fd40a7893cfe8942e2454efe94b9f1389110bdc37f19f3a4f227`，终态CAS journal SHA `0b24a62a697b11e140477225728375fc406cd035fe921ad8ca5476b48a674240`；新考官与WF当时结束值一致。模型训练方报73次请求/83,363 Tokens，考官从R2训练批次状态也核对了**总Tokens不超过15万的技术证据**，但**没有连到DeepSeek计费后台核对具体人民币金额**。
+- 核验明确失败/未实施的能力证据：`literary_mastery_certified=false`、`human_reader_truth_certified=false`、`model_prompt_future_units_independently_audited=false`、`DeepSeek_dashboard_fee_reconciled=false`。目前不能宣布文学层级晋级，也不能自动开启另一批。V49 `THIRD_STRIKE_FAILED`/第二文学窗口 `LOCKED` 继续保持。
+- 这是使用现有R2的**实验性内容寻址CAS事件存储**，不是Cloudflare原生LEARN目录已部署。源小说正文与三个Secret没有发给GPT或GitHub。
+
+独立考官部署在这次中断前已开始，中断后只检索其真实结果，**没有为验收重新触发任何付费阅读**。将 Railway 切回安全待命后应再单独记录待命部署ID。
