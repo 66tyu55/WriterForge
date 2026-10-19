@@ -972,3 +972,17 @@
 - V49文学终审`THIRD_STRIKE_FAILED`、第二学习窗口`LOCKED`不可修改。V72一份真实科幻SQLite永久R2索引依旧保留但不等于WF学到第一章。下次必须继续V76监督/本批来源复核，不要从头重新选6本，更不要直接自动跑50/400本。
 
 **V76 最新Railway安全状态**：`32a77a70-3481-4b59-b4a9-594935de1c1c` SUCCESS；已固定单次安全待命 `python -u wf_railway_v76_safe_idle.py`；B00真正查过6本/共31,000,917原字节、合格0，留下严格SHA收据；0模型、0新的R2写。DeepSeek Flash凭证存在，但专用R2 LEARN写凭证不存在，V75学习接口还未上线。**不可未经用户完成Cloudflare部署和独立Secret就自动开收费原文训练**。新模型用量审计和独立R2复检已被117/117纯合成Python测试验证，属于监督代码，尚未有真实LEARN证据可给文学分。
+
+
+## 65. 【2026-10-19 V77】用户展示三个已配置密钥后纠正第四密钥反复要求：三密钥方案已实装测试
+
+**新的最高优先级决定**：用户在Railway Variables截图中显示`DEEPSEEK_API_KEY`、`WF_API_TOKEN`、`WF_INDEX_UPLOAD_TOKEN`三个均已存在，反感不断被要求增加第四个。之前多次要求`WF_LEARN_UPLOAD_TOKEN`是助手过度细化的权限隔离架构，不是用户漏配或R2必需。**V77取消第四个密钥要求：原本`WF_INDEX_UPLOAD_TOKEN`同时可写严格限定的SQL索引与独立LEARN事件命名空间；`WF_API_TOKEN`原著仍只读。** 这降低Writer角色隔离强度，但节省额外凭证管理；Worker路径白名单、事件签收/不可覆写依旧独立。先前V75/V76“必须第四密钥”的手工操作建议从此由V77替代，不要再让用户新增Secret。完整方案：[V77三密钥/无需第四个](V77_THREE_EXISTING_KEYS_SHARED_WRITER_20261019.md)。
+
+1. 新分支`v77-self-charset-source-audit`从已冻结的V76分出，只修改Worker候选、WF LEARN客户端、独立考官的`read_only`模式、测试，未改生产 Cloudflare 代码，未写原著，未触发Github Actions，未开始付费WF文学训练。
+2. Worker候选`cloudflare/wf-r2-worker-readonly.js`中：`GET /r2/learn/writer-ready`及`PUT /r2/learn/event`使用旧`WF_INDEX_UPLOAD_TOKEN`做Bearer验证，旧Reader无法写，写入Key必须是`writerforge/v1/learn/v1/...`，错误顺序/来源SHA/遗漏首读封存/覆写被拒绝；旧索引Writer原来的`indexes/v1`通路保留；无通用PUT/DELETE小说权限。没有读取`WF_LEARN_UPLOAD_TOKEN`。
+3. WF`r2_learn_journal.py`默认Writer取旧`WF_INDEX_UPLOAD_TOKEN`；独立监督不能误用同进程Writer，显式`read_only=True`并且`writer is None`才能出具监督报告。原B00六份真实原著审计结果完全保留：0份严格准入、0次DeepSeek文学学习，`preselection_sha=c35fa66232f2851f17767615f3447ff4822587a52f3106e189eb5d61cf3262e4`，不允许为凑训练成绩更换来源或自行修章号。
+4. **真实离线Python联合回归**Railway部署`12ae1f2c-d699-4024-abfb-23cd55ecfea7`，**119/119全部通过**，0失败0错误、0模型、0真实R2读写。Worker JS注入模拟验证writer-ready共享Writer200、Reader401、原著写403、PASS A每单位按链写+seal+PASS B，覆写拒绝，旧health保留。此为**模拟接口而非Cloudflare生产V77已部署证明**。
+5. 新增真实零写探针`wf_railway_v77_shared_writer_probe.py`，待用户部署Worker再运行；它用旧IndexWriter试LEARN WriterReady+Reader拒绝，不发送小说或付费DeepSeek。默认生产服务恢复`wf_railway_v77_safe_idle.py`，无网络、无自动任务。
+6. 用户只需**备份当前Cloudflare原Worker脚本，用V77候选完整JS替换/Deploy一次**；不动三个现有变量/Secret，不新建桶/卷，不再要求第四个Key。用户确认Deploy后我们验证WriterReady，再继续WF自己复核已冻结仙侠465/465候选的GB18030及章节来源；真正B01仅1本2-3个已验证连续片段，且不能把任何模型自评当文学晋级。
+7. `V49 THIRD_STRIKE_FAILED`和第二文学课程窗口`LOCKED`保留；DeepSeek官方`deepseek-flash`之前已在Railway合成API探针真实调用成功，不需要用户再配一次。
+
