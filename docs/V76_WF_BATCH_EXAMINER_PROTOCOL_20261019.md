@@ -63,3 +63,11 @@ V76新增独立`independently_recheck_r2_events`，未来读取真实R2的首次
 1. 先让WF自己比较编码与章头/分卷冲突证据，形成经过原文验证且可复核的教材准入证据；不允许外部“替它分类改章号”。
 2. 用户在现有Cloudflare Worker保留两个旧Secret和R2绑定，部署V75带LEARN路由的代码，再在Cloudflare和Railway添加相同但与旧两个不同的`WF_LEARN_UPLOAD_TOKEN`；密钥不能给GPT。
 3. WF必须先实测writer-ready只读认证、再选首部复核通过的作品、再按B01以至多1书/2至3单位/4个模型调用的小预算开始真正的首读签收。B01即使跑通也不记“学完一章”。
+
+
+## 最终监督代码、真实测试与留痕
+
+- 独立监督代码 `writerforge/wf_batch_supervisor.py` 现在拥有 `independently_recheck_r2_events`。此函数只允许**没有LEARN写凭证**的 `WFLearnJournal` 实例，逐条真实获取R2 `PASS_A/UNIT`、末尾`PASS_A/SEAL`与`PASS_B/ANALYSIS`，按**另一份只读原文校验所得的单元SHA**逐项比对来源/上个事件SHA/封存SHA/分析引用，生成`ReaderOnlyR2Evidence`。如果WF自己交全True的字典声称已经验证，`independent_claim_gate` 直接拒绝。即使独立R2序列通过，**完整章节来源覆盖、模型请求未来文本泄露审计、真实DeepSeek后台用量对账还没有独立证明**时仍拒绝报告“学完一章”；此版本不会擅自伪造三个未通过字段。
+- `writerforge/wf_api_usage_supervisor.py` 新增计量包装器`MeteredDeepSeekFlashModel`，经 `writerforge/wf_learn_model_registry.py` 成为WF新LEARN模型默认实例，仍走官方 `deepseek-flash`。它保留本次真实`role`、UTC秒、请求hash/输出hash、模型预留token、实际供应商report的输入/输出token、调用结果/错误代码；永不公开文本和密钥。即使调用超时或返回坏JSON依然保留已尝试请求，记`FAILED_MAY_HAVE_BEEN_BILLED`，**不强行认定0元**。`reconcile_dashboard_snapshot`只比较用户确认的同区间请求数与token变化，若有其他程序或时间范围不一致报告`UNRECONCILED`，不假装掌握官方账单系统。
+- 真实离线回归历史：首轮`8f9e3ba0-459c-4e7c-9637-f0514006230c` **103/103通过**，独立R2审计添加后`763fcbe2-51bf-4e03-a2d2-6368f3372c11`新增测试中5项因模拟测试忘记import独立函数报`NameError`（保留）；修正后`baae7e43-ae9c-4fb4-99dd-823b1c270d11` **109/109通过**；加入8项DeepSeek计费防遗漏/后台对照后，`1f96d207-fa6b-4f9b-b6dd-39da541018fa` **117/117通过**，0模型调用、0R2请求/写入、0真实小说读取。所有真正的R2/B00结论只来自单独部署`082f665b-23f7-447e-a75d-182e3c306e7a`，不得把离线模拟当真书训练。
+- 目前实验应进入safe idle，防止用户尚未部署 LEARN R2 Writer Secret时后台付费读书。下一轮重点是让WF**自己复核编码/分卷章号**（尤其4MB仙侠首候选465/465，结构冲突为零但GB18030仍provisional），及Cloudflare部署独立学习日志权限。**不能为提高完成数量而删掉GB18030来源警报**；确证方案须另做预算内真实源分析与旧模型盲测，不是外部考官改文学题目。
