@@ -314,7 +314,7 @@ class ImmutableLearnJournalTests(unittest.TestCase):
         self.assertEqual(len(fake.inputs),0)
         first=wf.first_read((a,b),expected_unit_count=2)
         self.assertEqual(first["status"],"WF_LEARN_PASS_A_R2_LOCKED")
-        self.assertEqual(first["first_read_events_written"],2)
+        self.assertEqual(first["first_read_events_stored"],2)
         self.assertEqual(len(fake.inputs),2)
         self.assertIn(a,fake.inputs[0])
         self.assertNotIn(b,fake.inputs[0])
@@ -355,6 +355,70 @@ class ImmutableLearnJournalTests(unittest.TestCase):
             wf.first_read((first,second),expected_unit_count=2)
         self.assertEqual(len(self.remote.data),0)
         self.assertEqual(fake_calls[0],1)
+
+    def test_restart_mid_pass_a_skips_already_paid_model_unit(self):
+        first_text=("小船缓慢驶入港湾，甲板上的水滴闪烁，远处灯塔忽明忽暗。"*2)
+        second_text=("渔船停在码头边缘，远处传来一阵响动，大家仍不知道原因。"*2)
+        first_hash=hexdigest(first_text.encode("utf-8"))
+        second_hash=hexdigest(second_text.encode("utf-8"))
+        locked=self.journal.append_first_read(
+            ident=ID,unit=1,source_unit_sha=first_hash,
+            previous_record_sha=None,reaction=make_reaction())
+        calls=[]
+        def transport(req):
+            calls.append(json.loads(req.data)["messages"][1]["content"])
+            result=(make_reaction() if len(calls)==1 else
+                    {"mechanisms":[{
+                        "unit":1,"evidence_unit_sha256":first_hash,
+                        "mechanism":"环境信息可能产生期待",
+                        "reader_effect":"留下读者疑问",
+                        "uncertainty":"不能断言人类真实心理",
+                    }]})
+            return json.dumps({"choices":[{
+                "finish_reason":"stop",
+                "message":{"content":json.dumps(result,ensure_ascii=False)},
+            }]}).encode()
+        fresh=WFLearnJournal(
+            endpoint="https://wf-r2-api.synthetic.workers.dev",
+            reader_token=READER,writer_token=WRITER,
+            index_writer_token=INDEX_WRITER,
+            transport=self.remote.open)
+        model=DeepSeekFlashModel(
+            api_key="synthetic-deepseek-secret-not-real",
+            budget=FlashBudget(max_calls=2,max_reserved_output_tokens=1200),
+            transport=transport)
+        learner=WFSequentialLearningTrial(
+            model=model,journal=fresh,original_key=ORIGINAL_KEY,
+            source_sha=SOURCE_HASH,chapter=1,chapter_body_sha=CHAPTER_HASH)
+        pass_a=learner.first_read(
+            (first_text,second_text),expected_unit_count=2)
+        self.assertEqual(pass_a["first_read_events_new_this_run"],1)
+        self.assertEqual(pass_a["model_repeat_reads_avoided"],1)
+        self.assertEqual(len(calls),1)
+        self.assertIn(second_text,calls[0])
+        self.assertNotIn(first_text,calls[0])
+        result=learner.analyse_after_lock()
+        self.assertEqual(result["status"],"WF_LEARN_PASS_B_HYPOTHESES_R2_STORED")
+        self.assertEqual(len(calls),2)
+        self.assertEqual(len(self.remote.data),4)
+        self.assertEqual(locked["event_sha256"],
+                         fresh.fetch_event(ident=ID,stage="first_read",unit=1)[
+                             "event_sha256"])
+        def forbidden(req):
+            raise AssertionError("already locked unit must not call the model")
+        no_model=DeepSeekFlashModel(
+            api_key="synthetic-deepseek-secret-not-real",
+            transport=forbidden)
+        third=WFSequentialLearningTrial(
+            model=no_model,journal=fresh,original_key=ORIGINAL_KEY,
+            source_sha=SOURCE_HASH,chapter=1,chapter_body_sha=CHAPTER_HASH)
+        reread=third.first_read(
+            (first_text,second_text),expected_unit_count=2)
+        self.assertEqual(reread["first_read_events_new_this_run"],0)
+        self.assertEqual(reread["model_repeat_reads_avoided"],2)
+        already=third.analyse_after_lock()
+        self.assertEqual(already["status"],"WF_LEARN_PASS_B_ALREADY_LOCKED")
+        self.assertEqual(no_model.budget.calls_reserved,0)
 
     def test_analysis_does_not_certify_mastery(self):
         _,_,sealed=self.finish()
