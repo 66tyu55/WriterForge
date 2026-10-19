@@ -94,12 +94,10 @@ def _scan_document(path,encoding):
     """
     chapters=[]
     seen_printed=set()
-    positions=[]
     prelude_chars=0
     physical_lines=0
     total_chars=0
     chapter=None
-    sourcehash=sha256()
     with Path(path).open("r",encoding=encoding,errors="strict",
                          newline=None) as stream:
         while True:
@@ -161,6 +159,8 @@ def _scan_document(path,encoding):
     if numeric:
         need(all(a<b for a,b in zip(numeric,numeric[1:])),
              "WF_ADMISSION_PRINTED_CHAPTER_ORDER_NONMONOTONIC")
+        need(all(b==a+1 for a,b in zip(numeric,numeric[1:])),
+             "WF_ADMISSION_NONCONSECUTIVE_PRINTED_CHAPTERS")
     for ch in chapters:
         need(ch.body_characters>0,"WF_ADMISSION_EMPTY_CHAPTER")
     return chapters,{
@@ -255,6 +255,8 @@ def admit_source(path,*,original_key,verified_original_sha256,
             manifest["training_gate"]="PROVISIONAL_ENCODING_REQUIRES_VERIFICATION"
         elif scan["prelude_requires_review"]:
             manifest["training_gate"]="PRELUDE_BOUNDARY_REQUIRES_REVIEW"
+        elif scan["chapters_with_unverified_numerals"]>0:
+            manifest["training_gate"]="PRINTED_CHAPTER_NUMERALS_NEED_WF_REVIEW"
         else:
             manifest["training_gate"]="WAITING_FOR_WF_MODEL_AND_IMMUTABLE_LEARN_JOURNAL"
         return manifest
