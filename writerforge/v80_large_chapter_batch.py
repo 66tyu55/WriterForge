@@ -280,7 +280,7 @@ class WFLargeChapterBatch:
                 ),
                 user=(
                     f"已读原文单位总数：{len(hashes)}。"
-                    "请只将WF刚才给出的结构化回答转换为上述格式，"
+                    "这是不合格结构化分析。请只将WF刚才给出的结构化回答转换为上述格式，"
                     "不提供任何新原文：\n"+
                     json.dumps(res,ensure_ascii=False)[:16000]),
                 max_tokens=1700,
