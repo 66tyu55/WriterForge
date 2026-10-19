@@ -32,7 +32,10 @@ class V78WholeFileCharsetTests(unittest.TestCase):
         self.assertEqual(report["status"],
                          "WF_CHARSET_ONE_REVERSIBLE_TEXT_READING")
         self.assertIn("utf-8",report["unique_reading_codec_aliases"])
-        self.assertIn("utf-8-sig",report["unique_reading_codec_aliases"])
+        # utf-8-sig would add a BOM that this source did not contain;
+        # it must NOT count as a reversible alias.
+        self.assertNotIn("utf-8-sig",report["unique_reading_codec_aliases"])
+        self.assertFalse(report["results"]["utf-8-sig"]["byte_roundtrip"])
         self.assertFalse(report["source_edition_human_confirmed"])
         self.assertFalse(report["does_not_auto_unlock_frozen_B00_training_gate"] is False)
         self.assertTrue(report["does_not_auto_unlock_frozen_B00_training_gate"])
