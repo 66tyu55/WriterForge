@@ -1050,3 +1050,12 @@
 
 
 **V81 最终安全待命：** Railway 719d9f66-509a-4a48-8c5b-f23e15538050 SUCCESS，固定启动 python -u wf_railway_v81_safe_idle.py，WF_V81_SAFE_IDLE_10_CHAPTERS_AND_TRANSFER_AUDITED；0新DeepSeek请求/0R2读写、自动付费训练关闭、三旧凭证齐全无需第四个。第7—10章51请求57671 Tokens和独立读审计已完成，另一部历史类来源的双臂迁移对照2请求2051 Tokens且独立CAS比对通过，但**文学质量改善没有被独立证实**。最终恢复V81 batch e28490de3f0b17875ed23418726a8b8692b3029c1501b30da314080f4edb0901、journal 61a52125708a180b3305e28721d6e1797c0ab619df18a1bac7822988707a9c33、经验 feee04808c6b14f84c16989d98b031937a897395f3d008c43e17b3449f9077e3，盲对照对象 88a3bf2c34f5fd21400236af375b38df94392403f4b3b3edbc2e352b962049d4。下一步始于第11章，若需要新收费批次应由用户再次批准，避免重跑前十章。
+
+
+## 70. 【2026-10-19 V82】第11—15章真实训练完成，独立审计KeyError已修复且最终通过
+
+用户「时间过长--导致中断--继续」；恢复前先检查Railway/GitHub，发现中断期间项目已进入`v82-ch11-15-training-and-audit`，但最新服务状态`CRASHED`。**并非需要重训**：真实V82付费进程早已返回`WF_V82_CH11_TO_15_R2_BATCH_COMPLETED`/`WF_V82_TRAINING_EXIT=0`，第11/12/13/14/15章分别完整首读11/11/11/8/6单位，总47；单独150K Tokens封顶的V82批次真实DeepSeek Flash调用58次、49,238输入+11,899输出 = **61,137 Tokens**。前十章没有再次付费重读。V82真实journal CAS SHA `3da56cc46115548c5198a65cb6124e3c03d9bdfdb1f0460950177735a99d1cb2`，batch SHA `d46ffec05927dfba3f2819089e76e79f720db2a2f3f6793b56965ac6413c177f`，第15章经验SHA `ddbf86e87e3bf44900b4e5e4d8ffc2de99c9ed5d3c5aec98a69bfd8eb7cf2fe7`，仍为R2小型CAS实验账本而非原生LEARN专用Worker命名空间。
+
+独立考官连续崩溃`WF_V82_INDEPENDENT_AUDIT_FAILED`，代码定位`wf_railway_v82_reader_only_exam.py:124` `KeyError`：错读`v81_last_experience_sha256`，实际V82考官输出`v82_last_experience_sha256`。助手仅修字段，commit `cff5599c4e2254ab9997bcb6201f776b11aa3c6c`，绝不重新训练。新的真正只读Railway考官部署`18415e01-9607-4ed1-ad48-17f19deae3c2`**最终 `WF_V82_INDEPENDENT_R2_CH11_TO_15_PROVENANCE_PASSED`/`WF_V82_INDEPENDENT_COLD_EXAM_EXIT=0`**：纯Reader进程恢复178个R2事件（旧121保留，新57条），对照真实原著重算47来源unit SHA/首读链/seal/后验分析证据/跨章经验链，5章全部严格A先于B，考官0DeepSeek/0R2写。旧失败完整保留。详见 [V82真实训练与独立审计报告](V82_CH11_TO15_REAL_TRAINING_AND_AUDIT_20261019.md)。
+
+至此，同一冻结仙侠原著前15章完整来源处理记录均有独立R2核验；第2—15章14章采用严格PASS A全文先读/封存后PASS B，第1章继承V79早期三单位分析，不能冒充纯A→B。这里没有真人心理或文学质量评审，模型提示词未来原文泄露和跨书质量提升也未被严格独立证明；**不能从章节数量宣布文学技能晋级**，原V49 THIRD_STRIKE_FAILED/第二课程 LOCKED保持。V81另一部历史类真实两臂跨作品对照已做、两组答案不同，但质量优势无从证明。现有三个Secret足够，永不再让用户配置第四个。**下一动作**：将原Railway服务改为单次`wf_railway_v82_safe_idle.py`等待指令，防止自动重训第11—15章。后续要接着原著第16章而不是从第1章开始；或者开发更可信的独立文学质量盲考与因果对照。
