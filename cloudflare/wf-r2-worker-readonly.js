@@ -619,6 +619,20 @@ export default {
       }
       if (!env.WF_R2) return fail(503, "WF_R2_BINDING_MISSING");
       const url = new URL(request.url);
+      if (url.pathname === "/r2/learn/writer-ready") {
+        if (request.method !== "GET")
+          return fail(405,"WF_LEARN_READY_METHOD_DENIED");
+        if (!env.WF_LEARN_UPLOAD_TOKEN ||
+            env.WF_LEARN_UPLOAD_TOKEN === env.WF_API_TOKEN ||
+            env.WF_LEARN_UPLOAD_TOKEN === env.WF_INDEX_UPLOAD_TOKEN) {
+          return fail(503,"WF_LEARN_WRITER_SECRET_REQUIRED");
+        }
+        if (!(await authorized(request,env.WF_LEARN_UPLOAD_TOKEN))) {
+          return fail(401,"WF_LEARN_WRITER_UNAUTHORIZED");
+        }
+        return json({ok:true,writer_ready:true,immutable_events:true,
+          source_writes_allowed:false,requires_first_read_seal:true});
+      }
       if (url.pathname === "/r2/learn/event" && request.method === "PUT") {
         if (!env.WF_LEARN_UPLOAD_TOKEN ||
             env.WF_LEARN_UPLOAD_TOKEN === env.WF_API_TOKEN ||
