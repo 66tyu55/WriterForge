@@ -855,3 +855,14 @@
 7. 50本门槛须统计确证不重复完整来源与可索引状态，不等于文件夹数/对象数/阅读深度/文学质量。原 V49 THIRD_STRIKE_FAILED 和第二课程窗口 LOCKED 原样保留。
 
 **恢复时只向用户询问已上传的R2对象前缀与文件格式/是否解压**，不要求提供正文、密钥、截图密码，不重新创建云项目；先完成metadata-only扫描，再做真实分书索引。
+
+
+## 56. 【2026-10-19 V70】中断恢复：43个TXT真实目录拓扑核对成功；不再把嵌套路径都误认为分卷
+
+用户最新说「继续--中断」，继续上一窗口尚未完成的V70单本/多卷结构分辨，未从头开工程。完整证据和后续计划见 [V70目录拓扑审计](V70_PRIVATE_READING_TOPOLOGY_AUDIT_20261019.md)。
+
+- 分支 `v70-private-reading-source-identity-audit` 从V69继承；未改main/Cloudflare Worker、未触碰原R2、未用GitHub Actions和模型。Railway真实 Python 23/23合成反例通过（部署`ad1bc9fd-6010-4054-beb3-26dab0ed6f64`）。另一次Redeploy `518de2ea-201c-4282-9899-57ab9da2d56d`意外重用旧测试启动命令，**绝不能冒充真实R2结果**。
+- 新修复：跨页重复Key拒绝，避免重复统计；`writerforge/private_reading_topology.py`仅接受完整四目录扫描并根据父路径的TXT/压缩包/辅助文件统计保守候选，不泄露任何私有Key或正文。
+- 真正生产读R2的部署`c6caee3c-50e1-4126-9002-52ec24f9104c`成功；四目录仍79对象、577574142字节、4页、每目录受限读取成功、零远端写。R2 metadata fingerprint SHA256 `4ee7e4a7fd9158022cd5377dd6dd6d23c04fe5f4905127eae21c691d8dee81d0`，只是Key/大小/ETag摘要不是原始小说SHA。
+- **可信拓扑结果**：`single-works` 7个根目录TXT、18 JSON、9无扩展名；仙侠15个TXT落在15个不同父目录，7目录仅TXT、8目录各TXT+RAR；历史11个TXT落在11不同父目录，10目录仅TXT、1目录TXT+RAR；科幻10个TXT各在独立父目录，无RAR。**任何新增三类父目录里都没有2个TXT并存**。合计43 TXT、9 RAR，其中34个单文件路径候选需验源，另9个TXT与RAR同目录需确认是否备份。不得据此宣称43部独立作品。
+- **尚未完成**：未下载真实小说全部字节、未建立43个分书SQLite、无数据库持久化。下一优先任务是V71从原目录依据metadata选一个受限大小的单文件TXT，让WF直接R2只读Range读全文件、SHA256、编码及章节检测→临时SQLite建索引→真实内部回查；不得替WF写文学答案。若考虑把SQL持久化，应先评估云端R2索引写入的单独最小权限通道或Railway持久卷成本；现有Reader Token不允许擅自变为可写。V49 THIRD_STRIKE_FAILED/第二课程LOCKED保持。
