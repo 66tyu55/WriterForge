@@ -45,3 +45,7 @@
 3. Railway服务变量列表只有原有 `WF_API_TOKEN` 和 `WF_INDEX_UPLOAD_TOKEN`；`DEEPSEEK_API_KEY` 是新增需求，必须用户自行申请官方API Key并仅在Railway `wf-python-r2` Variables里配置，不得给GPT/GitHub。Cloudflare的R2 Worker无须改动。即使Key上线，文学原著片段送DeepSeek前仍要先保护分卷/章节冲突和私有R2不可变首读学习日志。
 
 模型迁移目标现已固定，切忌因为错误的API Key返回401就自动回退Discovery/OpenRouter。后续恢复时先查询Railway密钥**名称**是否存在，再手动执行一条仅合成文本的DeepSeek探针，绝不重复无意义地下载私有小说。
+
+## V74 生产安全待命最终验收
+
+Railway真正最新部署 `e467dff7-4383-4f9a-b050-8ec89fc33272` SUCCESS：`WF_V74_SAFE_IDLE_DEEPSEEK_FLASH_SELECTED`，`WF_LEARN_PROVIDER=deepseek`、`WF_LEARN_MODEL=deepseek-flash`、`discovery_model_selected=false`、`official_deepseek_key_present=false`、`paid_model_calls=0`、`real_source_books_read=0`、`R2_writes=0`、`WF_first_read_immutable_r2_journal_ready=false`。用户无需重传R2原文，也无需更改Cloudflare Worker，且不应向聊天提供密钥。
