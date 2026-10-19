@@ -866,3 +866,18 @@
 - 真正生产读R2的部署`c6caee3c-50e1-4126-9002-52ec24f9104c`成功；四目录仍79对象、577574142字节、4页、每目录受限读取成功、零远端写。R2 metadata fingerprint SHA256 `4ee7e4a7fd9158022cd5377dd6dd6d23c04fe5f4905127eae21c691d8dee81d0`，只是Key/大小/ETag摘要不是原始小说SHA。
 - **可信拓扑结果**：`single-works` 7个根目录TXT、18 JSON、9无扩展名；仙侠15个TXT落在15个不同父目录，7目录仅TXT、8目录各TXT+RAR；历史11个TXT落在11不同父目录，10目录仅TXT、1目录TXT+RAR；科幻10个TXT各在独立父目录，无RAR。**任何新增三类父目录里都没有2个TXT并存**。合计43 TXT、9 RAR，其中34个单文件路径候选需验源，另9个TXT与RAR同目录需确认是否备份。不得据此宣称43部独立作品。
 - **尚未完成**：未下载真实小说全部字节、未建立43个分书SQLite、无数据库持久化。下一优先任务是V71从原目录依据metadata选一个受限大小的单文件TXT，让WF直接R2只读Range读全文件、SHA256、编码及章节检测→临时SQLite建索引→真实内部回查；不得替WF写文学答案。若考虑把SQL持久化，应先评估云端R2索引写入的单独最小权限通道或Railway持久卷成本；现有Reader Token不允许擅自变为可写。V49 THIRD_STRIKE_FAILED/第二课程LOCKED保持。
+
+
+## 57. 【2026-10-19 V71】真实R2中文TXT首次成功进入WF临时SQLite/FTS并回查；下一步解决持久索引
+
+延续上次中断的 V70，不修改旧实测或从头建项目。全部工程背景、红色负例和验收见 [V71真实R2单本SQL工程闭环](V71_PRIVATE_R2_ONE_BOOK_SQL_SMOKE_20261019.md)。
+
+**此前保留的真实事实**：V69已完整扫到四目录79对象/577574142字节；V70已证明43个TXT，34单文件候选+9个TXT与RAR同目录（不是9部新书），没有任何新增三类目录包含两个TXT；V70真实R2元数据SHA `4ee7e4a7fd9158022cd5377dd6dd6d23c04fe5f4905127eae21c691d8dee81d0`。不是所有TXT都能单独证明完整作品，source哈希还须看实际字节。
+
+1. 新独立分支 `v71-private-r2-one-book-sql-smoke` 从V70继承，正式main与Cloudflare Worker不改，原R2零写；用户私有原文没有经GPT或GitHub Actions。WF仅按元数据大小从单TXT无RAR同父目录候选中选择一个≤16MiB源，按1MiB范围只读分段；本任务只检查技术SQL与内部自选字串查回，不是文学自主考试。
+2. **真实失败记录不许擦除**：首轮Railway部署 `f4b658d6-8e47-4630-9a58-ad1787e0d63a` CRASHED、无Python应用首行日志，根因未定；零网络启动自检 `b996f8a9-1c41-4324-b74b-e453a8989bea` 证实模块/入口/Token环境存在；受控一轮 `325fc217-2258-4a89-b3ad-10c2a9bbf1d9` 成功从R2获取TXT并计算完整SHA，但因 `BULK_ENCODING_UNCERTAIN_EXPLICIT_ENCODING_REQUIRED` 严格拒绝SQL，不能称成功。以上所有历史不可改。
+3. 新 `source_encoding_guard.py` 用Unicode严格解码/BOM识别及保守GB18030样本检测，不替换/忽略非法字符，不改原始文件；GB18030结果标`LIKELY_LEGACY_CHINESE_STRICT_DECODING`和`provisional_legacy_decoding=true`，仍需源编码独立审定（可能存在Big5等歧义），**仅供实验技术索引，不能直接升级文学学习经验**。
+4. 真实最终成功部署 `508673b0-9685-41ce-8777-664c516960c4`：Railway Python 3.13运行35/35合成测试通过，随后WF自身调用已有Worker，四目录清单完整，25个候选符合本试验16MiB预算；依大小选择`科幻`类别一部真实TXT，**3636548字节**，包含HEAD共5次请求，源下载约4287.36ms，原文字节SHA256核验完成；严格GB18030读取索引副本并生成临时SQLite FTS5 trigram，**65573个来源单元，499个检测到的章节式标题（不是已验证完整章节数）**，SQL建索引约1973.95ms；SQL内部自行从已有索引派生查询，命中1条，不回显词或原句。程序状态`WF_V71_REAL_R2_ONE_SOURCE_INDEXED_TEMPORARILY`与`WF_V71_ENCODING_RUN_EXIT=0`。模型0、R2写0、私人文本不出Railway。
+5. **最重要的未完成**：Railway目前没有持久卷，因此本次原文临时文件与SQLite都在任务退出后自动清理，`sql_persisted_after_exit=false`。现在仅证明“一本真实私有作品可以在WF内临时索引和词面回查”；**不是**43本SQL准备好，更不是达到50部公认完整作品、作品理解、文学技巧毕业或写作能力提高。源文件完整SHA不能证明原著版次或与既有别名为同一作品。
+6. 下一阶段须在成本/权限授权后给原有Railway服务增加有界持久工作卷（或创建独立、最小权限的R2索引备份服务），再实现按书SQL幂等记录、崩溃后孤儿shard验源恢复、原文全SHA去重、定额分批处理25→43个TXT并保留9个RAR同目录待审；按目录/作品/章节/句子分级查，不每次重复下载原书。用户无需重传，禁止擅自扩大现有只读Bearer权限。R2原始书不因索引操作修改。为确保后台失败可追溯，原始失败收据保留。
+7. V49文学终审`THIRD_STRIKE_FAILED`、第二课程`LOCKED`继续有效；GB18030临时技术索引及自选检索词没有文学语义真实性保证。不自动训练、不写文学答案、不把原著摘录灌给WRITE。
