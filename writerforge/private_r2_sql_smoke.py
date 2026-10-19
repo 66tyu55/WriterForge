@@ -22,6 +22,7 @@ from .private_reading_remote import (
     WFPrivateReadingClient, PrivateReadingError, FOLDERS,
 )
 from .private_reading_topology import analyze_private_topology
+from .source_encoding_guard import detect_decoding_for_index, SourceEncodingError
 
 MAX_ONE_FILE_BYTES = 16 * 1024 * 1024
 MIN_ONE_FILE_BYTES = 10 * 1024
@@ -192,10 +193,16 @@ def index_one_real_source(endpoint, *, progress=None):
             announce("WF_V71_RANGE_DOWNLOAD_STARTED")
             transferred=download_one_verified(client,row,target)
             announce("WF_V71_RANGE_DOWNLOAD_SHA_COMPLETE")
+            try:
+                charset=detect_decoding_for_index(target)
+            except SourceEncodingError as error:
+                raise SourceIndexSmokeError(str(error)) from None
+            announce("WF_V71_ENCODING_GUARD_PASSED")
             announce("WF_V71_SQL_BUILD_STARTED")
             started=perf_counter()
             result=cat.index_text_file(
-                row["object_key"],target,root/"shards")
+                row["object_key"],target,root/"shards",
+                encoding=charset["encoding"])
             building_ms=round((perf_counter()-started)*1000,2)
             announce("WF_V71_SQL_BUILD_FINISHED")
             require(result.get("source_sha256")==transferred["source_sha256"],
@@ -224,6 +231,10 @@ def index_one_real_source(endpoint, *, progress=None):
                   result["chapters_detected"],
               "sql_units_indexed":result["units_indexed"],
               "index_engine":result["search_engine"],
+              "technical_decoding":charset["encoding"],
+              "encoding_decision":charset["decision"],
+              "legacy_charset_is_provisional":charset["provisional_legacy_decoding"],
+              "literary_learning_allowed_from_this_trial":False,
               "internal_readback":lookup,
               "source_files_persisted_after_exit":False,
               "sql_persisted_after_exit":False,
