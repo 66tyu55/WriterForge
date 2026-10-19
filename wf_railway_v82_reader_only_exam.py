@@ -121,7 +121,7 @@ def main():
                     prior_v81_journal_pointer=PRIOR_JOURNAL,
                     prior_chapter10_experience=PRIOR_EXPERIENCE,
                 )
-                if report["v81_last_experience_sha256"]!=V82_EXPERIENCE:
+                if report["v82_last_experience_sha256"]!=V82_EXPERIENCE:
                     raise ValueError("WF_V82_EXAM_LAST_EXPERIENCE_CHANGED")
                 emit(report)
                 return 0
