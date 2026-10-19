@@ -899,3 +899,14 @@
 最终原则：新版本WF可以脱离Railway旧实例恢复指定R2 SQLite索引，老原著不复制进ChatGPT、不改写、不移存到公共仓库。旧部署安全闲置，不反复拉小说或自动付费训练。
 
 **最新实际Railway安全等待**：部署 `5ea343ea-cccf-48e6-84b7-6b99fcc388b6` completed/SUCCESS，`WF_V72_AWAITING_OWNER_R2_INDEX_WRITER_SETUP`，只有旧读Token已配置，新`WF_INDEX_UPLOAD_TOKEN`仍未配置；0网络、0新R2写、0持久卷、没有自动执行原文扫描。最新V72分支文档提交不影响已固定的Railway正在运行的旧commit。用户在现有Cloudflare与Railway完成独立索引上传Secret配置且Worker正式部署后，才由助手重新固定V72精确提交并运行真实单书上传+独立冷恢复。
+
+
+## 59. 【2026-10-19 V72真生产】第一份永久SQLite已上传私有R2；全新只读进程成功恢复
+
+这是前节“等待用户配置Cloudflare索引Writer权限”之后的最新里程碑，**不再重复要求用户设置密钥或重新部署V72**。详细真实证据 [V72 R2持久化最终报告](V72_R2_PERSISTENT_INDEX_PRIVATE_20261019.md)。
+
+1. Railway用户已配置独立`WF_INDEX_UPLOAD_TOKEN`并部署既有Worker V72。真实安全探针Railway`006f6a7e-614a-4741-b5fa-0ca7376007cd`：Reader读新索引列表成功、Writer对故意错误SHA块被422拒绝，0新对象。
+2. **真正首次持久写入**：Railway部署`fb5c2321-d45d-4fd0-9ec7-307e3ae68086`、状态`WF_V72_INDEX_PERSISTED_IN_PRIVATE_R2`/退出0，WF从用户私有R2读取1部3636548字节科幻TXT，严格GB18030暂定编码，SQLite`36,274,176`字节/`65,573`单元/`499`疑似章头，上传35个1MiB以下内容寻址块到`writerforge/v1/indexes/v1/chunks/`，最后写不可变manifest到`writerforge/v1/indexes/v1/refs/`。私有R2原著0修改，模型0，未用Railway持久卷。索引文件全SHA `a3eb5e24bb858a078ece3d5e56ffc4805e9e51eebe53715037701049422d7ec8`，manifest SHA`01510d79c6d5b60212e3f4dc051901ee8cfabd0481070c33248630dc2b7b787a`。同进程R2只读恢复校验成功。
+3. **真正跨容器读回**：一个全新Railway部署`cc78dd59-27f9-4336-91c3-3da41c7783e8`，运行`wf_railway_v72_cold_restore.py`，进程主动移除Writer变量，只凭Reader Token完整下载/核验R2中的36,274,176字节SQLite（每块SHA/总SHA/SQLite quick_check/源元数据一致），只读查询65,573单元且词面自命中，原TXT下载0、R2写0、进程退出0。状态`WF_V72_COLD_RESTART_RESTORE_VERIFIED`。**可以正式证明R2持久化技术闭环**，不依赖旧Railway实例或2GB云盘。
+4. 下一目标是R2中的**持久分类目录/编号/任务进度与多书索引**，然后25个有预算的独立TXT候选→43个TXT（其中9与RAR混放待审核）→50+部真实核验作品。不能把一个SQL自命中当自主文学理解；原V49`THIRD_STRIKE_FAILED`和文学窗口`LOCKED`永远保留，直到新独立文学盲测证明新成绩。不需要在用户不知情时自行启动大量批处理。
+5. 本节写入后把Railway原`wf-python-r2`切回单次安全等待脚本`wf_railway_v72_wait_setup.py`以防错误新一轮写入；写入Token可以保留，但后续写入只能在用户要求执行分书入库时再次切换一次性脚本。
