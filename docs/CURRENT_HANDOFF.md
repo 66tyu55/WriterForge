@@ -910,3 +910,15 @@
 3. **真正跨容器读回**：一个全新Railway部署`cc78dd59-27f9-4336-91c3-3da41c7783e8`，运行`wf_railway_v72_cold_restore.py`，进程主动移除Writer变量，只凭Reader Token完整下载/核验R2中的36,274,176字节SQLite（每块SHA/总SHA/SQLite quick_check/源元数据一致），只读查询65,573单元且词面自命中，原TXT下载0、R2写0、进程退出0。状态`WF_V72_COLD_RESTART_RESTORE_VERIFIED`。**可以正式证明R2持久化技术闭环**，不依赖旧Railway实例或2GB云盘。
 4. 下一目标是R2中的**持久分类目录/编号/任务进度与多书索引**，然后25个有预算的独立TXT候选→43个TXT（其中9与RAR混放待审核）→50+部真实核验作品。不能把一个SQL自命中当自主文学理解；原V49`THIRD_STRIKE_FAILED`和文学窗口`LOCKED`永远保留，直到新独立文学盲测证明新成绩。不需要在用户不知情时自行启动大量批处理。
 5. 本节写入后把Railway原`wf-python-r2`切回单次安全等待脚本`wf_railway_v72_wait_setup.py`以防错误新一轮写入；写入Token可以保留，但后续写入只能在用户要求执行分书入库时再次切换一次性脚本。
+
+
+## 60. 【2026-10-19 V73】用户纠正：分类/编号/拆章/阅读/训练全属WF自己；助手只能修底层与反作弊
+
+用户原话：「这些不是属于WF--如果你替他分类编号章节--直接一本一本的让WF自己训练不就可以吗？」——最新方向冻结：**不要再由助手代WF补书名、指定类别、生成读者反应、人工挑选章头和文学答案，所有文学决定由WF独立LEARN；已有R2 SQLite是基础设施，不算训练经验。** 详见 [V73完整设计、红色失败、真实入学检验](V73_WF_OWN_SEQUENTIAL_LEARN_20261019.md)。
+
+1. 从V72继承新隔离分支 `v73-wf-owned-sequential-learning`。V72真实永久R2存储仍有效：1份真实科幻TXT的65,573单元SQLite+35块/manifest在用户R2，另一新Railway只读进程已恢复成功。**旧main/Worker/R2源不变**；无GitHub Actions。
+2. WF新增自己运行的 `writerforge/wf_self_learning_admission.py`：资料一份一份从R2抓取，完整SHA验证、严格编码、独立双章头规则比较、中文章号检查、每章源哈希/位置；R2目录分类仅为`hint`，作品真正分类默认为`UNDECIDED`。LEARN/WRITE模式隔离。任何缺章、重复、不同parser结果、编码暂定均记录待审，不填造答案。没模型和不可变R2学习日志就**不进行Pass A、Pass B或技能晋级**。
+3. 铁证：WF真正第一次自主入学检查Railway `28a842ae-f035-4f9c-ba24-740467d64b25`，自选一部已授权私有R2科幻TXT（3636548字节），扫描43817行，新章头495、旧SQL章头499；当时中文打印序号未解。第二次 `40bcc8a9-d9f0-40a5-abb5-b24b9e493e13`见重复章号停机。新增离线测试 `44805be0-6ba7-4a40-9338-13bf9bbb945e`发现普通句首“第一章内容”被误识章头并产生空章（原红色不能修改）；修复须有分隔符的标题后，真实Railway合成测试 `f84b69c4-86c0-45ad-8244-ca751eb1b355` **57/57通过**，无R2写/模型。
+4. 最终真实R2入学 Railway `b6ee07f8-3aea-4db1-b2a7-686883bade90` 完成：自选相同TXT，43,817行，strict章头495、legacy候选499，**4个独立规则分歧，295次打印章号重复、3个倒退或重置点，前向跳号0**，列出冲突章头HASH（正文及标题不公开）。这可能提示“作品有多卷并分卷重新编号”，只能标待验证，不得由GPT臆断。状态`WF_DOCUMENT_ADMISSION_REVIEW_REQUIRED`、原始字节SHA一致、GB18030编码仍provisional，分类UNDECIDED，**实际学过0章/模型调用0/R2写0**。它只是WF发现自己的文本结构缺陷，不能算文学经验。
+5. Railway目前只配置`WF_API_TOKEN`与`WF_INDEX_UPLOAD_TOKEN`两类R2凭证，**没有文学模型令牌**（例如已知旧实验需要的`DISCOVERY_API_KEY`）；因此宿主的读者Pass A/分析Pass B/自我复盘还没有真实执行。下次必须把真正模型当WF可调用工具连接并规定费用预算与私有原文第三方传输边界，不让GPT做考生；同时需为`LEARN`训练事件新增专用不可变R2学习账本，不能复用只接受v68 SQL格式的`indexes/v1`manifest。第一章PASS A的检查点必须在PASS B前R2签收，再继续下一章，学会的经验要对未来行为有可测影响。
+6. 原V49`THIRD_STRIKE_FAILED`/第二学习窗口`LOCKED`原样保留。50本完整原文门槛尚未完成；目前1份R2可持久SQL索引≠文学训练。下一步合理的真实小预算是**WF自己选一书、先验证结构/版次、独立完成第一章Pass A→写R2锁定→Pass B→错误复盘，不晋级**，成功后才让它自动挑第二章/第二本。以后禁止人工从外面一次性分类400本。
