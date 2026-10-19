@@ -19,7 +19,8 @@ from pathlib import Path
 import json
 import re
 
-from .bulk_inbox import PRIVATE_READING,parse_key
+from .bulk_inbox import PRIVATE_READING,parse_key,CHAPTER as LEGACY_CHAPTER_RULE
+from .source_study import chapter_number,StudyError
 from .source_encoding_guard import detect_decoding_for_index,SourceEncodingError
 from .runtime import Mode,RuntimeEngine
 
@@ -47,9 +48,10 @@ def need(flag,code):
 def _printed_integer(value):
     # Deliberately refuse unknown Chinese-number spellings rather than
     # silently guessing ordinal from a printed label.
-    if value.isdecimal():
-        return int(value)
-    return None
+    try:
+        return chapter_number(value)
+    except StudyError:
+        return None
 
 @dataclass(frozen=True)
 class SourceChapter:
@@ -98,6 +100,9 @@ def _scan_document(path,encoding):
     physical_lines=0
     total_chars=0
     chapter=None
+    legacy_candidate_headings=0
+    boundary_rule_disagreements=0
+    disagreement_heading_hashes=[]
     with Path(path).open("r",encoding=encoding,errors="strict",
                          newline=None) as stream:
         while True:
@@ -111,7 +116,16 @@ def _scan_document(path,encoding):
             need(len(line)<=MAX_CHAPTER_CHARS,
                  "WF_ADMISSION_PHYSICAL_LINE_OVER_BUDGET")
             printed=_is_heading(line)
-            if printed is not False:
+            legacy=bool(LEGACY_CHAPTER_RULE.fullmatch(line.strip()))
+            current=printed is not False
+            if legacy:
+                legacy_candidate_headings+=1
+            if legacy != current:
+                boundary_rule_disagreements+=1
+                if len(disagreement_heading_hashes)<8:
+                    disagreement_heading_hashes.append(
+                        sha256(line.strip().encode("utf-8")).hexdigest())
+            if current:
                 if chapter is not None:
                     chapter["end_cookie"]=cookie
                     chapter["source_end_line"]=physical_lines-1
@@ -172,6 +186,11 @@ def _scan_document(path,encoding):
        "prelude_requires_review":prelude_chars>1200,
        "ordinal_numbers_are_internal_not_source_authentication":True,
        "chapter_boundaries_are_structural_candidates":True,
+       "legacy_sql_heading_candidates":legacy_candidate_headings,
+       "boundary_rule_disagreements":boundary_rule_disagreements,
+       "boundary_rule_agreement":boundary_rule_disagreements==0,
+       "disagreement_heading_hashes":disagreement_heading_hashes,
+       "no_parser_is_claimed_as_literary_ground_truth":True,
     }
 
 def _seal(row):
@@ -251,14 +270,20 @@ def admit_source(path,*,original_key,verified_original_sha256,
            "remote_writes":0,
            "status":"WF_DOCUMENT_ADMITTED_LEARN_ENGINE_PENDING",
         }
+        reasons=[]
+        if scan["boundary_rule_disagreements"]>0:
+            reasons.append("WF_CHAPTER_BOUNDARY_PARSERS_DISAGREE")
         if guard["provisional_legacy_decoding"]:
-            manifest["training_gate"]="PROVISIONAL_ENCODING_REQUIRES_VERIFICATION"
-        elif scan["prelude_requires_review"]:
-            manifest["training_gate"]="PRELUDE_BOUNDARY_REQUIRES_REVIEW"
-        elif scan["chapters_with_unverified_numerals"]>0:
-            manifest["training_gate"]="PRINTED_CHAPTER_NUMERALS_NEED_WF_REVIEW"
-        else:
-            manifest["training_gate"]="WAITING_FOR_WF_MODEL_AND_IMMUTABLE_LEARN_JOURNAL"
+            reasons.append("PROVISIONAL_ENCODING_REQUIRES_VERIFICATION")
+        if scan["prelude_requires_review"]:
+            reasons.append("PRELUDE_BOUNDARY_REQUIRES_REVIEW")
+        if scan["chapters_with_unverified_numerals"]>0:
+            reasons.append("PRINTED_CHAPTER_NUMERALS_NEED_WF_REVIEW")
+        reasons.append("WAITING_FOR_WF_MODEL_AND_IMMUTABLE_LEARN_JOURNAL")
+        manifest["training_gate_reasons"]=reasons
+        manifest["training_gate"]=reasons[0]
+        if len(reasons)>1:
+            manifest["status"]="WF_DOCUMENT_ADMISSION_REVIEW_REQUIRED"
         return manifest
     except SourceEncodingError as e:
         raise WFLearnAdmissionError(str(e)) from None
