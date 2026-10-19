@@ -211,7 +211,7 @@ class WFLearnJournal:
                 raw=response.read(MAX_EVENT_BYTES+1)
                 require(len(raw)<=MAX_EVENT_BYTES,
                         "WF_LEARN_HTTP_RESPONSE_EXCEEDED")
-                return raw,dict(response.headers.items())
+                return raw,{str(k).lower():v for k,v in response.headers.items()}
         except HTTPError as err:
             code={
               400:"WF_LEARN_REMOTE_SCHEMA_REJECTED",
@@ -268,7 +268,7 @@ class WFLearnJournal:
         raw,headers=self._http("GET",key)
         h=hexdigest(raw)
         require((expect_sha is None or h==expect_sha) and
-                headers.get("X-WF-Learn-SHA256")==h,
+                headers.get("x-wf-learn-sha256")==h,
                 "WF_LEARN_R2_EVENT_SHA_FAILED")
         try:out=json.loads(raw)
         except (ValueError,UnicodeError):
