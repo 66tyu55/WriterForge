@@ -935,3 +935,5 @@
 - 新脚本`wf_railway_v74_deepseek_probe.py`只有Railway已配置`DEEPSEEK_API_KEY`时才向官方DeepSeek发一条合成JSON最小请求（单次120输出tokens），不带任何原文；缺失时按`WF_V74_WAITING_FOR_DEEPSEEK_API_KEY`安全不联网。探针成功只证明模型能用，仍不代表WF已自主分类/学完一章。最后将Railway服务启动改`python -u wf_railway_v74_safe_idle.py`，防止后台自动付费与源文件曝光；若无环境密钥则用户完成设置后需另运行探针。
 
 **下次第一关**：核对Railway `DEEPSEEK_API_KEY`变量名存在（不要取值），再单次真实合成API健康探针；只有用户认可这一外部模型可接收私有章节片段、WF的不可变R2 LEARN账本和V73章节冲突都解决后才能真正WF自己进入第一章PASS A。不让GPT代写读者反应、考官替其选书或自动推进文学状态。
+
+**V74最终安全状态**：Railway部署 `e467dff7-4383-4f9a-b050-8ec89fc33272` SUCCESS，已固定启动 `python -u wf_railway_v74_safe_idle.py`，日志 `WF_V74_SAFE_IDLE_DEEPSEEK_FLASH_SELECTED`；确定WF新LEARN选择 `deepseek-flash`、旧Discovery未选、`DEEPSEEK_API_KEY`仍缺、DeepSeek模型真实请求0、原著读取0、R2写0、没有自动训练。下次用户仅需在Railway原服务设置自己申请的 `DEEPSEEK_API_KEY`（禁止贴聊天），助手再启动 `wf_railway_v74_deepseek_probe.py` 用合成JSON验证一次真正API；独立WF R2学习日志未部署前PASS A/B继续锁定。
