@@ -18,6 +18,11 @@ from writerforge.r2_learn_journal import (
     event_doc,path_for,validation,
 )
 
+from writerforge.wf_sequential_learning_trial import (
+    WFSequentialLearningTrial,WFSequentialLearnError,
+)
+from writerforge.deepseek_flash_model import DeepSeekFlashModel,FlashBudget
+
 READER="synthetic-private-source-reader-token-0123456"
 WRITER="synthetic-dedicated-learn-writer-token-abcdef"
 INDEX_WRITER="synthetic-existing-index-writer-token-abcdef"
@@ -262,6 +267,94 @@ class ImmutableLearnJournalTests(unittest.TestCase):
         self.remote.data[key]+=b" "
         with self.assertRaisesRegex(WFLearnJournalError,"SHA_FAILED"):
             self.journal.read(record,expect_sha=result["event_sha256"])
+
+    def test_wf_model_must_observe_pass_a_one_unit_at_a_time(self):
+        a=("雨后的小镇陷入寂静。远处传来脚步声，但屋内的人不知道是谁。"*2)
+        b=("外面的声音停下了，主角犹豫是否推开门。读者仍不知道门外是谁。"*2)
+        class FakeDeepSeekTransport:
+            def __init__(self):
+                self.inputs=[]
+            def __call__(self,request):
+                posted=json.loads(request.data)
+                user=posted["messages"][1]["content"]
+                self.inputs.append(user)
+                if len(self.inputs)<=2:
+                    result=make_reaction()
+                else:
+                    result={
+                       "mechanisms":[{
+                          "unit":1,
+                          "evidence_unit_sha256":hexdigest(a.encode("utf-8")),
+                          "mechanism":"先声后人是假说",
+                          "reader_effect":"增加未知感",
+                          "uncertainty":"合成片段不足以证明效果",
+                       }]
+                    }
+                return json.dumps({
+                    "choices":[{
+                       "finish_reason":"stop",
+                       "message":{"role":"assistant",
+                                  "content":json.dumps(result,ensure_ascii=False)},
+                    }],
+                    "usage":{"prompt_tokens":42,"completion_tokens":68}
+                },ensure_ascii=False).encode("utf-8")
+        fake=FakeDeepSeekTransport()
+        model=DeepSeekFlashModel(
+            api_key="synthetic-deepseek-secret-not-real",
+            budget=FlashBudget(max_calls=3,max_reserved_output_tokens=1800),
+            transport=fake)
+        wf=WFSequentialLearningTrial(
+            model=model,journal=self.journal,
+            original_key=ORIGINAL_KEY,
+            source_sha=SOURCE_HASH,
+            chapter=1,chapter_body_sha=CHAPTER_HASH)
+        with self.assertRaisesRegex(WFSequentialLearnError,
+                                     "PASS_A_NOT_SEALED"):
+            wf.analyse_after_lock()
+        self.assertEqual(len(fake.inputs),0)
+        first=wf.first_read((a,b),expected_unit_count=2)
+        self.assertEqual(first["status"],"WF_LEARN_PASS_A_R2_LOCKED")
+        self.assertEqual(first["first_read_events_written"],2)
+        self.assertEqual(len(fake.inputs),2)
+        self.assertIn(a,fake.inputs[0])
+        self.assertNotIn(b,fake.inputs[0])
+        self.assertIn(b,fake.inputs[1])
+        self.assertNotIn(a,fake.inputs[1])
+        self.assertEqual(len(self.remote.data),3) # A1,A2,seal
+        second=wf.analyse_after_lock()
+        self.assertEqual(second["status"],"WF_LEARN_PASS_B_HYPOTHESES_R2_STORED")
+        self.assertEqual(len(fake.inputs),3)
+        self.assertIn(a,fake.inputs[2])
+        self.assertIn(b,fake.inputs[2])
+        self.assertEqual(len(self.remote.data),4)
+        self.assertFalse(second["literary_skill_promotion_allowed"])
+        self.assertFalse(second["full_chapter_completed"])
+        self.assertEqual(model.budget.calls_reserved,3)
+
+    def test_first_read_bad_model_json_must_not_write_or_analyse(self):
+        fake_calls=[0]
+        def bad_transport(req):
+            fake_calls[0]+=1
+            return json.dumps({
+              "choices":[{
+                "finish_reason":"stop",
+                "message":{"content":'{"attention":5,"future_answers":"cheating"}'},
+              }]
+            }).encode()
+        model=DeepSeekFlashModel(
+            api_key="synthetic-deepseek-secret-not-real",
+            transport=bad_transport)
+        wf=WFSequentialLearningTrial(
+            model=model,journal=self.journal,
+            original_key=ORIGINAL_KEY,source_sha=SOURCE_HASH,
+            chapter=1,chapter_body_sha=CHAPTER_HASH)
+        first=("一个没有名字的人走在黑暗森林里，突然听见陌生的声音。"*2)
+        second=("另一个人在城门口等候，仍然不知道森林里发生了什么。"*2)
+        with self.assertRaisesRegex(WFSequentialLearnError,
+                                     "FIRST_REACTION_INVALID"):
+            wf.first_read((first,second),expected_unit_count=2)
+        self.assertEqual(len(self.remote.data),0)
+        self.assertEqual(fake_calls[0],1)
 
     def test_analysis_does_not_certify_mastery(self):
         _,_,sealed=self.finish()
