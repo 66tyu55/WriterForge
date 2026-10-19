@@ -37,7 +37,7 @@ ORIGINAL_SHA="0f00a16f6a0c121404a28257f3aa728468c9dae78d464ff1341746a45c41ddbd"
 ORIGINAL_BYTES=4009069
 OLD_BATCH_SHA="1d5c11eb1c98b067ef212877d349f849fde583b9568d4f90fbd84a33f0b7d079"
 OLD_JOURNAL_SHA="2dcaaa908ca2a5bb3175377cd146870e798d3cc9959631c9264ac9cb846d5eb8"
-CHAPTER6_EXPERIENCE_SHA="438102a7c54dee6291c5ee5fb01160f3d6ea65686b97267dd72b344a45a30c91"
+PRIOR_CHAPTER7_EXPERIENCE_SHA="438102a7c54dee6291c5ee5fb01160f3d6ea65686b97267dd72b344a45a30c91"
 CHAPTER_START=8
 CHAPTER_STOP=12
 NEW_BATCH_ID="WF-V81-150K-20261019-CH7-12"
@@ -98,12 +98,13 @@ def main():
             prior.get("batch_id")==NEW_BATCH_ID and
             prior.get("source_sha256")==ORIGINAL_SHA and
             prior.get("source_key_sha256")==SOURCE_KEY_SHA and
-            prior.get("journal_checkpoint_sha256")==OLD_JOURNAL_SHA and
-            prior.get("latest_experience_sha256")==CHAPTER6_EXPERIENCE_SHA and
+            prior.get("journal_checkpoint_sha256")==
+            "52ebdcaa9f6f224e2026d29cb70cd18649eebae6ce3385f0a2781cf02c2bf2bb" and
+            prior.get("latest_experience_sha256")==PRIOR_CHAPTER7_EXPERIENCE_SHA and
             prior.get("mastery_graduation_approved") is False
         ):
             raise ValueError("WF_V81_PREVIOUS_BATCH_SOURCE_OR_STATE_UNVERIFIED")
-        old_card=json.loads(journal._get_content(CHAPTER6_EXPERIENCE_SHA))
+        old_card=json.loads(journal._get_content(PRIOR_CHAPTER7_EXPERIENCE_SHA))
         if not (
             old_card.get("format")=="wf.learn.experience.v80" and
             old_card.get("chapter")==7 and
@@ -132,7 +133,7 @@ def main():
           "prior_completed_chapters":7,
           "previous_journal_events":len(journal.event_addresses),
           "previous_training_batch_sha256":OLD_BATCH_SHA,
-          "previous_experience_sha256":CHAPTER6_EXPERIENCE_SHA,
+          "previous_experience_sha256":PRIOR_CHAPTER7_EXPERIENCE_SHA,
           "previous_strategy_sha256":sha256(strategy.encode()).hexdigest(),
           "new_model_calls":0,
           "previous_model_calls_not_repeated":True,
@@ -206,7 +207,7 @@ def main():
                     journal=journal,model=model,
                     original_key=key,source_sha=ORIGINAL_SHA,
                     batch_id=NEW_BATCH_ID,progress=emit)
-                batch.previous_experience_sha=CHAPTER6_EXPERIENCE_SHA
+                batch.previous_experience_sha=PRIOR_CHAPTER7_EXPERIENCE_SHA
                 batch.earlier_strategy=strategy
                 batch.last_batch_pointer=OLD_BATCH_SHA  # Resume chapter7 committed batch chain
                 for offset,chap in enumerate(chapters[7:12]):
@@ -230,7 +231,7 @@ def main():
                   "first_new_chapter_uses_ch6_experience":
                      batch.finished_chapters[0][
                        "previous_experience_sha256_used_in_prompts"]==
-                           CHAPTER6_EXPERIENCE_SHA,
+                           PRIOR_CHAPTER7_EXPERIENCE_SHA,
                   "usage":model.public_usage_report(),
                   "cumulative_150k_training_budget":budget.public_receipt(),
                   "prior_billable_calls_carried_forward":22,
