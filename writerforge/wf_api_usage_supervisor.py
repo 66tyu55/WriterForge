@@ -43,7 +43,10 @@ class MeteredDeepSeekFlashModel(DeepSeekFlashModel):
     def ask_json(self,*,role,system,user,
                  max_tokens=DEFAULT_COMPLETION_TOKENS):
         # A call can happen only when the user's opt-in trial is running.
-        if len(self.usage_events)>=MAX_EVENTS_PER_RUN:
+        limit=(self.budget.max_calls
+               if self.budget.max_total_tokens==150000
+               else MAX_EVENTS_PER_RUN)
+        if len(self.usage_events)>=limit:
             raise WFApiUsageAuditError(
                 "WF_USAGE_PER_RUN_EVENT_LIMIT_EXCEEDED")
         stamp=datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -116,6 +119,9 @@ class MeteredDeepSeekFlashModel(DeepSeekFlashModel):
                 for x in records
                 if x["status"]!="JSON_CONTRACT_OK_NOT_LITERARY_CERTIFIED"),
             "usage_needs_dashboard_reconciliation":True,
+            "batch_total_token_cap":self.budget.max_total_tokens,
+            "conservatively_committed_tokens":self.budget.conservative_tokens_committed,
+            "budget_remaining_estimate":(self.budget.max_total_tokens-self.budget.conservative_tokens_committed if self.budget.max_total_tokens is not None else None),
             "r2_learning_evidence_not_implied_by_usage":True,
             "events":records,
         }
