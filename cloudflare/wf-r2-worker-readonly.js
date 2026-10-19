@@ -5,7 +5,10 @@
  *
  * V69 adds strictly scoped read-only private-reading list and ranged content.
  * V72 adds content-addressed, separately authenticated index-only writes.
- * V75 proposes standalone immutable WF LEARN PASS-A/PASS-B journals.
+ * V75 adds immutable WF LEARN PASS-A/PASS-B journals.
+ * V77 uses existing index writer secret for both whitelisted index and LEARN
+ * namespaces to avoid requiring an additional user-managed credential.
+ * This reduces writer-role separation while never granting novel source writes.
  * Existing /r2/object, /health,
  * /r2/status and /r2/inventory responses stay compatible with V66.
  */
@@ -622,24 +625,22 @@ export default {
       if (url.pathname === "/r2/learn/writer-ready") {
         if (request.method !== "GET")
           return fail(405,"WF_LEARN_READY_METHOD_DENIED");
-        if (!env.WF_LEARN_UPLOAD_TOKEN ||
-            env.WF_LEARN_UPLOAD_TOKEN === env.WF_API_TOKEN ||
-            env.WF_LEARN_UPLOAD_TOKEN === env.WF_INDEX_UPLOAD_TOKEN) {
-          return fail(503,"WF_LEARN_WRITER_SECRET_REQUIRED");
+        if (!env.WF_INDEX_UPLOAD_TOKEN ||
+            env.WF_INDEX_UPLOAD_TOKEN === env.WF_API_TOKEN) {
+          return fail(503,"WF_SHARED_WRITER_SECRET_REQUIRED");
         }
-        if (!(await authorized(request,env.WF_LEARN_UPLOAD_TOKEN))) {
+        if (!(await authorized(request,env.WF_INDEX_UPLOAD_TOKEN))) {
           return fail(401,"WF_LEARN_WRITER_UNAUTHORIZED");
         }
         return json({ok:true,writer_ready:true,immutable_events:true,
           source_writes_allowed:false,requires_first_read_seal:true});
       }
       if (url.pathname === "/r2/learn/event" && request.method === "PUT") {
-        if (!env.WF_LEARN_UPLOAD_TOKEN ||
-            env.WF_LEARN_UPLOAD_TOKEN === env.WF_API_TOKEN ||
-            env.WF_LEARN_UPLOAD_TOKEN === env.WF_INDEX_UPLOAD_TOKEN) {
+        if (!env.WF_INDEX_UPLOAD_TOKEN ||
+            env.WF_INDEX_UPLOAD_TOKEN === env.WF_API_TOKEN) {
           return fail(503,"WF_LEARN_WRITER_SECRET_REQUIRED");
         }
-        if (!(await authorized(request,env.WF_LEARN_UPLOAD_TOKEN))) {
+        if (!(await authorized(request,env.WF_INDEX_UPLOAD_TOKEN))) {
           return fail(401,"WF_LEARN_WRITER_UNAUTHORIZED");
         }
         return await learnWrite(request,env,url);
