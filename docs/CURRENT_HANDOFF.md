@@ -1004,3 +1004,15 @@
 - 全套本地同接口合成测试+安全AST：首次因无BOM UTF8不能以`utf8-sig`字节往返的测试误断出现1失败保留，修正后127/127→132/132→最后Railway`e72d6fac-35db-4788-a919-58b90ccb279f` **136/136通过**，模型0/真实R2请求0（模拟）；以上真来源试验单独日志另验。
 
 **下一门槛只要一次Cloudflare Worker部署，不要新增或重新设置任何密钥**：把本分支`cloudflare/wf-r2-worker-readonly.js`完整源码更新到原有`wf-r2-api`（保留`WF_R2`binding及2个原Cloudflare Secret），用户点Deploy。然后由助手再跑原`wf_railway_v77_shared_writer_probe.py`，确认200与Reader401后才能启动真实B01。当前助手只有GitHub/Railway连接，没有Cloudflare管理员写接口，不能冒称GitHub代码更新已导致Worker线上更新。不触发GitHub Actions，不让ChatGPT读取小说正文。旧V49`THIRD_STRIKE_FAILED`和第二学习窗口`LOCKED`保持。
+
+
+## 67. 【2026-10-19 V79】用户催促真训练：已实付费执行仙侠原著前三段PASS A/B，R2真实暂存+独立新进程恢复成功
+
+**最新用户要求**：「服了--快点让WF训练啊」。**不要再要求用户新增第四个密钥或反复部署Cloudflare**。本窗口在原本Cloudflare V77 `learn/v1`仍对旧Writer返回401的情况下，充分利用已有V72已上线的内容寻址、仅可写`indexes/v1/chunks/{sha}.bin`的R2旧索引小块接口，将一批**独立标明“实验性LEARN”**的短JSON作为不可变CAS内容块保存。因仍在SQL索引blob池，**不是原生LEARN命名空间部署成功**，不能伪称服务端已经有LEARN事件序列鉴权/正式全书学习系统。该应急存储在`writerforge/v1/indexes/v1/chunks/`，不发新的索引manifest，不改已有SQL catalog/R2小说原文，恢复需要记录最终checkpoint SHA。详细运行证据、所有事件SHA及隐私边界见 [V79首轮真实训练与独立冷恢复](V79_REAL_DEEPSEEK_B01_PROVISIONAL_R2_CAS_20261019.md)。
+
+- 新分支`v79-real-b01-provisional-r2-cas`，原V78冻结来源不变：原B00候选来源摘要`c35fa66232f2851f17767615f3447ff4822587a52f3106e189eb5d61cf3262e4`、匿名源Key SHA`370400053cded15ca89e3232e7be84b28aa20ca70542150138bef6201dc7cb22`、文件整SHA`0f00a16f6a0c121404a28257f3aa728468c9dae78d464ff1341746a45c41ddbd`、仙侠原文大小4009069字节，gb18030/gbk全文件严格可逆。首章6022字符/15个WF自切连续单元，真实验只读前3单元（434/428/434字符），逐片段原文SHA严格核对，绝不事先泄露后12单位内容。
+- **真实 DeepSeek + R2 CAS 训练已成功**：Railway部署`5022a7ef-dd5e-41c4-bf1b-c9631e5d1d48`，`WF_V79_B01_REAL_DEEPSEEK_AND_R2_CAS_COMPLETED`及`WF_V79_REAL_B01_EXIT=0`。1次索引Writer SHA故意错误422零写鉴权门通过后，WF真的向官方`deepseek-flash`顺序发送3段真实原文，3次模型首读返回JSON、每段读后反应直接作为独立不可变R2 SHA内容块签收并立刻只读校验，再发布首读seal，seal成功才发**第4次**官方DeepSeek文学机制分析，结果也是SHA锁定的R2 CAS事件。共4次真实收费API，真正reported输入`2526` + 输出`731` = **3257 tokens**，无重试，无超时。费用人民币未知需要与DeepSeek同时间窗口账单核对。**不是合成JSON连通探针**，用户真实小说仅在自有R2/WF Railway/用户授权第三方DeepSeek间传输，未通过GPT/GitHub。
+- 共有**5个R2 LEARN事件**（首读3、seal1、文学分析1）以及各事件后更新的5个SHA恢复checkpoints；各事件及元数据不存小说原始文字。最终不可变恢复指针**`b7ace511e422c8973a35c0cc4d75229d0c11c7ddcefe4db97eda6b6098bc1210`**。全部5个event SHA详见V79报告，不需要向模型二次付费重做。
+- **独立考官已经真实验证**：另一个全新Railway部署`6fbb6ffc-362f-4939-b778-2a539ab257d5`，Python启动即从环境移除DeepSeek及R2 Writer密钥，加载上述checkpoint，用原Reader读回R2的5个CAS事件和同一本原始小说SHA，独立计算头3来源单元哈希，对照首读顺序、seal、分析引用，状态`WF_V79_R2_CAS_PASS_A_B_FRESH_PROCESS_VERIFIED`、`WF_V79_COLD_CAS_EXAM_EXIT=0`，模型0/R2写0，是真正跨进程证据，而不是训练进程自报。**监督只确认来源/程序顺序/记录保存，不证明模型分析质量正确、未来提示词全文未泄漏、学完完整章节或人类读者情感真实**，旧V49失败与学习窗口LOCK不变。
+- V79新`writerforge/v79_provisional_r2_cas_journal.py`兼容WF的PASS A/B接口，严格SHA写入/回读、每次事件签checkpoint以及只读按hash恢复；`wf_railway_v79_real_b01.py`真实付费一批一书三单位；`wf_railway_v79_cas_cold_exam.py`另进程真考官；`wf_railway_v79_safe_idle.py`安全待命。新旧全部**140/140合成测试通过**（Railway`f9d88ae3-16a8-41ee-afec-bc797a1b9b03`，测试无付费/R2真实访问）；V79真正成果只来自上面两次真实Railway部署。
+- 本轮已经**完成了真正的WF模型阅读行为及R2实验经验落盘**，但按预注册纪律**完整学完文学章节数仍0**：只读了15个单位中的3个；模型生成的阅读反应与分析不能当作可信文学能力晋级。下一阶段应在有实际新预算与按章索引前把本次记录的SHA锁定，然后由WF自行读同一章后12单位、进行按章完整复盘及独立转移小测；不能重新点名更易书、重跑已付费3单元或拿单次B01当毕业。Native LEARN Worker的新部署可后续再迁移元数据/指针，不需要再重新上传小说或配置密钥。**不要再要求第四个Key。**
