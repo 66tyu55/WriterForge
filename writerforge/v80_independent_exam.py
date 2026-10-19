@@ -25,7 +25,8 @@ def need(ok,code):
 
 
 def audit_extended_batch(reader,*,source_path,original_key,
-                         source_sha256,chapters,last_batch_sha):
+                         source_sha256,chapters,last_batch_sha,
+                         source_encoding="gb18030"):
     need(reader.read_only is True and reader.writer is None,
          "WF_V80_EXAM_READER_NOT_READ_ONLY")
     snapshots=[]
@@ -61,7 +62,7 @@ def audit_extended_batch(reader,*,source_path,original_key,
          "WF_V80_EXAM_TOKEN_CAP_EXCEEDED")
     summaries=[]
     earlier_exp=None
-    with open(source_path,"r",encoding="gb18030",errors="strict",
+    with open(source_path,"r",encoding=source_encoding,errors="strict",
               newline=None) as stream:
         for source_ch,node in zip(chapters,snapshots):
             r=node["chapter_receipt"]
