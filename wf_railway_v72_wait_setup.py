@@ -6,12 +6,12 @@ root=Path(__file__).resolve().parent
 script_ready=(root/"writerforge"/"r2_index_vault.py").is_file()
 ready=bool(os.getenv("WF_INDEX_UPLOAD_TOKEN")) and bool(os.getenv("WF_API_TOKEN"))
 print(json.dumps({
-  "status":"WF_V72_AWAITING_OWNER_R2_INDEX_WRITER_SETUP",
+  "status":"WF_V72_SAFE_IDLE_NO_AUTOMATIC_R2_ACTIONS",
   "r2_index_client_file_present":script_ready,
   "read_token_name_configured":bool(os.getenv("WF_API_TOKEN")),
   "separate_writer_token_name_configured":bool(os.getenv("WF_INDEX_UPLOAD_TOKEN")),
-  "cloudflare_worker_routes_verified_live":False,
-  "index_written_to_real_r2":False,
+  "live_worker_routes_checked_in_this_idle_run":False,
+  "index_write_attempted_in_this_idle_run":False,
   "network_attempted":False,
   "originals_downloaded":0,
   "cloudflare_mutations":0,
