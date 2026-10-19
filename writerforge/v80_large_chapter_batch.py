@@ -248,13 +248,54 @@ class WFLargeChapterBatch:
                 "与不确定性分析：\n"+source),
             max_tokens=3500,
         )
-        need(isinstance(res,dict) and
-             set(res)=={"mechanisms"} and
-             isinstance(res["mechanisms"],list) and
-             1<=len(res["mechanisms"])<=6,
+        # A valid DeepSeek JSON response may contain an extra summary field
+        # or use a benign list wrapper. Preserve what the model *actually*
+        # chose; do not fabricate evidence or classify the author's text.
+        def extract_mechanisms(data):
+            if not isinstance(data,dict):
+                return None
+            for key in ("mechanisms","techniques","observations","analysis"):
+                value=data.get(key)
+                if isinstance(value,list) and 1<=len(value)<=6:
+                    return value
+                if isinstance(value,dict):
+                    nested=value.get("mechanisms")
+                    if isinstance(nested,list) and 1<=len(nested)<=6:
+                        return nested
+            return None
+        proposed=extract_mechanisms(res)
+        if proposed is None:
+            # This is ONE explicitly metered output-format correction of an
+            # already-received, valid DeepSeek JSON response. NOT a retry of
+            # a potentially billed network failure, and no future original
+            # source material is supplied for this formatting-only step.
+            self.emit("WF_V80_MODEL_ANALYSIS_FORMAT_REVIEW",
+                      chapter=chapter_no,
+                      response_json_keys=sorted(res)[:12]
+                          if isinstance(res,dict) else [],
+                      response_keys_are_not_literary_answers=True)
+            fix=self.model.ask_json(
+                role="craft_analysis",
+                system=(
+                    "你是WF的文学分析JSON整理技能。"
+                    "上一个模型答复具有有效JSON但格式不符合分析档案。"
+                    '请仅将已有分析整理成{"mechanisms":[{"unit":1,'
+                    '"mechanism":"...", "reader_effect":"...", '
+                    '"uncertainty":"..."}]}，最多6项，每字段不超过160字。'
+                    "不要新增未经阅读的事实，不要自行发明出处。"
+                    "原文单位编号只允许来自已确认的章节。"
+                ),
+                user=(
+                    "这是刚才WF自己生成的不合格结构化分析，"
+                    "请保留不确定性并整理，不添加小说原句：\n"+
+                    json.dumps(res,ensure_ascii=False)[:18000]),
+                max_tokens=1600,
+            )
+            proposed=extract_mechanisms(fix)
+        need(proposed is not None,
              "WF_V80_ANALYSIS_RESPONSE_NOT_BOUNDED")
         mechanisms=[]
-        for row in res["mechanisms"]:
+        for row in proposed:
             need(isinstance(row,dict) and
                  set(row) in (
                     {"unit","mechanism","reader_effect","uncertainty"},
