@@ -431,6 +431,12 @@ class AutonomousWriting:
                             turn_outline.encode("utf8")).hexdigest())
                     turn_evidence["model_prompt_sha256s"]=prompt_shas
                     turn_evidence["source_free_unverified_scene_states"]=True
+                    # The envelope hash must include ALL receipt metadata.
+                    # Never add fields after calculating its identity.
+                    turn_evidence["manifest_sha256"]=sha256(
+                        causal_canonical({k:v for k,v in
+                            turn_evidence.items() if k!="manifest_sha256"})
+                    ).hexdigest()
                 except V96CausalDraftError as error:
                     # Keep the red record, not the private failed novel.
                     # No partial draft becomes accepted or FactJournal KNOWN.
@@ -503,12 +509,16 @@ class AutonomousWriting:
             "source_snapshot_id":self.assist.rt.pinned_snapshot_id,
             "chapter_count":len(chapters),"chapters":chapters,
             "model_used":self.assist.model,
-            "draft_mode":draft_mode,
-            "segmented_model_turns":issued_turns,
-            "canonical_fact_writes":0,
             "literary_quality_verified":False,
             "all_generated_prose_requires_author_review":True,
         }
+        if draft_mode!="single":
+            receipt.update({
+                "draft_mode":draft_mode,
+                "segmented_model_turns":issued_turns,
+                "canonical_fact_writes":0,
+                "candidate_event_logic_independently_verified":False,
+            })
         (job/"job_manifest.json").write_text(
             json.dumps(receipt,ensure_ascii=False,indent=2),encoding="utf-8",
         )
