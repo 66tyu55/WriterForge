@@ -22,7 +22,7 @@ for key in ("DEEPSEEK_API_KEY","WF_INDEX_UPLOAD_TOKEN",
             "WF_LEARN_UPLOAD_TOKEN","DISCOVERY_API_KEY"):
     os.environ.pop(key,None)
 ENDPOINT="https://wf-r2-api.3227482831.workers.dev"
-PINNED_V93_MANIFEST_SHA="__PIN_AFTER_REAL_SYNTHETIC_UPLOAD__"
+PINNED_V93_MANIFEST_SHA="a42ada69d6d3b4d6ed90664f4b6c5607f5e0849ed1a4d178688b8d45f10b1d25"
 
 
 def emit(document):
