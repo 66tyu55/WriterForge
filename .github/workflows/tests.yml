@@ -2,7 +2,7 @@ name: WriterForge Tests
 
 on:
   push:
-    branches: [main, v15-lane-runtime]
+    branches: [main, v15-lane-runtime, v100-literary-blind-xianxia-precommit]
   pull_request:
 
 jobs:
