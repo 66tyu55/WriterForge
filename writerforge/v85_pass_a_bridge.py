@@ -113,6 +113,30 @@ class V85SealedLearningBridge:
         self._verified_receipt_sha256 = sha256(canonical(result)).hexdigest()
         return result
 
+    def require_same_session_receipt(self, receipt: dict):
+        """V86 may stage only a receipt emitted by this exact audited session.
+
+        A submitted hash without this session's verified PASS-A context is
+        not sufficient. No R2 writes or model requests occur.
+        """
+        self.runtime.require(Mode.LEARN)
+        need(self._verified_receipt_sha256 is not None and
+             isinstance(receipt,dict) and
+             hmac.compare_digest(
+                 sha256(canonical(receipt)).hexdigest(),
+                 self._verified_receipt_sha256),
+             "WF_V85_EVIDENCE_SESSION_NOT_VERIFIED")
+        audit=receipt.get("audit")
+        need(isinstance(audit,dict) and
+             is_sha(audit.get("receipt_sha256")) and
+             audit.get("eligible_to_direct_writing") is False and
+             audit.get("literary_semantics_independently_verified") is False,
+             "WF_V85_EVIDENCE_NOT_PROVISIONAL")
+        unsigned={k:v for k,v in audit.items() if k!="receipt_sha256"}
+        need(sha256(canonical(unsigned)).hexdigest()==audit["receipt_sha256"],
+             "WF_V85_EVIDENCE_RECEIPT_HASH_MISMATCH")
+        return audit["receipt_sha256"]
+
     def persist_sidecar(self, receipt: dict, *, explicitly_allow_write=False):
         """Optional future immutable R2 CAS metadata write, not default.
 
