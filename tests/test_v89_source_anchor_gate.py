@@ -103,7 +103,8 @@ class HostSourceV89Tests(unittest.TestCase):
             resolve_quote_only_answer(source,**self.opts())
 
     def test_rejects_duplicate_quote_across_units(self):
-        unit="少年在钟声结束后停止前进。那是众人没有料到的结果。"
+        unit=("少年在钟声结束后停止前进。那是众人没有料到的结果。"
+              "村里的另一位行人随后也确认这个消息尚未弄清楚。")
         words="钟声结束后停止前进"
         units=(unit,unit)
         q=question()
