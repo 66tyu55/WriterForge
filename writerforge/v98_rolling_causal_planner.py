@@ -49,8 +49,12 @@ def _bounded(value,minlen=1,maxlen=220):
 
 
 def _decode(raw):
-    require(type(raw) is str and
-            2<=len(raw.encode("utf8","strict"))<=MAX_ROLLING_JSON_BYTES,
+    require(type(raw) is str,"WF98_ROLLING_JSON_NOT_STRING")
+    try:
+        length=len(raw.encode("utf8","strict"))
+    except UnicodeError:
+        raise V98RollingPlanError("WF98_ROLLING_JSON_BAD_UNICODE") from None
+    require(2<=length<=MAX_ROLLING_JSON_BYTES,
             "WF98_ROLLING_RESPONSE_SIZE")
     try:
         def unique(kv):
