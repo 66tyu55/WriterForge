@@ -139,7 +139,7 @@ def _verify_synthetic_origin(writer_db,fact_db):
         revoke_count=db.execute(
             "SELECT COUNT(*) FROM experience_revocations").fetchone()[0]
         decisions=db.execute(
-            "SELECT decision_json FROM experience_decisions").fetchall()
+            "SELECT plan_json FROM experience_decisions").fetchall()
         require(works==[(FIXTURE_ID,FIXTURE_WORK_URI)] and
                 quotes==[(FIXTURE_QUOTE,)] and
                 candidate_count==1 and approval_count==1 and
