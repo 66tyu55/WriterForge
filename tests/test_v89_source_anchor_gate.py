@@ -111,7 +111,9 @@ class HostSourceV89Tests(unittest.TestCase):
         q["consequence"]={"unit":2,"quote":words}
         with self.assertRaisesRegex(WF89AnchorError,
                                     "QUOTE_NOT_GLOBALLY_UNIQUE"):
-            resolve_quote_only_answer(q,**self.opts(units=units))
+            args=self.opts(units=units)
+            args["pinned_visible_unit_sha256"]=[h(s) for s in units]
+            resolve_quote_only_answer(q,**args)
 
     def test_rejects_overlapping_quote_occurrences(self):
         # 8 identical chars within 9 chars contains TWO overlapping matches.
