@@ -114,6 +114,54 @@ class V85LiteraryEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(LiteraryEvidenceError,"FALSIFIER_UNBOUNDED"):
             self.audit([data])
 
+    def test_late_fact_cannot_backdate_frozen_knowledge(self):
+        self.db.append({
+            "event_id":"later-event","scene_id":"chapter03",
+            "actor_id":"hero","fact_id":"new_fact","tick":3,
+            "state":"KNOWN","role":"OBSERVE",
+            "evidence_sha256":h("later-source")})
+        self.db.append_temporal_claim({
+            "claim_id":"later-fact","scene_id":"chapter03",
+            "subject_scope":"ACTOR","subject_id":"hero",
+            "fact_id":"new_fact","story_from":3,"story_until":None,
+            "knowledge_state":"KNOWN","evidence_event_id":"later-event",
+            "supersedes_id":None})
+        candidate=claim()
+        candidate["fact_id"]="new_fact"
+        with self.assertRaisesRegex(LiteraryEvidenceError,"KNOWLEDGE_CONTRADICTS"):
+            self.audit([candidate])
+        candidate["claimed_knowledge_state"]="UNRECORDED"
+        result=self.audit([candidate])
+        self.assertEqual(result["claims"][0][
+            "actor_knowledge_state_as_of_snapshot"],"UNRECORDED")
+
+    def test_unrelated_story_cannot_inherit_same_actor_label(self):
+        self.db.register_scene(story_id="novelB",scene_id="other03",
+                               chapter_index=3)
+        self.db.bind_subject(scene_id="other03",scope="ACTOR",
+                             subject_id="hero",canonical_id="heroB")
+        other=LiteraryEvidenceGate(
+            self.db,story_id="novelB",scene_id="other03",
+            source_sha256=SOURCE,ledger_seq=self.db.ledger_head())
+        candidate=claim()
+        with self.assertRaisesRegex(LiteraryEvidenceError,"KNOWLEDGE_CONTRADICTS"):
+            other.audit([candidate],source_windows=WINDOWS,chapter=3,
+                chapter_body_sha256=BODY,first_read_seal_sha256=SEAL,
+                read_frontier=2)
+        with self.assertRaisesRegex(LiteraryEvidenceError,"OTHER_STORY"):
+            LiteraryEvidenceGate(
+                self.db,story_id="novelB",scene_id="chapter03",
+                source_sha256=SOURCE,ledger_seq=self.db.ledger_head())
+
+    def test_source_and_duplicate_claim_id_cannot_be_swapped(self):
+        candidate=claim()
+        candidate["source_sha256"]=h("different-book")
+        with self.assertRaisesRegex(LiteraryEvidenceError,"CROSS_SOURCE"):
+            self.audit([candidate])
+        with self.assertRaisesRegex(LiteraryEvidenceError,"REPEATED"):
+            self.audit([claim(),claim()])
+        self.assertEqual(self.audit([])["result"],"ABSTAIN_NO_CLAIMS")
+
     def test_restart_preserves_bound_knowledge(self):
         self.db.close()
         self.db=FactJournal(self.path)
