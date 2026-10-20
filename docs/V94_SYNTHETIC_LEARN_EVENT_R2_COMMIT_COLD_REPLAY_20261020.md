@@ -51,3 +51,7 @@
 ## 6. 下一阶段正确方向
 
 V95只在取得可信生产事实录入源和独立审核权后，设计基于R2事件的**单一权威提交头/多写者安全控制/生产恢复入口**；绝不由临时Railway SQLite或未审的WF模型原话自发制造`KNOWN`。在此之前先评估V93/V94代码的真实生产隔离与索引权限，并持续做有界故障注入、旧版本回放与WRITE前恢复状态检查。若生产数据库不存在，应首先实现来源可信的**全新事实进入路径**，不是伪造过去15章学过的人物记忆。
+
+## 7. V94 最终真实运维回执
+
+V94事件写入、独立R2 Reader重放、GitHub文档冻结后，最后Railway部署 `60f2569a-52bc-4fde-b3f2-0acaf1e34611` 已 `SUCCESS`，实际启动命令 `python -u wf_railway_v82_safe_idle.py`，`restartPolicyType=NEVER`，当前部署源码commit `174a00545993390cbdd2ab22b8d4b91dcd097349`；容器日志 `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`、本次模型0/R2读取0/R2写入0、`automatic_paid_next_batch_enabled=false`。没有自动重复七事件写入，也没有启动第16章。后续仅文档更新不等于重新部署收费代码。
