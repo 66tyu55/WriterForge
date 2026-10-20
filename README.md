@@ -2,6 +2,8 @@
 
 > **Current canonical project handoff:** [docs/CURRENT_HANDOFF.md](docs/CURRENT_HANDOFF.md). Check R2-verified book hashes, actual learning stages and live run links before starting any new work. Never treat archived books as model training.
 
+> **P0 lifelong learning and memory integrity:** [ADR-001 · Long-term durability, migration and behavioral recovery](docs/ADR_001_WF_LIFELONG_MEMORY_DURABILITY_20261020.md). Saving short craft notes, a prompt cache or a valid SHA alone is **not** successful learning. New versions must preserve recoverable knowledge, negative evidence and actual decision behavior before any further large-scale training.
+
 WriterForge is a long-form fiction system built around strict LEARN / WRITE separation, Reader-First source learning, Canon/Character/Knowledge/Promise memory, lean Craft routing, Literary Taste, Story Sense and controlled Evolution.
 
 V16 continues the runtime optimization phase. It separates source-event urgency from capability execution lanes and adds root-level pending/suspended/pinged/warm/expired/entangled state.
