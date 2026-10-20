@@ -105,7 +105,7 @@ class V94EventTests(unittest.TestCase):
         self.assertEqual(outcome["before_revocation"],"SELECT")
         self.assertEqual(outcome["after_revocation"],"SKIP")
         self.assertEqual(outcome["original_character_state"],"KNOWN")
-        self.assertEqual(outcome["latest_character_state"],"DISPUTED")
+        self.assertEqual(outcome["latest_character_state"],"CONFLICT_UNRESOLVED")
         self.assertEqual(outcome["unknown_future_state"],"UNRECORDED")
         self.assertFalse(
             outcome["actual_production_graph_durable_write_stream_active"])
