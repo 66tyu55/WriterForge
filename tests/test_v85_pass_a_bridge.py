@@ -106,6 +106,31 @@ class BridgeTests(unittest.TestCase):
             self.bridge.audit_sealed_chapter(
                 ident=alternate,windows=WINDOWS,proposals=[])
 
+    def test_v80_real_executor_exposes_explicit_only_gate(self):
+        from writerforge.v80_large_chapter_batch import WFLargeChapterBatch
+        # Existing V80 constructor remains unchanged; bind the same sealed
+        # synthetic first-read R2 journal used by the normal tests.
+        batch=object.__new__(WFLargeChapterBatch)
+        batch.journal=self.journal
+        batch.key=KEY
+        batch.source_sha=SOURCE
+        class Chapter:
+            ordinal=3
+            body_sha256=CHAPTER
+        result=batch.audit_sealed_literary_claims(
+            chapter=Chapter(),windows=list(WINDOWS),
+            gate=self.gate,proposals=[])
+        self.assertTrue(result["original_pass_a_chain_verified"])
+        self.assertEqual(self.journal.writes,0)
+        self.assertFalse(result["writer_can_consume_this_as_verified_skill"])
+        class Pilot:
+            ordinal=1
+            body_sha256=CHAPTER
+        with self.assertRaisesRegex(ValueError,"MIXED_PILOT"):
+            batch.audit_sealed_literary_claims(
+                chapter=Pilot(),windows=list(WINDOWS),
+                gate=self.gate,proposals=[])
+
     def test_storage_requires_writer_and_prevents_tampered_receipt(self):
         result=self.bridge.audit_sealed_chapter(
             ident=self.ident,windows=WINDOWS,proposals=[])
