@@ -28,6 +28,8 @@ CONTRACTS=frozenset(("LEGACY_V88_OFFSETS","V89_QUOTE_ONLY"))
 ARMS=frozenset(("baseline","experience"))
 CATEGORIES=frozenset(("历史","科幻","仙侠"))
 MAX_PAGE=64
+MAX_RECEIPTS_PER_RUN=64
+MAX_TOTAL_RECEIPTS=50000
 
 
 class V89FailureJournalError(ValueError):
@@ -141,12 +143,19 @@ class V89FailureJournal:
             failure_code=code))
 
     def _insert(self,body):
-        # The only write is a fixed bounded source-free receipt under
-        # existing WriterForgeDB. Never touch the old R2/CAS event archive.
+        """Atomic existing-row replay or strictly bounded append-only insert.
+
+        BEGIN IMMEDIATE serializes both capacity checks and insertion across
+        SQLite writers. Once capacity is reached, stop for external archive
+        planning: never evict failed evidence silently or leak unbounded disk.
+        """
         h=digest(body)
         key=(body["run_id"],body["original_answer_sha256"])
         conn=self.db.conn
-        with conn:
+        require(not conn.in_transaction,
+                "WF89_FAILURE_NESTED_TRANSACTION_REFUSED")
+        try:
+            conn.execute("BEGIN IMMEDIATE")
             old=conn.execute(
                 "SELECT * FROM wf_anchor_failure_receipts "
                 "WHERE run_id=? AND original_answer_sha256=?",
@@ -155,9 +164,20 @@ class V89FailureJournal:
                 prior={k:old[k] for k in body}
                 require(prior==body and old["receipt_sha256"]==h,
                         "WF89_FAILURE_IMMUTABLE_REPLAY_MISMATCH")
+                conn.commit()
                 return {**body,"receipt_sha256":h,"replayed":True,
                         "source_prose_stored":False,
                         "authoritative_literary_review":False}
+            run_count=conn.execute(
+                "SELECT COUNT(*) FROM wf_anchor_failure_receipts "
+                "WHERE run_id=?",(body["run_id"],)).fetchone()[0]
+            global_count=conn.execute(
+                "SELECT COUNT(*) FROM wf_anchor_failure_receipts"
+            ).fetchone()[0]
+            require(run_count<MAX_RECEIPTS_PER_RUN,
+                    "WF89_FAILURE_PER_RUN_STORAGE_BUDGET_REACHED")
+            require(global_count<MAX_TOTAL_RECEIPTS,
+                    "WF89_FAILURE_GLOBAL_STORAGE_BUDGET_REACHED")
             try:
                 conn.execute(
                     "INSERT INTO wf_anchor_failure_receipts("
@@ -171,6 +191,11 @@ class V89FailureJournal:
             except sqlite3.IntegrityError as exc:
                 raise V89FailureJournalError(
                     "WF89_FAILURE_CONCURRENT_WRITE_CONFLICT") from exc
+            conn.commit()
+        except Exception:
+            if conn.in_transaction:
+                conn.rollback()
+            raise
         return {**body,"receipt_sha256":h,"replayed":False,
                 "source_prose_stored":False,
                 "authoritative_literary_review":False}
