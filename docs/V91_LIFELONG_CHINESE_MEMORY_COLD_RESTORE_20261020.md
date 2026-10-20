@@ -60,3 +60,9 @@
 `增量搬迁已有经验链（不训练） → 生产两DB完整版本化快照与R2私有冷恢复 → 撤销/失败/人物身份跨进程行为回放 → 旧新版本兼容与乱码故障注入 → 长时容量压测 → 真实新作品独立文学盲评`。
 
 **V91只是ADR-001长期记忆工程的第一个可复盘阶段，任何新增训练前必须先继续修复持久底层。**
+
+## 6. 最终安全待命与运维回执（实际执行）
+
+- 在两份新R2 CAS对象均完成独立冷读回后，Railway部署 `e7d73606-db11-4726-ab08-082b1a0d0679` 已 `SUCCESS`；实际容器日志 `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`。
+- 启动 `python -u wf_railway_v82_safe_idle.py`、`restartPolicyType=NEVER`，实际本次`model_calls_this_idle_run=0`、`r2_reads_this_idle_run=0`、`r2_writes_this_idle_run=0`、`automatic_paid_next_batch_enabled=false`，不自动重训任何章节。
+- 最新部署明确pin到V91源码commit `b36fd99f66e5caa78189833657ddb461c63f1680`；报告后续修改不要求或暗中触发再次付费部署。文学质量/技能晋级依然LOCKED。
