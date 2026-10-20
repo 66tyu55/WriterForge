@@ -1273,3 +1273,20 @@
 8. V49`THIRD_STRIKE_FAILED`、第二文学窗口`LOCKED`、V88四真实负例、V92全部15章CAS及V95线上CloudflareHEAD未部署404全保留。本轮完成后仍应从真实日志核对Railway退回 `wf_railway_v82_safe_idle.py`，而非仅凭`SUCCESS`宣称无续费调用。
 
 **长期核心：不以“保存了很多写作手法”“可以写长”“模型说逻辑正确”为终点，要以真实正文中的选择是否有因果、人物认知是否可信、写法是否自然、独立阅读是否更好为终点。**
+
+
+## 84. 【2026-10-20 V98】正文驱动的滚动因果写作真正接入：不再把V97静态事件表当成全部现实
+
+**完整实测与故障界限：[V98 正文驱动滚动情节内核和1,064项回归](V98_PROSE_DRIVEN_ROLLING_CAUSAL_WRITING_20261020.md)**。承接 [V97真实原创1500字A/B/C三臂](V97_REAL_LONGFORM_ABC_1500_CHINESE_20261020.md)；用户强调写作思考、写作手法与超千字逻辑正确性，继续高于追加R2/Skill/训练章数。
+
+1. **本轮实际代码**：GitHub隔离分支`v98-prose-driven-rolling-plot`新增`writerforge/v98_rolling_causal_planner.py`，并改现有`writerforge/writing_assist.py::AutonomousWriting.run`、`writerforge/studio_server.py`、`writerforge/ui/studio.html`：显式新增D=`rolling_causal`，**默认A single和原B split_only/C causal_guard不变**。D第一个事件按初始短计划自由写；以后每写完一个实际事件，先校验原V96真实原句effect及收据 SHA，再由模型**额外提出一个基于真实后果的新事件目标**，不再机械盲从整个原冻结章节事件提纲。每次仍生成真实正文并由原V96校验动作/后果/前景父引句。
+2. **进步边界严格区分**：宿主验证旧正文`prose_sha`、旧V96原始证据回执sha、已出现且唯一的后果原句、合法角色范围/事件ID/前驱关系；新规划可引用真正写出的障碍/付出代价，但没有明确成本文本就`UNRESOLVED_NOT_STATED`。这些只证实文本归属/下一幕有真实来源锚点，不证明人物真正理解、动机因果或阅读质量。所有结果`narrative_semantics_independently_verified=false`、`canonical_fact_writes=0`、`accepted=false`；新规划只写在现有本地候选目录，**不导入FactJournal、文学经验或R2**。
+3. **调用安全**：D每一个后续event多一次本地模型短重规划（上限650输出tokens/次），单任务最多14次额外调用，沿用V96总16事件、B/C/D最多2章、失败后0自动修补/0自动重试。**D请求次数大于C**，下一轮比较时必须设等预算对照，否则不能只因D写得不同就说算法增强。原A/B/C旧候选格式不被重写，UI作者显式opt-in D并看到额外成本提示。
+4. **真实失败保持红色**：首个V98专项 Railway `0b2aa294-b6a2-47b6-8683-1af85ecfd778` 13项12绿1错，原V96正确拒绝了新合成“安静场景”低于80字符的过短测试；**只扩写合成夹具、不改生产门槛**。第二轮 `2b3ffbb1-f520-4c66-91a3-47d4a9e592e8` **13/13专项通过**。随后为上一事件加入真实receipt/prose/effect的再次SHA一致性检查，添加tampering反例。
+5. **全仓真实回归**：Railway `4d57bf47-fe31-4d19-a39a-557c31bfdc2f` 1062项0失败0错误4跳过；增加`tests/test_v98_longform_rolling_stress.py`之后部署`9a7c5b2a-5443-4fa2-9805-72e61949246f` **1064项执行0失败0错误4跳过**，运行器`WF_V85_FULL_OFFLINE_REGRESSION_PASSED`（沿用旧命名但测试覆盖V98），模型0/R2读写0。合成链跨800/1600/3200/6400中文含标点字符，超过1000字符时伪造前因被拒，**不是模型真正写出文学6400字**。
+6. **既有真实V97付费数据不得重跑**：七次DeepSeek Flash已用，旧A1902、B1601、C1554中文字符原始R2不可变结果全部保留，总CAS `d304d2432e2c3290b6bbd8ccb6bc209e38b7e12bc0aabb968b489b31c22b02a1`。V98没有新增真实付费、没有人类独立评审；不准说AI超过1000字已证明不紊乱或D文学质量胜于C。
+7. **下一轮V99应做核心写作思考和真实质量测量**：选两个以上独立原创题（历史/仙侠），控制各组**实际字数接近**与模型版本/总API预算，A现有整章、B单纯分段、C锚点因果、D实际后果动态滚动；记录作者硬事实边界与人物知识、动机/阻力/代价/伏笔转移、因果硬伤首次出现字符位置以及盲评文学自然度。D增加调用，必须有成本控制对照；真正独立语义审核前不得自动晋级。如果同一缺陷连续两轮修复没有改善，按用户要求停下查外部GitHub/ACL及源码，不再无穷补丁。
+8. **硬性遗产不变**：V92完整前15章云端旧/新版经验CAS `bd905ae9e812fb5283f24ed7fec3bc35cf0febde7b6405476c455bba468f84db`、V49`THIRD_STRIKE_FAILED`、第二文学窗口`LOCKED`及V88机械0/4事实都保留。V95 Cloudflare条件HEAD线上未部署(404)，不可让未审候选升到真实人物`KNOWN`。V98只是本地WRITE未接受候选实验，不更改生产LEARN或云端事件权限。
+9. **最后运维需核实**：Railway从本次回归入口切回`python -u wf_railway_v82_safe_idle.py`、`restartPolicyType=NEVER`，必须看到实际`WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`及0模型/R2调用、自动付费false，才能在最终报告称安全结束，不能预填。
+
+**最高检验目标不变**：WF能解释并体现在正文里「人物现在想做什么、为什么能知道什么、遇见什么阻力、真正作出什么决定、后果怎样迫使下一幕发生」，而不是只会输出更长且自我称赞的文字。
