@@ -653,6 +653,30 @@ CREATE TABLE IF NOT EXISTS experience_legacy_refs (
 CREATE INDEX IF NOT EXISTS idx_experience_postwrite_case
 ON experience_postwrites(project_id,experience_id);
 
+-- V89: machine evidence failures only. This is NOT a literary verdict
+-- and is NOT a second source/character graph. No source excerpts or prose.
+-- One immutable receipt per run/answer; safe across process restarts.
+CREATE TABLE IF NOT EXISTS wf_anchor_failure_receipts (
+    run_id TEXT NOT NULL,
+    original_answer_sha256 TEXT NOT NULL,
+    source_sha256 TEXT NOT NULL,
+    genre_hint TEXT NOT NULL,
+    arm TEXT NOT NULL,
+    failure_contract TEXT NOT NULL,
+    failure_code TEXT NOT NULL,
+    receipt_sha256 TEXT NOT NULL,
+    PRIMARY KEY(run_id,original_answer_sha256)
+);
+CREATE INDEX IF NOT EXISTS idx_wf_anchor_failure_run
+    ON wf_anchor_failure_receipts(run_id,genre_hint,arm);
+CREATE TRIGGER IF NOT EXISTS wf_anchor_failure_no_update
+BEFORE UPDATE ON wf_anchor_failure_receipts
+BEGIN SELECT RAISE(ABORT,'WF89_APPEND_ONLY_FAILURE_IMMUTABLE'); END;
+CREATE TRIGGER IF NOT EXISTS wf_anchor_failure_no_delete
+BEFORE DELETE ON wf_anchor_failure_receipts
+BEGIN SELECT RAISE(ABORT,'WF89_APPEND_ONLY_FAILURE_IMMUTABLE'); END;
+
+
 -- V86 opt-in evidence links + signed review results in EXISTING WF SQLite.
 -- No novel source, model answers, review commentary or plaintext excerpts.
 -- Reviews are append-only; no REPLACE/DELETE writer API is exposed.
