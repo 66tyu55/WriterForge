@@ -107,7 +107,7 @@ class BridgeTests(unittest.TestCase):
                 ident=alternate,windows=WINDOWS,proposals=[])
 
     def test_v80_real_executor_exposes_explicit_only_gate(self):
-        from writerforge.v80_large_chapter_batch import WFLargeChapterBatch
+        from writerforge.v80_large_chapter_batch import WFLargeChapterBatch, WFLargeStudyError
         # Existing V80 constructor remains unchanged; bind the same sealed
         # synthetic first-read R2 journal used by the normal tests.
         batch=object.__new__(WFLargeChapterBatch)
@@ -126,7 +126,7 @@ class BridgeTests(unittest.TestCase):
         class Pilot:
             ordinal=1
             body_sha256=CHAPTER
-        with self.assertRaisesRegex(ValueError,"MIXED_PILOT"):
+        with self.assertRaisesRegex(WFLargeStudyError,"MIXED_PILOT"):
             batch.audit_sealed_literary_claims(
                 chapter=Pilot(),windows=list(WINDOWS),
                 gate=self.gate,proposals=[])
