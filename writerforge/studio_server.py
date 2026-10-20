@@ -180,8 +180,8 @@ class StudioService:
     def start_auto(self,outline:str,chapters:list[str], *,
                    draft_mode:str="single") -> dict:
         # Validate BEFORE queueing. Default single keeps existing browser
-        # behavior; experimental B/C require an EXPLICIT author selection.
-        if draft_mode not in ("single","split_only","causal_guard"):
+        # behavior; experimental B/C/D require an EXPLICIT author selection.
+        if draft_mode not in ("single","split_only","causal_guard","rolling_causal"):
             raise StudioError("WF96_UNKNOWN_EXPERIMENTAL_DRAFT_MODE")
         if draft_mode!="single" and (
             not isinstance(chapters,list) or len(chapters)>2):
