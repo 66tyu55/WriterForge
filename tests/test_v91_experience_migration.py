@@ -92,9 +92,6 @@ class V91MigrationTests(unittest.TestCase):
         with self.assertRaisesRegex(V91ExperienceMigrationError,
                                     "GARBLED_OR_TRUNCATED"):
             migrate_v80_experience(legacy_raw=raw,legacy_cas_sha256=h)
-        bad=canonical(sample_old()).replace(
-            "独立", "断裂".encode("utf8").decode("utf8"))
-        self.assertTrue(bad)
 
     def test_unknown_schema_and_version_never_guessed(self):
         raw,h=self.legacy()
