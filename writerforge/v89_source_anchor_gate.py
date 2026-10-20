@@ -54,11 +54,21 @@ def _find_quote(anchor, visible_units):
             "\x00" not in quote and
             not any(ord(c)<32 for c in quote),
             "WF89_QUOTE_LENGTH_OR_CONTROL_INVALID")
-    counts=[source.count(quote) for source in visible_units]
-    require(sum(counts)>0,"WF89_QUOTE_NOT_IN_VISIBLE_SOURCE")
-    require(counts[unit-1]>0,"WF89_QUOTE_IN_WRONG_UNIT")
-    require(sum(counts)==1,"WF89_QUOTE_NOT_GLOBALLY_UNIQUE")
-    start=visible_units[unit-1].find(quote)
+    # str.count() skips overlapping matches (e.g. 8 repeated characters
+    # inside 9). Check each unit with find(start+1) so even overlapping
+    # evidence duplicates are refused rather than assigned arbitrarily.
+    locations=[]
+    for source in visible_units:
+        first=source.find(quote)
+        second=source.find(quote,first+1) if first>=0 else -1
+        locations.append((first,second))
+    require(any(first>=0 for first,_ in locations),
+            "WF89_QUOTE_NOT_IN_VISIBLE_SOURCE")
+    require(locations[unit-1][0]>=0,"WF89_QUOTE_IN_WRONG_UNIT")
+    require(sum(int(first>=0)+int(second>=0)
+                for first,second in locations)==1,
+            "WF89_QUOTE_NOT_GLOBALLY_UNIQUE")
+    start=locations[unit-1][0]
     require(start>=0,"WF89_SOURCE_SEARCH_INCONSISTENT")
     return {"unit":unit,"start":start,"end":start+len(quote),
             "quote":quote}
