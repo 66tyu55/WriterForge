@@ -66,3 +66,5 @@ R2 Workers绑定的`R2PutOptions.onlyIf`支持服务端`If-Match`和`If-None-Mat
 - V95最终Railway Python服务的`wf_railway_v82_safe_idle.py`部署 `4a49aab3-28b6-4d1a-bf2f-5cb0289d43c8` 为 `SUCCESS`，**实际容器日志** `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`，本次模型0、R2读取0、R2写入0、自动付费续训false，`restartPolicyType=NEVER`。第1—15章原有真实CAS与V92–V94云端结果均未覆盖。
 
 **修正后的V95实证分层**：Python全仓1017项绿、Python专项24项绿、原生Bun Worker JS 4项绿；Cloudflare线上V95原子HEAD=未部署(404)、真实R2远端两writer=未验收、独立文学真实性=未验收。不得将“离线绿灯”提升为生产安全许可。
+
+**隔离测试资源清理已实证完成**：成功测试后已删除本轮临时 Railway Function `wf-v95-native-js-isolated-test`（服务ID `54f4db55-f543-4847-a5a2-8084aebb22f7`），未保留额外运行服务或Volume。最新Railway环境清单只剩原有 `wf-python-r2`、Volume数量0、Railway Bucket数量0。Native JS实际执行成功证据已写入本报告，GitHub中保留可复验的JS测试源与Worker源码。原主服务仍为安全idle，没有因隔离测试切换任何密钥或云端读写权限。
