@@ -383,7 +383,10 @@ def cold_restore_from_cas(reader,*,manifest_sha,restore_parent):
     (target/"CURRENT").write_bytes(canonical({
         "format":"writerforge.lifelong-memory.current-pointer.v91",
         "checkpoint_id":doc["checkpoint_id"],
-        "manifest_sha256":doc["v91_local_manifest_sha256"],
+        # V91 CURRENT points to the *inner* manifest receipt digest
+        # (digest of fields excluding receipt), not SHA of the entire
+        # serialized JSON file. Preserve both separately.
+        "manifest_sha256":doc["v91_local_manifest"]["manifest_sha256"],
     }))
     verification=verify_checkpoint(target)
     require(verification["checkpoint_id"]==doc["checkpoint_id"],
