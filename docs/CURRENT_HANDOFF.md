@@ -1307,3 +1307,5 @@
 7. 必须将Railway重新切为`python -u wf_railway_v82_safe_idle.py`，`restartPolicyType=NEVER`，**以实际最新容器日志证明**本次模型/R2读写0及自动续训关闭后才能称收尾。
 
 **长期目标仍是写得更有因果、更懂人物、更有艺术性，而不是只是多存了几本书。**
+
+**§85 最终运维已实证**：Railway部署 `3376a212-ef87-4339-a083-6631260c01d2` 为 `SUCCESS`，启动 `python -u wf_railway_v82_safe_idle.py`、`restartPolicyType=NEVER`、固定git commit `a8404905869dc1e1acc094adc0f0931f61823ede`（完整1072项合成回归通过的源码）。实际容器 `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`，本次模型调用0、R2读写0、自动收费下一批关闭。V99未部署真实文学自动评分器或新事实写入；后续独立盲评尚未完成。
