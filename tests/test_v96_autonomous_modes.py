@@ -11,6 +11,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 import json
+import time
 import unittest
 
 from test_v26_invisible_writer import PLAN,make_db
@@ -22,6 +23,7 @@ from writerforge.writing_assist import (
     AutonomousWriting,InvisibleWritingAssist,WritingExecutionError
 )
 from writerforge.v96_causal_turns import canonical,digest
+from writerforge.studio_server import StudioService,StudioError
 
 OUTLINE="少年要赶在涨水前送药入城，桥头守卫的行动却让他迟疑。陪同女子掌握一本旧账册，但其真正意图仍然未知。"
 GOALS=["本章：少年发现桥边异常并决定暂时避开渡河危险"]
@@ -188,6 +190,41 @@ class V96AutonomousWritingTests(unittest.TestCase):
         self.assertNotIn("segmented_model_turns",doc)
         self.assertEqual(Path(doc["chapters"][0]["candidate"]).read_text(
             "utf8"),legacy)
+
+    def test_local_studio_exposes_opt_in_mode_without_changing_default(self):
+        html=(Path(__file__).parents[1]/"writerforge"/"ui"/
+              "studio.html").read_text("utf8")
+        self.assertIn('id="draft-mode"',html)
+        self.assertIn('value="single"',html)
+        self.assertIn('value="causal_guard"',html)
+        self.assertIn("chapters,draft_mode",html)
+        local=StudioService(
+            db_path=self.dbpath,project="v96-test-project",
+            scene="studio-scene",goal="用行动呈现河道上的人物抉择",
+            model="synthetic-no-cost",
+            output_dir=self.root/"studio")
+        with self.assertRaisesRegex(StudioError,
+                                    "WF96_UNKNOWN_EXPERIMENTAL_DRAFT_MODE"):
+            local.start_auto(OUTLINE,GOALS,draft_mode="auto_publish_canon")
+        with self.assertRaisesRegex(StudioError,
+                                    "MAX_TWO_CHAPTERS"):
+            local.start_auto(OUTLINE,GOALS*3,draft_mode="causal_guard")
+        self.assertEqual(local.job()["status"],"idle")
+        dummy={"chapter_count":1,"chapters":[],
+               "all_generated_prose_requires_author_review":True}
+        with patch("writerforge.studio_server.AutonomousWriting.run",
+                   return_value=dummy) as model:
+            queued=local.start_auto(OUTLINE,GOALS,draft_mode="causal_guard")
+            for _ in range(60):
+                if local.job()["status"] in ("completed","failed"):
+                    break
+                time.sleep(0.01)
+            self.assertEqual(local.job()["status"],"completed")
+            self.assertEqual(queued["draft_mode"],"causal_guard")
+            self.assertTrue(queued["no_auto_accept"])
+            self.assertEqual(model.call_args.kwargs["draft_mode"],
+                             "causal_guard")
+            self.assertEqual(model.call_count,1)
 
     def test_invalid_frozen_outline_leaves_rejection_not_success_receipt(self):
         malformed='{"turns":[{"id":"t55"}]}'
