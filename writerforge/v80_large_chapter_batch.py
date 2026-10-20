@@ -137,6 +137,32 @@ class WFLargeChapterBatch:
         self.last_batch_pointer=None
         self.pilot_mixed=None
 
+    def audit_sealed_literary_claims(self, *, chapter, windows, gate, proposals):
+        """V85 opt-in post-seal link, never part of legacy V79-V82 training.
+
+        The model's old mechanism-unit ID alone is NOT an exact source span.
+        Call only with NEW structured hypotheses after PASS-A seal. Existing
+        history cannot be retrofitted with invented source anchors.
+        No new model calls or R2 writes are made by this audit method.
+        """
+        from .v85_literary_evidence_gate import LiteraryEvidenceGate
+        from .v85_pass_a_bridge import V85SealedLearningBridge
+        need(isinstance(gate,LiteraryEvidenceGate) and
+             gate.source_sha256==self.source_sha,
+             "WF_V85_BATCH_GATE_SOURCE_MISMATCH")
+        need(hasattr(chapter,"ordinal") and
+             type(chapter.ordinal) is int and chapter.ordinal>=2 and
+             hasattr(chapter,"body_sha256"),
+             "WF_V85_MIXED_PILOT_OR_CHAPTER_INVALID")
+        need(type(windows) in (list,tuple) and
+             all(isinstance(x,str) for x in windows),
+             "WF_V85_BATCH_PRIVATE_WINDOWS_INVALID")
+        ident=identity(source_key=self.key,source_sha=self.source_sha,
+                       chapter=chapter.ordinal,
+                       chapter_body_sha=chapter.body_sha256)
+        return V85SealedLearningBridge(self.journal,gate).audit_sealed_chapter(
+            ident=ident,windows=tuple(windows),proposals=proposals)
+
     def emit(self,stage,**data):
         if self.progress:
             self.progress({
