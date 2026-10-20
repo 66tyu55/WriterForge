@@ -92,6 +92,15 @@ class V86ControlledReviewLoop:
                   operation_code=operation_code,
                   source_semantics_verified=False,status="HYPOTHESIS_ONLY")
         if supersedes_experience_id is not None:
+            old_link=self._link(project_id,supersedes_experience_id)
+            # A previously refuted literary interpretation cannot regain
+            # authority merely by renaming its candidate or action. Require
+            # a genuinely NEW V85 sealed claim and audit receipt; even then
+            # it remains only an unreviewed hypothesis until separately
+            # signed again by the external reviewer.
+            need(old_link["audit_sha"]!=audit_sha and
+                 old_link["claim_id"]!=claim_id,
+                 "WF_V86_REVISION_REQUIRES_NEW_SEALED_CLAIM")
             prior,_=self.experience._lookup_candidate(
                 project_id,supersedes_experience_id)
             base.update(
