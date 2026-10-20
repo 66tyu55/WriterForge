@@ -318,6 +318,41 @@ class V86LiteraryLoopTests(unittest.TestCase):
             "SELECT COUNT(*) FROM experience_decisions "
             "WHERE attempt_id='must_not_persist'").fetchone()[0],0)
 
+    def test_restart_restores_signed_negative_before_next_write(self):
+        self.stage()
+        self.approve()
+        self.review()
+        self.review(verdict="NEGATIVE",reason="CONTRADICTED_BY_SOURCE",
+                    review_id="semantic02")
+        self.db.close()
+        self.db=WriterForgeDB(Path(self.temp.name)/"writer.sqlite3")
+        self.experience=ExperienceDecisionBridge(
+            self.db,self.rt,reviewer_key=APPROVAL_KEY,
+            literary_review_key=REVIEW_KEY)
+        self.loop=V86ControlledReviewLoop(self.experience,self.sealed)
+        self.write()
+        restored=self.choose("after_reboot")
+        self.assertEqual(restored["decisions"][0]["decision"],"SKIP")
+        self.assertEqual(restored["decisions"][0]["reason_code"],
+                         "INDEPENDENT_NEGATIVE_REVIEW")
+        self.assertEqual(restored["prompt_guidance"],"")
+
+    def test_evidence_link_tamper_blocks_experiment_before_decision(self):
+        self.stage()
+        self.approve()
+        self.review()
+        self.db.conn.execute(
+            "UPDATE experience_evidence_links SET audit_sha=? "
+            "WHERE experience_id='lesson01'",
+            (h("different-audit"),))
+        self.db.conn.commit()
+        self.write()
+        with self.assertRaisesRegex(V86ReviewError,"LINK_HASH"):
+            self.choose("tampered_link")
+        self.assertEqual(self.db.conn.execute(
+            "SELECT COUNT(*) FROM experience_decisions "
+            "WHERE attempt_id='tampered_link'").fetchone()[0],0)
+
     def test_v85_unknown_character_claim_never_staged(self):
         self.claim["fact_id"]="missing_fact"
         self.claim["claimed_knowledge_state"]="UNRECORDED"
