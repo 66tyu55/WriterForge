@@ -60,8 +60,12 @@ def digest(raw):
 
 
 def _strict_json(raw,max_size):
-    need(type(raw) is str and 2<=len(raw.encode("utf8","strict"))<=max_size,
-         "WF96_JSON_INPUT_BOUND")
+    need(type(raw) is str,"WF96_JSON_INPUT_NOT_STRING")
+    try:
+        raw_bytes=raw.encode("utf8","strict")
+    except UnicodeError:
+        raise V96CausalDraftError("WF96_JSON_BAD_UNICODE") from None
+    need(2<=len(raw_bytes)<=max_size,"WF96_JSON_INPUT_BOUND")
     try:
         def pairs(items):
             data={}
@@ -102,13 +106,13 @@ def parse_turn_outline(raw):
     for idx,beat in enumerate(obj["turns"],1):
         need(type(beat) is dict and set(beat)==BEAT_FIELDS and
              beat["id"]==f"t{idx:02d}" and
-             beat["kind"] in KINDS and
+             type(beat["kind"]) is str and beat["kind"] in KINDS and
              _text(beat["actor"],1,70) and
              _text(beat["goal"],8,220) and
              type(beat["craft_focus"]) is list and
              0<=len(beat["craft_focus"])<=2 and
-             len(set(beat["craft_focus"]))==len(beat["craft_focus"]) and
-             all(type(c) is str and c in CRAFT for c in beat["craft_focus"]),
+             all(type(c) is str and c in CRAFT for c in beat["craft_focus"]) and
+             len(set(beat["craft_focus"]))==len(beat["craft_focus"]),
              "WF96_TURN_PLAN_FIELDS_ID_OR_CRAFT_INVALID")
         parent=beat["causal_parent"]
         need(parent is None or (
