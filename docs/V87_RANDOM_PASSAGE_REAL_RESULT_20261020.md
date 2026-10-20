@@ -60,3 +60,10 @@ Railway真实只读部署：`6a21e71d-62b3-4236-8f37-2ac5d5380e94`，代码原�
 - **核验范围是资料SHA和来源连续性，不是文学理解测试**：`independent_literary_semantic_grader_executed=false`、文学质量优胜组与技能晋级未判定。
 
 至此可以把V87.1两个随机连续文本片段标成“`PRIVATE_R2_COLD_SOURCE_PROVENANCE_VERIFIED`”。不得把本状态表述成V87.0的完整章节验收通过，也不得当成有经验组文学水平高于基线的证明。之前V87.0全员拒绝红色报告继续保留。
+
+
+## 六、最终Railway安全待命真实回执
+
+- 切回原始安全待命 `python -u wf_railway_v82_safe_idle.py` 后，Railway最新部署 `9e001b94-b60e-494c-b56f-b7197e290708` 最终状态 **SUCCESS**。部署源码固定GitHub commit `76dcd558a7d71c54ddc8b8c92f5d44e379eee429`，不会因后续文档提交自动变成付费训练。
+- 真正容器日志：`WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`；`model_calls_this_idle_run=0`、`r2_reads_this_idle_run=0`、`r2_writes_this_idle_run=0`、`automatic_paid_next_batch_enabled=false`。不是只凭config猜测已切回。
+- 本轮始终未新增DeepSeek收费，真实R2只读抽样和独立来源审计完成，训练原著仍只有前15章，不因两份新片段变成17章。WF文学质量和两臂优劣`UNDETERMINED`；V49失败及第二文学窗口LOCK不变。
