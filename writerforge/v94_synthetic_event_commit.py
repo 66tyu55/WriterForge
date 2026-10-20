@@ -255,15 +255,23 @@ def _verify_final(writer,facts,bridge):
         records[attempt]=r["decision_sha256"]
     # Historical answer is preserved, but its old SELECT no longer
     # authorizes writing once the later signed synthetic revocation exists.
+    runtime=bridge.runtime
+    row=writer.conn.execute(
+        "SELECT id FROM snapshots WHERE status='published'").fetchone()
+    need(row is not None,"WF94_REPLAY_SNAPSHOT_NOT_FOUND")
+    runtime.enter_write(row[0])
     try:
-        bridge.validate_live_decision(
-            project_id=PROJECT,attempt_id="v94_before_revoke")
-    except Exception as e:
-        need("REVOKED" in str(e),
-             "WF94_REVOKED_PRIOR_SELECT_WRONG_FAILURE")
-    else:
-        raise V94DurableEventError(
-            "WF94_HISTORICAL_SELECT_REINSTATED_AFTER_REVOKE")
+        try:
+            bridge.validate_live_decision(
+                project_id=PROJECT,attempt_id="v94_before_revoke")
+        except Exception as e:
+            need("REVOKED" in str(e),
+                 "WF94_REVOKED_PRIOR_SELECT_WRONG_FAILURE")
+        else:
+            raise V94DurableEventError(
+                "WF94_HISTORICAL_SELECT_REINSTATED_AFTER_REVOKE")
+    finally:
+        runtime.exit()
     current=bridge.read_decision(
         project_id=PROJECT,attempt_id="v94_after_revoke")
     need(current["prompt_guidance"]=="" and
