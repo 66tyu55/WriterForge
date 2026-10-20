@@ -183,7 +183,10 @@ def make_manifest(rows):
     return payload
 
 
-def verify_manifest(raw:bytes,fetch:Callable[[str],bytes]):
+def verify_manifest(raw:bytes,fetch:Callable[[str],bytes], *,
+                    head:str=ORIGINAL_V80_HEAD,
+                    source_sha:str=SOURCE_SHA,
+                    key_sha:str=SOURCE_KEY_SHA):
     """Cold audit of all original AND migrated R2 objects, no writes."""
     need(type(raw) is bytes and 0<len(raw)<=MAX_MANIFEST_BYTES,
          "WF92_MANIFEST_BYTES_NOT_BOUNDED")
@@ -209,7 +212,9 @@ def verify_manifest(raw:bytes,fetch:Callable[[str],bytes]):
             raise V92ChainError("WF92_MANIFEST_UTF8_OR_JSON_GARBLED") from None
     # Re-run the primary chain traversal. No manifest claims are trusted
     # without independent reading of the source content-addressed objects.
-    rows,migrated=walk_v80_chain(fetch)
+    rows,migrated=walk_v80_chain(
+        fetch,head=head,required_source_sha=source_sha,
+        required_source_key_sha=key_sha)
     expected=make_manifest(rows)
     need(doc==expected,
          "WF92_COLD_MANIFEST_SOURCE_LINEAGE_OR_POLICY_CHANGED")
