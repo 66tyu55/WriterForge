@@ -13,6 +13,7 @@ from hashlib import sha256
 import hmac
 
 from .r2_learn_journal import hexdigest
+from .runtime import Mode, RuntimeEngine
 from .v85_literary_evidence_gate import (
     LiteraryEvidenceGate, LiteraryEvidenceError, canonical, is_sha,
 )
@@ -26,7 +27,11 @@ def need(ok, code):
 
 
 class V85SealedLearningBridge:
-    def __init__(self, journal, gate: LiteraryEvidenceGate):
+    def __init__(self, journal, gate: LiteraryEvidenceGate, *,
+                 runtime: RuntimeEngine):
+        need(isinstance(runtime, RuntimeEngine),
+             "WF_V85_LEARN_RUNTIME_REQUIRED")
+        runtime.require(Mode.LEARN)
         need(isinstance(gate, LiteraryEvidenceGate),
              "WF_V85_GATE_REQUIRED")
         need(hasattr(journal, "fetch_event") and
@@ -34,6 +39,7 @@ class V85SealedLearningBridge:
              "WF_V85_R2_READ_INTERFACE_REQUIRED")
         self.journal = journal
         self.gate = gate
+        self.runtime = runtime
         self._verified_receipt_sha256 = None
 
     def audit_sealed_chapter(self, *, ident: dict, windows: tuple[str,...],
@@ -43,6 +49,7 @@ class V85SealedLearningBridge:
         PASS-A provenance is an engineering condition; semantic validity
         and real author-time remain unverified and ineligible for WRITE.
         """
+        self.runtime.require(Mode.LEARN)
         expected = {"source_key_sha256", "source_sha256",
                     "chapter", "chapter_body_sha256"}
         need(isinstance(ident, dict) and set(ident) == expected and
@@ -112,6 +119,7 @@ class V85SealedLearningBridge:
         Caller must have a real writer role and explicitly authorize this
         one operation. Never use the old experimental CAS writer silently.
         """
+        self.runtime.require(Mode.LEARN)
         need(explicitly_allow_write is True,
              "WF_V85_SIDE_CAR_WRITE_NOT_AUTHORIZED")
         need(self._verified_receipt_sha256 is not None and
