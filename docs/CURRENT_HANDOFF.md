@@ -1120,3 +1120,17 @@
 7. 本轮**正式新训练章节仍为0**，原累计15章未改变；V49`THIRD_STRIKE_FAILED`、第二文学窗口`LOCKED`继续。现有环境没有真正的独立人类文学裁判，文学优胜组`UNDETERMINED`。完成本轮后应切Railway回`wf_railway_v82_safe_idle.py`，严格以最新容器日志确认后再声明。
 
 **§74 本轮最终运维回执：** Railway `8279666a-c9da-443d-97cd-ea899e0239db` 实际启动 `python -u wf_railway_v82_safe_idle.py`，日志 `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`，0模型调用、0 R2读写、自动续费批次关闭、`restartPolicyType=NEVER`。V88所有四臂答案仍是此前已保存的真实CAS，不自动重跑。
+
+
+## 75. 【2026-10-20 V89】宿主精确引句定位、不可覆盖机械负例与真实四臂只读复核
+
+**本轮详细交接：[V89宿主定位与负例记忆真实报告](V89_HOST_ANCHOR_AND_NEGATIVE_MEMORY_REAL_AUDIT_20261020.md)**。从此处恢复，不要重复运行V88那4次收费回答，也不要把V89重算结果回填为V88历史成功；V82前15章、V49`THIRD_STRIKE_FAILED`、第二文学窗口`LOCKED`保持原样。
+
+1. 在隔离分支 `v89-host-grounded-source-anchor-repair`实现 `writerforge/v89_source_anchor_gate.py`：WF将来只应提供所见单位号与8–72字的真实短引句，由宿主用可信两段来源SHA、全文局部冻结范围验证并计算唯一Unicode字符start/end。原文不存在、单位错误、重复引句（含重叠匹配）、重复/相互覆盖两个证据、倒序无法独立证明等均拒绝，不采用拼字/编辑距离/补句子。
+2. 新`writerforge/v89_anchor_failure_journal.py`与已有`WriterForgeDB`中的`wf_anchor_failure_receipts`表：源文和答案均不存，仅run/答案SHA/来源SHA/错误码等；SQLite触发器拒绝改写、事务竞争安全且限单批64条、全表50000条，到上限明确报错。只在LEARN时允许审计写入，机械错误不得冒充V86可信语义负评。
+3. 工程测试真正跑过红→绿：首个Railway `0af5375b-06ce-4a14-a8ab-dca7ce2e6e3f` 944项中1测试夹具文本长度失误（未绕过生产校验），修夹具而不放松规则；部署 `28551b66-303c-4ac1-9b1f-96106aed139d` 944项全绿，最终容量保护追加后 `673ede27-5fc8-4f38-a53b-030777bd8136` **946项执行、0失败、0错误、4跳过**，模型与R2远端读写均0。
+4. 真正已保存V88四份原答的**新只读冷核验**：Railway `a0eca842-d15a-4aa3-b8e6-b018131ba11c` 返回 `WF89_REAL_V88_SOURCE_ONLY_REAUDIT_COMPLETED` / exit0，重新从R2私有来源与4个CAS核验原文/问答/隐藏后文。历史baseline仅机器坐标可由宿主唯一找对；历史experience缺真实引句；科幻experience引用两个同一证据；科幻baseline引句长度非法。V88原始合同仍为**0/4失败**，V89仅回看**1/4可来源定位，3/4拒绝**，未作独立文学语义评分。
+5. 真四臂原答CAS总manifest `b4802c132bcdc4998ced3a5d34ee06224380b53645b3c15b6f9ba0cb3ca979eb`，precommit `5e6d27fe96fccfd1d545243e9d8e81d7a25d4dc563888095a6df9e461b558591`；本轮V89没有新增DeepSeek调用、没有写R2。V82第15章终态batch `d46ffec05927dfba3f2819089e76e79f720db2a2f3f6793b56965ac6413c177f`。
+6. **未完成的底层交接**：新接口还没有自动接入正式V80学习器，也未通过V85密封PASS A/人物可信知识时序与V86签名文学语义审核的端到端真实验收；实际失败存储只在本轮临时SQLite证明重启读回，不等于R2云端长期错误库已上线；文学水平/优胜组仍是`UNDETERMINED`。下一步仍需真实独立文学评审，绝不能用机械原句吻合代替因果理解。
+7. 本轮终止前，Railway应切回`python -u wf_railway_v82_safe_idle.py`、`restartPolicyType=NEVER`，在新部署日志看到`WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`且本次模型0/R2读写0/自动付费false，才能宣称运维收尾完成。不得仅凭`SUCCESS`误判。
+
