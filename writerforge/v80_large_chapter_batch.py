@@ -137,7 +137,7 @@ class WFLargeChapterBatch:
         self.last_batch_pointer=None
         self.pilot_mixed=None
 
-    def audit_sealed_literary_claims(self, *, chapter, windows, gate, proposals):
+    def audit_sealed_literary_claims(self, *, chapter, windows, gate, proposals, runtime):
         """V85 opt-in post-seal link, never part of legacy V79-V82 training.
 
         The model's old mechanism-unit ID alone is NOT an exact source span.
@@ -147,6 +147,10 @@ class WFLargeChapterBatch:
         """
         from .v85_literary_evidence_gate import LiteraryEvidenceGate
         from .v85_pass_a_bridge import V85SealedLearningBridge
+        from .runtime import Mode, RuntimeEngine
+        need(isinstance(runtime,RuntimeEngine),
+             "WF_V85_EXPLICIT_LEARN_MODE_REQUIRED")
+        runtime.require(Mode.LEARN)
         need(isinstance(gate,LiteraryEvidenceGate) and
              gate.source_sha256==self.source_sha,
              "WF_V85_BATCH_GATE_SOURCE_MISMATCH")
@@ -160,7 +164,8 @@ class WFLargeChapterBatch:
         ident=identity(source_key=self.key,source_sha=self.source_sha,
                        chapter=chapter.ordinal,
                        chapter_body_sha=chapter.body_sha256)
-        return V85SealedLearningBridge(self.journal,gate).audit_sealed_chapter(
+        return V85SealedLearningBridge(self.journal,gate,
+                                       runtime=runtime).audit_sealed_chapter(
             ident=ident,windows=tuple(windows),proposals=proposals)
 
     def emit(self,stage,**data):
