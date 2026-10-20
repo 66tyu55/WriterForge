@@ -140,9 +140,12 @@ class BridgeTests(unittest.TestCase):
         self.journal.writer="synthetic-writer"
         altered=dict(result)
         altered["audit"]=dict(result["audit"],claims_count=2)
-        with self.assertRaisesRegex(LiteraryEvidenceError,"HASH_MISMATCH"):
+        with self.assertRaisesRegex(LiteraryEvidenceError,"NOT_FROM_VERIFIED_SESSION"):
             self.bridge.persist_sidecar(
                 altered,explicitly_allow_write=True)
+        unrelated=V85SealedLearningBridge(self.journal,self.gate)
+        with self.assertRaisesRegex(LiteraryEvidenceError,"NOT_FROM_VERIFIED_SESSION"):
+            unrelated.persist_sidecar(result,explicitly_allow_write=True)
         got=self.bridge.persist_sidecar(
             result,explicitly_allow_write=True)
         self.assertEqual(self.journal.writes,1)
