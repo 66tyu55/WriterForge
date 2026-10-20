@@ -39,8 +39,7 @@ FILES=(
 suite=unittest.TestSuite()
 loader=unittest.TestLoader()
 for name in FILES:
-    suite.addTests(loader.discover(str(ROOT/"tests"),pattern=name,
-                                   top_level_dir=str(ROOT)))
+    suite.addTests(loader.discover(str(ROOT/"tests"),pattern=name))
 print("WF_V85_OFFLINE_TESTS_STARTED",flush=True)
 result=unittest.TextTestRunner(verbosity=1,stream=sys.stdout).run(suite)
 passed=result.wasSuccessful()
