@@ -6,6 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import sqlite3
 import unittest
+from unittest.mock import patch
 
 from writerforge.db import WriterForgeDB
 from writerforge.runtime import RuntimeEngine,RuntimeErrorState
@@ -176,6 +177,42 @@ class V89FailureTests(unittest.TestCase):
         with self.assertRaisesRegex(V89FailureJournalError,
                                     "IMMUTABLE_REPLAY_MISMATCH"):
             self.journal.capture_v89_failure(**args)
+
+    def test_storage_budget_stops_growth_without_erasing_failures(self):
+        original=self.fixture(wrong_quote=True)
+        other=self.fixture()
+        other["consequence"]["unit"]=3
+        with patch("writerforge.v89_anchor_failure_journal.MAX_RECEIPTS_PER_RUN",1):
+            initial=self.journal.capture_v89_failure(
+                **self.v89_args(original))
+            with self.assertRaisesRegex(V89FailureJournalError,
+                                        "PER_RUN_STORAGE_BUDGET_REACHED"):
+                self.journal.capture_v89_failure(**self.v89_args(other))
+            # Exact replay remains allowed at full capacity; no new write.
+            same=self.journal.capture_v89_failure(
+                **self.v89_args(original))
+            self.assertTrue(same["replayed"])
+            self.assertEqual(initial["receipt_sha256"],same["receipt_sha256"])
+        self.assertEqual(len(self.journal.bounded_page(run_id=self.run)),1)
+
+    def test_global_capacity_blocks_new_run_but_preserves_existing(self):
+        first=self.fixture(wrong_quote=True)
+        different=self.fixture()
+        different["observation"]["unit"]=3
+        with patch("writerforge.v89_anchor_failure_journal.MAX_TOTAL_RECEIPTS",1):
+            original=self.journal.capture_v89_failure(**self.v89_args(first))
+            next_args=self.v89_args(different)
+            next_args["run_id"]="separate_run"
+            with self.assertRaisesRegex(V89FailureJournalError,
+                                        "GLOBAL_STORAGE_BUDGET_REACHED"):
+                self.journal.capture_v89_failure(**next_args)
+            self.assertTrue(self.journal.capture_v89_failure(
+                **self.v89_args(first))["replayed"])
+        self.assertEqual(len(self.journal.bounded_page(run_id=self.run)),1)
+        self.assertEqual(
+            self.journal.read(run_id=self.run,
+                original_answer_sha256=original["original_answer_sha256"]
+            )["receipt_sha256"],original["receipt_sha256"])
 
     def test_learn_and_write_are_mutually_exclusive(self):
         q=self.fixture(wrong_quote=True)
