@@ -111,7 +111,7 @@ def main():
                             source_sha256=saved["source_sha256"])
                         del raw,decoded
                         record.update({
-                            "status":"ACCEPTED_SOURCE_VERIFIED",
+                            "status":"ACCEPTED_CONTIGUOUS_PASSAGE_SOURCE_VERIFIED",
                             "original_sha256":saved["source_sha256"],
                             "original_bytes":saved["bytes"],
                             "original_encoding_reversibly_checked":True,
