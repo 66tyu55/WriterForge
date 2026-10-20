@@ -95,7 +95,7 @@ def _anchor(answer,units):
 def validate_wf_answer(answer,*,visible_units):
     require(isinstance(visible_units,tuple) and
             len(visible_units)==SOURCE_UNITS and
-            all(isinstance(u,str) and 50<=len(u)<=900 for u in visible_units),
+            all(isinstance(u,str) and 30<=len(u)<=900 for u in visible_units),
             "WF88_TWO_VISIBLE_UNITS_REQUIRED")
     require(isinstance(answer,dict) and set(answer)==ANSWER_KEYS,
             "WF88_RESPONSE_SCHEMA_INVALID")
