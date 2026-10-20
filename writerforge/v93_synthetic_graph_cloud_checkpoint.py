@@ -26,7 +26,7 @@ import zlib
 
 from .v91_lifelong_checkpoint import (
     FILE_NAMES, canonical, digest, is_sha, verify_checkpoint,
-    _audit_db, _check_path,
+    _audit_db, _check_path, V91MemoryCheckpointError,
 )
 
 FORMAT="writerforge.lifelong.synthetic-graph-r2.v93"
@@ -173,7 +173,11 @@ def _part_chunks(raw):
 def build_private_synthetic_package(root):
     """Create bounded CAS objects + a LAST-published metadata manifest."""
     root=Path(root)
-    proof=verify_checkpoint(root)
+    try:
+        proof=verify_checkpoint(root)
+    except V91MemoryCheckpointError:
+        raise V93CloudGraphError(
+            "WF93_LOCAL_CHECKPOINT_INTEGRITY_NOT_VERIFIED") from None
     folder=root/"checkpoints"/proof["checkpoint_id"]
     files=[folder/n for n in FILE_ORDER]
     _verify_synthetic_origin(*files)
