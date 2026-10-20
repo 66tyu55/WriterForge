@@ -37,3 +37,7 @@
 在已有同源大纲、固定作者可知状态和真实独立审阅安排下，做 A旧整章 / B仅分段 / C事实短引校验 / D根据正文动态重规划 的**同故事、相近实际字数**对照；D多调用需控制成本偏差。先用历史与仙侠各一原创题，目标800/1600/3200/6400中文字符，保留原始生成、失败位置、字数/长度分布、知识越界与故事因果/语言自然度评价。不得自己给自己文学100分。
 
 **最终成功不是多了一个开关，而是WF在有足够长度的正文中仍理解“人物此刻想做什么、凭什么行动、付出了什么、后果怎样改变下一个选择”且文本自然不机械。**
+
+## 六、V98最后生产安全待命回执（实际运行）
+
+Railway `21c91dc0-4896-4e2a-a8d7-0cd16f165f2e` 已 `SUCCESS`，`startCommand=python -u wf_railway_v82_safe_idle.py`、`restartPolicyType=NEVER`，源配置pin到已经全仓1064项通过的源码commit `ff849d7d1761f746e99fccc792f29def99169e45`。**真实容器日志** `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`，本次`model_calls_this_idle_run=0`、`r2_reads_this_idle_run=0`、`r2_writes_this_idle_run=0`、`automatic_paid_next_batch_enabled=false`。原V97一次性付费实验未重启，原V82前15章经验和V92云端已签收CAS未覆盖。
