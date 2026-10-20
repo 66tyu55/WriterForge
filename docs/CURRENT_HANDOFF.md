@@ -1134,3 +1134,5 @@
 6. **未完成的底层交接**：新接口还没有自动接入正式V80学习器，也未通过V85密封PASS A/人物可信知识时序与V86签名文学语义审核的端到端真实验收；实际失败存储只在本轮临时SQLite证明重启读回，不等于R2云端长期错误库已上线；文学水平/优胜组仍是`UNDETERMINED`。下一步仍需真实独立文学评审，绝不能用机械原句吻合代替因果理解。
 7. 本轮终止前，Railway应切回`python -u wf_railway_v82_safe_idle.py`、`restartPolicyType=NEVER`，在新部署日志看到`WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`且本次模型0/R2读写0/自动付费false，才能宣称运维收尾完成。不得仅凭`SUCCESS`误判。
 
+
+**V89最终运行已核实：** Railway `f5d8ef08-2a65-4403-aba0-4d5d40510ee7` `SUCCESS`，实际日志 `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`，本轮idle模型0、R2读写0、自动付费批次false；启动脚本为 `python -u wf_railway_v82_safe_idle.py`，`restartPolicyType=NEVER`。此行不代表V89已经默认进入正式LEARN训练，也不代表真实文学语义检验通过。
