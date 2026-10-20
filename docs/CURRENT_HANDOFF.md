@@ -1290,3 +1290,5 @@
 9. **最后运维需核实**：Railway从本次回归入口切回`python -u wf_railway_v82_safe_idle.py`、`restartPolicyType=NEVER`，必须看到实际`WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`及0模型/R2调用、自动付费false，才能在最终报告称安全结束，不能预填。
 
 **最高检验目标不变**：WF能解释并体现在正文里「人物现在想做什么、为什么能知道什么、遇见什么阻力、真正作出什么决定、后果怎样迫使下一幕发生」，而不是只会输出更长且自我称赞的文字。
+
+**§84 V98最后运维已经真实确认**：Railway最新安全idle部署 `21c91dc0-4896-4e2a-a8d7-0cd16f165f2e` `SUCCESS`，源配置pin `ff849d7d1761f746e99fccc792f29def99169e45`（最后1064项软件回归通过的源码），实际启动 `wf_railway_v82_safe_idle.py` 且 `restartPolicyType=NEVER`。实际容器日志 `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`，本次模型0、R2读0写0、自动付费续训false。新D滚动模式只是本地作者手动选择的未接受写作候选；从未宣称真实文学质量已经晋级。
