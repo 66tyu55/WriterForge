@@ -86,6 +86,9 @@ def main():
                         total_read+=saved["bytes"]
                         if saved["source_sha256"] in EXCLUDE_ALREADY_USED_SOURCE_SHA256:
                             fail("WF87_OLD_TRAINED_OR_HELDOUT_BOOK_EXCLUDED")
+                        if any(x["original_sha256"]==saved["source_sha256"]
+                               for x in accepted):
+                            fail("WF87_DUPLICATE_BOOK_ACROSS_SELECTED_GENRES")
                         charset=byte_charset_audit(
                             target,
                             expected_source_sha256=saved["source_sha256"],
