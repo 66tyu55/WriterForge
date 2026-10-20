@@ -1073,3 +1073,19 @@
 - V82完整最后训练：第11-15章5章、47单位，58次DeepSeek Flash，输入49,238、输出11,899，合计61,137/150,000 Tokens；真正独立只读考官 `18415e01-9607-4ed1-ad48-17f19deae3c2`返回 `WF_V82_INDEPENDENT_R2_CH11_TO_15_PROVENANCE_PASSED`、exit0。当前累计前15章全部有来源技术核验、第2-15章14章严格先读后析。
 - V82最终batch CAS `d46ffec05927dfba3f2819089e76e79f720db2a2f3f6793b56965ac6413c177f`，journal CAS `3da56cc46115548c5198a65cb6124e3c03d9bdfdb1f0460950177735a99d1cb2`，第15章经验 `ddbf86e87e3bf44900b4e5e4d8ffc2de99c9ed5d3c5aec98a69bfd8eb7cf2fe7`。均是已有私有R2 CAS验证对象，不是Cloudflare原生LEARN路由正式上线。
 - 下一步可在用户明确要求时从第16章开始独立新批次；若没有新授权，仅可准备独立文学盲考设计，不得暗中启动付费训练。文学迁移质量未证实，V49 `THIRD_STRIKE_FAILED` 及第二课程窗口 `LOCKED` 继续保留。
+
+
+## 72. 【2026-10-20 V86 最新隔离开发交接】第15章后暂停收费，已建立可恢复的负例阻断与修订闭环
+
+**必须先读 [V86真实工程回归与范围报告](V86_SIGNED_REVIEW_NEGATIVE_TRANSFER_REAL_REGRESSION_20261020.md)**。本节不改第1—71节历史。当前进度以`v86-evidence-review-negative-transfer-loop`为开发分支；原main及V82旧文、R2不可变数据都未覆盖。
+
+1. **真实已完成的章节**仍为冻结仙侠原著前15章。V83第16章曾只做来源预检，正式试训因错误的62位R2 journal SHA在模型创建前退出；已更正脚本但没有正式重新完成第16章。不要重读收费第1–15章，不要因这轮测试把完成数加成16。
+2. **V84独立只读对照**复查已有V81跨作品两臂，原文出处/两个原始回答SHA验证成功，但文学改进`UNDETERMINED`，不是WF胜利或失败的文学评分。
+3. **V85底层**新增精确短句/起止锚点、人物知识全局账本时点冻结、完整PASS A链校验、实验性审计仅LEARN且不自动导入WRITE；旧模型机制分析只有unit SHA不能回填伪造精确来源，`literary_semantics_independently_verified=false`。
+4. **V86本轮真正代码增量**：在原`WriterForgeDB`追加两张小表`experience_evidence_links`与`experience_literary_reviews`，复用现有`ExperienceDecisionBridge`，只让新V86证据候选通过**明确外部签名文学审核+另一个V61受控实验批准**后获得抽象`SELECT`。签名负评后来追加时旧`SELECT`重放检查失效，下次`SKIP`，旧账保留；新版必须新V85封存claim和audit SHA、再评再授权，不能只换经验ID洗白。
+5. **真实Railway离线测试**：`967e747b-2354-444e-af66-bd8d182a4391` 911项通过；补新claim隔离、重启与篡改反例后 `a5691e5d-0746-4029-b9a1-928819d466bc` 913项执行、0失败0错误、4跳过。两轮DeepSeek调用0、真正R2网络/写入0，没有新的小说文学评阅。沿用了V85全仓测试入口，日志内测试数真实包含V86测试，不能把工程绿灯当作文笔提升。
+6. **永久文学事实**：V49`THIRD_STRIKE_FAILED`、第二课程窗口`LOCKED`，50部完整作品总体门槛仍保留。所谓“独立审核”在V86仅测试合成签名、可信身份与真实原文语义未获证明；生产不应让WF模型持有审核签名权或通过低层SQLite绕开审查。现有三个Railway凭证不要求用户重新配置或提供第四个。
+7. **当前服务最后核实**：Railway `wf-python-r2`最新 `a5691e5d-0746-4029-b9a1-928819d466bc` SUCCESS，固定分支V86源码`df8919325fd75aeecbba1297e5bd3549c106f55b`，单次启动`python -u wf_railway_v85_full_offline_regressions.py`、`restartPolicyType=NEVER`。不自动付费续训，但**没有再次切回`wf_railway_v82_safe_idle.py`，不得冒称已切回**。下次操作前重新读取服务启动配置和最新部署/日志。
+8. **下一轮合理工作**：不新造关系数据库、不在模型自己评审后自动晋级。先使用真实R2只读数据确认V80历史分析确实不含V85精确锚点；然后经新预注册文学题、可信独立源文审核、严格预算和WRITE实验条件，测试真实语义能力是否减少犯错；用户已给出“可以”授权本轮工程链测试，**没有给无限付费重训许可**。
+
+恢复短指令：先读本文件§72与V86报告，检查GitHub分支及Railway状态；保留R2 V82 batch`d46ffec05927dfba3f2819089e76e79f720db2a2f3f6793b56965ac6413c177f`、journal`3da56cc46115548c5198a65cb6124e3c03d9bdfdb1f0460950177735a99d1cb2`、第15章经验`ddbf86e87e3bf44900b4e5e4d8ffc2de99c9ed5d3c5aec98a69bfd8eb7cf2fe7`。
