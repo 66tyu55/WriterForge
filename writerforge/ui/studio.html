@@ -67,8 +67,15 @@ label{font-size:13px;font-weight:600;display:block;margin-top:13px}
     <p class="note">只需提供全书/故事大纲和每章要达成的目标。系统自动规划人物选择、冲突、后果与技法，再逐章生成草稿。每章保留自己的计划、来源与模型记录，不会自动接受成正式正文。</p>
     <label for="outline">故事大纲</label>
     <textarea class="detail" id="outline" placeholder="例如：一个被逐出山门的年轻镖师，需要护送一个隐瞒身份的人跨越三座关隘；他的承诺不断与求生本能冲突。"></textarea>
-    <label for="chapter-goals">每行一个章节目标（最多六章）</label>
+    <label for="chapter-goals">每行一个章节目标（普通模式最多六章；B/C试验最多两章）</label>
     <textarea class="detail" id="chapter-goals" placeholder="第一章：接受押送，发现客人隐瞒了真正目的&#10;第二章：遭遇伏击，必须在镖规与救人之间作决定"></textarea>
+    <label for="draft-mode">生成方式（默认保持原有模式）</label>
+    <select class="detail" id="draft-mode" style="width:100%;padding:10px;border:1px solid #dedfd6;border-radius:8px;background:#fffdf8;color:#30433a">
+      <option value="single">A · 一次生成整章（原模式）</option>
+      <option value="split_only">B · 分段写作（逻辑对照）</option>
+      <option value="causal_guard">C · 分段＋正文因果引句检查（实验）</option>
+    </select>
+    <p class="note">B/C会增加本地模型调用，最多两章、单次不超过16个事件。C仅校验正文引句与前因位置，不能代替独立文学判断；不自动确认人物事实或接受草稿。</p>
     <button class="primary" type="button" id="run-auto" style="margin-top:14px;width:100%">按大纲生成章节</button>
     <div id="auto-status" class="status">尚未开始。生成需要本地模型在运行。</div>
     <div id="auto-results"></div>
@@ -209,11 +216,16 @@ let autoPolling=false;
 async function startAuto(){
   const outline=$("outline").value.trim();
   const chapters=$("chapter-goals").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  const draft_mode=$("draft-mode").value;
+  if(draft_mode!=="single"&&chapters.length>2){
+    message("auto-status","B/C实验最多同时生成两章，请减少章节目标。",true);
+    return;
+  }
   $("run-auto").disabled=true;
   message("auto-status","正在创建分章计划…");
   try{
-    const job=await send("/api/autodraft",{outline,chapters});
-    message("auto-status","已开始自动规划与写作。");
+    const job=await send("/api/autodraft",{outline,chapters,draft_mode});
+    message("auto-status","已开始按 "+draft_mode+" 规划与写作。");
     await watchJob(job.job_id);
   }catch(err){
     message("auto-status",err.message,true);
