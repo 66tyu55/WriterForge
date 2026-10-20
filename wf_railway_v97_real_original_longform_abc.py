@@ -260,6 +260,21 @@ def run():
                     require(generated["chapter_count"]==1 and
                             generated["chapters"][0]["accepted"] is False,
                             "WF97_AUTONOMOUS_AUTHOR_ACCEPTANCE_CHANGED")
+                    # This experiment deliberately uses a frozen
+                    # author-supplied plan, not an actual LLM-planned
+                    # chapter. The old app always labels model_generated
+                    # True; override it in this isolated trial's own
+                    # candidate metadata before exporting any provenance.
+                    planned_file=Path(generated["chapters"][0]["plan"])
+                    plan_record=json.loads(planned_file.read_text("utf8"))
+                    require(all(plan_record.get(k)==FROZEN_PLAN[k]
+                                for k in FROZEN_PLAN),
+                            "WF97_FROZEN_CHAPTER_PLAN_NOT_ACTUALLY_USED")
+                    plan_record["model_generated_plan"]=False
+                    plan_record["externally_frozen_ab_test_plan"]=True
+                    planned_file.write_text(
+                        json.dumps(plan_record,ensure_ascii=False,indent=2),
+                        encoding="utf8")
                     source_file=Path(generated["chapters"][0]["candidate"])
                     real_prose=source_file.read_text("utf8")
                     require(100<=len(real_prose)<=16000,
