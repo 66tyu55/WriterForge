@@ -12,7 +12,7 @@ import re
 FORMAT="wf.exam.frozen-two-work-answer.v88"
 STATUS=frozenset(("HYPOTHESIS","ABSTAIN"))
 ANSWER_KEYS=frozenset((
-    "status","question","observation","consequence","character_knowledge",
+    "status","claim_id","question","observation","consequence","character_knowledge",
     "hypothesis","alternative","falsifier","uncertainty"))
 ANCHOR_KEYS=frozenset(("unit","start","end","quote"))
 KNOWLEDGE_KEYS=frozenset(("actor","known","unknown"))
@@ -36,16 +36,16 @@ SYSTEM_PROMPT=(
  "因果或人物信息推断，不得声称了解前后章节、作者意图或未来结局。"
  "本次是不同作品局部片段，并非完整章节。允许且鼓励证据不足时弃权。"
  "若有可证伪的局部推断，status=HYPOTHESIS；否则status=ABSTAIN。"
- "只输出严格JSON对象，且恰好包含status,question,observation,"
+ "只输出严格JSON对象，且恰好包含status,claim_id,question,observation,"
  "consequence,character_knowledge,hypothesis,alternative,falsifier,uncertainty。"
- "HYPOTHESIS时observation和consequence必须各为一个精确锚点对象"
+ "HYPOTHESIS时claim_id给出只含英数的2-40字符标识，observation和consequence各为精确锚点对象"
  '{"unit":1,"start":0,"end":10,"quote":"原文中精确对应的短语"}，'
  "unit只能是1或2；start/end为Python字符串0起点字符偏移，"
  "quote为字节一致的原文连续子串，8-72字符，禁止捏造证据。"
  "character_knowledge恰含actor/known/unknown三个字段，分别写"
  "人物标识、人物当时可能知道什么、不知道什么；只是假说不能当作真值。"
  "question/hypothesis/alternative/falsifier/uncertainty各8-180字符。"
- "ABSTAIN时两个锚点设null，character_knowledge设null，"
+ "ABSTAIN时claim_id设null，两个锚点设null，character_knowledge设null，"
  "question/hypothesis/alternative/falsifier都设为空字符串，uncertainty写8-180字符弃权理由。"
  "禁止泄漏未见单位，禁止抄写长原著。禁止自评分、作弊、文学晋级或代替考官。"
  "JSON"
@@ -106,7 +106,8 @@ def validate_wf_answer(answer,*,visible_units):
     require(_text(answer["uncertainty"]),
             "WF88_UNCERTAINTY_MISSING_OR_UNBOUNDED")
     if status=="ABSTAIN":
-        require(answer["observation"] is None and
+        require(answer["claim_id"] is None and
+                answer["observation"] is None and
                 answer["consequence"] is None and
                 answer["character_knowledge"] is None and
                 all(answer[f]=="" for f in (
@@ -117,6 +118,9 @@ def validate_wf_answer(answer,*,visible_units):
                 "uncertainty_supplied":True,
                 "literary_semantics_independently_verified":False,
                 "model_fabrication_not_independently_ruled_out":True}
+    require(isinstance(answer["claim_id"],str) and
+            re.fullmatch(r"[a-zA-Z0-9_-]{2,40}",answer["claim_id"]),
+            "WF88_CLAIM_ID_INVALID")
     require(all(_text(answer[f]) for f in (
         "question","hypothesis","alternative","falsifier")),
         "WF88_HYPOTHESIS_EXPLANATIONS_INVALID")
@@ -127,7 +131,8 @@ def validate_wf_answer(answer,*,visible_units):
             "WF88_SAME_ANCHOR_TWICE")
     knowledge=answer["character_knowledge"]
     require(isinstance(knowledge,dict) and set(knowledge)==KNOWLEDGE_KEYS
-            and all(_text(knowledge[f]) for f in KNOWLEDGE_KEYS),
+            and _text(knowledge["actor"],lo=1,hi=80)
+            and all(_text(knowledge[f]) for f in ("known","unknown")),
             "WF88_CHARACTER_KNOWLEDGE_UNVERIFIED")
     # Long copy blocks in analysis are not necessary for this comparison.
     prose="\n".join(str(answer[x]) for x in (
