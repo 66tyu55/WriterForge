@@ -25,6 +25,10 @@ from .verified_flow import (
     VerifiedWritingFlow, GroundedDraftPacket, WritingExecutionError,
     local_chat_completion, save_candidate, MAX_PROMPT_CHARS,
 )
+from .v96_causal_turns import (
+    V96CausalDraftError,parse_turn_outline,make_turn_instructions,
+    check_turn,assemble_prose,receipts_only,canonical as causal_canonical,
+)
 
 MAX_LIVE_CONTEXT = 1400
 MAX_OUTLINE_CHARS = 6000
@@ -33,6 +37,8 @@ MAX_CHAPTER_GOAL = 450
 MAX_PROSE_CHARS = 16000
 FACET_COUNT = 4
 MAX_STORED_AUTONOMOUS_RUNS = 32  # Do not silently grow candidate history forever.
+MAX_SEGMENTED_CHAPTERS_PER_JOB = 2
+MAX_SEGMENTED_TOTAL_TURNS = 16  # Provider calls bounded before first prose segment.
 
 
 @dataclass(frozen=True)
@@ -269,7 +275,28 @@ class AutonomousWriting:
         self.assist=assist
 
     def run(self,*,outline:str,chapter_goals:list[str],
-            output_dir:str|Path,progress=None) -> dict:
+            output_dir:str|Path,progress=None,
+            draft_mode:str="single",
+            author_confirmed_forbidden_phrases:tuple[str,...]=(),
+            frozen_turn_outlines:tuple[str,...]|None=None) -> dict:
+        # 'single' remains byte-for-byte compatible with legacy output
+        # behavior. split_only vs causal_guard share the SAME JSON turn
+        # planning/response interface so B/C can be fairly compared.
+        if draft_mode not in ("single","split_only","causal_guard"):
+            raise WritingExecutionError("WF96_DRAFT_MODE_NOT_OPTED_IN")
+        if draft_mode=="single" and (
+           frozen_turn_outlines is not None or
+           author_confirmed_forbidden_phrases):
+            raise WritingExecutionError(
+                "WF96_LEGACY_SINGLE_CANNOT_SILENTLY_IGNORE_NEW_GUARDS")
+        if draft_mode!="single" and len(chapter_goals)>MAX_SEGMENTED_CHAPTERS_PER_JOB:
+            raise WritingExecutionError(
+                "WF96_SEGMENTED_CHAPTER_REQUEST_BUDGET_EXCEEDED")
+        if frozen_turn_outlines is not None and (
+             type(frozen_turn_outlines) is not tuple or
+             len(frozen_turn_outlines)!=len(chapter_goals) or
+             not all(type(s) is str for s in frozen_turn_outlines)):
+            raise WritingExecutionError("WF96_FROZEN_OUTLINE_COUNT_MISMATCH")
         if not isinstance(outline,str) or not 15<=len(outline.strip())<=MAX_OUTLINE_CHARS:
             raise WritingExecutionError("outline requires 15..6000 characters")
         if (not isinstance(chapter_goals,list) or not 1<=len(chapter_goals)<=MAX_CHAPTERS
@@ -290,6 +317,7 @@ class AutonomousWriting:
         outline_hash=sha256(outline.encode("utf-8")).hexdigest()
         previous=""
         chapters=[]
+        issued_turns=0
         for index,goal in enumerate(chapter_goals,1):
             if progress:
                 progress(index,len(chapter_goals),"planning")
@@ -330,10 +358,100 @@ class AutonomousWriting:
                 "不要解释技巧，也不要复制原著人物、设定或句子。",
                 facets,
             )
-            body=local_chat_completion(
-                packet,model=self.assist.model,
-                api_base=self.assist.api_base,max_tokens=2600,
-            )
+            turn_evidence=None
+            turn_outline=None
+            if draft_mode=="single":
+                body=local_chat_completion(
+                    packet,model=self.assist.model,
+                    api_base=self.assist.api_base,max_tokens=2600,
+                )
+            else:
+                # The existing whole-chapter outline remains a provisional
+                # scene purpose. The additional turn plan is shared by B/C.
+                extra_outline=_enrich(
+                    body_base,
+                    "\n【本章目标（不是已成事实）】"+goal+
+                    "\n【已有候选章节计划】"+json.dumps(
+                        plan,ensure_ascii=False)+
+                    "\n规划2到12个真正必要的叙事事件，允许安静过渡，"
+                    "不强迫每段反转。只输出JSON对象turns数组，"
+                    "每项字段：id(t01等顺序)、kind(action/decision/"
+                    "reversal/setup/dialogue/quiet/aftermath/transition)、"
+                    "actor、goal、causal_parent(前一个action/decision/"
+                    "reversal的id或null)、craft_focus(0到2个："
+                    "dialogue/detail/interiority/pacing/restraint/contrast/"
+                    "action/none)。只做滚动短计划，不写正文；"
+                    "不把模型猜测变成角色已经知道的事实。",
+                    facets,prose_task=False,
+                )
+                turn_outline=(
+                    frozen_turn_outlines[index-1]
+                    if frozen_turn_outlines is not None else
+                    local_chat_completion(
+                        extra_outline,model=self.assist.model,
+                        api_base=self.assist.api_base,max_tokens=1450,
+                    )
+                )
+                accepted_turns=[]
+                last_turn_response=""
+                try:
+                    beats=parse_turn_outline(turn_outline)
+                    if issued_turns+len(beats)>MAX_SEGMENTED_TOTAL_TURNS:
+                        raise V96CausalDraftError(
+                            "WF96_TOTAL_SEGMENTED_MODEL_CALL_BUDGET_EXCEEDED")
+                    issued_turns+=len(beats)
+                    prompt_shas=[]
+                    for beat in beats:
+                        turn_addition=make_turn_instructions(
+                            beat,mode=draft_mode,accepted=accepted_turns,
+                            author_confirmed_forbidden_phrases=(
+                                author_confirmed_forbidden_phrases))
+                        turn_packet=_enrich(
+                            body_base,
+                            "\n【原创章计划】"+json.dumps(
+                                plan,ensure_ascii=False)+
+                            "\n【本章当前事件】"+turn_addition,
+                            facets,
+                        )
+                        prompt_shas.append(turn_packet.prompt_sha256)
+                        last_turn_response=local_chat_completion(
+                            turn_packet,model=self.assist.model,
+                            api_base=self.assist.api_base,max_tokens=1450,
+                        )
+                        evidence=check_turn(
+                            last_turn_response,beat,mode=draft_mode,
+                            accepted=tuple(accepted_turns),
+                            author_confirmed_forbidden_phrases=(
+                                author_confirmed_forbidden_phrases))
+                        accepted_turns.append(evidence)
+                    body=assemble_prose(accepted_turns)
+                    turn_evidence=receipts_only(
+                        accepted_turns,mode=draft_mode,
+                        outline_sha=sha256(
+                            turn_outline.encode("utf8")).hexdigest())
+                    turn_evidence["model_prompt_sha256s"]=prompt_shas
+                    turn_evidence["source_free_unverified_scene_states"]=True
+                except V96CausalDraftError as error:
+                    # Keep the red record, not the private failed novel.
+                    # No partial draft becomes accepted or FactJournal KNOWN.
+                    issue={
+                        "format":"wf.writing.rejected-scene-turn.v96",
+                        "chapter":index,"draft_mode":draft_mode,
+                        "reason_code":str(error),
+                        "model_output_sha256":sha256(
+                            last_turn_response.encode("utf8")).hexdigest()
+                            if isinstance(last_turn_response,str) else None,
+                        "previous_valid_turn_count":len(accepted_turns),
+                        "canonical_fact_writes":0,
+                        "candidate_chapter_completed":False,
+                        "automatic_repair_attempts":0,
+                        "real_original_or_private_prose_embedded":False,
+                    }
+                    (job/f"chapter-{index:03d}-rejected.json").write_text(
+                        json.dumps(issue,ensure_ascii=False,indent=2),
+                        encoding="utf8")
+                    raise WritingExecutionError(
+                        "WF96_SCENE_TURN_REJECTED_"+str(error)) from None
             if not isinstance(body,str) or not 100<=len(body.strip())<=MAX_PROSE_CHARS:
                 raise WritingExecutionError("model output too short, missing or too long")
             saved=save_candidate(packet,body,self.assist.model,job)
@@ -347,12 +465,34 @@ class AutonomousWriting:
                     "no_cross_corpus_literary_assessment":True,
                 },ensure_ascii=False,indent=2),encoding="utf-8",
             )
-            chapters.append({
+            chapter_data={
                 "chapter":index,"goal":goal,"candidate":saved["candidate"],
                 "manifest":saved["manifest"],"plan":str(plan_file),
                 "source_refs":saved["source_refs"],
                 "verified_facets":len(facets),"accepted":False,
-            })
+            }
+            if turn_evidence is not None:
+                # Append-only candidate evidence beside the existing saved
+                # model draft, not into LEARN, R2, or a second canon DB.
+                evidence_path=folder/"v96_turn_evidence.json"
+                evidence_path.write_text(
+                    json.dumps(turn_evidence,ensure_ascii=False,indent=2),
+                    encoding="utf8")
+                turn_outline_path=folder/"v96_turn_outline.json"
+                turn_outline_path.write_text(
+                    json.dumps({"candidate_turns":list(beats),
+                                "author_confirmed":False,
+                                "literary_truth_verified":False},
+                               ensure_ascii=False,indent=2),encoding="utf8")
+                chapter_data.update({
+                    "draft_mode":draft_mode,
+                    "turn_count":len(beats),
+                    "turn_evidence":str(evidence_path),
+                    "turn_outline":str(turn_outline_path),
+                    "causal_logic_literary_verified":False,
+                    "facts_not_committed":True,
+                })
+            chapters.append(chapter_data)
             previous=body[-750:]  # Bound retained cross-chapter context memory.
             if progress:
                 progress(index,len(chapter_goals),"saved")
@@ -363,6 +503,9 @@ class AutonomousWriting:
             "source_snapshot_id":self.assist.rt.pinned_snapshot_id,
             "chapter_count":len(chapters),"chapters":chapters,
             "model_used":self.assist.model,
+            "draft_mode":draft_mode,
+            "segmented_model_turns":issued_turns,
+            "canonical_fact_writes":0,
             "literary_quality_verified":False,
             "all_generated_prose_requires_author_review":True,
         }
