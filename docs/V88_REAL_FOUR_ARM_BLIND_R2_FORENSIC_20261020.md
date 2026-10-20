@@ -36,3 +36,8 @@ R2预注册CAS `5e6d27fe96fccfd1d545243e9d8e81d7a25d4dc563888095a6df9e461b558591
 ## 运行安全
 
 四臂模型程序仅运行一次，模型运行结束后 Railway 已被切回原 `wf_railway_v82_safe_idle.py`，并有之前独立 `dbd87873-9285-4a5b-8a4c-685953e0a871` 的安全待命执行成功记录。本次取证流程结束后再次切回安全待命的新部署，需要以新日志再核验，不能提前说已完成。所有新GitHub材料都只在隔离分支；未合并main。
+
+
+## 最终独立运行状态（2026-10-20）
+
+取证后生产Railway部署 `8279666a-c9da-443d-97cd-ea899e0239db` 已真实返回 `SUCCESS`。实际容器运行 `python -u wf_railway_v82_safe_idle.py`，日志 `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`，本次`model_calls_this_idle_run=0`、`r2_reads_this_idle_run=0`、`r2_writes_this_idle_run=0`、`automatic_paid_next_batch_enabled=false`，`restartPolicyType=NEVER`。此次修复意见未被偷偷转换成第五次付费调用。原始V88整批最终CAS及四臂回答不会被重新训练。
