@@ -1,0 +1,27 @@
+name: V95 Worker Conditional Head Offline
+on:
+  push:
+    branches:
+      - v95-trusted-source-and-authoritative-head-gate
+    paths:
+      - cloudflare/wf-r2-worker-readonly.js
+      - tests/v95_worker_conditional_head.test.mjs
+      - .github/workflows/v95-worker-conditional-head-offline.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-worker-race-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout pinned source
+        uses: actions/checkout@v4
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Exact Worker JavaScript race and trust test
+        run: node --test tests/v95_worker_conditional_head.test.mjs
