@@ -39,3 +39,7 @@
 - 此轮采用的是既有R2 `indexes/v1/chunks` 的**实验性不可变CAS池**，不冒充Cloudflare已经上线原生LEARN路径/跨账本事务。没有数据损坏回滚自动修复、跨数据库原子提交或真实多年知识容量压测的证明。
 - 尚不能从源文SHA推断模型真正理解因果/伏笔/人物意图；V49`THIRD_STRIKE_FAILED`、第二文学窗口`LOCKED`和V88四臂0/4精确证据失败事实维持。既有WF MemoryBudget仍只是上下文选择器，不是永久数据库。
 - **下一阶段必须先做**：确认或创建可信**持久实际**关系/负例知识状态源与快照边界（不能覆盖临时数据）；用V91本地双DB备份机制生成受限加密私有备份、上传到R2验证manifest-last、双独立Reader冷恢复后复演人物知识和撤销负例`SKIP`；再做跨模型/长期性能与独立文学能力测试。用户无需被要求重新设置已有三种密钥，此阶段不许可无上限新训练。
+
+## 5. 实际最终安全待命回执（不是预填结果）
+
+Railway最终生产部署 `bec76c08-c948-4c83-8d4a-bc9113d25a47` 为 `SUCCESS`，固定部署源码commit `caab5500fe4668c67b7b8e114950731390046c28`，命令 `python -u wf_railway_v82_safe_idle.py`，`restartPolicyType=NEVER`。真实容器日志 `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`，且`model_calls_this_idle_run=0`、`r2_reads_this_idle_run=0`、`r2_writes_this_idle_run=0`、`automatic_paid_next_batch_enabled=false`。无自动恢复收费训练，无第16章新训练；V92长期经验云端数据已保存，原V82不变。
