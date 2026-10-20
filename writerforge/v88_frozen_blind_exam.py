@@ -22,7 +22,7 @@ MAX_QUOTE=72
 MAX_RESPONSE_BYTES=10000
 MAX_PAID_REQUESTS=4
 MAX_OUTPUT_TOKENS_PER_REQUEST=1250
-MAX_CONSERVATIVE_INPUT_OUTPUT_TOKENS=25000
+MAX_CONSERVATIVE_INPUT_OUTPUT_TOKENS=40000
 SOURCE_UNITS=2
 ARM_ORDER={"历史":("baseline","experience"),
            "科幻":("experience","baseline")}
@@ -113,7 +113,7 @@ def validate_wf_answer(answer,*,visible_units):
                 all(answer[f]=="" for f in (
                     "question","hypothesis","alternative","falsifier")),
                 "WF88_ABSTENTION_MUST_NOT_ASSERT_SOURCE_FACTS")
-        return {"status":"ABSTAIN",
+        return {"status":"ABSTAIN","schema_valid":True,
                 "exact_source_anchor_checked":False,
                 "uncertainty_supplied":True,
                 "literary_semantics_independently_verified":False,
@@ -141,7 +141,7 @@ def validate_wf_answer(answer,*,visible_units):
                     for i in range(0,max(0,len(u)-54),12)),
             "WF88_UNAUTHORIZED_LONG_VERBATIM_SOURCE_COPY")
     return {
-        "status":"HYPOTHESIS",
+        "status":"HYPOTHESIS","schema_valid":True,
         "source_anchors":evidence,
         "character_claims_are_only_hypotheses":True,
         "historical_chapter_context_unavailable":True,
