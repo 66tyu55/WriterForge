@@ -423,8 +423,7 @@ class AutonomousWriting:
                                 allowed_actor_names=cast)
                             rolling_packet=_enrich(
                                 body_base,
-                                "
-【本章总目标，未完成的规划不是故事事实】"+goal+
+                                "\n【本章总目标，未完成的规划不是故事事实】"+goal+
                                 instructions,
                                 facets,prose_task=False,
                             )
@@ -557,7 +556,8 @@ class AutonomousWriting:
                                      else list(beats)),
                                 "author_confirmed":False,
                                 "literary_truth_verified":False,
-                                "original_seed_plan_preserved":True},
+                                **({"original_seed_plan_preserved":True}
+                                   if draft_mode=="rolling_causal" else {})},
                                ensure_ascii=False,indent=2),encoding="utf8")
                 if draft_mode=="rolling_causal":
                     # Private local candidate plans ONLY, never knowledge CANON
@@ -566,7 +566,8 @@ class AutonomousWriting:
                     private_rolling.write_text(
                         json.dumps({
                             "initial_seed_turns":list(beats),
-                            "evolved_candidate_turns":rolling_goals,
+                            "evolved_candidate_turns":list(accepted_beats),
+                            "replanned_turns":rolling_goals,
                             "source_is_actual_prose":True,
                             "semantic_truth_verified":False,
                             "no_factjournal_writes":True,
