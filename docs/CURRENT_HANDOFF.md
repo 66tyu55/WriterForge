@@ -1240,3 +1240,5 @@
 
 
 **§81 追加最终真实回执（后续Native JS不再停留于未测）**：隔离Railway Bun Function真实执行 `cloudflare/wf-r2-worker-readonly.js`固定源码commit `9f311d257bc7dab296dbbdb9ec0a0122a972f060`、其仓库JS竞态测试，部署 `b9386aa6-4806-4801-a854-f36b8c247b53` 返回 `WF95_NATIVE_JS_WORKER_PASSED`，**4/4通过，0失败、0模型调用、0真实R2写入**。覆盖两竞争Writer旧ETag只有一位成功，伪造事实晋级和异常HEAD均拒绝。此前Python镜像无Node与首个Bun启动无可用结果的事实仍保留，**GitHub Actions Node22日志仍未验收**，不是实际Cloudflare多进程测试。V95现存Cloudflare Worker线上能力接口仍404，生产原子HEAD／真实LEARN事实写入保持关闭。最终Railway主服务安全idle `4a49aab3-28b6-4d1a-bf2f-5cb0289d43c8` `SUCCESS`，真实`WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`，模型0、R2读写0、自动续费false、restart NEVER。详细见V95报告末尾§六。**下一轮V96先补线上安全发布能力和远端竞态回执，不能只凭JS模拟打开真实人物`KNOWN`。**
+
+**§81 运行资源清理：** Native Worker JS 4/4 通过后，临时Bun测试服务 `54f4db55-f543-4847-a5a2-8084aebb22f7` 已删除；实际Railway环境现在只剩原有 `wf-python-r2`，0个Volume，0个Railway Bucket，不产生额外长期测试服务。真实Cloudflare V95新HEAD仍404，生产新知识写入不得开启。
