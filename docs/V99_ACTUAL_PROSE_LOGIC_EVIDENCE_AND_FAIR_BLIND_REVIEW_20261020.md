@@ -24,3 +24,5 @@
 ## 首次修补两轮未成功后的外部学习
 
 第一次 `71c54813-b56a-40a1-bb7e-c628ec0c8726` 是合成正文重复导致证据不唯一。第二次 `3b458d94-3171-430c-8033-2392d3cff4ea` 发生1项加载语法错误：修改多行字符串时将换行写成了字面的反斜杠+n，未能运行新增测试。遵守用户「同一问题两次修不好就停止凭直觉修补、先向外部学习」，对照 [Python官方字符串字面量拼接文档](https://docs.python.org/3/reference/expressions.html#string-literal-concatenation) 及Python/cpython GitHub源码，确认括号内相邻字符串字面量应直接用真实源码换行排列；随后在GitHub修复并校验相邻两行源码。这些错误属于新测试夹具/脚本，不是文学能力提升，更不能把第二次因未加载而执行的1065项称为完整测试成功。
+
+**§85 最终运维已实证**：Railway部署 `3376a212-ef87-4339-a083-6631260c01d2` 为 `SUCCESS`，启动 `python -u wf_railway_v82_safe_idle.py`、`restartPolicyType=NEVER`、固定git commit `a8404905869dc1e1acc094adc0f0931f61823ede`（完整1072项合成回归通过的源码）。实际容器 `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`，本次模型调用0、R2读写0、自动收费下一批关闭。V99未部署真实文学自动评分器或新事实写入；后续独立盲评尚未完成。
