@@ -207,6 +207,8 @@ class ReadOnlyBridgeTests(unittest.TestCase):
         with self.assertRaisesRegex(WFReadOnlyLibraryError, "KEY_OUT_OF_SCOPE"):
             self.client.small_json(
                 "writerforge/v1/libraries/another-book/latest.json")
+        with self.assertRaisesRegex(WFReadOnlyLibraryError, "NOT_METADATA"):
+            self.client.small_json(ROOT+"blobs/"+"0"*64)
         with open_verified_study(self.client) as book:
             for bad in [(), ("a",), ("%\n",), tuple(["word"] * 5)]:
                 with self.subTest(bad=bad), self.assertRaises(WFReadOnlyLibraryError):
