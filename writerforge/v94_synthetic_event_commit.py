@@ -432,14 +432,35 @@ def _validate_manifest(raw):
     return doc
 
 
-def publish_chain(writer,reader,*,event_bytes,manifest_raw):
-    """CAS events then manifest LAST; caller MUST precompute with prepare."""
+def publish_chain(writer,reader,*,event_bytes,manifest_raw,preflight_dir):
+    """CAS events then manifest LAST, only after independent local replay.
+
+    Writer cannot publish a forged 'successful' receipt by guessing hashes:
+    each operation is re-applied to a NEW cloud-restored graph and the
+    resulting hashes MUST match the proposed final commit BEFORE writing.
+    """
     need(getattr(writer,"read_only",True) is False and
-         bool(getattr(writer,"writer",None)),
-         "WF94_R2_TEST_WRITER_PERMISSION_REQUIRED")
+         bool(getattr(writer,"writer",None)) and
+         getattr(reader,"read_only",False) is True and
+         getattr(reader,"writer",None) is None,
+         "WF94_R2_TEST_WRITER_AND_SEPARATE_READER_REQUIRED")
     manifest=_validate_manifest(manifest_raw)
     need(type(event_bytes) is list and len(event_bytes)==MAX_EVENTS,
          "WF94_REPLAY_EVENT_COUNT_NOT_SEVEN")
+    previous=None
+    for n,raw in enumerate(event_bytes,1):
+        need(type(raw) is bytes and len(raw)<=MAX_EVENT_BYTES,
+             "WF94_BAD_EVENT_RAW_BYTES")
+        _validate_event(_parse(raw,MAX_EVENT_BYTES),n,previous)
+        previous=digest(raw)
+    rerun,outcomes,final=_run(reader,working_dir=preflight_dir,
+                             event_bytes=event_bytes)
+    need(rerun==event_bytes and
+         digest(canonical(outcomes))==
+            manifest["outcome_receipts_sha256"] and
+         digest(canonical(final))==
+            manifest["final_state_sha256"],
+         "WF94_REPLAY_BEFORE_UPLOAD_NOT_ATTESTED")
     previous=None
     published=[]
     for n,raw in enumerate(event_bytes,1):
