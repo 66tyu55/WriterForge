@@ -614,6 +614,202 @@ async function inventory(url, env) {
     query_ms: Math.round(performance.now() - t),
   });
 }
+
+// V95 CONDITIONAL AUTHORITY HEAD (source opt-in; NOT a production fact writer)
+// Explicitly SYNTHETIC_TEST_ONLY. No new secret or new storage binding.
+// R2's storage-side onlyIf If-Match/If-None-Match is REQUIRED. The old
+// immutable index chunks and source routes remain untouched.
+const V95_HEAD_ROUTE="/r2/learn/head";
+const V95_CAP_ROUTE="/r2/learn/head/capabilities";
+const V95_HEAD_KEY=PREFIX+"learn/v95/heads/v95_synthetic_only.json";
+const V95_PROJECT="v95_synthetic_only";
+const V95_HEAD_FORMAT="writerforge.authoritative-learn-head.v95";
+const V95_KEYS=[
+  "format","schema_version","project_id","kind","generation",
+  "previous_head_sha256","commit_manifest_sha256","writer_id",
+  "original_prose_stored","real_fact_authority_granted",
+  "writer_literary_truth_verified","skills_promotion_allowed","head_sha256"
+];
+const V95_COMMIT_FORMAT="writerforge.synthetic-test-only.commit.v94";
+function v95canonical(doc) {
+  const value=Object.fromEntries(Object.keys(doc).sort().map(
+    k=>[k,doc[k]]));
+  return JSON.stringify(value);
+}
+async function v95sha(raw) {
+  const bytes=(typeof raw==="string") ? new TextEncoder().encode(raw) : raw;
+  return hexOf(await crypto.subtle.digest("SHA-256",bytes));
+}
+function v95args(url) {
+  const args=[...url.searchParams.entries()];
+  return args.length===1 && args[0][0]==="project" &&
+    args[0][1]===V95_PROJECT;
+}
+async function v95validateHead(doc,raw) {
+  if (!doc || typeof doc!=="object" || Array.isArray(doc) ||
+      Object.keys(doc).length!==V95_KEYS.length ||
+      V95_KEYS.some(x=>!Object.prototype.hasOwnProperty.call(doc,x)) ||
+      doc.format!==V95_HEAD_FORMAT ||
+      doc.schema_version!==1 || doc.project_id!==V95_PROJECT ||
+      doc.kind!=="SYNTHETIC_TEST_ONLY" ||
+      !Number.isSafeInteger(doc.generation) ||
+      doc.generation<1 || doc.generation>10000000 ||
+      !SHA.test(doc.head_sha256) ||
+      !SHA.test(doc.commit_manifest_sha256) ||
+      !/^[A-Za-z0-9][A-Za-z0-9_-]{1,63}$/.test(doc.writer_id) ||
+      ((doc.generation===1) !== (doc.previous_head_sha256===null)) ||
+      (doc.previous_head_sha256!==null &&
+        !SHA.test(doc.previous_head_sha256)) ||
+      doc.original_prose_stored!==false ||
+      doc.real_fact_authority_granted!==false ||
+      doc.writer_literary_truth_verified!==false ||
+      doc.skills_promotion_allowed!==false) return false;
+  const rest={...doc};delete rest.head_sha256;
+  const expected=await v95sha(v95canonical(rest));
+  if(expected!==doc.head_sha256) return false;
+  if(raw && new TextDecoder("utf-8",{fatal:true}).decode(raw)!==
+      v95canonical(doc)) return false;
+  return true;
+}
+async function v95current(env) {
+  const obj=await env.WF_R2.get(V95_HEAD_KEY);
+  if(!obj) return null;
+  if(!obj.body || obj.size<100 || obj.size>2048 ||
+     !obj.customMetadata?.sha256) throw Error("WF95_STORED_HEAD_CORRUPT");
+  const bytes=await obj.arrayBuffer();
+  if(bytes.byteLength!==obj.size ||
+     await v95sha(bytes)!==obj.customMetadata.sha256) {
+    throw Error("WF95_STORED_HEAD_BAD_SHA");
+  }
+  let doc;
+  try{doc=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(bytes))}
+  catch{throw Error("WF95_STORED_HEAD_INVALID_JSON")}
+  if(!await v95validateHead(doc,bytes)) {
+    throw Error("WF95_STORED_HEAD_NOT_TRUSTED");
+  }
+  return {doc,etag:obj.httpEtag};
+}
+async function v95checkCommitManifest(env,sha) {
+  const key=INDEX_ROOT+"chunks/"+sha+".bin";
+  const meta=await env.WF_R2.head(key);
+  if(!meta || meta.size<150 || meta.size>INDEX_MANIFEST_CAP ||
+     meta.customMetadata?.sha256!==sha) return false;
+  const blob=await env.WF_R2.get(key);
+  if(!blob?.body || blob.size!==meta.size ||
+     blob.httpEtag!==meta.httpEtag) return false;
+  const raw=await blob.arrayBuffer();
+  if(raw.byteLength!==meta.size || await v95sha(raw)!==sha)return false;
+  let doc;
+  try{doc=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(raw))}
+  catch{return false}
+  // Do not admit non-synthetic events, even if authenticated with the
+  // existing index writer key. There is no real reviewer signing authority.
+  return doc && typeof doc==="object" &&
+    doc.format===V95_COMMIT_FORMAT && doc.synthetic_only===true &&
+    doc.production_memory_written===false &&
+    doc.writer_eligible===false &&
+    doc.original_literary_quality_proven===false &&
+    doc.v92_experience_manifest_sha256===
+      "bd905ae9e812fb5283f24ed7fec3bc35cf0febde7b6405476c455bba468f84db" &&
+    doc.source_graph_manifest_sha256===
+      "a42ada69d6d3b4d6ed90664f4b6c5607f5e0849ed1a4d178688b8d45f10b1d25";
+}
+async function v95Head(request,env,url) {
+  if(request.method!=="GET" && request.method!=="PUT")
+    return fail(405,"WF95_HEAD_METHOD_INVALID");
+  if(!v95args(url))return fail(400,"WF95_HEAD_SCOPE_INVALID");
+  const updating=request.method==="PUT";
+  if(updating) {
+    if(!env.WF_INDEX_UPLOAD_TOKEN ||
+       env.WF_INDEX_UPLOAD_TOKEN===env.WF_API_TOKEN)
+      return fail(503,"WF95_WRITER_SECRET_UNAVAILABLE");
+    if(!await authorized(request,env.WF_INDEX_UPLOAD_TOKEN))
+      return fail(401,"WF95_WRITER_AUTH_REQUIRED");
+  }else if(!await authorized(request,env.WF_API_TOKEN)) {
+    return fail(401,"WF95_READER_AUTH_REQUIRED");
+  }
+  let existing;
+  try{existing=await v95current(env)}
+  catch{return fail(502,"WF95_HEAD_STORAGE_CORRUPT")}
+  if(!updating) {
+    if(!existing)return fail(404,"WF95_HEAD_NOT_CREATED");
+    return new Response(v95canonical(existing.doc),{
+      status:200,headers:{
+        "Content-Type":"application/json; charset=utf-8",
+        "ETag":existing.etag,"Cache-Control":"no-store",
+        "X-Content-Type-Options":"nosniff",
+      }
+    });
+  }
+  const ifMatch=request.headers.get("If-Match");
+  const ifNone=request.headers.get("If-None-Match");
+  // No unconditional PUTs. 'read and put' alone is NOT concurrency safe.
+  if((ifMatch!==null)===(ifNone!==null))
+    return fail(428,"WF95_ATOMIC_PRECONDITION_REQUIRED");
+  if(ifNone!==null && ifNone!=="*")
+    return fail(428,"WF95_INITIAL_IF_NONE_MATCH_REQUIRED");
+  if(ifMatch!==null &&
+     (!/^"[A-Za-z0-9_-]{8,130}"$/.test(ifMatch) ||
+       ifMatch.includes(",")))
+    return fail(428,"WF95_IF_MATCH_ETAG_INVALID");
+  const length=sizeInt(request.headers.get("Content-Length"));
+  if(length===null || length<180 || length>2048)
+    return fail(413,"WF95_HEAD_BODY_SIZE_INVALID");
+  const data=await request.arrayBuffer();
+  if(data.byteLength!==length)return fail(400,"WF95_HEAD_LENGTH_CHANGED");
+  let head;
+  try{head=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(data))}
+  catch{return fail(400,"WF95_HEAD_BODY_INVALID_JSON")}
+  if(!await v95validateHead(head,data))
+    return fail(422,"WF95_HEAD_STRUCTURAL_OR_SHA_INVALID");
+  if(!existing) {
+    if(ifNone!=="*" || head.generation!==1 ||
+       head.previous_head_sha256!==null)
+      return fail(409,"WF95_GENESIS_NOT_ATOMIC");
+  }else{
+    if(ifMatch!==existing.etag ||
+       head.generation!==existing.doc.generation+1 ||
+       head.previous_head_sha256!==existing.doc.head_sha256 ||
+       head.commit_manifest_sha256===
+         existing.doc.commit_manifest_sha256)
+      return fail(409,"WF95_HEAD_STALE_PARENT_OR_REPLAY");
+  }
+  if(!await v95checkCommitManifest(env,head.commit_manifest_sha256))
+    return fail(409,"WF95_UNVERIFIED_SYNTHETIC_COMMIT_MANIFEST");
+  // The critical atomic check is performed by R2 at the storage layer,
+  // after any await and independently of an earlier GET/HEAD response.
+  const condition=(ifNone!==null)
+    ?new Headers({"If-None-Match":"*"})
+    :new Headers({"If-Match":ifMatch});
+  const saved=await env.WF_R2.put(V95_HEAD_KEY,data,{
+    onlyIf:condition,
+    customMetadata:{
+      sha256:head.head_sha256,role:"V95_SYNTHETIC_TEST_ONLY"},
+    httpMetadata:{contentType:"application/json"},
+  });
+  if(!saved)return fail(409,"WF95_ATOMIC_HEAD_COMPARE_AND_SWAP_LOST");
+  if(saved.size!==data.byteLength ||
+     saved.customMetadata?.sha256!==head.head_sha256)
+    return fail(502,"WF95_ATOMIC_HEAD_STORAGE_RECEIPT_INVALID");
+  return json({
+    ok:true,head_sha256:head.head_sha256,
+    generation:head.generation,synthetic_only:true,
+    atomic_conditional_commit:true,
+    real_facts_admitted:false,
+  });
+}
+async function v95Capabilities(request,env,url) {
+  if(request.method!=="GET")return fail(405,"WF95_CAPABILITY_METHOD_INVALID");
+  if(url.search!=="")return fail(400,"WF95_CAPABILITY_NO_QUERY");
+  if(!await authorized(request,env.WF_API_TOKEN))
+    return fail(401,"WF95_CAPABILITY_READER_TOKEN_REQUIRED");
+  return json({
+    ok:true,protocol:"wf95-authoritative-head",
+    atomic_r2_conditional_put:true,
+    real_production_facts_allowed:false,synthetic_only:true,
+  });
+}
+
 export default {
   async fetch(request, env) {
     try {
@@ -622,6 +818,12 @@ export default {
       }
       if (!env.WF_R2) return fail(503, "WF_R2_BINDING_MISSING");
       const url = new URL(request.url);
+      if(url.pathname===V95_CAP_ROUTE) {
+        return await v95Capabilities(request,env,url);
+      }
+      if(url.pathname===V95_HEAD_ROUTE) {
+        return await v95Head(request,env,url);
+      }
       if (url.pathname === "/r2/learn/writer-ready") {
         if (request.method !== "GET")
           return fail(405,"WF_LEARN_READY_METHOD_DENIED");
