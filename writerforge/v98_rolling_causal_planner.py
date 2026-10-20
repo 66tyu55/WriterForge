@@ -99,9 +99,22 @@ def latest_observed_effect(accepted):
             effect=turn["effect_quote"]
             require(len(_occurrences(turn["prose"],effect))==1,
                     "WF98_PARENT_EFFECT_NOT_UNIQUE_ANYMORE")
-            require(turn.get("receipt",{}).get("causal_check")==
-                    "EXACT_OBSERVABLE_ANCHORS_ONLY",
-                    "WF98_PARENT_NOT_CHECKED_BY_V96")
+            receipt=turn.get("receipt")
+            require(type(receipt) is dict and
+                    receipt.get("causal_check")==
+                        "EXACT_OBSERVABLE_ANCHORS_ONLY" and
+                    receipt.get("turn_id")==turn.get("beat_id") and
+                    receipt.get("prose_sha256")==
+                        digest(turn["prose"].encode("utf8")) and
+                    type(receipt.get("effect_anchor")) is dict and
+                    receipt["effect_anchor"].get("quote_sha256")==
+                        digest(effect.encode("utf8")) and
+                    receipt["effect_anchor"].get("start")==
+                        _occurrences(turn["prose"],effect)[0] and
+                    receipt.get("receipt_sha256")==
+                        digest(canonical({k:v for k,v in receipt.items()
+                                 if k!="receipt_sha256"})),
+                    "WF98_PARENT_V96_RECEIPT_NOT_INTACT")
             return turn
     raise V98RollingPlanError("WF98_NO_ACTUAL_PRIOR_EFFECT_TO_REPLAN_FROM")
 
