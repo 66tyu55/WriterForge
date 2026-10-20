@@ -45,3 +45,18 @@ Railway真实只读部署：`6a21e71d-62b3-4236-8f37-2ac5d5380e94`，代码原�
 后续应先通过新的纯R2 Reader进程重新从原R2文件SHA、种子与确切片段位置核实两个样本和密封后文；此时零模型调用。然后使用已冻结`docs/V87_BLIND_PROTOCOL_PRECOMMIT_20261020.md`做双臂首次阅读，严格不泄漏第三单位；回答封存后再由不同且真正受信的文学审核者给出`SUPPORTED/NEGATIVE/UNKNOWN`，所有证据位保留；只有新的真实对照能开始探讨文学进步。
 
 **运维**：需要在本轮结束时将Railway改回单次`wf_railway_v82_safe_idle.py`，记录真实回执。不需要第四个密钥，也不可重复付费阅读第1—15章。
+
+
+## 五、独立冷进程R2来源验收（2026-10-20，已真实完成）
+
+新的、与抽样源检查不同的Railway只读部署 `800b4c0f-9539-46cc-94f7-c1a83b83a1d7` 真实执行 `python -u wf_railway_v87_independent_cold_reader.py`，日志返回：
+
+- `WF87_INDEPENDENT_R2_TWO_RANDOM_PASSAGES_VERIFIED`
+- `WF87_INDEPENDENT_COLD_READER_EXIT=0`
+- 仅以 `WF_API_TOKEN` Reader访问既有R2；进程启动前移除模型及R2 Writer相关密钥。
+- 独立重新下载两本全文合计 `12,336,458`字节（7,029,638历史类＋5,306,820科幻类），重算两份原始文件SHA、严格可逆解码、随机偏移、2300字符片段SHA、两条可见单位SHA和密封第三单位SHA，全部与上一部署 `6a21e71d-62b3-4236-8f37-2ac5d5380e94` 结果相符。
+- 复查种子及元数据抽样SHA仍为 `ddb50ed6b88681c23d214073d45ba4edba151bf0de1e0bfed5153efeeb3e1f6c`，抽中来源非同一书。
+- 独立进程 `paid_model_calls=0`、`r2_writes=0`、`student_has_not_seen_hidden_unit=true`，未输出书名、路径、章节正文、人物名或私有token。
+- **核验范围是资料SHA和来源连续性，不是文学理解测试**：`independent_literary_semantic_grader_executed=false`、文学质量优胜组与技能晋级未判定。
+
+至此可以把V87.1两个随机连续文本片段标成“`PRIVATE_R2_COLD_SOURCE_PROVENANCE_VERIFIED`”。不得把本状态表述成V87.0的完整章节验收通过，也不得当成有经验组文学水平高于基线的证明。之前V87.0全员拒绝红色报告继续保留。
