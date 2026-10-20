@@ -246,7 +246,7 @@ def _verify_final(writer,facts,bridge):
         scope="ACTOR",subject="hero",fact="unobserved_future",
         story_tick=3,as_of_ledger_seq=head)
     need(earlier["state"]=="KNOWN" and
-         later["state"]=="DISPUTED" and
+         later["state"]=="CONFLICT_UNRESOLVED" and
          unknown["state"]=="UNRECORDED" and head==8,
          "WF94_FACT_TEMPORAL_SUPERSESSION_COLD_REPLAY_CHANGED")
     records={}
@@ -273,7 +273,7 @@ def _verify_final(writer,facts,bridge):
         "source_snapshot_global_ledger_seq":6,
         "new_global_ledger_seq":head,
         "earlier_actor_fact_state":"KNOWN",
-        "latest_actor_fact_state":"DISPUTED",
+        "latest_actor_fact_state":"CONFLICT_UNRESOLVED",
         "unknown_future_fact_state":"UNRECORDED",
         "past_select_receipt_sha256":records["v94_before_revoke"],
         "current_revoked_skip_receipt_sha256":records[
@@ -529,7 +529,7 @@ def cold_replay(reader,*,manifest_sha,workdir):
         "after_revocation":"SKIP",
         "prior_revoked_select_still_invalid":True,
         "original_character_state":"KNOWN",
-        "latest_character_state":"DISPUTED",
+        "latest_character_state":"CONFLICT_UNRESOLVED",
         "unknown_future_state":"UNRECORDED",
         "knowledge_history_kept_as_of_ledger":True,
         "actual_production_graph_durable_write_stream_active":False,
