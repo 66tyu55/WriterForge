@@ -113,10 +113,12 @@ class V92ChainTests(unittest.TestCase):
                     required_source_sha="a"*64,required_source_key_sha="b"*64)
         self.c=SyntheticChain()
         self.c.raw[self.c.old[8]]=b"garbled-not-same-hash"
-        with self.assertRaisesRegex(chain.V92ChainError,
-                                    "CONTENT_ADDRESS_MISMATCH"):
-            chain.walk_v80_chain(self.c.read,head=self.c.head,
-                 required_source_sha="a"*64,required_source_key_sha="b"*64)
+        with patch.object(chain,"V91_CH15_CAS",self.c.migrated15_sha):
+            with self.assertRaisesRegex(chain.V92ChainError,
+                                        "CONTENT_ADDRESS_MISMATCH"):
+                chain.walk_v80_chain(self.c.read,head=self.c.head,
+                     required_source_sha="a"*64,
+                     required_source_key_sha="b"*64)
 
     def test_wrong_source_identity_fails(self):
         with self.assertRaisesRegex(chain.V92ChainError,"OTHER_BOOK"):
