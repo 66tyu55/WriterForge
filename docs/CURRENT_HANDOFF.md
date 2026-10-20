@@ -1189,3 +1189,18 @@
 **本轮最后Railway必须切回 `python -u wf_railway_v82_safe_idle.py`、`restartPolicyType=NEVER` 并核实实际日志0模型/0 R2读写、自动收费false。不能凭部署SUCCESS或本文预填运维成功。**
 
 **§78 真实最后运行状态**：Railway `bec76c08-c948-4c83-8d4a-bc9113d25a47` `SUCCESS`，`python -u wf_railway_v82_safe_idle.py`、`restartPolicyType=NEVER`，实际 `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`、本次模型0/R2读取0写入0、自动收费批次关闭。部署源码pin `caab5500fe4668c67b7b8e114950731390046c28`，任何后续仅文档改动不得触发再次运行V92的CAS迁移任务。
+
+
+## 79. 【2026-10-20 V93】长期人物关系/撤销负例的R2双SQLite冷恢复**技术通道通过**；真实生产知识图尚未迁移
+
+**必须先读：[V93云端双库合成演练与独立恢复完整报告](V93_SYNTHETIC_RELATIONAL_GRAPH_R2_COLD_RESTORE_20261020.md)。** 本节接续§78前15章真实经验链以及 [ADR-001长期记忆P0契约](ADR_001_WF_LIFELONG_MEMORY_DURABILITY_20261020.md)。用户明确要求让WF长期成长、不突然乱码遗忘或重新变笨，所以本阶段绝不将软件层模拟结果登记为已学会人物和因果。
+
+1. **真实生产状态盘点**：现有Railway `wf-python-r2`不挂载持久Railway Volume，环境中无Railway Bucket；现有R2通过旧三凭证的Reader/IndexWriter维护。**未定位到可认证的生产WriterForgeDB+FactJournal持久数据库来源**，没有资格向云端恢复流程伪造其事实行。本轮仅使用合成数据库验证可靠恢复路径。旧V92全15章正式中文经验清单CAS `bd905ae9e812fb5283f24ed7fec3bc35cf0febde7b6405476c455bba468f84db`始终未变。
+2. **V93底层代码已提交**：`writerforge/v93_synthetic_graph_cloud_checkpoint.py`严格只接受唯一合成测试来源，支持两SQLite原有V91在线备份、SQL快速/外键/逻辑行SHA、长度受限zlib压缩分块至原私有R2 CAS，**各块先写回校验、manifest最后**；由独立Reader重建V91完整快照。混入其他作品/用户资料、被改SHA、恶意解压、假文学晋级、跨模型权限不允许通过。`writerforge/v93_synthetic_graph_fixture.py`用现有真实DB API构造合成角色知识、独立签名**测试夹具**的授权撤销、SELECT→SKIP，不新造人物数据库。合成测试签名公开，只为行为集成，不能证明真人独立文学审评。
+3. **真实红项全部保留**：首轮全仓Railway `091fd4ae-2572-447c-837b-6457643223a7` 982项中10处因错误列名`decision_json`而失败；对照旧DB修成`plan_json`。专项第二轮 `5d144ca0-c47f-4d49-9b51-139dc4db8038`10项/2错误，因V93错用全JSON文件SHA作V91 `CURRENT`内部manifest收据SHA；修复两类SHA的区别。新专项 `d0071435-5d40-4c2a-a422-86177e84ff80` **10项全绿**；最终全仓 `cc958490-5792-4aeb-8f71-27c0515aeb4f` **982项执行、0失败、0错误、4跳过**、模型和真实R2请求0。
+4. **真实R2写入**：一次性Railway `6ed77edc-3e4b-4ecd-8b3d-f853f6ca1d57` `WF93_SYNTHETIC_DUAL_SQLITE_R2_MANIFEST_LAST_VERIFIED` / exit0，仅两份压缩**合成**SQLite分别存成2个新CAS块，manifest LAST再新建1个对象，原R2学习/用户原著不变。新云端manifest SHA `a42ada69d6d3b4d6ed90664f4b6c5607f5e0849ed1a4d178688b8d45f10b1d25`。没有新文学训练或模型调用。
+5. **真实独立冷恢复成功**：新Railway Reader `8cc1e602-1064-4709-a290-50b0929e0b36` `WF93_INDEPENDENT_CLOUD_SYNTHETIC_GRAPH_AND_BEHAVIOR_VERIFIED`/exit0，下载恢复**两份SQLite、21张关键表**，并重新验证合成跨章人物已知`KNOWN`/未记录知识`UNRECORDED`、旧历史`SELECT`保留且撤销后新`SKIP`，禁止重用旧许可。另起合成fixture独立比较摘要通过，模型调用0/R2写0。**这个合成数据不是WF已训练15章的真实人物状态**。
+6. **不能越过的P0**：未部署实际生产人物知识/负例的可靠**持续写入**、跨R2+SQLite原子回执、真实生产数据库安全归档和加密、生产多写者一致性、自动失败恢复/多年容量压测、文学语义独立验收。V49`THIRD_STRIKE_FAILED`和第二文学窗口`LOCKED`保留；第16章不自动训练。
+7. **V94首先处理**：确立真实生产LEARN中**可信事实和负例写入事务源**，V89精准原文定位+V85来源/人物时序+V86受信审评的“记录进入SQLite时同步持久化R2 CAS”的写入/回放协议；让新Reader能从R2真实状态重建，跨会话正确选择SKIP/ABSTAIN。必须持续留失败证据，不能拿V93合成临时数据库反过来填充历史人物知识。无此能力继续大量章节训练会制造无法持久化的伪记忆。
+
+最终Railway应用必须恢复为一次性`python -u wf_railway_v82_safe_idle.py`、`restartPolicyType=NEVER`，以最后部署实际运行日志证明；不可提前预填。
