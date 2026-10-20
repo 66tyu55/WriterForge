@@ -128,3 +128,49 @@ def chapter_order(key_sha, chapters):
     positions=range(2,min(len(chapters),20)+1)
     return sorted(positions,key=lambda n:(
         stable_rank("chapter",key_sha,n),n))
+
+
+def inventory_metadata_only(client,catalog):
+    """List metadata through existing read-only R2 Worker, never GET source.
+
+    Unlike inventory_to_catalog() this intentionally does NOT perform its
+    additional one-byte range-read probes; every request is /list only.
+    """
+    from .private_reading_remote import (
+        WFPrivateReadingClient,FOLDERS,MAX_PAGES_PER_FOLDER,MAX_OBJECTS,
+    )
+    from .bulk_inbox import BulkCatalog
+    need(isinstance(client,WFPrivateReadingClient) and
+         isinstance(catalog,BulkCatalog),
+         "WF87_R2_METADATA_READER_REQUIRED")
+    count=pages=0
+    folder_counts={}
+    global_keys=set()
+    for folder in FOLDERS:
+        cursor=None
+        seen=set()
+        number=0
+        for _ in range(MAX_PAGES_PER_FOLDER):
+            batch,next_cursor,body=client.list_page(folder,cursor=cursor)
+            for item in batch:
+                need(item["key"] not in global_keys,
+                     "WF87_DUPLICATE_INVENTORY_KEY")
+                global_keys.add(item["key"])
+            catalog.register(batch)
+            pages+=1
+            count+=len(batch)
+            number+=len(batch)
+            need(count<=MAX_OBJECTS,"WF87_INVENTORY_TOO_LARGE")
+            if next_cursor is None:
+                break
+            need(next_cursor not in seen,"WF87_REPEATED_CATALOG_CURSOR")
+            seen.add(next_cursor)
+            cursor=next_cursor
+        else:
+            raise WF87HoldoutError("WF87_INVENTORY_PAGINATION_LIMIT")
+        folder_counts[folder]=number
+    return {
+        "inventory_complete":True,"metadata_objects":count,
+        "metadata_pages":pages,"folder_counts":folder_counts,
+        "source_bytes_read":0,"r2_writes":0,
+    }
