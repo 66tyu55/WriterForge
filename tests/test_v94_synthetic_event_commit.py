@@ -119,7 +119,7 @@ class V94EventTests(unittest.TestCase):
                          b["final_state_sha256"])
         self.assertEqual(a["outcome_receipts_sha256"],
                          b["outcome_receipts_sha256"])
-        self.assertEqual(a["latest_character_state"],"DISPUTED")
+        self.assertEqual(a["latest_character_state"],"CONFLICT_UNRESOLVED")
 
     def test_event_only_without_last_manifest_is_uncommitted(self):
         # The first event may exist in R2 before a crash, but cannot be
