@@ -69,11 +69,22 @@ def key_guard(key):
 
 
 class ExperienceDecisionBridge:
-    def __init__(self, db, runtime, *, reviewer_key: bytes | None = None):
+    def __init__(self, db, runtime, *, reviewer_key: bytes | None = None,
+                 literary_review_key: bytes | None = None):
         self.db = db
         self.runtime = runtime
         key_guard(reviewer_key)
+        key_guard(literary_review_key)
         self._reviewer_key = reviewer_key
+        # Separate off-model verifier. Without this, linked V86
+        # candidates cannot be selected even if legacy approval exists.
+        self._literary_review_key = literary_review_key
+
+    def _v86_review_state(self, project_id, experience_id):
+        from .v86_review_contract import load_link_and_state
+        return load_link_and_state(
+            self.db.conn,project_id,experience_id,
+            self._literary_review_key)
 
     def _source_verified(self, locator, snapshot_id):
         need(type(snapshot_id) is int and snapshot_id >= 1,
@@ -141,7 +152,8 @@ class ExperienceDecisionBridge:
 
     def stage_candidate(self, *, project_id, experience_id, snapshot_id,
                         source_ref, required_tags, forbidden_tags,
-                        operation_code, supersedes_experience_id=None):
+                        operation_code, supersedes_experience_id=None,
+                        evidence_link=None):
         self.runtime.require(Mode.LEARN)
         need(is_id(project_id) and is_id(experience_id),
              "EXPERIENCE_ID_INVALID")
@@ -180,6 +192,12 @@ class ExperienceDecisionBridge:
             record["prior_candidate_sha256"]=prior_row["candidate_sha"]
             record["revision_reason"]="PRIOR_ADVERSE_OR_REVOKED"
         h=digest(record)
+        if evidence_link is not None:
+            from .v86_review_contract import verify_link
+            verify_link(evidence_link,expected_candidate_sha=h)
+            need(evidence_link["project_id"]==project_id and
+                 evidence_link["experience_id"]==experience_id,
+                 "EXPERIENCE_V86_LINK_WRONG_SCOPE")
         prior=self.db.conn.execute(
             "SELECT * FROM experience_candidates "
             "WHERE project_id=? AND experience_id=?",
@@ -188,6 +206,14 @@ class ExperienceDecisionBridge:
             self._candidate_view(prior)
             need(prior["candidate_sha"]==h,
                  "EXPERIENCE_CANDIDATE_IMMUTABLE")
+            linked=self.db.conn.execute(
+                "SELECT link_sha FROM experience_evidence_links "
+                "WHERE project_id=? AND experience_id=?",
+                (project_id,experience_id)).fetchone()
+            need((linked is None and evidence_link is None) or
+                 (linked is not None and evidence_link is not None and
+                  linked["link_sha"]==evidence_link["link_sha"]),
+                 "EXPERIENCE_V86_LINK_REPLAY_DIFFERENT")
             return {"candidate_sha256":h,"replayed":True,
                     "eligible_for_writing":False}
         with self.db.conn:
@@ -196,6 +222,16 @@ class ExperienceDecisionBridge:
                 "project_id,experience_id,candidate_sha,candidate_json)"
                 " VALUES(?,?,?,?)",
                 (project_id,experience_id,h,canonical(record)))
+            if evidence_link is not None:
+                self.db.conn.execute(
+                    "INSERT INTO experience_evidence_links("
+                    "project_id,experience_id,candidate_sha,audit_sha,"
+                    "claim_id,anchor_sha,producer_id,link_sha)"
+                    " VALUES(?,?,?,?,?,?,?,?)",
+                    tuple(evidence_link[k] for k in (
+                        "project_id","experience_id","candidate_sha",
+                        "audit_sha","claim_id","anchor_sha",
+                        "producer_id","link_sha")))
         return {"candidate_sha256":h,"replayed":False,
                 "eligible_for_writing":False}
 
@@ -454,6 +490,11 @@ class ExperienceDecisionBridge:
                      for x in plan["decisions"]),
                  "EXPERIENCE_POSTWRITE_TAMPERED")
             statuses.add(item["outcome"])
+        # An independently signed negative judgement is stronger than
+        # a model's own CLAIMED_APPLIED. Never use it as a literary grade.
+        v86=self._v86_review_state(project_id,experience_id)
+        if v86=="NEGATIVE":
+            return "NEGATIVE_INDEPENDENT_REVIEW"
         if "NOT_APPLIED" in statuses:
             return "NOT_APPLIED"
         if "UNCERTAIN" in statuses:
@@ -523,6 +564,10 @@ class ExperienceDecisionBridge:
             # Historical decisions remain auditable but can no longer be
             # reactivated to generate new text after a failure/tombstone.
             if detail["decision"]=="SELECT":
+                need(self._v86_review_state(
+                    project_id,detail["experience_id"]) in (
+                    None,"SUPPORTED_FOR_EXPERIMENT"),
+                    "EXPERIENCE_SELECTED_V86_REVIEW_STALE")
                 need(self._revocation_state(
                     project_id,detail["experience_id"]) is None,
                     "EXPERIENCE_SELECTED_POLICY_REVOKED")
@@ -602,8 +647,16 @@ class ExperienceDecisionBridge:
                 project_id,candidate["experience_id"])
             feedback=self._feedback_state(
                 project_id,candidate["experience_id"])
+            v86=self._v86_review_state(
+                project_id,candidate["experience_id"])
             if revocation is not None:
                 outcome,why="SKIP","EXPERIENCE_REVOKED"
+            elif feedback=="NEGATIVE_INDEPENDENT_REVIEW":
+                outcome,why="SKIP","INDEPENDENT_NEGATIVE_REVIEW"
+            elif v86=="NOT_REVIEWED":
+                outcome,why="UNCERTAIN","LITERARY_REVIEW_REQUIRED"
+            elif v86=="UNCERTAIN":
+                outcome,why="UNCERTAIN","LITERARY_REVIEW_INCONCLUSIVE"
             elif feedback=="NOT_APPLIED":
                 outcome,why="SKIP","PRIOR_NOT_APPLIED"
             elif feedback=="UNCERTAIN":
