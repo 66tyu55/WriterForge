@@ -54,3 +54,15 @@ R2 Workers绑定的`R2PutOptions.onlyIf`支持服务端`If-Match`和`If-None-Mat
 先取得**真实Native Node CI通过证据**，再评估对现有Cloudflare Worker只追加V95合成HEAD新路由（保留现有读写权限及旧R2绑定）并进行两个**跨进程**条件写入竞争实验；在线Workers HEAD未经过验证前禁止任何真实生产事实持久写入。之后必须取得独立受信的审评授权、真实来源事实发生的持续录入边界，按V89→V85→V86建真正事件，在`WRITE`之前对HEAD、来源和撤销进行冷恢复验证；新知识默认候选，不自动变成`KNOWN`。
 
 **今后真正长期成长门槛不变**：来源可靠 → 能持久 → 跨会话完整恢复 → 决策确实正确可重复 → 独立文学质量提升。V95不是文学毕业，也不是新批次DeepSeek训练许可。
+
+
+## 六、后续补充：原生Worker JS实际竞态测试已补齐（2026-10-20）
+
+这段**后续实测**更新本报告先前“Native JS 未验收”的状态，但不追改此前失败记录。
+
+- Railway Python镜像第一次 `c01621c7-65eb-4e64-ac9c-52cd4246eb6e` 确实没有Node，因此当时0项JS测试、不得报绿。后续另外创建**不带任何项目凭证的临时隔离Railway Function（Bun 1.4.0）**，从GitHub固定源码commit `9f311d257bc7dab296dbbdb9ec0a0122a972f060` 读取真实 `cloudflare/wf-r2-worker-readonly.js` 和 `tests/v95_worker_conditional_head.test.mjs`。只将JS模块尾部的 `export default` 转成运行器可加载表达式，业务函数与路由不改，测试仍执行真实Worker逻辑而非Python伪实现。
+- 临时函数第一次部署 `094ba92a-5dea-4921-8164-37fa326f8e4e` 的Railway日志只显示 `Starting Container`，**未得到有效测试通过记录**。第二次在同一个隔离Bun测试入口加入显式启动日志和短暂退出前日志刷新，部署 `b9386aa6-4806-4801-a854-f36b8c247b53` 实际返回 **`WF95_NATIVE_JS_WORKER_PASSED`、4/4通过、0失败**。运行日志明确列出：GET capabilities与旧health兼容、首次HEAD条件创建、两个过期竞争者**只有一位获胜（另一位409）**、伪造来源/版本/生产权限拒绝、错误ETag/项目范围拒绝。没有接入Cloudflare、R2网络写0、DeepSeek0。临时Function仅用于测试，之后应清理；测试固定源在GitHub，可重新执行。
+- 这项结果**不等于 GitHub Node 22 Actions 已成功**：独立仓库工作流状态依然未取得可信完成回执；本次是真正执行的原生JS Worker逻辑，但运行于Railway隔离 **Bun** 环境。更不等于Cloudflare实际R2多实例竞争通过；线上Worker V95 capability最新实测仍404，正式HEAD写入不允许。
+- V95最终Railway Python服务的`wf_railway_v82_safe_idle.py`部署 `4a49aab3-28b6-4d1a-bf2f-5cb0289d43c8` 为 `SUCCESS`，**实际容器日志** `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`，本次模型0、R2读取0、R2写入0、自动付费续训false，`restartPolicyType=NEVER`。第1—15章原有真实CAS与V92–V94云端结果均未覆盖。
+
+**修正后的V95实证分层**：Python全仓1017项绿、Python专项24项绿、原生Bun Worker JS 4项绿；Cloudflare线上V95原子HEAD=未部署(404)、真实R2远端两writer=未验收、独立文学真实性=未验收。不得将“离线绿灯”提升为生产安全许可。
