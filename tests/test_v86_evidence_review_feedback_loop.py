@@ -159,12 +159,13 @@ class V86LiteraryLoopTests(unittest.TestCase):
         self.rt.enter_write(self.snapshot)
 
     def stage(self,name="lesson01",supersedes=None,
-              operation="CHECK_KNOWLEDGE",receipt=None,quote=QUOTE):
+              operation="CHECK_KNOWLEDGE",receipt=None,quote=QUOTE,
+              claim_id="claim01"):
         return self.loop.stage_from_sealed(
             project_id="project01",experience_id=name,
             snapshot_id=self.snapshot,source_ref=self.locator,
             source_quote=quote,receipt=receipt or self.receipt,
-            claim_id="claim01",producer_id="wf_student",
+            claim_id=claim_id,producer_id="wf_student",
             operation_code=operation,required_tags=["limited_knowledge"],
             forbidden_tags=["omniscient"],
             supersedes_experience_id=supersedes)
@@ -228,9 +229,21 @@ class V86LiteraryLoopTests(unittest.TestCase):
             project_id="project01",attempt_id="attempt02"
         )["decision_sha256"],before["decision_sha256"])
         self.learn()
+        with self.assertRaisesRegex(V86ReviewError,
+                                    "REVISION_REQUIRES_NEW_SEALED_CLAIM"):
+            self.stage("revision_same_source",supersedes="lesson01",
+                       operation="TRACE_CONSEQUENCE")
+        revised_claim=dict(self.claim,
+                           claim_id="revision_claim01",
+                           hypothesis="少年改变过桥决定也可能来自钟声与木牌异常的共同影响。",
+                           falsifier="如果后续证明少年从未听见钟声，这个新假说应立即撤销。")
+        revised_receipt=self.sealed.audit_sealed_chapter(
+            ident=self.ident,windows=ORIGINAL,
+            proposals=[revised_claim])
         revision=self.stage(
             "revision01",supersedes="lesson01",
-            operation="TRACE_CONSEQUENCE")
+            operation="TRACE_CONSEQUENCE",
+            receipt=revised_receipt,claim_id="revision_claim01")
         self.assertFalse(revision["experiment_approved"])
         self.write()
         still_blocked=self.choose("attempt04")
