@@ -154,7 +154,7 @@ class V98RollingPlannerTests(unittest.TestCase):
             "goal":"少年安静地观察时不能提前声明产生任何决定",
             "causal_parent":None,"craft_focus":["restraint"]
         }
-        prose="雨停之前两人一直沉默地站在门边。药箱上的绳子还湿着，远处的船铃若隐若现。"*2
+        prose="雨停之前两人一直沉默地站在门边。药箱上的绳子还湿着，远处的船铃若隐若现。"*3
         quiet=check_turn(
             response(prose,None,None),idle_beat,mode="causal_guard")
         with self.assertRaisesRegex(V98RollingPlanError,"NO_ACTUAL_PRIOR_EFFECT"):
