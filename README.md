@@ -4,6 +4,8 @@
 
 > **P0 lifelong learning and memory integrity:** [ADR-001 · Long-term durability, migration and behavioral recovery](docs/ADR_001_WF_LIFELONG_MEMORY_DURABILITY_20261020.md). Saving short craft notes, a prompt cache or a valid SHA alone is **not** successful learning. New versions must preserve recoverable knowledge, negative evidence and actual decision behavior before any further large-scale training.
 
+> **V98 opt-in writing core (not a literary grade):** [Prose-driven rolling causal scenes](docs/V98_PROSE_DRIVEN_ROLLING_CAUSAL_WRITING_20261020.md). After drafting a scene, verify real action/effect anchors and prior receipt integrity, then allow one bounded new scene plan driven by what actually appeared in the prose. Default A/B/C unchanged; no canon or automatically accepted skill writes.
+
 > **Writing quality is the core goal (V96):** [GitHub/ACL long-form causal writing study and A/B/C plan](docs/V96_LONGFORM_CAUSAL_WRITING_GITHUB_RESEARCH_20261020.md). Prioritize actual character motivation, scene decisions, causal consequences, continuity and craft effects over expanding storage, token windows or Skill counts. A durable knowledge base is infrastructure, not proof that WF can write a coherent 1,000–6,400-character Chinese scene.
 
 WriterForge is a long-form fiction system built around strict LEARN / WRITE separation, Reader-First source learning, Canon/Character/Knowledge/Promise memory, lean Craft routing, Literary Taste, Story Sense and controlled Evolution.
