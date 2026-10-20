@@ -1204,3 +1204,19 @@
 7. **V94首先处理**：确立真实生产LEARN中**可信事实和负例写入事务源**，V89精准原文定位+V85来源/人物时序+V86受信审评的“记录进入SQLite时同步持久化R2 CAS”的写入/回放协议；让新Reader能从R2真实状态重建，跨会话正确选择SKIP/ABSTAIN。必须持续留失败证据，不能拿V93合成临时数据库反过来填充历史人物知识。无此能力继续大量章节训练会制造无法持久化的伪记忆。
 
 最终Railway应用必须恢复为一次性`python -u wf_railway_v82_safe_idle.py`、`restartPolicyType=NEVER`，以最后部署实际运行日志证明；不可提前预填。
+
+
+## 80. 【2026-10-20 V94】受控LEARN事件写前记录 → R2 manifest-last → 独立SQLite冷重建与撤销重放
+
+**真正权威交接：[V94真实R2合成七事件提交及独立冷回放完整报告](V94_SYNTHETIC_LEARN_EVENT_R2_COMMIT_COLD_REPLAY_20261020.md)**。继续遵守 [ADR-001终身学习完整性要求](ADR_001_WF_LIFELONG_MEMORY_DURABILITY_20261020.md)。本轮绝不把受限**合成**七事件归档解释为“WF过去15章的人物关系/因果/负例已经真实写入生产大脑”。
+
+1. **原不变底座**：V92真实15章完整中文经验CAS链manifest `bd905ae9e812fb5283f24ed7fec3bc35cf0febde7b6405476c455bba468f84db`；V93真实R2的**合成**双SQLite数据库云端快照 `a42ada69d6d3b4d6ed90664f4b6c5607f5e0849ed1a4d178688b8d45f10b1d25`。原V82训练不重启、不覆盖。
+2. **V94代码分支** `v94-durable-learn-events-commit-replay`，核心 `writerforge/v94_synthetic_event_commit.py` 与三个脚本 `wf_railway_v94_focused_tests.py`、`wf_railway_v94_publish_synthetic_events.py`、`wf_railway_v94_independent_event_reader.py`。每个R2新事件绑定源快照SHA、前驱事件SHA、序号、固定合成枚举及复算结果SHA；先在完全临时恢复的SQLite上演算、再进入CAS上传，**最后**提交manifest。不能用没有清单的孤立CAS“恢复记忆”。
+3. **7条固定事件**：合成经验STAGE→测试签名APPROVE→写作选择SELECT→测试签名REVOKE→下次SKIP→既有合成人物事实追加冲突OBSERVE→时态claim supersede。旧global ledger seq6`KNOWN`保留，新seq8实际FactJournal合同`CONFLICT_UNRESOLVED`，未出现的知识`UNRECORDED`；旧SELECT继续可查但不能重新作为WRITE有效许可。所有签名都是**公开合成夹具**，无真人文学真值/独立审核。
+4. **真实红项及修复**：Railway `78c32276-7885-4f3a-be8d-0537b4c78129` 11项/11ERROR，因新测试把DISPUTED错误预期为直接DISPUTED而旧FactJournal实际按争议返回CONFLICT_UNRESOLVED；`c9791655-3bbe-48cd-bb9d-308546e28f8d`因新模块读写模式不当被`RuntimeEngine.require(Mode.WRITE)`挡住，改为明确切WRITE调用而非绕过保护；`f006d099-8e96-4440-a910-ea9a9d593860` 11项10通过1夹具断言期待旧状态；最终专项 `c94b2e3b-0a28-4774-89bf-e185e40eae4d` **11/11全绿**，全仓 `696cdccc-67de-401c-8b97-92ec59e89e3d` **993项、0失败、0错误、4跳过**，全仓测试禁外网，模型0、R2远端读写0。
+5. **真实R2事件提交**：Railway `7e10b22d-39e5-4970-a73c-cbfe0089880e` `WF94_SEVEN_SYNTHETIC_R2_EVENTS_AND_COMMIT_SAVED` / exit0；新增7条不可变CAS与最后1条commit，写后读回，原V92/V93未覆盖、模型0、现实文学人物数据库未写。固定最终commit manifest SHA **`5b33b3f07131eb1abdf7298b68a934daf2b496a084108ccfd1a20d673ce352b7`**。
+6. **独立真实R2只读冷恢复**：新Railway Reader `769d84d5-7a6d-475b-b5ad-25cf8669fa31` `WF94_INDEPENDENT_R2_EVENT_AND_BEHAVIOR_REPLAY_VERIFIED` / exit0。从R2恢复V93两SQLite，读取全部7条事件并重演，最终状态SHA `383aa34044919054e046801ac69e183347f2929cc311ab3d57376b654c778f65`，事件预期回执集合SHA `55721117a9caf0e83283a7f8211edcd09f47a24f0b4a4ea4f06fedce622322d5`。事实旧KNOWN/新冲突/未知、SELECT→SKIP与撤销旧SELECT都核查一致；模型0、R2写0。
+7. **最重要的生产缺口**：V94只有固定合成事件，生产真实`LEARN → FactJournal/经验审查`的**持续可信录入权限**还未建立，真实生产人物知识图未被找到可恢复的可信历史持久源；跨R2+SQLite事务、多写者head竞争/租约、加密授权、独立文学真值及真实几年后行为能力未验收。新上传的event和R2快照不能作为生产角色`KNOWN`证据，真实WRITE仍不被解锁。V49`THIRD_STRIKE_FAILED`和第二文学窗口`LOCKED`保留，第16章不开始。
+8. **V95唯一下一关**：先定义真实可信事实入库来源与权限，不依赖模型自证；加持久化事件head的单写者/并发控制和明确失败补偿边界、R2新进程真实WRITE前恢复检查，沿V89原文定位→V85时间来源→V86可信独立审评链逐项接，绝不用V94公开测试签名替代真人审核。继续保留全部负例和旧CAS。
+9. 本轮最后应再次将Railway固定为 `python -u wf_railway_v82_safe_idle.py` + `restartPolicyType=NEVER`，并从最新部署日志核实0模型/0 R2读写/不自动付费；上述运行状态不可预填。
+
