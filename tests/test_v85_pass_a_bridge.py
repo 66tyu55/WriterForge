@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from writerforge.fact_journal import FactJournal
+from writerforge.runtime import RuntimeEngine, RuntimeErrorState
 from writerforge.r2_learn_journal import identity, event_doc, canonical
 from writerforge.v85_literary_evidence_gate import (
     LiteraryEvidenceGate, LiteraryEvidenceError,
@@ -67,11 +68,23 @@ class BridgeTests(unittest.TestCase):
         self.gate=LiteraryEvidenceGate(
             self.fact,story_id="novelA",scene_id="chapter03",
             source_sha256=SOURCE,ledger_seq=self.fact.ledger_head())
-        self.bridge=V85SealedLearningBridge(self.journal,self.gate)
+        self.runtime=RuntimeEngine()
+        self.runtime.enter_learn()
+        self.bridge=V85SealedLearningBridge(
+            self.journal,self.gate,runtime=self.runtime)
 
     def tearDown(self):
         self.fact.close()
         self.tmp.cleanup()
+
+    def test_learn_and_write_must_not_be_active_together(self):
+        self.runtime.exit()
+        self.runtime.enter_write(1)
+        with self.assertRaisesRegex(RuntimeErrorState,"requires Mode.LEARN"):
+            self.bridge.audit_sealed_chapter(
+                ident=self.ident,windows=WINDOWS,proposals=[])
+        with self.assertRaisesRegex(RuntimeErrorState,"requires Mode.LEARN"):
+            self.bridge.persist_sidecar({},explicitly_allow_write=True)
 
     def test_real_r2_format_all_units_and_seal_abstention(self):
         result=self.bridge.audit_sealed_chapter(
@@ -89,7 +102,10 @@ class BridgeTests(unittest.TestCase):
             self.bridge.audit_sealed_chapter(
                 ident=self.ident,windows=WINDOWS,proposals=[])
         self.journal=FakeJournal(self.ident)
-        self.bridge=V85SealedLearningBridge(self.journal,self.gate)
+        self.runtime=RuntimeEngine()
+        self.runtime.enter_learn()
+        self.bridge=V85SealedLearningBridge(
+            self.journal,self.gate,runtime=self.runtime)
         self.journal.events[("first_read",2)]["doc"][
             "previous_event_sha256"]=h("different-event")
         with self.assertRaisesRegex(LiteraryEvidenceError,"HASH_ORDER"):
@@ -119,7 +135,7 @@ class BridgeTests(unittest.TestCase):
             body_sha256=CHAPTER
         result=batch.audit_sealed_literary_claims(
             chapter=Chapter(),windows=list(WINDOWS),
-            gate=self.gate,proposals=[])
+            gate=self.gate,proposals=[],runtime=self.runtime)
         self.assertTrue(result["original_pass_a_chain_verified"])
         self.assertEqual(self.journal.writes,0)
         self.assertFalse(result["writer_can_consume_this_as_verified_skill"])
@@ -129,7 +145,7 @@ class BridgeTests(unittest.TestCase):
         with self.assertRaisesRegex(WFLargeStudyError,"MIXED_PILOT"):
             batch.audit_sealed_literary_claims(
                 chapter=Pilot(),windows=list(WINDOWS),
-                gate=self.gate,proposals=[])
+                gate=self.gate,proposals=[],runtime=self.runtime)
 
     def test_storage_requires_writer_and_prevents_tampered_receipt(self):
         result=self.bridge.audit_sealed_chapter(
@@ -143,7 +159,8 @@ class BridgeTests(unittest.TestCase):
         with self.assertRaisesRegex(LiteraryEvidenceError,"NOT_FROM_VERIFIED_SESSION"):
             self.bridge.persist_sidecar(
                 altered,explicitly_allow_write=True)
-        unrelated=V85SealedLearningBridge(self.journal,self.gate)
+        unrelated=V85SealedLearningBridge(
+            self.journal,self.gate,runtime=self.runtime)
         with self.assertRaisesRegex(LiteraryEvidenceError,"NOT_FROM_VERIFIED_SESSION"):
             unrelated.persist_sidecar(result,explicitly_allow_write=True)
         got=self.bridge.persist_sidecar(
