@@ -279,4 +279,6 @@ def commit_synthetic_head(transport, *,new_manifest_sha256,writer_id,
 
 def require_head_supported(client):
     """Used by future LEARN intake before R2 writes; never assume route."""
-    return client.capability()
+    need(client.capability() is True,
+         "WF95_HEAD_CAPABILITY_UNAVAILABLE_FAIL_CLOSED")
+    return True
