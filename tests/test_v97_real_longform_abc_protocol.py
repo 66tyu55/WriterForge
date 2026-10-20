@@ -9,6 +9,7 @@ from __future__ import annotations
 from copy import deepcopy
 import json
 import unittest
+from pathlib import Path
 
 from writerforge.v97_real_longform_abc_protocol import (
     ARM_ORDER,ARMS,MAX_PROVIDER_REQUESTS,A_MAX_OUTPUT,
@@ -93,6 +94,18 @@ class V97ProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"MODEL_SINGLE"):
             mechanical_prose_fields({"prose":data["prose"],
                                     "literary_quality":True},is_turn=False)
+
+    def test_real_runner_source_compiles_without_executing_or_network(self):
+        # The actual Railway paid entrypoint is compiled but NEVER run
+        # by the offline suite. A syntax issue must be caught before R2
+        # precommit or any API billing.
+        path=Path(__file__).parents[1]/"wf_railway_v97_real_original_longform_abc.py"
+        source=path.read_text(encoding="utf8")
+        compile(source,str(path),"exec")
+        self.assertIn("WF97_DUPLICATE_PRECOMMIT_REFUSE_TO_REBILL",source)
+        self.assertIn("WF97_TOTAL_REAL_MODEL_CALL_OR_TOKEN_CEILING",source)
+        self.assertIn("model_generated_plan",source)
+        self.assertIn("writer._put_content(rr)",source)
 
     def test_invalid_short_corrupt_or_misleading_response_rejected(self):
         with self.assertRaisesRegex(ValueError,"PROSE_LENGTH"):
