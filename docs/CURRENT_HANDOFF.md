@@ -1170,3 +1170,20 @@
 **本轮最后还须以Railway真正安全idle部署回执收尾，不能只凭源配置认为自动付费已关闭；下次先读取最新部署/日志而不盲目重启。**
 
 **§77 运维最后确认**：Railway安全idle部署 `e7d73606-db11-4726-ab08-082b1a0d0679` `SUCCESS`，日志 `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`，本次模型0、R2读0写0、自动付费续训false、`restartPolicyType=NEVER`；源代码部署commit `b36fd99f66e5caa78189833657ddb461c63f1680`。V91 仅有真实第15章完整中文经验对象及manifest两个新私有CAS，尚无全知识图永久云端迁移或文学晋级。
+
+
+## 78. 【2026-10-20 V92】长期经验全15章源链真实迁移与独立R2冷恢复，生产关系图仍待永久化
+
+**权威真实报告：[V92前15章完整中文经验迁移、链审计、Cloudflare R2独立冷恢复](V92_ALL_15_EXPERIENCE_R2_MIGRATION_COLD_AUDIT_20261020.md)**。强制遵守 [ADR-001永久记忆P0契约](ADR_001_WF_LIFELONG_MEMORY_DURABILITY_20261020.md)，不得将“15章经验保存”替换成“15章文学手法真正学会”。
+
+1. V92隔离分支 `v92-incremental-experience-chain-recovery`，先核V82旧第15章batch `d46ffec05927dfba3f2819089e76e79f720db2a2f3f6793b56965ac6413c177f`、journal `3da56cc46115548c5198a65cb6124e3c03d9bdfdb1f0460950177735a99d1cb2`、旧经验 `ddbf86e87e3bf44900b4e5e4d8ffc2de99c9ed5d3c5aec98a69bfd8eb7cf2fe7`，沿 `previous_experience_sha256` 一一回溯到第1章，保持旧第1章`mixed pilot`不满足严格先读完后分析的历史标记，不谎称其严格合格。
+2. 新`writerforge/v92_experience_chain.py`全量重建已有15个经验候选的V91完整中文版本，四字段`observed_weakness/next_strategy/open_question/confidence_limit`原样保留在**用户私有R2对象**，GitHub只存sha/模型未毕业等元数据；链断、乱码、错误书籍、顺序错、假SHA立即拒绝。不重新调用DeepSeek或重读付费章节。
+3. **真实红→绿**：首轮Railway `7c7a1929-0d9a-4ca4-9526-4b5809638ce3` 972项/1夹具断言错误（第二条合成链没有同步预期头SHA，已正确被生产约束优先挡下）；修夹具保持生产门槛，Railway `a9c09f6e-9315-41c4-a31f-f683f51ce5b5` **972项执行0失败0错误4跳过**，模型0/真实R2请求0。
+4. **真实无写入预检**：Railway `4dd77181-d611-4108-bd96-99b8ef22db08` exit0，旧15章原始SHA和完整字段都核对，事前确定未来完整元数据manifest SHA `bd905ae9e812fb5283f24ed7fec3bc35cf0febde7b6405476c455bba468f84db`。
+5. **真实不可变R2增量迁移**：Railway `e9054c02-3e00-4503-96a9-38ade692fad9` exit0，前14章各新V91 CAS `created=true`、立即独立读回，第15章复用V91既存 `79dbfe144356d01bcd89bd237410925d838f98b1efe91e0aeab0edc3f93add4b`，**最后**才创建全15章新manifest `bd905ae9e812fb5283f24ed7fec3bc35cf0febde7b6405476c455bba468f84db` `created=true`，same-process读回整链，0付费模型调用，旧V82不变。
+6. **真正独立R2 Reader复核**：Railway `225c7732-9b9a-4245-b764-7605fd629474` `WF92_INDEPENDENT_R2_ALL_FIFTEEN_EXPERIENCES_COLD_RESTORED` / exit0，旧15个/新15个CAS全部重新拉取校验，完整中文四字段和前驱连续、章节1风险标记都正确；模型0/R2写0、无私有原文/经验泄漏。V92经验云端版本恢复已真实证明。
+7. **最重要的未解决底层**：Railway实际环境盘点`wf-python-r2`没有持久Volume/内部桶，当前并无证据可以取得真实生产`WriterForgeDB`＋`FactJournal`两库的持久源，不得伪造“生产人物知识图和失败库已上R2”。V91双SQLite合成备份/撤销后`SKIP`已绿，但还没有来源确证的生产全图私有云快照，更没有跨R2/SQLite一致性事务。此限制不能因为V92全链经验成功而忽略。
+8. **论文/等级禁止虚报**：V88四真实文学盲测仍0/4严格引用通过，文学质量优胜者`UNDETERMINED`，V49`THIRD_STRIKE_FAILED`及第二窗口`LOCKED`未改变；第16章仍未正式训练，不再从前15章重付费读取。新经验仅`UNVERIFIED_LEGACY`、不能自动WRITE和晋级。
+9. **下一项执行**：从可信持久来源获取生产关系/负例数据库或其不可变备份的真实位置（不能假设临时Railway容器存储存在），再构建manifest-last R2云端备份并让两个独立reader重建人物知识/双时轴/签名撤销/失败负例、行为SELECT/SKIP；有了完整行为恢复及独立文学质量才讨论扩大训练。
+
+**本轮最后Railway必须切回 `python -u wf_railway_v82_safe_idle.py`、`restartPolicyType=NEVER` 并核实实际日志0模型/0 R2读写、自动收费false。不能凭部署SUCCESS或本文预填运维成功。**
