@@ -1,6 +1,6 @@
 """V85 full deterministic regression. Private credentials removed, no network."""
 from __future__ import annotations
-import json,os,socket,sys,time,unittest
+import json,os,socket,sys,time,unittest,ipaddress
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent
@@ -12,10 +12,44 @@ for n in ("DEEPSEEK_API_KEY","WF_API_TOKEN","WF_INDEX_UPLOAD_TOKEN",
           "WRITERFORGE_PROMOTION_VERIFY_KEY_HEX"):
     os.environ.pop(n,None)
 
-def deny_remote(*args,**kwargs):
-    raise RuntimeError("WF_V85_OFFLINE_NETWORK_NOT_PERMITTED")
-socket.create_connection=deny_remote
-socket.socket.connect=deny_remote
+# Existing browser/UI tests use a local HTTP server, which is not a
+# network model provider. Permit numeric loopback and exact localhost only.
+# Refuse external domains/addresses even when a test tries to dial them.
+original_connect=socket.socket.connect
+original_connect_ex=socket.socket.connect_ex
+original_create=socket.create_connection
+
+def allowed_local(address):
+    if not isinstance(address,tuple) or len(address)<2:
+        return False
+    host=address[0]
+    if isinstance(host,bytes):
+        host=host.decode("ascii","ignore")
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(str(host)).is_loopback
+    except ValueError:
+        return False
+
+def restricted_connect(self,address):
+    if not allowed_local(address):
+        raise RuntimeError("WF_V85_EXTERNAL_NETWORK_NOT_PERMITTED")
+    return original_connect(self,address)
+
+def restricted_connect_ex(self,address):
+    if not allowed_local(address):
+        raise RuntimeError("WF_V85_EXTERNAL_NETWORK_NOT_PERMITTED")
+    return original_connect_ex(self,address)
+
+def restricted_create(address,*args,**kwargs):
+    if not allowed_local(address):
+        raise RuntimeError("WF_V85_EXTERNAL_NETWORK_NOT_PERMITTED")
+    return original_create(address,*args,**kwargs)
+
+socket.socket.connect=restricted_connect
+socket.socket.connect_ex=restricted_connect_ex
+socket.create_connection=restricted_create
 
 print("WF_V85_FULL_OFFLINE_REGRESSION_STARTED",flush=True)
 tests=unittest.TestLoader().discover(
