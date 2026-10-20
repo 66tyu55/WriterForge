@@ -99,8 +99,35 @@ def _verify_synthetic_origin(writer_db,fact_db):
     for f in (writer_db,fact_db):
         require(Path(f).is_file() and not Path(f).is_symlink(),
                 "WF93_SYNTHETIC_DATABASE_NOT_REGULAR_FILE")
+    # These are the ONLY user-content tables permitted to have rows in
+    # the cloud rehearsal. Any extra story, preference, training trace, or
+    # legacy source is a production-data contamination: refuse upload.
+    permitted_writer_rows={
+        "snapshots","studied_works","studied_chapters","source_spans",
+        "experience_candidates","experience_approvals",
+        "experience_revocations","experience_decisions",
+    }
+    permitted_fact_rows={
+        "fact_events","temporal_claims","story_scenes","story_subjects",
+        "event_import_receipts","journal_cursor_keys",
+        "ledger_operations","ledger_bootstrap",
+    }
+
+    def enforce_only_fixture_rows(db,permitted):
+        names=[r[0] for r in db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")]
+        for table in names:
+            if (table.startswith("sqlite_") or
+                table.startswith("xuehai_fts_")):
+                continue
+            if table not in permitted:
+                require(db.execute(
+                    'SELECT COUNT(*) FROM "'+table+'"'
+                    ).fetchone()[0]==0,
+                    "WF93_UNEXPECTED_OTHER_USER_DATA_REFUSED")
     with closing(sqlite3.connect(_database_uri(writer_db),uri=True)) as db:
         db.execute("PRAGMA query_only=ON")
+        enforce_only_fixture_rows(db,permitted_writer_rows)
         works=db.execute(
             "SELECT work_id,source_uri FROM studied_works").fetchall()
         quotes=db.execute(
@@ -123,6 +150,7 @@ def _verify_synthetic_origin(writer_db,fact_db):
                 "WF93_FIXTURE_DECISION_SET_MISMATCH")
     with closing(sqlite3.connect(_database_uri(fact_db),uri=True)) as db:
         db.execute("PRAGMA query_only=ON")
+        enforce_only_fixture_rows(db,permitted_fact_rows)
         scenes=db.execute("SELECT story_id,scene_id FROM story_scenes "
                           "ORDER BY scene_id").fetchall()
         if len(scenes)!=2 or any(s[0]!=FIXTURE_ID for s in scenes):
