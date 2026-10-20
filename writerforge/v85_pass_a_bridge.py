@@ -10,6 +10,7 @@ persist_sidecar on a non-read-only journal. Sidecars are CAS metadata only.
 from __future__ import annotations
 
 from hashlib import sha256
+import hmac
 
 from .r2_learn_journal import hexdigest
 from .v85_literary_evidence_gate import (
@@ -33,6 +34,7 @@ class V85SealedLearningBridge:
              "WF_V85_R2_READ_INTERFACE_REQUIRED")
         self.journal = journal
         self.gate = gate
+        self._verified_receipt_sha256 = None
 
     def audit_sealed_chapter(self, *, ident: dict, windows: tuple[str,...],
                              proposals: list):
@@ -91,7 +93,7 @@ class V85SealedLearningBridge:
             read_frontier=len(windows))
         # The only returned source details are source digests and offsets.
         # Character states come from the earlier frozen FactJournal head.
-        return {
+        result = {
             "format": FORMAT,
             "audit": receipt,
             "r2_seal_sha256": seal["event_sha256"],
@@ -101,6 +103,8 @@ class V85SealedLearningBridge:
             "semantic_accuracy_independently_graduated": False,
             "writer_can_consume_this_as_verified_skill": False,
         }
+        self._verified_receipt_sha256 = sha256(canonical(result)).hexdigest()
+        return result
 
     def persist_sidecar(self, receipt: dict, *, explicitly_allow_write=False):
         """Optional future immutable R2 CAS metadata write, not default.
@@ -110,6 +114,11 @@ class V85SealedLearningBridge:
         """
         need(explicitly_allow_write is True,
              "WF_V85_SIDE_CAR_WRITE_NOT_AUTHORIZED")
+        need(self._verified_receipt_sha256 is not None and
+             isinstance(receipt,dict) and
+             hmac.compare_digest(sha256(canonical(receipt)).hexdigest(),
+                                 self._verified_receipt_sha256),
+             "WF_V85_SIDE_CAR_NOT_FROM_VERIFIED_SESSION")
         need(getattr(self.journal,"read_only",True) is False and
              bool(getattr(self.journal,"writer",None)),
              "WF_V85_SIDE_CAR_WRITER_REQUIRED")
