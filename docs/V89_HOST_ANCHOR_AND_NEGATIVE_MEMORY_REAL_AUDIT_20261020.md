@@ -39,3 +39,9 @@ V88四个真实DeepSeek回答均可解析为JSON，但均未通过原文引用�
 - 既有V86受信文学审核/实验批准路径不可由机械源码通过自动触发。拒绝自动Skill晋级；V49`THIRD_STRIKE_FAILED`、第二文学窗口`LOCKED`、文学优胜组`UNDETERMINED`不变。
 
 下一阶段应将V89宿主定位以**opt-in**方式接入完整PASS A封存后的V85知识/时间检查，再用新的真实来源和**真正独立语义考官**判定文学因果；在这之前不重复V88已付费的四臂或V82前15章。
+
+## 五、Railway 最终安全待命回执（真实执行）
+
+- 部署 `f5d8ef08-2a65-4403-aba0-4d5d40510ee7` 已 `SUCCESS`，固定开发分支源码 `16b03662e3fe63fb08a6ef6c6e786e58e1156ba8`，启动 `python -u wf_railway_v82_safe_idle.py`，`restartPolicyType=NEVER`。
+- 真实容器日志 `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`；`model_calls_this_idle_run=0`、`r2_reads_this_idle_run=0`、`r2_writes_this_idle_run=0`、`automatic_paid_next_batch_enabled=false`。这次不重读第1—15章也不自动启动第16章。
+- 整轮V89新增真实模型调用0；四份V88原答CAS与V82第15章检查点未覆盖；文学独立语义评审仍未开展。
