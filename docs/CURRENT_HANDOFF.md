@@ -1222,3 +1222,18 @@
 
 
 **§80 最终安全状态已真实核实**：Railway `60f2569a-52bc-4fde-b3f2-0acaf1e34611` `SUCCESS`，容器 `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`，本次模型0、R2读写0、自动付费续训false，启动 `python -u wf_railway_v82_safe_idle.py` 且 `restartPolicyType=NEVER`。独立冷读后的V94合成事件CAS `5b33b3f07131eb1abdf7298b68a934daf2b496a084108ccfd1a20d673ce352b7` 已持久化，不表示真实生产人物图已搭建。
+
+
+## 81. 【2026-10-20 V95】可信文学来源闸门与服务端CAS提交头源码完成，线上未部署则必须拒绝
+
+**本次权威报告：[V95可信来源及原子条件HEAD工程验证](V95_TRUSTED_SOURCE_AND_ATOMIC_HEAD_GATE_20261020.md)**，接续V94 §80七合成事件云端恢复和 [ADR-001 WF终身记忆P0要求](ADR_001_WF_LIFELONG_MEMORY_DURABILITY_20261020.md)。
+
+1. V95隔离分支 `v95-trusted-source-and-authoritative-head-gate` 实际新增 `writerforge/v95_trusted_source_intake.py`：V89的**真实私有原文短引句/程序唯一位置**与V85**同一次LEARN会话PASS-A完整封存证据、角色FactJournal旧时点快照**及V86**签名且未被后续负评覆盖的独立语义审核**三处精确交叉核验。任一跨书/跨单位/改SHA/篡改审签/未读后文/重复引句拒绝。结果严格只是`REVIEWED_HYPOTHESIS_NOT_CHARACTER_FACT`，永远不自动插入`KNOWN`、不开放WRITE也不晋级。
+2. 新`writerforge/v95_authoritative_head.py`及`cloudflare/wf-r2-worker-readonly.js`中V95新增路线：仅`v95_synthetic_only`单一固定HEAD，需已有两个分开的读写凭证，并用R2**存储层**`onlyIf If-None-Match/If-Match`作原子条件提交，绑定前驱head SHA、generation递增和已签收的V94**合成**CAS manifest；拒绝客户端只GET后普通PUT、旧ETag覆盖、改项目名、伪生产审核。旧Index CAS和原著接口源码不删除。**这是GitHub代码，线上并未部署，也不允许拿V95测试HEAD传真实人物事实。**
+3. Railway Python专项`3af4e278-6848-4f9f-bdc3-25d8dcb12e5b`：24项执行0失败0错误（含旧V86导入回归），多写者模拟R2原子CAS两写者只能一胜、无审核/签名坏、同会话换原文/恶意角色/负评追加均阻断。全仓离线`b78bafa4-d607-43e4-9f4a-03b138eb1733`：**1017项执行，0失败0错误，4跳过**，无新DeepSeek调用、0真实R2网络读写；V49及旧训练不动。
+4. **不得虚报原生JS已通过**：首次Railway节点测试`c01621c7-65eb-4e64-ac9c-52cd4246eb6e`返回`WF95_NATIVE_JS_WORKER_UNTESTED_NODE_MISSING`，0项执行，说明当前Python镜像无Node；新`tests/v95_worker_conditional_head.test.mjs`和GitHub无密钥Node22工作流已提交，但当前对话未取得可靠Actions完成日志，不能把Native Worker竞争赛算为真实通过。
+5. **真实Cloudflare线上路线查询**：仅带现有`WF_API_TOKEN`的Railway `57155e5a-a351-4262-967b-6770230fa6b7` 请求一次 `GET /r2/learn/head/capabilities`，得到HTTP **404**，`WF95_LIVE_WORKER_HEAD_ROUTE_NOT_DEPLOYED_FAIL_CLOSED` / exit0；新权威HEAD上线许可false、模型0、R2写0。仓库V95 JS修改没有被冒称已部署。**不许将客户端模拟CAS当成线上R2多写者安全**，必须等Native JS测试证据+Cloudflare可验证部署及远端两writer竞争验收。
+6. 旧V92 **15/15章**完整中文经验CAS manifest `bd905ae9e812fb5283f24ed7fec3bc35cf0febde7b6405476c455bba468f84db`、V93合成双SQLite R2 manifest `a42ada69d6d3b4d6ed90664f4b6c5607f5e0849ed1a4d178688b8d45f10b1d25`、V94合成七事件commit `5b33b3f07131eb1abdf7298b68a934daf2b496a084108ccfd1a20d673ce352b7` 全保持。真正生产人物关系来源/正式事实持续录入、真实独立文学审核和云端权威HEAD仍**未验收**；V49`THIRD_STRIKE_FAILED`、文学第二窗口`LOCKED`、V88 0/4真实答题机械失败不改。
+7. **V96下一步**：先确认GitHub Node Worker原生测试日志，否则禁部署；新HEAD源码做安全审计后需要有Cloudflare Worker真正发布能力（不需新增Reader/IndexWriter密钥），再用R2**真实两个独立写进程**验证陈旧ETag只能一个提交；随后才允许可信来源经真实外部审阅签发从候选进入新LEARN日志，并独立Reader验收后才考虑WRITE。禁止把未审的WF模型想法写为`KNOWN`。
+8. **本轮最终运维**：需把Railway切回`python -u wf_railway_v82_safe_idle.py`、`restartPolicyType=NEVER`，并再次用最新部署日志确认模型0、R2读写0、自动付费续训false；此行不提前假定已经成功。
+
