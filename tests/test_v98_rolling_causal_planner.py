@@ -160,6 +160,18 @@ class V98RollingPlannerTests(unittest.TestCase):
         with self.assertRaisesRegex(V98RollingPlanError,"NO_ACTUAL_PRIOR_EFFECT"):
             latest_observed_effect((quiet,))
 
+    def test_previous_prose_cannot_change_without_rechecking_v96_receipt(self):
+        previous=first()
+        previous["prose"]+="。最后又出现一条未经检查的叙事句子。"
+        with self.assertRaisesRegex(V98RollingPlanError,
+                                    "PARENT_V96_RECEIPT_NOT_INTACT"):
+            latest_observed_effect((previous,))
+        previous=first()
+        previous["receipt"]["receipt_sha256"]="0"*64
+        with self.assertRaisesRegex(V98RollingPlanError,
+                                    "PARENT_V96_RECEIPT_NOT_INTACT"):
+            latest_observed_effect((previous,))
+
     def test_repeated_quoted_cost_does_not_become_unique_evidence(self):
         cost="他本来答应朋友当夜入城"
         repeated=prose1()+"。"+cost
