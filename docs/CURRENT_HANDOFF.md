@@ -1187,3 +1187,5 @@
 9. **下一项执行**：从可信持久来源获取生产关系/负例数据库或其不可变备份的真实位置（不能假设临时Railway容器存储存在），再构建manifest-last R2云端备份并让两个独立reader重建人物知识/双时轴/签名撤销/失败负例、行为SELECT/SKIP；有了完整行为恢复及独立文学质量才讨论扩大训练。
 
 **本轮最后Railway必须切回 `python -u wf_railway_v82_safe_idle.py`、`restartPolicyType=NEVER` 并核实实际日志0模型/0 R2读写、自动收费false。不能凭部署SUCCESS或本文预填运维成功。**
+
+**§78 真实最后运行状态**：Railway `bec76c08-c948-4c83-8d4a-bc9113d25a47` `SUCCESS`，`python -u wf_railway_v82_safe_idle.py`、`restartPolicyType=NEVER`，实际 `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`、本次模型0/R2读取0写入0、自动收费批次关闭。部署源码pin `caab5500fe4668c67b7b8e114950731390046c28`，任何后续仅文档改动不得触发再次运行V92的CAS迁移任务。
