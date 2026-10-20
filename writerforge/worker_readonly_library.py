@@ -118,7 +118,9 @@ class WFWorkerLibraryClient(WFWorkerR2Client):
             raise WFReadOnlyLibraryError("WF_LIBRARY_NETWORK_FAILED") from None
 
     def small_json(self, key, cap=MAX_JSON):
-        require(key_kind(key) == "metadata", "WF_LIBRARY_NOT_METADATA")
+        kind = key_kind(key)
+        require(kind is not None, "WF_LIBRARY_KEY_OUT_OF_SCOPE")
+        require(kind == "metadata", "WF_LIBRARY_NOT_METADATA")
         _size, _etag, data = self._call(key, cap=cap)
         try:
             doc = json.loads(data.decode("utf-8"))
