@@ -50,3 +50,11 @@
 - `tests/test_v83_evidence_diagnostics.py`：合成文本单测（**本次未启动GitHub Actions或宣称其正式CI通过**）。
 
 **裁决**：已验证经验改变答案及来源签收链；尚无证据可以认定文学质量变好。继续累积章数不能替代独立语义因果评判。
+
+
+## 6. 真实安全待命回执（2026-10-20，本轮最后状态）
+
+- Railway新的生产部署 `f7e06bb3-3c66-445e-9a5b-faafece10952` 最终 `SUCCESS`，独立源码 commit `7439370d20d9b4806b884f047c6ff90395be4dc2`，启动脚本 `python -u wf_railway_v82_safe_idle.py`。
+- **实际运行日志** `WF_V82_SAFE_IDLE_CHAPTER15_CHECKPOINT_PRESERVED`，`model_calls_this_idle_run=0`、`r2_reads_this_idle_run=0`、`r2_writes_this_idle_run=0`、`automatic_paid_next_batch_enabled=false`。
+- 原V82第15章的 batch、journal 和 experience SHA 与旧交接一致；不是把V84只读审计或V83失败的第16章计入已读章节。
+- 正式文学第二窗口仍 `LOCKED`、V49历史 `THIRD_STRIKE_FAILED` 仍保留。没有新的模型训练或文学生成。
