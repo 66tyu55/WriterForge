@@ -167,7 +167,7 @@ class V89FailureJournal:
                     tuple(body[k] for k in (
                         "run_id","original_answer_sha256","source_sha256",
                         "genre_hint","arm","failure_contract",
-                        "failure_code","receipt_sha256"))+(h,))
+                        "failure_code"))+(h,))
             except sqlite3.IntegrityError as exc:
                 raise V89FailureJournalError(
                     "WF89_FAILURE_CONCURRENT_WRITE_CONFLICT") from exc
