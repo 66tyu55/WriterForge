@@ -177,7 +177,16 @@ class StudioService:
                 self._job["total"]=total
                 self._job["stage"]=stage
 
-    def start_auto(self,outline:str,chapters:list[str]) -> dict:
+    def start_auto(self,outline:str,chapters:list[str], *,
+                   draft_mode:str="single") -> dict:
+        # Validate BEFORE queueing. Default single keeps existing browser
+        # behavior; experimental B/C require an EXPLICIT author selection.
+        if draft_mode not in ("single","split_only","causal_guard"):
+            raise StudioError("WF96_UNKNOWN_EXPERIMENTAL_DRAFT_MODE")
+        if draft_mode!="single" and (
+            not isinstance(chapters,list) or len(chapters)>2):
+            raise StudioError(
+                "WF96_SCENE_MODE_MAX_TWO_CHAPTERS_FOR_MODEL_BUDGET")
         # Validate BEFORE queueing. No unlimited jobs or unbounded prompts.
         if (not isinstance(outline,str) or not 15<=len(outline.strip())<=6000
             or not isinstance(chapters,list) or not 1<=len(chapters)<=6
@@ -192,7 +201,8 @@ class StudioService:
                 raise StudioError("an autonomous writing run is already active")
             jobid=secrets.token_hex(8)
             self._job={"id":jobid,"status":"queued","chapter":0,
-                       "total":len(chapters),"stage":"queued","result":None,"error":None}
+                       "total":len(chapters),"stage":"queued","result":None,
+                       "error":None,"draft_mode":draft_mode}
         def worker():
             try:
                 with self._job_lock:
@@ -202,6 +212,7 @@ class StudioService:
                         outline=outline,chapter_goals=chapters,
                         output_dir=self.output_dir/"autonomous",
                         progress=self._progress,
+                        draft_mode=draft_mode,
                     )
                 with self._job_lock:
                     self._job["status"]="completed"
@@ -213,7 +224,8 @@ class StudioService:
             finally:
                 self._model_busy.release()
         Thread(target=worker,daemon=True).start()
-        return {"job_id":jobid,"status":"queued","no_auto_accept":True}
+        return {"job_id":jobid,"status":"queued",
+                "draft_mode":draft_mode,"no_auto_accept":True}
 
     def job(self) -> dict:
         with self._job_lock:
@@ -365,7 +377,8 @@ class StudioHandler(BaseHTTPRequestHandler):
                 )
             elif self.path=="/api/autodraft":
                 result=svc.start_auto(
-                    payload.get("outline"),payload.get("chapters")
+                    payload.get("outline"),payload.get("chapters"),
+                    draft_mode=payload.get("draft_mode","single"),
                 )
             else:
                 self._json(404,{"error":"unknown command"})
