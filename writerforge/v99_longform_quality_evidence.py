@@ -13,7 +13,7 @@ from __future__ import annotations
 from hashlib import sha256
 import json
 
-LENGTHS=(800,1600,3200,6400)
+LENGTHS=(800,1500,1600,3200,6400)  # 1500 is V97's immutable original target
 ARMS=("single","split_only","causal_guard","rolling_causal")
 CATEGORIES=frozenset(("causality","character_knowledge","chronology",
                        "world_rule","identity","physical_state"))
