@@ -89,8 +89,10 @@ class V91MigrationTests(unittest.TestCase):
         obj=sample_old()
         obj["reflection"]["next_strategy"]="错误转码\ufffd绝不能静默继续"
         raw,h=self.legacy(obj)
+        # U+FFFD must be caught at the earlier byte/JSON ingress gate,
+        # before the per-field reflection validator. Both are fail-closed.
         with self.assertRaisesRegex(V91ExperienceMigrationError,
-                                    "GARBLED_OR_TRUNCATED"):
+                                    "UTF8_OR_JSON_RESTORE_INVALID"):
             migrate_v80_experience(legacy_raw=raw,legacy_cas_sha256=h)
 
     def test_unknown_schema_and_version_never_guessed(self):
