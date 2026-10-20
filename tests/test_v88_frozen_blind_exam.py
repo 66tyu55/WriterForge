@@ -19,7 +19,7 @@ def anchor(i,phrase):
 def good():
     return dict(status="HYPOTHESIS",claim_id="claim01",
         question="少年不敢靠近旧桥是否与守桥人突然收牌有关？",
-        observation=anchor(1,"守桥人收起木牌"),
+        observation=anchor(1,"守桥人收起木牌，远处"),
         consequence=anchor(2,"少年仍然决定等天亮再走"),
         character_knowledge=dict(
             actor="少年",
@@ -37,7 +37,7 @@ class V88ContractTests(unittest.TestCase):
         self.assertEqual(len(out["source_anchors"]),2)
         self.assertFalse(out["causality_independently_verified"])
         raw=canonical(out).decode("utf8")
-        self.assertNotIn("守桥人收起木牌",raw)
+        self.assertNotIn("守桥人收起木牌，远处",raw)
 
     def test_fake_or_unseen_quote_and_offset_rejected(self):
         for broken in ("quote","start","unit"):
@@ -62,7 +62,7 @@ class V88ContractTests(unittest.TestCase):
         }
         self.assertTrue(validate_wf_answer(
             abstain,visible_units=UNITS)["schema_valid"])
-        abstain["observation"]=anchor(1,"守桥人收起木牌")
+        abstain["observation"]=anchor(1,"守桥人收起木牌，远处")
         with self.assertRaisesRegex(WF88BlindError,"ABSTENTION_MUST_NOT_ASSERT"):
             validate_wf_answer(abstain,visible_units=UNITS)
 
