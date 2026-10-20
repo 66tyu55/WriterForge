@@ -781,15 +781,16 @@ async function v95Head(request,env,url) {
   const condition=(ifNone!==null)
     ?new Headers({"If-None-Match":"*"})
     :new Headers({"If-Match":ifMatch});
+  const fullDocumentSha=await v95sha(data);
   const saved=await env.WF_R2.put(V95_HEAD_KEY,data,{
     onlyIf:condition,
     customMetadata:{
-      sha256:head.head_sha256,role:"V95_SYNTHETIC_TEST_ONLY"},
+      sha256:fullDocumentSha,role:"V95_SYNTHETIC_TEST_ONLY"},
     httpMetadata:{contentType:"application/json"},
   });
   if(!saved)return fail(409,"WF95_ATOMIC_HEAD_COMPARE_AND_SWAP_LOST");
   if(saved.size!==data.byteLength ||
-     saved.customMetadata?.sha256!==head.head_sha256)
+     saved.customMetadata?.sha256!==fullDocumentSha)
     return fail(502,"WF95_ATOMIC_HEAD_STORAGE_RECEIPT_INVALID");
   return json({
     ok:true,head_sha256:head.head_sha256,
