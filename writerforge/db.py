@@ -652,6 +652,38 @@ CREATE TABLE IF NOT EXISTS experience_legacy_refs (
 );
 CREATE INDEX IF NOT EXISTS idx_experience_postwrite_case
 ON experience_postwrites(project_id,experience_id);
+
+-- V86 opt-in evidence links + signed review results in EXISTING WF SQLite.
+-- No novel source, model answers, review commentary or plaintext excerpts.
+-- Reviews are append-only; no REPLACE/DELETE writer API is exposed.
+CREATE TABLE IF NOT EXISTS experience_evidence_links (
+    project_id TEXT NOT NULL,
+    experience_id TEXT NOT NULL,
+    candidate_sha TEXT NOT NULL,
+    audit_sha TEXT NOT NULL,
+    claim_id TEXT NOT NULL,
+    anchor_sha TEXT NOT NULL,
+    producer_id TEXT NOT NULL,
+    link_sha TEXT NOT NULL,
+    PRIMARY KEY(project_id,experience_id),
+    FOREIGN KEY(project_id,experience_id)
+      REFERENCES experience_candidates(project_id,experience_id)
+);
+CREATE TABLE IF NOT EXISTS experience_literary_reviews (
+    review_seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id TEXT NOT NULL,
+    experience_id TEXT NOT NULL,
+    review_id TEXT NOT NULL,
+    reviewer_id TEXT NOT NULL,
+    review_json TEXT NOT NULL,
+    review_sha TEXT NOT NULL,
+    signature TEXT NOT NULL,
+    UNIQUE(project_id,experience_id,review_id),
+    FOREIGN KEY(project_id,experience_id)
+      REFERENCES experience_evidence_links(project_id,experience_id)
+);
+CREATE INDEX IF NOT EXISTS idx_experience_literary_reviews
+ON experience_literary_reviews(project_id,experience_id,review_seq);
 """
 
 class WriterForgeDB:
