@@ -136,7 +136,7 @@ def historical_blind_packets(prose_by_arm, blind_order):
                   "body":body,
                   "review_axes":list(REVIEW_AXES),
                   "independent_review_status":"UNREVIEWED",
-                  "arm_and_method_not_in_packet":True}
+                  "method_hidden":True}
         packets.append(packet)
         mapping.append({"blind_id":label,"arm":arm,
                         "body_sha256":frozen["prose_sha256"],
