@@ -63,3 +63,13 @@ V97历史《渡桥送药》目标是**1500中文含标点码位**，实际A=1902
 | 第16章续训 | 关闭，原15章不变 |
 
 V49 THIRD_STRIKE_FAILED、V88真实盲测失败、V92十五章中文经验链和第二文学窗口LOCKED全部原样保存。**下一步只运行受控Reader、收集可信文学负例、用严格预注册做原创新题，不允许用测试PASS代替小说质量证明。**
+
+
+## 6. 本轮真实R2执行回执（后追加，不覆盖先前NOT_EXECUTED时间点）
+
+- 隔离Railway服务：wf-v100-private-blind-once；deployment id 22a64534-5824-46fb-aab9-807d82bfffd3，实际SUCCESS；exit code 0。
+- 实际日志：WF100_V97_PRIVATE_ANONYMOUS_PACKETS_SEALED；exact_7_model_replies_verified=true、exact_3_original_manuscripts_verified=true、anonymous_packet_count=3、new_model_calls=0、newly_trained_chapters=0、historical_original_r2_objects_changed=false。
+- 匿名私有索引SHA256：5b0c39ecfdfad8ed244a8c300ae9815ca0173acb39a784b4acba7ac5de1308d4。
+- 所有者独立密封揭盲映射SHA256：bde36fd91f1db29631b0b6144307979373874ae1184f65bedc5af213f3c913ef。
+- **当前精确状态**：恢复和封存 RESTORED_SEALED；独立人类文学盲评 NOT_PERFORMED；首错位置 UNDETERMINED；仙侠A/B/C/D新的模型生成 NOT_EXECUTED。历史V97字符长度仍不等长（1902/1601/1554）。揭盲映射不得向评审者分享。
+- 这是私有R2衍生盲评对象写入，不是训练学习库写入，不是完整文学语义审评。原生产 wf-python-r2 不需要改变安全idle启动。
