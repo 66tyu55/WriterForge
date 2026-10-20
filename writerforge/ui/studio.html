@@ -74,8 +74,9 @@ label{font-size:13px;font-weight:600;display:block;margin-top:13px}
       <option value="single">A · 一次生成整章（原模式）</option>
       <option value="split_only">B · 分段写作（逻辑对照）</option>
       <option value="causal_guard">C · 分段＋正文因果引句检查（实验）</option>
+      <option value="rolling_causal">D · 正文驱动的滚动情节（额外模型调用／实验）</option>
     </select>
-    <p class="note">B/C会增加本地模型调用，最多两章、单次不超过16个事件。C仅校验正文引句与前因位置，不能代替独立文学判断；不自动确认人物事实或接受草稿。</p>
+    <p class="note">B/C/D为可选本地实验，最多两章、每次最多16个事件。D在每个后续事件前额外调用模型重拟目标，单任务最多14次额外重拟；真实文学因果、人物动机与代价仍需审阅。所有草稿不自动接受或写入人物事实。</p>
     <button class="primary" type="button" id="run-auto" style="margin-top:14px;width:100%">按大纲生成章节</button>
     <div id="auto-status" class="status">尚未开始。生成需要本地模型在运行。</div>
     <div id="auto-results"></div>
@@ -218,7 +219,7 @@ async function startAuto(){
   const chapters=$("chapter-goals").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
   const draft_mode=$("draft-mode").value;
   if(draft_mode!=="single"&&chapters.length>2){
-    message("auto-status","B/C实验最多同时生成两章，请减少章节目标。",true);
+    message("auto-status","B/C/D实验最多同时生成两章，请减少章节目标.",true);
     return;
   }
   $("run-auto").disabled=true;
