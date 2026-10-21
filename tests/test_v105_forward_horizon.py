@@ -69,6 +69,8 @@ class FutureWorldTests(unittest.TestCase):
         self.assertEqual(b["status"],"CONDITIONAL_OR_UNKNOWN")
         self.assertIn("THREATENS_PREVIOUS_PLANNED_EFFECT",
                       [x["kind"] for x in a["all_findings"]])
+        self.assertIn("SYMBOLIC_CAUSAL_THREAT",
+                      [x["kind"] for x in a["symbolic_causal_links"]])
         self.assertIn("UNPROVEN_PRECONDITION",
                       [x["kind"] for x in b["all_findings"]])
         self.assertEqual(len(a["forecast_debts"]),1)
@@ -145,6 +147,26 @@ class FutureWorldTests(unittest.TestCase):
         self.assertTrue(final["future_debts_not_yet_paid_or_incurred"])
         text=horizon_context(final)
         self.assertIn("只是假设",text)
+
+    def test_supporting_causal_link_is_conditional_not_proved(self):
+        futures={"choices":[
+           {"id":"with_key","steps":[
+               step("find_key",action="角色从旧匣中实际取出一枚钥匙",
+                    sets=[change("object:key","available")]),
+               step("unlock",action="角色用已经拿到的钥匙打开封闭库门",
+                    requires=[requirement("object:key","available")])]},
+           {"id":"without_key","steps":[
+               step("listen",action="角色听见门后声响，不敢贸然开门")]}
+        ]}
+        report=validate_horizon(futures)
+        dep=report["branches"][0]
+        self.assertEqual(dep["status"],"CONDITIONAL_OR_UNKNOWN")
+        self.assertEqual(dep["symbolic_causal_links"][0]["kind"],
+                         "SYMBOLIC_CAUSAL_SUPPORT_UNVERIFIED")
+        self.assertFalse(dep["symbolic_causal_links"][0][
+            "literary_semantics_verified"])
+        self.assertEqual(dep["symbolic_causal_links"][0]["from_step"],
+                         "find_key")
 
     def test_future_deadline_and_irreversible_cost_cannot_be_written_away(self):
         a=simple_branches()
