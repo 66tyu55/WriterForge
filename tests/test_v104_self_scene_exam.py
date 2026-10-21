@@ -81,7 +81,7 @@ class SelfDirectedTenSceneExam(unittest.TestCase):
         self.assertFalse(report["semantically_distinct_ten_verified"])
 
     def test_prose_is_exact_unmodified_text_even_if_short(self):
-        original="落雪的院中，邻居靠着墙望向逐渐关紧的木门。"*17
+        original="落雪的院中，邻居靠着墙望向逐渐关紧的木门。"*23
         rec=record_prose({"prose":original})
         self.assertEqual(rec["prose"],original)
         self.assertEqual(rec["prose_sha256"],digest(original.encode("utf8")))
