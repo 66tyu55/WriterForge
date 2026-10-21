@@ -12,7 +12,7 @@ import {normalizeOp} from './schema.mjs';
 import {reduceBatch,stateFromJson,stateToJson,stateContentHash} from './reducer.mjs';
 
 const LIMIT=180000;
-const TRANSFER=/取下|摘下|扯下|割下|卷走|勾走|钩断|交给|递给|挂到|系到|甩到|转交|掷给|装入|吐到/;
+const TRANSFER=/取下|摘下|扯下|割下|卷走|勾走|钩断|交给|递给|挂到|系到|甩到|转交|掷给|装入|吐到|送入口中/;
 const sha=(str)=>createHash('sha256').update(str,'utf8').digest('hex');
 
 function check(obj) {
