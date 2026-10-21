@@ -9,6 +9,7 @@ from writerforge.v101_narrative_reader import (
     model_reading_prompt,V101ReadingError,
 )
 from writerforge.v80_large_chapter_batch import chapter_reaction_prompt
+from writerforge.v101_quality_calibration import calibrate_pair
 
 
 SHA=sha256(b"original-book-bytes").hexdigest()
@@ -228,6 +229,48 @@ class V101NarrativeTests(unittest.TestCase):
             previous_strategy="",text="本段原文",narrative_context="旧关系是疑问")
         self.assertIn("旧关系是疑问",memory)
         self.assertNotEqual(original,memory)
+
+    def test_existing_character_identity_not_silently_renamed(self):
+        old=assess(1,WINDOWS,output1())
+        changed=output2()
+        changed["cast"][0]["id"]="another_person_using_same_name"
+        with self.assertRaisesRegex(V101ReadingError,"CHARACTER_ID"):
+            assess(2,SECOND,changed,[old])
+        changed=output2()
+        changed["cast"][0]["name"]="师叔"
+        with self.assertRaisesRegex(V101ReadingError,"CHARACTER_ID|NAME_NOT_GROUNDED"):
+            assess(2,SECOND,changed,[old])
+
+    def test_quality_pair_is_evidence_based_and_not_self_grading(self):
+        a=("林霁看见溪水涨到石阶第三层，收紧了握着旧账的手。"+
+           "雨还在下。"*30)
+        b=("林霁知道河水十分危险，决定认真处理这件事情。"+
+           "雨还在下。"*30)
+        learner={
+            "preferred":"A",
+            "a_evidence":anchor(1,"溪水涨到石阶第三层"),
+            "b_evidence":anchor(1,"林霁知道河水十分危险"),
+            "why":"细节有可测的水位位置，也反映人物当下的行动压力",
+            "counterfactual_tradeoff":"把具体石阶改成危险概述会损失读者可感的尺度",
+            "credible_dissent":"如果重点是快速换场，短概述可能更有效率",
+        }
+        receipt=calibrate_pair(a=a,b=b,learner=learner)
+        self.assertFalse(receipt["external_label_supplied"])
+        self.assertIsNone(receipt["preference_agreement_candidate"])
+        self.assertFalse(receipt["model_literary_mastery_proven"])
+        given=calibrate_pair(a=a,b=b,learner=learner,external_preference="A",
+                              independent_reviewer_attested=True)
+        self.assertTrue(given["comparable_length"])
+        self.assertTrue(given["preference_agreement_candidate"])
+        self.assertFalse(given["external_identity_cryptographically_verified"])
+        self.assertFalse(given["model_literary_mastery_proven"])
+        forged=copy.deepcopy(learner)
+        forged["b_evidence"]=anchor(1,"无法在原文里找到的假句子")
+        with self.assertRaisesRegex(V101ReadingError,"NOT_IN_ALREADY_READ"):
+            calibrate_pair(a=a,b=b,learner=forged)
+        far=calibrate_pair(a=a,b=b*3,learner=learner,external_preference="A")
+        self.assertFalse(far["comparable_length"])
+        self.assertIsNone(far["preference_agreement_candidate"])
 
     def test_bounded_suffix_of_persistent_history_may_rehydrate(self):
         one=assess(1,WINDOWS,output1())
