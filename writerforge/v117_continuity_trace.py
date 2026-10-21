@@ -16,6 +16,7 @@ import subprocess
 
 from .v114_continuity_memory import packed, hashb
 from .v116_state_delta import preflight_next_prose
+from .v117_continuity_debts import compact_debts
 
 NODE=(Path(__file__).resolve().parents[1]/
       "experiments/v117_novel_studio/bridge.mjs")
@@ -184,6 +185,8 @@ def audit_continuity(checkpoint, *, project_id, chapter_index,
          out.get("literary_truth_verified") is False and
          out.get("state_has_no_auto_canon_promotion") is True,
          "WF117_BRIDGE_RECEIPT_INVALID")
+    out["unresolved_open_debts"]=list(
+        checkpoint.get("v117_open_continuity_debts",[]))
     return out
 
 def compact_context(frame):
@@ -191,6 +194,13 @@ def compact_context(frame):
          frame.get("literary_truth_verified") is False,
          "WF117_PROMPT_FROM_UNTRUSTED_FRAME")
     lines=["【跨章节文本追踪·未确认候选不等于正文正典】"]
+    debts=frame.get("unresolved_open_debts",[])
+    if debts:
+        lines.append("旧段还留有"+str(len(debts))+"条未解决的状态或因果风险：")
+        for debt in debts[-4:]:
+            lines.append(str(debt["kind"])+":"+str(debt["item_key"]))
+        if len(debts)>4:
+            lines.append("其余旧风险仍在原凭证中，未被删除。")
     for row in frame["confirmed_visible"][:6]:
         lines.append("已确认但仍需依原文遵守："+str(row["entity_id"])+
                      " "+str(row["predicate"])+"："+str(row["value"]))
@@ -229,10 +239,13 @@ def compact_context(frame):
 def preflight_continuation(next_prose,checkpoint,*,project_id,chapter_index,
                            reference=None):
     old=_checkpoint(checkpoint)
+    old_debts=[{"kind":r["kind"],"item":r["item_key"]} for r in
+               checkpoint.get("v117_open_continuity_debts",[])]
     fast=preflight_next_prose(next_prose,
         previous_candidate_state=old["candidate_state"],
         previous_risks=old.get("risks",[])+
-        checkpoint.get("original_native_candidate_report",{}).get("risks",[]))
+        checkpoint.get("original_native_candidate_report",{}).get("risks",[])+
+        old_debts)
     frame=audit_continuity(checkpoint,project_id=project_id,
          chapter_index=chapter_index,boundary="before",
          reference=reference,next_prose=next_prose)
