@@ -81,7 +81,7 @@ class FutureWorldTests(unittest.TestCase):
         self.assertIn("再启动耗电钻头制造声波",context)
         self.assertIn("THREATENS_PREVIOUS_PLANNED_EFFECT",context)
         self.assertIn("未来只是假设",context)
-        self.assertIn("不能宣称",horizon_prompt())
+        self.assertIn("模型不得偷偷扩充",horizon_prompt())
 
     def test_author_facts_are_immutable_and_unknown_is_not_false(self):
         source={"power:station":"off"}
