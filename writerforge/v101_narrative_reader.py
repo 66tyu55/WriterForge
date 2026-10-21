@@ -161,12 +161,27 @@ def validate_narrative(*,story_id,source_sha256,chapter,source_windows,
     obj=_unpacked_model(model_output)
     cast=[]
     active={}
+    prior_names={}
+    prior_ids={}
+    for chapter_doc in history:
+        for actor in chapter_doc["cast"]:
+            previous_id=prior_names.get(actor["name"])
+            previous_name=prior_ids.get(actor["id"])
+            require(previous_id is None or previous_id==actor["id"],
+                    "WF101_PRIOR_NAME_AMBIGUITY_NEEDS_IDENTITY_REVIEW")
+            require(previous_name is None or previous_name==actor["name"],
+                    "WF101_PRIOR_ALIAS_AMBIGUITY_NEEDS_IDENTITY_REVIEW")
+            prior_names[actor["name"]]=actor["id"]
+            prior_ids[actor["id"]]=actor["name"]
     for member in obj["cast"]:
         _fields(member,("id","name","goal","knowledge_position",
                         "epistemic_mode","evidence"),"WF101_CAST_SCHEMA")
         who,name=member["id"],member["name"]
         require(_id(who) and who not in active and _words(name,1,32),
                 "WF101_CAST_ID_OR_NAME_INVALID")
+        require(prior_names.get(name,who)==who and
+                prior_ids.get(who,name)==name,
+                "WF101_CHARACTER_ID_OR_ALIAS_CHANGED_WITHOUT_REVIEW")
         w=_witness(source_windows,member["evidence"])
         # A pronoun or a repeated name is not automatically canonical ID.
         # Require direct name evidence; no automatic alias merging.
