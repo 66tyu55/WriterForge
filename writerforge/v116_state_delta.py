@@ -79,12 +79,28 @@ def _actor(prose, start, cast, *, limit=220):
     return max(choices)[1] if choices else None
 
 
-def _fruit_name(report):
+def _fruit_name(report, prior_state, prose):
     found={r["term"] for r in report["mentions"] if
            r["kind"]=="resource" and
            r["term"].endswith(ITEM_SUFFIXES)}
-    # No pronoun/alias binding with several different candidate fruits.
-    return next(iter(found)) if len(found)==1 else None
+    # Forward-scene fruit aliases may resolve only against ONE original
+    # reducer cell from the PREVIOUS receipt, never a guessed character.
+    prior=set()
+    for key in prior_state:
+        try: cell=json.loads(key)
+        except (ValueError,TypeError):continue
+        if (type(cell) is list and len(cell)==5 and cell[0]=="item" and
+            cell[2]=="holder" and cell[3]=="author_plan" and
+            type(cell[1]) is str and cell[1].endswith(ITEM_SUFFIXES)):
+            prior.add(cell[1])
+    if len(found)>1:return None
+    if found:
+        named=next(iter(found))
+        # An explicitly named second fruit cannot steal a prior alias.
+        return named
+    if "果子" in prose and len(prior)==1:
+        return next(iter(prior))
+    return None
 
 
 def extract_state_events(prose, *, cast=(), prior_state=None):
@@ -97,7 +113,7 @@ def extract_state_events(prose, *, cast=(), prior_state=None):
     if type(old) is not dict or len(old)>36:
         raise ValueError("WF116_PRIOR_STATE_BOUNDS")
     candidates=discover_candidates(prose)
-    fruit=_fruit_name(candidates)
+    fruit=_fruit_name(candidates,old,prose)
     events=[]
     unresolved=[]
     working=dict(old)
