@@ -325,11 +325,12 @@ def horizon_context(report,*,max_chars=1450):
             if issue["kind"]=="FUTURE_SETTLEMENT_ONLY_NOT_YET_PAID":
                 lines.append("拟偿债务"+issue["debt_id"]+
                              "只是假设，不能宣称已兑现。")
-            elif issue["kind"] in (
-                "IRREVERSIBLE_LOSS_NOT_ERASED_BY_COMPENSATION",
-                "FUTURE_DUE_PRESSURE_UNADDRESSED"):
-                lines.append(issue["kind"]+" 债务"+issue["debt_id"]+
-                    "仍需在后续角色选择中承担。")
+            elif issue["kind"]=="IRREVERSIBLE_LOSS_NOT_ERASED_BY_COMPENSATION":
+                lines.append("不可因补偿或道歉就抹去已发生的不可逆损失："+
+                    issue["debt_id"]+"；后续必须承担真实余波。")
+            elif issue["kind"]=="FUTURE_DUE_PRESSURE_UNADDRESSED":
+                lines.append("预想期限已临近但尚无后续处理的候选债务"+
+                    issue["debt_id"]+"；不能被安静遗忘。")
             else:
                 lines.append(issue["kind"]+" "+issue["fact_key"]+
                     "要求"+issue["expected"]+"；当前"+
