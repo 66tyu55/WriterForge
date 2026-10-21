@@ -54,7 +54,7 @@ def verified_receipt(turn):
             "WF102_PRIOR_EMOTION_TRUTH_FORGED")
     return rec
 
-def check_emotional_turn(raw,beat,*,accepted=(),
+def check_emotional_turn(raw,beat,*,accepted=(),previous_chapter=(),
                          author_confirmed_forbidden_phrases=()):
     """Validate existing V96 result first; affect may be null on quiet scenes."""
     try:doc=_strict_json(raw,MAX_TURN_JSON_BYTES)
@@ -65,6 +65,10 @@ def check_emotional_turn(raw,beat,*,accepted=(),
     require(type(beat) is dict and type(beat.get("actor")) is str,
             "WF102_BEAT_INVALID")
     for t in accepted:verified_receipt(t)
+    require(type(previous_chapter) in (tuple,list) and
+            len(previous_chapter)<=MAX_IN_MEMORY,
+            "WF102_PREVIOUS_CHAPTER_BOUND")
+    for t in previous_chapter:verified_receipt(t)
     legacy=json.dumps({"prose":doc["prose"],"trace":doc["trace"]},
                       ensure_ascii=False,separators=(",",":"))
     old=check_turn(legacy,beat,mode="causal_guard",accepted=accepted,
@@ -113,7 +117,7 @@ def check_emotional_turn(raw,beat,*,accepted=(),
             require(act is not None and cost["start"]>=act["end"],
                     "WF102_COST_BEFORE_ACTION_OR_NOT_AN_ACTION")
         last=None
-        for previous in reversed(accepted):
+        for previous in reversed(tuple(previous_chapter)+tuple(accepted)):
             prior=verified_receipt(previous)
             if (prior["actor"]==beat["actor"] and
                 prior["affect_state"]=="QUOTED_EMOTIONAL_HYPOTHESIS"):
