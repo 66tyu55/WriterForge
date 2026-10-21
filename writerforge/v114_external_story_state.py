@@ -22,6 +22,9 @@ import subprocess
 from .v114_continuity_memory import (
     literal_item_continuity,TRACKED,SOFT_NARRATION,packed,hashb,
 )
+from .v115_dynamic_entity_candidates import (
+    discover_candidates,compact_entity_context,
+)
 
 FORMAT="wf.fallback.novel-studio.result.v114"
 MAX_PACKET_BYTES=130000
@@ -153,6 +156,7 @@ def external_temporal_step(prose,*,cast=(),prior=None):
         prev_sha=prior["receipt_sha256"]
         seq=prior["sequence"]+1
     report,events=actual_item_events(prose,cast=cast,prior_state=old)
+    named_candidates=discover_candidates(prose)
     need(len(events)<=55,"WF114_EXTERNAL_EVENT_LIST_UNBOUNDED")
     packet={
         "format":"wf.fallback.novel-studio.input.v114",
@@ -188,6 +192,8 @@ def external_temporal_step(prose,*,cast=(),prior=None):
         "source_sha256":hashb(prose.encode("utf8")),
         "sequence":seq,"previous_checkpoint_sha256":prev_sha,
         "original_native_candidate_report":report,
+        "dynamic_source_entity_candidates":named_candidates,
+        "dynamic_entity_mentions_are_not_events":True,
         "source_anchored_events_count":len(events),
         "reducer_result":result,
         "semantic_truth_verified":False,
@@ -220,6 +226,9 @@ def temporal_prompt(checkpoint):
                 "；并无已证的转移过程，下一段不能把这次移动当事实。")
         else:
             parts.append("需审查的行文连续性："+risk["kind"])
+    if checkpoint.get("dynamic_source_entity_candidates"):
+        parts.append(compact_entity_context(
+            checkpoint["dynamic_source_entity_candidates"]))
     parts.append("法器、武器和法力用掉后必须有来源才能再使用。"
                  "未知、幻术、倒叙可明说，不为了修补牺牲小说自然度。")
     return "\n".join(parts)[:1450]
