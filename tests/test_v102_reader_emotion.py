@@ -25,6 +25,7 @@ def emotion1():
         "response":anchor(2,"顾晚禾犹豫片刻，还是收下符"),
         "loss":None,
         "related_event":"e000001_choice1",
+        "related_relation":"r000001_01",
         "next_option_change":"顾晚禾暂时取得主动联系援手的可能",
         "alternative_reading":"她收下符未必是因为信任林霁",
     }
@@ -47,6 +48,7 @@ class ReaderEmotionTests(unittest.TestCase):
         one=parsed["emotions"][0]
         self.assertEqual(one["actor_id"],"wanhe")
         self.assertEqual(one["related_event"],"e000001_choice1")
+        self.assertEqual(one["related_relation"],"r000001_01")
         self.assertFalse(one["emotion_semantically_verified"])
         self.assertFalse(one["loss_and_cost_semantically_verified"])
         self.assertTrue(parsed["text_from_novel_not_in_receipt"])
@@ -83,6 +85,10 @@ class ReaderEmotionTests(unittest.TestCase):
         doc["emotions"][0]["related_event"]="e000099_future"
         with self.assertRaisesRegex(V101ReadingError,"UNREAD_EVENT"):
             assess(doc)
+        doc=question()
+        doc["emotions"][0]["related_relation"]="r009999_forged"
+        with self.assertRaisesRegex(V101ReadingError,"UNGROUNDED_RELATION"):
+            assess(doc)
 
     def test_emotion_reaction_cannot_precede_visible_trigger(self):
         doc=question()
@@ -100,6 +106,7 @@ class ReaderEmotionTests(unittest.TestCase):
         def answered(**kwargs):
             answer=question()
             answer["emotions"][0]["related_event"]="e000002_choice1"
+            answer["emotions"][0]["related_relation"]="r000002_01"
             return answer
         model.ask_json=Mock(side_effect=answered)
         rt=RuntimeEngine()
