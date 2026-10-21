@@ -79,6 +79,59 @@ def _safe_ref(records):
     need(len(packed(src))<=64000,"WF117_REFERENCE_BYTE_LIMIT")
     return src
 
+def _source_anchored_prop_chains(checkpoint,reducer):
+    """Derive prop chains from actually applied source events, not model guesses.
+
+    If the upstream reducer rejected ANY event in this scene, we refuse to
+    construct a supposedly complete prop chain from the raw proposals.
+    The checkpoint still carries the unresolved risk from that rejection.
+    """
+    delta=checkpoint.get("v116_anchored_state_delta")
+    if type(delta) is not dict or delta.get("source_sha256")!=checkpoint.get(
+         "source_sha256"):
+        return []
+    events=delta.get("source_anchored_events")
+    if type(events) is not list or len(events)>16:
+        return []
+    if reducer.get("verified_events")!=checkpoint.get(
+         "source_anchored_events_count"):
+        return []
+    by_item={}
+    for ev in events:
+        if type(ev) is not dict or type(ev.get("ops")) is not list:
+            continue
+        quote=ev.get("evidence",{}).get("quote")
+        if type(quote) is not str or len(quote)>150:continue
+        for op in ev["ops"]:
+            cell=op.get("cell",{})
+            if (cell.get("domain")!="item" or
+                cell.get("predicate")!="holder" or
+                cell.get("scope")!="author_plan" or
+                op.get("type")!="set"):
+                continue
+            ident=cell.get("entityId")
+            if type(ident) is not str:continue
+            by_item.setdefault(ident,[]).append({
+                "state":op.get("value"),
+                "evidence_quote":quote,
+                "source_prose_sha256":checkpoint["source_sha256"],
+            })
+    result=[]
+    for ident,chain in sorted(by_item.items()):
+        cell=json.dumps(["item",ident,"holder","author_plan",None],
+                        ensure_ascii=False,separators=(",",":"))
+        latest=reducer["candidate_state"].get(cell)
+        if latest is None or latest!=chain[-1]["state"]:
+            continue
+        result.append({
+            "entity":ident,
+            "expected_state":latest,
+            "chain":chain,
+            "recheck_prose":False,
+            "not_canon":True,
+        })
+    return result[:36]
+
 def audit_continuity(checkpoint, *, project_id, chapter_index,
                      boundary="before", reference=None,next_prose=None):
     base=_checkpoint(checkpoint)
@@ -86,7 +139,10 @@ def audit_continuity(checkpoint, *, project_id, chapter_index,
          "WF117_PROJECT_SCOPE_REQUIRED")
     need(type(chapter_index) is int and 0<=chapter_index<=1000000,
          "WF117_CHAPTER_INDEX_REQUIRED")
-    ref=_safe_ref(reference)
+    ref=_safe_ref(reference).copy()
+    if not ref.get("prop_chains"):
+        ref["prop_chains"]=_source_anchored_prop_chains(
+            checkpoint,base)
     need(next_prose is None or
          type(next_prose) is str and len(next_prose)<=20000,
          "WF117_NEXT_PROSE_BOUNDS")
