@@ -52,6 +52,7 @@ from .v114_external_story_state import (
     V114ExternalMemoryError,require_external_runtime,
     external_temporal_step,temporal_prompt,
 )
+from .v116_state_delta import preflight_next_prose
 
 MAX_LIVE_CONTEXT = 1400
 MAX_OUTLINE_CHARS = 6000
@@ -659,6 +660,27 @@ class AutonomousWriting:
                                 accepted=tuple(accepted_turns),
                                 author_confirmed_forbidden_phrases=(
                                     author_confirmed_forbidden_phrases))
+                        if (draft_mode=="continuity_guard" and
+                            current_external_story_checkpoint is not None):
+                            # A segment must not become accepted while using
+                            # a prior item/arm state without a stated transition.
+                            # Candidate-only: refusal, NEVER silent rewriting or
+                            # a second model request.
+                            preflight=preflight_next_prose(
+                                evidence["prose"],
+                                previous_candidate_state=(
+                                    current_external_story_checkpoint[
+                                        "reducer_result"]["candidate_state"]),
+                                previous_risks=(
+                                    current_external_story_checkpoint[
+                                        "reducer_result"].get("risks",[])+
+                                    current_external_story_checkpoint[
+                                        "original_native_candidate_report"
+                                    ].get("risks",[])))
+                            if preflight["blocked"]:
+                                raise WritingExecutionError(
+                                    "WF116_NEXT_TURN_STATE_PRECONDITION_REJECTED:"+
+                                    ",".join(preflight["findings"]))
                         accepted_turns.append(evidence)
                         accepted_beats.append(beat)
                         if draft_mode=="continuity_guard":
