@@ -1,0 +1,49 @@
+name: V113 independent R2 cold recovery of original pair - zero DeepSeek calls
+on:
+  push:
+    branches: [v113-equal-length-chase-causal-blind]
+    paths:
+      - '.github/workflows/v113-recover-original-pair-no-model.yml'
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-v113-original-pair-readonly-one-shot
+  cancel-in-progress: false
+jobs:
+  cold-restore-only:
+    if: github.repository == '66tyu55/WriterForge' && github.ref == 'refs/heads/v113-equal-length-chase-causal-blind'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+      WF113_LOCAL_RESULT_FILE: wf113_cold_result_pointers.json
+      WF113_BLIND_ARTIFACT_DIR: wf113_cold_blind_artifacts
+    steps:
+      - name: GitHub checkout (no paid workflow)
+        uses: actions/checkout@v4
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing WF and R2 S3 client
+        run: python -m pip install -e '.[r2]'
+      - name: Confirm absence of all DeepSeek and other generation credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -z "${DEEPSEEK_API_KEY:-}" ]] || exit 1
+          [[ -z "${DEEPSEEK:-}" ]] || exit 1
+          echo 'No DeepSeek credential in this workflow. Original four model calls cannot be replayed.'
+      - name: Cold restore original model replies and two anonymous untouched novels
+        run: python -m experiments.v113_recover_blind_read_only
+      - name: Export only blind originals and metadata; no reveal map
+        uses: actions/upload-artifact@v4
+        with:
+          name: V113-two-original-1000char-anonymous-pair-no-model-retry
+          path: wf113_cold_blind_artifacts/
+          retention-days: 30
+          if-no-files-found: error
