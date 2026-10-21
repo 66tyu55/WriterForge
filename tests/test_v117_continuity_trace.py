@@ -142,6 +142,30 @@ class MITNovelStudioIntegrated(unittest.TestCase):
         self.assertEqual(report["canon_writes"],0)
         self.assertEqual(report["no_model_call"],True)
 
+    def test_unresolved_sword_tassel_debt_survives_two_new_chapters(self):
+        first_text=("沈渡腰间挂着旧剑穗。"
+                    "叶青梧疾行数丈，他挥起锁魂索。"
+                    "索头回落，钩尖上挂着湿透的旧剑穗。")
+        first=external_temporal_step(first_text,cast=("沈渡","叶青梧"))
+        self.assertIn("UNPROVEN_ITEM_TRANSFER",
+            [r["kind"] for r in first["reducer_result"]["risks"]])
+        second=external_temporal_step(
+            "叶青梧避过风雨，沈渡仍在桥上疾追。",
+            cast=("沈渡","叶青梧"),prior=first)
+        third=external_temporal_step(
+            "两人先后望见飞瀑，栈道已被山洪吞没。",
+            cast=("沈渡","叶青梧"),prior=second)
+        self.assertEqual(third["reducer_result"]["risks"],[])
+        open_debts=third["v117_open_continuity_debts"]
+        self.assertTrue(any(r["kind"]=="UNPROVEN_ITEM_TRANSFER"
+                            for r in open_debts))
+        frame=audit_continuity(third,project_id="tassel-story",
+                               chapter_index=2)
+        text=compact_context(frame)
+        self.assertIn("UNPROVEN_ITEM_TRANSFER",text)
+        self.assertGreater(len(open_debts),0)
+        self.assertEqual(frame["no_model_call"],True)
+
     def test_wrong_arm_return_is_blocked_with_pinned_source_state(self):
         unsafe="沈砚右臂挥剑刺出，果子依然还在齿间。"
         report=preflight_continuation(
