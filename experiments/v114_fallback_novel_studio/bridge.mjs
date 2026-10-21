@@ -43,10 +43,26 @@ function check(obj) {
       // are both required before allowing the visible alias transition.
       const alias=evidence.entity_alias;
       const named=source.indexOf(title);
+      const uniqueNamedHere=named>=0 &&
+        named===source.lastIndexOf(title) && named<loc;
+      // Later scene only: one exact old title inside reducer's prior cell.
+      // The trusted Python checkpoint verifies its receipt SHA upstream.
+      let priorFruitKeys=0, priorFruitMatches=false;
+      for (const key of state.keys()) {
+        let parts;
+        try { parts=JSON.parse(key); } catch { continue; }
+        if (Array.isArray(parts) && parts[0]==='item' &&
+            parts[2]==='holder' && parts[3]==='author_plan' &&
+            /(?:髓果|灵果|仙果)$/.test(parts[1])) {
+          priorFruitKeys++;
+          if (parts[1]===title)priorFruitMatches=true;
+        }
+      }
       const safeFruitAlias=alias==='果子' &&
         /(?:髓果|灵果|仙果)$/.test(title) &&
         evidence.quote.includes(alias) &&
-        named>=0 && named===source.lastIndexOf(title) && named<loc;
+        (uniqueNamedHere || (priorFruitKeys===1 && priorFruitMatches &&
+           !source.includes(title)));
       if((!evidence.quote.includes(title)&&!safeFruitAlias) ||
          !TRANSFER.test(evidence.quote)){
         risks.push({kind:'UNPROVEN_ITEM_TRANSFER',event:n,
