@@ -179,6 +179,44 @@ def extract_state_events(prose, *, cast=(), prior_state=None):
                 put(clause.strip(),begin+len(clause)-len(clause.lstrip()),
                     domain="item",entity=fruit,predicate="holder",
                     value=actor+pos,alias=alias if alias!=fruit else None)
+            # A later real paragraph may explicitly hand over the item.
+            # No named recipient, no known source palm, no event.
+            recipients="|".join(map(re.escape,cast))
+            for m in re.finditer(
+                r"把(?:那枚|这枚)?("+alias_regex+
+                r")从(左手心|右手心)(?:取出|拿起)?(?:递给|交给)("+recipients+r")",
+                clause):
+                actor=_actor(prose,begin+m.start(),cast)
+                recipient=m.group(3)
+                if not actor or actor not in clause[:m.end()] or actor==recipient:
+                    issue("WF116_UNPROVEN_HANDOFF_ACTOR",[begin+m.start(),begin+m.end()])
+                    continue
+                oldholder=actor+m.group(2)
+                if working.get(_cell("item",fruit,"holder"))!=oldholder:
+                    issue("WF116_UNPROVEN_HANDOFF_SOURCE",[begin+m.start(),begin+m.end()])
+                    continue
+                put(clause.strip(),begin+len(clause)-len(clause.lstrip()),
+                    domain="item",entity=fruit,predicate="holder",
+                    value=recipient+"手中",
+                    alias=m.group(1) if m.group(1)!=fruit else None)
+            # Consuming a named fruit requires explicit intake from its
+            # known location, not "咬着" or an inferred surge of mana.
+            for m in re.finditer(
+                r"把(?:那枚|这枚)?("+alias_regex+
+                r")从(左手心|右手心)(?:拿起|取出)?送入口中"
+                r".{0,15}(?:吞下|吞服|吃下)",clause):
+                actor=_actor(prose,begin+m.start(),cast)
+                if (not actor or actor not in clause[:m.end()] or
+                    working.get(_cell("item",fruit,"holder"))!=actor+m.group(2)):
+                    issue("WF116_UNPROVEN_FRUIT_CONSUMPTION",[begin+m.start(),begin+m.end()])
+                    continue
+                quote=clause.strip()
+                offset=begin+len(clause)-len(clause.lstrip())
+                alias=m.group(1) if m.group(1)!=fruit else None
+                put(quote,offset,domain="item",entity=fruit,
+                    predicate="holder",value="已消耗（"+actor+"吞服）",alias=alias)
+                put(quote,offset,domain="item",entity=fruit,
+                    predicate="consumption",value="明确吞服",alias=alias)
         # A source-narrated arm incapacity, not an adversary's "废了" speech.
         if ("右手" in clause and
             "锁脉诀" in clause and
@@ -257,6 +295,10 @@ def preflight_next_prose(next_prose, *, previous_candidate_state,
     if fruit:
         key,holder=fruit
         actor=holder.split("左手心")[0].split("右手心")[0].split("齿间")[0]
+        if holder.startswith("已消耗") and re.search(
+            r"(?:果子|火髓果).{0,8}(?:还在|仍在|握在|放在)(?:手中|掌中|齿间|左手)",
+            next_prose):
+            findings.append("WF116_CONSUMED_FRUIT_RESURRECTED")
         if ("左手心" in holder or "右手心" in holder):
             if re.search(r"(?:果子|火髓果).{0,12}(?:仍|还)?(?:在|含|咬).{0,3}齿间",next_prose) and not any(
                 v in next_prose for v in ("送入口","塞入口","含到","咬住","放入口")):
