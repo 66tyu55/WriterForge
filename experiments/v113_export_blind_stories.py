@@ -14,11 +14,11 @@ def require(ok,code):
     if not ok:raise ValueError(code)
 
 def export():
-    raw=Path(os.environ["WF112_LOCAL_RESULT_FILE"]).read_text("utf8")
+    raw=Path(os.environ["WF113_LOCAL_RESULT_FILE"]).read_text("utf8")
     ptr=json.loads(raw)
     require(ptr.get("format")=="wf.eval.v113.github-actions-export-pointers"
             and ptr.get("author_accepted") is False,
-            "WF112_EXPORT_HANDOFF_NOT_FROZEN")
+            "WF113_EXPORT_HANDOFF_NOT_FROZEN")
     cas=GitHubS3CAS()
     index=json.loads(cas._get_content(ptr["blind_index_cas_sha256"]))
     require(index.get("format")==
@@ -26,23 +26,23 @@ def export():
             and index.get("question")==TASK
             and index.get("blind_method_identity_hidden") is True
             and index.get("judging_stage")=="NOT_PERFORMED",
-            "WF112_EXPORT_ANON_INDEX_NOT_VERIFIED")
-    out=Path(os.environ["WF112_BLIND_ARTIFACT_DIR"])
+            "WF113_EXPORT_ANON_INDEX_NOT_VERIFIED")
+    out=Path(os.environ["WF113_BLIND_ARTIFACT_DIR"])
     out.mkdir(parents=True,exist_ok=False)
     rows=[]
     for i,p in enumerate(index["packets"],1):
         require(set(p)=={"label","full_prose_cas_sha256"},
-                "WF112_EXPORT_BLIND_PACKET_META_FIELDS")
+                "WF113_EXPORT_BLIND_PACKET_META_FIELDS")
         label=p["label"]
         require(label==f"匿名作品{i:02d}",
-                "WF112_EXPORT_BLIND_PACKET_ORDER_OR_ID")
+                "WF113_EXPORT_BLIND_PACKET_ORDER_OR_ID")
         data=json.loads(cas._get_content(p["full_prose_cas_sha256"]))
         require(data.get("format")=="wf.eval.v113.anonymous-original-novel"
                 and data.get("label")==label and
                 data.get("shared_task")==TASK
                 and data.get("literary_quality_judged")=="NOT_PERFORMED"
                 and type(data.get("prose")) is str,
-                "WF112_EXPORT_RAW_PROSE_OR_ANON_ID_INVALID")
+                "WF113_EXPORT_RAW_PROSE_OR_ANON_ID_INVALID")
         body=data["prose"]
         (out/f"anonymous_{i:02d}.txt").write_text(
             f"{label}\n题目：{TASK}\n\n"+body+"\n",
@@ -67,7 +67,7 @@ def export():
         json.dumps(rows,ensure_ascii=False,indent=2),
         encoding="utf8")
     print(json.dumps({
-        "status":"WF112_PRIVATE_R2_BLIND_ARTIFACT_VERIFIED",
+        "status":"WF113_PRIVATE_R2_BLIND_ARTIFACT_VERIFIED",
         "anonymous_story_count":len(rows),
         "lengths":[r["literal_characters"] for r in rows],
         "method_identity_disclosed":False,
