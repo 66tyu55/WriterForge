@@ -1,0 +1,66 @@
+name: V114 one-shot real WriterForge xuanhuan continuity with MIT Novel Studio
+on:
+  push:
+    branches: [v114-chase-live-state-and-oss-fallback]
+    paths:
+      - '.github/workflows/v114-real-one-shot-continuity.yml'
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-v114-continuity-original-deepseek-one-shot
+  cancel-in-progress: false
+jobs:
+  real-student-writing:
+    if: github.repository == '66tyu55/WriterForge' && github.ref == 'refs/heads/v114-chase-live-state-and-oss-fallback'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - name: Checkout frozen exact V114 commit
+        uses: actions/checkout@v4
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Node 22 for pinned MIT Novel Studio reducer
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing WF with Cloudflare R2 S3 client
+        run: python -m pip install -e '.[r2]'
+      - name: No-cost original source, provenance, mode and contract checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v114_real_staged_writing_preflight.py -q
+          python -m unittest discover -s tests -p test_v114_external_literary_memory.py -q
+          python -m unittest discover -s tests -p test_v114_continuity_memory.py -q
+          python - <<'PY'
+          import os
+          from experiments.v114_real_wf_continuity_once import precommit,MAX_CALLS,MAX_OUTPUT,TASK
+          from writerforge.v114_external_story_state import require_external_runtime
+          p=precommit()
+          assert p['exam']=='WF-V114-REAL-CONTINUITY-AND-NOVEL-STUDIO-20261021'
+          assert p['student_autonomously_selects_own_two_events'] is True
+          assert p['no_auto_retry_or_author_prose_rewrite'] is True
+          assert MAX_CALLS==4 and MAX_OUTPUT==5000
+          assert TASK=='给我一个追逐打斗的玄幻1000字'
+          assert p['acceptance_and_skill_graduation']=='LOCKED'
+          require_external_runtime()
+          assert all(os.environ.get(x) for x in (
+            'DEEPSEEK_API_KEY','WRITERFORGE_R2_ACCOUNT_ID',
+            'WRITERFORGE_R2_BUCKET','WRITERFORGE_R2_ACCESS_KEY_ID',
+            'WRITERFORGE_R2_SECRET_ACCESS_KEY'))
+          print('V114 NO-COST PREPAID TEST PASSED. No model call occurred.')
+          PY
+      - name: SINGLE PAID EXAM - real original WF writing with Novel Studio temporal state in each turn
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m experiments.v114_real_wf_continuity_once
