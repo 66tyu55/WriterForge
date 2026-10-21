@@ -142,6 +142,7 @@ class WFLargeChapterBatch:
         self.pilot_mixed=None
         self._v101_reader_context=""
         self._v101_next_chapter=None
+        self._v101_last_receipt=None
 
     def audit_sealed_literary_claims(self, *, chapter, windows, gate, proposals, runtime):
         """V85 opt-in post-seal link, never part of legacy V79-V82 training.
@@ -201,6 +202,37 @@ class WFLargeChapterBatch:
             batch=self,chapter=chapter,windows=windows,
             runtime=runtime,story_id=story_id,
             previous_reader_receipt_sha256=previous_reader_receipt_sha256)
+
+    def complete_with_narrative_reading(self, *, chapter, windows, runtime,
+                                        story_id,
+                                        previous_reader_receipt_sha256=None):
+        """Explicit coherent WF flow: previous relations -> new chapter -> read.
+
+        Not called by V80.complete(), not an automatic chapter 16 trigger.
+        It adds at most ONE metered literary comprehension call after a
+        sealed normal chapter. Failure remains a candidate, not CANON.
+        """
+        if previous_reader_receipt_sha256 is not None and (
+            self._v101_last_receipt is not None and
+            previous_reader_receipt_sha256!=self._v101_last_receipt):
+            raise WFLargeStudyError("WF101_READER_COLD_POINTER_FORK_REFUSED")
+        previous=(previous_reader_receipt_sha256
+                  if previous_reader_receipt_sha256 is not None
+                  else self._v101_last_receipt)
+        if previous is not None:
+            self.enable_prior_narrative_reading(
+                story_id=story_id,next_chapter=chapter.ordinal,
+                previous_reader_receipt_sha256=previous)
+        chapter_receipt=self.complete(chapter=chapter,windows=windows)
+        note=self.inspect_completed_narrative(
+            chapter=chapter,windows=windows,runtime=runtime,
+            story_id=story_id,
+            previous_reader_receipt_sha256=previous)
+        self._v101_last_receipt=note["reader_receipt_cas_sha256"]
+        return {"chapter":chapter_receipt,"reader":note,
+                "reader_state_continues_from_prior_cas":previous is not None,
+                "independent_literary_quality_verified":False,
+                "auto_graduation":False}
 
     def emit(self,stage,**data):
         if self.progress:
