@@ -45,6 +45,9 @@ from .v105_forward_horizon import (
 from .v110_host_branch_identity import (
     V110IdentityError,recover_host_branch_identity,
 )
+from .v114_continuity_memory import (
+    V114ContinuityError,validated_checkpoint,compact_status,
+)
 
 MAX_LIVE_CONTEXT = 1400
 MAX_OUTLINE_CHARS = 6000
@@ -300,7 +303,7 @@ class AutonomousWriting:
         # 'single' remains byte-for-byte compatible with legacy output
         # behavior. split_only vs causal_guard share the SAME JSON turn
         # planning/response interface so B/C can be fairly compared.
-        if draft_mode not in ("single","split_only","causal_guard","rolling_causal","emotion_rolling","foresight_rolling"):
+        if draft_mode not in ("single","split_only","causal_guard","rolling_causal","emotion_rolling","foresight_rolling","continuity_guard"):
             raise WritingExecutionError("WF96_DRAFT_MODE_NOT_OPTED_IN")
         if draft_mode=="single" and (
            frozen_turn_outlines is not None or
@@ -358,6 +361,7 @@ class AutonomousWriting:
         issued_turns=0
         rolling_replan_calls=0
         previous_emotional_turns=()
+        previous_continuity_checkpoint=None
         for index,goal in enumerate(chapter_goals,1):
             last_chapter_pressure=(
                 pressure_context(previous_emotional_turns)
@@ -369,6 +373,11 @@ class AutonomousWriting:
             prospective_report=None
             host_only_branch_receipt=None
             future_note=""
+            earlier_item_state=(
+                compact_status(previous_continuity_checkpoint["report"])
+                if draft_mode=="continuity_guard" and
+                   previous_continuity_checkpoint else "")
+            current_continuity_checkpoint=previous_continuity_checkpoint
             if progress:
                 progress(index,len(chapter_goals),"planning")
             scene=f"{self.assist.scene_id}.chapter-{index:03}"
@@ -384,6 +393,8 @@ class AutonomousWriting:
                   last_chapter_pressure if last_chapter_pressure else "")
                 +("\n【过去数章未偿压力的只读候选账本】"+
                   continuing_pressure if continuing_pressure else "")
+                +("\n【前章已写正文的物件与角色状态（候选，并非正典）】"+
+                  earlier_item_state if earlier_item_state else "")
                 +"\n请先规划本章，不写正文。必须明确人物目的、冲突、选择、后果和视角；"
                 "内部调用结构技法，不照搬原著。只返回 JSON："
                 '{"objective":"...","conflict":"...","decision":"...",'
@@ -476,6 +487,8 @@ class AutonomousWriting:
                   continuing_pressure if continuing_pressure else "")
                 +("\n【未来多步备选路径与危险前提，均未发生】"+
                   future_note if future_note else "")
+                +("\n【已经写过的连续性信息，不得凭空转移物品】"+
+                  earlier_item_state if earlier_item_state else "")
                 +"\n请按照因果、人物决定和冲突结果写完整原创正文，"
                 "不要解释技巧，也不要复制原著人物、设定或句子。",
                 facets,
