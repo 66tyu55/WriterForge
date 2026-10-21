@@ -371,8 +371,38 @@ def _validate_prior_checkpoint(old,story_sha):
                              if k!="receipt_sha256"})) and
             type(old.get("open_debts")) is list and
             len(old["open_debts"])<=MAX_DEBTS and
-            len(packed(old))<=MAX_CHECKPOINT_BYTES,
+            old.get("open_debts_count")==len(old["open_debts"]) and
+            type(old.get("chapter")) is int and old["chapter"]>=1 and
+            type(old.get("new_debts")) is int and
+            0<=old["new_debts"]<=16 and
+            len(packed(old))<=MAX_CHECKPOINT_BYTES and
+            (old["chapter"]==1 and old.get("previous_checkpoint_sha256") is None
+             or old["chapter"]>1 and type(old.get("previous_checkpoint_sha256")) is str
+             and SHA.fullmatch(old["previous_checkpoint_sha256"]) is not None),
             "WF105_PRIOR_CHECKPOINT_HASH_OR_LIMIT")
+    ids=set()
+    for debt in old["open_debts"]:
+        require(type(debt) is dict and set(debt)=={
+                "debt_id","source_chapter","source_turn_id","actor",
+                "cost_anchor","source_prose_sha256","open_pressure","state",
+                "claim_of_settlement_is_not_proof",
+                "actual_cost_semantics_proven",
+                "chronology_and_effect_requires_review"} and
+                ident(debt["debt_id"]) and
+                debt["debt_id"] not in ids and
+                type(debt["source_chapter"]) is int and
+                1<=debt["source_chapter"]<=old["chapter"] and
+                token(debt["actor"],64) and
+                type(debt["source_prose_sha256"]) is str and
+                SHA.fullmatch(debt["source_prose_sha256"]) is not None and
+                (debt["open_pressure"] is None or
+                 phrase(debt["open_pressure"],1,150)) and
+                debt["state"]=="OPEN_UNVERIFIED_CANDIDATE" and
+                debt["claim_of_settlement_is_not_proof"] is True and
+                debt["actual_cost_semantics_proven"] is False and
+                debt["chronology_and_effect_requires_review"] is True,
+                "WF105_UNTRUSTED_DEBT_STATE_OR_DUPLICATE_NOT_ALLOWED")
+        ids.add(debt["debt_id"])
     return list(old["open_debts"]),h
 
 def derive_open_checkpoint(*,story_sha,chapter,accepted,previous=None):
