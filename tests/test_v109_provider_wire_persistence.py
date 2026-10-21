@@ -39,7 +39,6 @@ class WireFirstTests(unittest.TestCase):
         self.assertEqual(seen,[raw])
         self.assertEqual(len(transport.received),1)
         self.assertEqual(model.budget.calls_reserved,1)
-        self.assertEqual(model.budget.calls_with_uncertain_usage,0) if False else None
         self.assertTrue(model.budget.tokens_reserved>=850)
         self.assertEqual(model.budget.completion_tokens_reported,0)
         with self.assertRaisesRegex(DeepSeekFlashError,"BUDGET_EXCEEDED"):
