@@ -240,6 +240,9 @@ def validate_horizon(plan,*,author_pinned=None):
                     for z in concerns)
         result.append({
             "branch_id":name,
+            "proposed_future_actions":[{
+                "step_id":s["id"],"actor":s["actor"],"action":s["action"]}
+                for s in steps],
             "status":("SYMBOLICALLY_BLOCKED" if fatal else
                       "CONDITIONAL_OR_UNKNOWN" if unknown else
                       "NOT_CONTRADICTED_BY_KNOWN_SYMBOLS"),
@@ -249,7 +252,7 @@ def validate_horizon(plan,*,author_pinned=None):
             "semantic_writing_feasibility_verified":False,
             "branch_winner":False,
         })
-    return {
+    report={
         "format":"wf.writing.future-causal-branches.v105",
         "proposed_futures_sha256":digest(packed(plan)),
         "pinned_author_facts_sha256":digest(packed(pinned)),
@@ -261,6 +264,8 @@ def validate_horizon(plan,*,author_pinned=None):
         "canonical_or_factjournal_writes":0,
         "literary_causality_proven":False,
     }
+    report["receipt_sha256"]=digest(packed(report))
+    return report
 
 def horizon_prompt(*,pinned_world=None):
     """One small extra field in WF's EXISTING chapter planning model call."""
@@ -290,11 +295,16 @@ def horizon_context(report,*,max_chars=1450):
     """No winners, no pseudo-truth. Keeps risky causal preconditions visible."""
     require(type(report) is dict and
             report.get("format")=="wf.writing.future-causal-branches.v105"
-            and len(report.get("branches",[])) in (2,3),
+            and len(report.get("branches",[])) in (2,3) and
+            report.get("receipt_sha256")==digest(packed({
+                k:v for k,v in report.items() if k!="receipt_sha256"})),
             "WF105_CONTEXT_REQUIRES_VALIDATED_FORECAST")
     lines=["【未来是分支候选，不是已发生事实。请选择可执行的路径而不是硬拼结果】"]
     for opt in report["branches"]:
         lines.append(opt["branch_id"]+": "+opt["status"])
+        for step in opt["proposed_future_actions"][:MAX_STEPS]:
+            lines.append("未来只是假设："+step["actor"]+"可能"+
+                         step["action"])
         for issue in opt["all_findings"][:5]:
             if issue["kind"]=="FUTURE_SETTLEMENT_ONLY_NOT_YET_PAID":
                 lines.append("拟偿债务"+issue["debt_id"]+
