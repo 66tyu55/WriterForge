@@ -1,0 +1,47 @@
+name: V113 cold recover unscored original bare DeepSeek text - no API calls
+on:
+  push:
+    branches: [v113-equal-length-chase-causal-blind]
+    paths:
+      - '.github/workflows/v113-recover-unscored-bare-original-no-model.yml'
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-v113-unscored-third-original-readonly
+  cancel-in-progress: false
+jobs:
+  original-rejected-reply-only:
+    if: github.repository == '66tyu55/WriterForge' && github.ref == 'refs/heads/v113-equal-length-chase-causal-blind'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - name: Checkout GitHub only
+        uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install R2 dependencies
+        run: python -m pip install -e '.[r2]'
+      - name: Reject any model credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -z "${DEEPSEEK_API_KEY:-}" ]]
+          [[ -z "${DEEPSEEK:-}" ]]
+          echo 'Read-only original model response recovery, zero new inference.'
+      - name: Read original failed reply and verify it matches saved HTTP wire
+        run: python -m experiments.v113_readonly_bare_original_body
+      - name: Export unscreened text with explicit RED schema metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: V113-unscored-original-bare-model-with-extra-type-field
+          path: wf113_original_schema_rejected_bare/
+          retention-days: 30
+          if-no-files-found: error
