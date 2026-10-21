@@ -399,7 +399,23 @@ class AutonomousWriting:
                 # Never reveal it in public error receipts; job_dir is private.
                 (job/f"chapter-{index:03d}-raw-plan.json").write_text(
                     plan_raw,encoding="utf8")
-            plan=_chapter_plan(plan_raw,goal)
+            try:
+                plan=_chapter_plan(plan_raw,goal)
+            except WritingExecutionError:
+                if draft_mode=="foresight_rolling":
+                    issue={
+                        "format":"wf.writing.failed-foresight-preflight.v105",
+                        "chapter":index,"draft_mode":draft_mode,
+                        "code":"WF105_ORIGINAL_CHAPTER_PLAN_INVALID",
+                        "original_plan_sha256":
+                            sha256(plan_raw.encode("utf8")).hexdigest(),
+                        "new_model_retries":0,"accepted_prose":False,
+                        "canon_writes":0,
+                    }
+                    (job/f"chapter-{index:03d}-foresight-rejected.json").write_text(
+                        json.dumps(issue,ensure_ascii=False,indent=2),
+                        encoding="utf8")
+                raise
             if draft_mode=="foresight_rolling":
                 try:
                     plan_obj=_decode_json(plan_raw)
