@@ -160,6 +160,8 @@ def validate_horizon(plan,*,author_pinned=None):
         promised=[]
         ids=set()
         traces=[]
+        debt_born_at={}
+        claimed_resolutions=set()
         for i,s in enumerate(steps,1):
             fields(s,REQUIRED_STEP,"WF105_FUTURE_STEP_SCHEMA")
             require(ident(s["id"]) and s["id"] not in ids and
@@ -210,6 +212,7 @@ def validate_horizon(plan,*,author_pinned=None):
                 require(debt["id"] not in debt_ids,
                         "WF105_PROPOSED_DEBT_REPEATED")
                 debt_ids.add(debt["id"])
+                debt_born_at[debt["id"]]=i
                 promised.append({
                     "id":debt["id"],"kind":debt["kind"],
                     "owner":debt["owner"],
@@ -224,12 +227,25 @@ def validate_horizon(plan,*,author_pinned=None):
                         "WF105_CANNOT_RESOLVE_AN_UNCREATED_DEBT")
                 # A plan cannot settle itself: proposed compensation is
                 # not a real payment, even in a speculative future.
+                claimed_resolutions.add(claim)
                 this_issues.append({
                     "kind":"FUTURE_SETTLEMENT_ONLY_NOT_YET_PAID",
                     "step_id":s["id"],"debt_id":claim})
+                if any(d["id"]==claim and d["severity"]=="IRREVERSIBLE"
+                       for d in promised):
+                    this_issues.append({
+                        "kind":"IRREVERSIBLE_LOSS_NOT_ERASED_BY_COMPENSATION",
+                        "step_id":s["id"],"debt_id":claim})
             concerns.extend(this_issues)
             traces.append({"step_id":s["id"],"preflight_findings":this_issues,
                            "future_debts_born":len(s["future_debts"])})
+        for d in promised:
+            due=debt_born_at[d["id"]]+d["due_after"]
+            if due<=len(steps) and d["id"] not in claimed_resolutions:
+                concerns.append({
+                    "kind":"FUTURE_DUE_PRESSURE_UNADDRESSED",
+                    "debt_id":d["id"],
+                    "step_id":d["future_event_id"],"due_step":due})
         fatal=any(z["kind"] in
                   ("CONTRADICTS_PINNED_FACT",
                    "THREATENS_PREVIOUS_PLANNED_EFFECT")
@@ -309,6 +325,11 @@ def horizon_context(report,*,max_chars=1450):
             if issue["kind"]=="FUTURE_SETTLEMENT_ONLY_NOT_YET_PAID":
                 lines.append("拟偿债务"+issue["debt_id"]+
                              "只是假设，不能宣称已兑现。")
+            elif issue["kind"] in (
+                "IRREVERSIBLE_LOSS_NOT_ERASED_BY_COMPENSATION",
+                "FUTURE_DUE_PRESSURE_UNADDRESSED"):
+                lines.append(issue["kind"]+" 债务"+issue["debt_id"]+
+                    "仍需在后续角色选择中承担。")
             else:
                 lines.append(issue["kind"]+" "+issue["fact_key"]+
                     "要求"+issue["expected"]+"；当前"+
@@ -413,7 +434,7 @@ def open_debt_context(checkpoint,*,max_chars=MAX_PRESSURE_CONTEXT_CHARS):
     remaining=limit-160
     shown=0
     for debt in need[-14:]:
-        s=f"{debt['debt_id']} {debt['actor']}：{debt['open_pressure'] or '真实损失存在但具体程度待核实'}。"
+        s=f"{debt['debt_id']} {debt['actor']}：{debt['open_pressure'] or '代价尚未在正文中证实'}。"
         if len(s)>remaining:continue
         remaining-=len(s);shown+=1
         buf.append(s)
