@@ -105,9 +105,11 @@ def validate_read(answer,chapter):
     a=answer["relationship"]
     for key in ("before","after","why"):words(a[key])
     e=answer["emotion"]
-    for key in ("person","reading","alternative"):words(e[key])
+    for key in ("reading","alternative"):words(e[key])
+    # A perfectly valid Chinese given name can be only two characters.
     need(e["person"] in ("葛梨","周迦"),
          "WF103_EMOTION_CHARACTER_NOT_IN_CAST")
+
     ca=answer["causality"]
     for key in ("actual_cost","future_constraint"):words(ca[key])
     t=answer["literary_sentence"]
