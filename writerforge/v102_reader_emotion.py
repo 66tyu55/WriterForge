@@ -10,18 +10,19 @@ from .v101_narrative_reader import (
 )
 
 FIELDS=frozenset(("actor_id","before","after","epistemic_mode",
-                  "trigger","response","loss","related_event",
+                  "trigger","response","loss","related_event","related_relation",
                   "next_option_change","alternative_reading"))
 MAX_EMOTIONS=8
 
 def need(ok,code):
     if not ok:raise V101ReadingError(code)
 
-def validate_read_emotions(*,source_windows,cast,plot,proposals):
+def validate_read_emotions(*,source_windows,cast,plot,relationships,proposals):
     need(type(proposals) is list and len(proposals)<=MAX_EMOTIONS,
          "WF102_READER_EMOTION_COUNT_BOUND")
     people={p["id"] for p in cast}
     events={p["event_id"]:p for p in plot}
+    relation_ids={p["relation_id"] for p in relationships}
     parsed=[]
     for p in proposals:
         _fields(p,FIELDS,"WF102_READER_EMOTION_SCHEMA")
@@ -40,6 +41,9 @@ def validate_read_emotions(*,source_windows,cast,plot,proposals):
         if loss is not None:
             need(_before(trigger,loss),
                  "WF102_READER_LOSS_BEFORE_TRIGGER")
+        relation=p["related_relation"]
+        need(relation is None or relation in relation_ids,
+             "WF102_READER_LINK_TO_UNGROUNDED_RELATION")
         link=p["related_event"]
         need(link is None or link in events,
              "WF102_READER_LINK_TO_UNREAD_EVENT")
@@ -54,6 +58,7 @@ def validate_read_emotions(*,source_windows,cast,plot,proposals):
             "epistemic_mode":p["epistemic_mode"],
             "trigger_anchor":trigger,"response_anchor":response,
             "loss_anchor":loss,"related_event":link,
+            "related_relation":relation,
             "next_option_change_hypothesis":p["next_option_change"],
             "alternative_reading":p["alternative_reading"],
             "emotion_semantically_verified":False,
