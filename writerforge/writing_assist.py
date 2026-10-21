@@ -37,6 +37,11 @@ from .v102_emotional_causality import (
     V102EmotionalCausalityError,check_emotional_turn,
     pressure_context,emotion_turn_instructions,export_candidate_emotions,
 )
+from .v105_forward_horizon import (
+    V105FutureCausalityError,validate_horizon,horizon_prompt,
+    horizon_context,derive_open_checkpoint,open_debt_context,
+    _frozen_author_world,_validate_prior_checkpoint,
+)
 
 MAX_LIVE_CONTEXT = 1400
 MAX_OUTLINE_CHARS = 6000
@@ -286,17 +291,24 @@ class AutonomousWriting:
             output_dir:str|Path,progress=None,
             draft_mode:str="single",
             author_confirmed_forbidden_phrases:tuple[str,...]=(),
-            frozen_turn_outlines:tuple[str,...]|None=None) -> dict:
+            frozen_turn_outlines:tuple[str,...]|None=None,
+            forward_author_pinned_facts:dict[str,str]|None=None,
+            resume_candidate_checkpoint:dict|None=None) -> dict:
         # 'single' remains byte-for-byte compatible with legacy output
         # behavior. split_only vs causal_guard share the SAME JSON turn
         # planning/response interface so B/C can be fairly compared.
-        if draft_mode not in ("single","split_only","causal_guard","rolling_causal","emotion_rolling"):
+        if draft_mode not in ("single","split_only","causal_guard","rolling_causal","emotion_rolling","foresight_rolling"):
             raise WritingExecutionError("WF96_DRAFT_MODE_NOT_OPTED_IN")
         if draft_mode=="single" and (
            frozen_turn_outlines is not None or
            author_confirmed_forbidden_phrases):
             raise WritingExecutionError(
                 "WF96_LEGACY_SINGLE_CANNOT_SILENTLY_IGNORE_NEW_GUARDS")
+        if draft_mode!="foresight_rolling" and (
+            forward_author_pinned_facts is not None or
+            resume_candidate_checkpoint is not None):
+            raise WritingExecutionError(
+                "WF105_FORWARD_ONLY_GUARDS_CANNOT_BE_IGNORED_BY_OTHER_MODES")
         if draft_mode!="single" and len(chapter_goals)>MAX_SEGMENTED_CHAPTERS_PER_JOB:
             raise WritingExecutionError(
                 "WF96_SEGMENTED_CHAPTER_REQUEST_BUDGET_EXCEEDED")
@@ -311,6 +323,21 @@ class AutonomousWriting:
             or any(not isinstance(x,str) or not 8<=len(x.strip())<=450
                    for x in chapter_goals)):
             raise WritingExecutionError("provide 1..6 chapter goals of 8..450 characters each")
+        # Validate author-pinned world and optional immutable old candidate
+        # checkpoint BEFORE creating a directory or reserving an LLM call.
+        pinned_world={}
+        checkpoint=None
+        if draft_mode=="foresight_rolling":
+            try:
+                pinned_world=_frozen_author_world(
+                    forward_author_pinned_facts or {})
+                if resume_candidate_checkpoint is not None:
+                    _validate_prior_checkpoint(
+                        resume_candidate_checkpoint,
+                        sha256(outline.encode("utf8")).hexdigest())
+                    checkpoint=resume_candidate_checkpoint
+            except V105FutureCausalityError as exc:
+                raise WritingExecutionError(str(exc)) from None
         root=Path(output_dir)
         root.mkdir(parents=True,exist_ok=True)
         # Reject instead of silently deleting an author's older drafts. This
@@ -331,8 +358,13 @@ class AutonomousWriting:
         for index,goal in enumerate(chapter_goals,1):
             last_chapter_pressure=(
                 pressure_context(previous_emotional_turns)
-                if draft_mode=="emotion_rolling" and previous_emotional_turns
-                else "")
+                if draft_mode in ("emotion_rolling","foresight_rolling") and
+                previous_emotional_turns else "")
+            continuing_pressure=(
+                open_debt_context(checkpoint)
+                if draft_mode=="foresight_rolling" and checkpoint else "")
+            prospective_report=None
+            future_note=""
             if progress:
                 progress(index,len(chapter_goals),"planning")
             scene=f"{self.assist.scene_id}.chapter-{index:03}"
@@ -346,17 +378,47 @@ class AutonomousWriting:
                 +"\n上一章仅为候选、尚未作者接受的末尾：\n"+previous[-700:]
                 +("\n【上章尚未证实的情感后果和待处理代价】"+
                   last_chapter_pressure if last_chapter_pressure else "")
+                +("\n【过去数章未偿压力的只读候选账本】"+
+                  continuing_pressure if continuing_pressure else "")
                 +"\n请先规划本章，不写正文。必须明确人物目的、冲突、选择、后果和视角；"
                 "内部调用结构技法，不照搬原著。只返回 JSON："
                 '{"objective":"...","conflict":"...","decision":"...",'
-                '"outcome":"...","pov":"...","needs":["dialogue","decision"]}',
+                '"outcome":"...","pov":"...","needs":["dialogue","decision"]}'
+                +(horizon_prompt(pinned_world)
+                  if draft_mode=="foresight_rolling" else ""),
                 prose_task=False,
             )
             plan_raw=local_chat_completion(
                 plan_prompt,model=self.assist.model,
-                api_base=self.assist.api_base,max_tokens=650,
+                api_base=self.assist.api_base,
+                max_tokens=(2400 if draft_mode=="foresight_rolling"
+                            else 650),
             )
             plan=_chapter_plan(plan_raw,goal)
+            if draft_mode=="foresight_rolling":
+                try:
+                    plan_obj=_decode_json(plan_raw)
+                    prospective_report=validate_horizon(
+                        plan_obj.get("horizon"),author_pinned=pinned_world)
+                    future_note=horizon_context(prospective_report)
+                    if all(b["status"]=="SYMBOLICALLY_BLOCKED"
+                           for b in prospective_report["branches"]):
+                        raise V105FutureCausalityError(
+                            "WF105_ALL_FUTURE_PATHS_SYMBOLICALLY_BLOCKED")
+                except (V105FutureCausalityError,ValueError) as exc:
+                    # Preserve a red receipt: never recharge by retrying.
+                    issue={"format":"wf.writing.failed-foresight-preflight.v105",
+                           "chapter":index,"draft_mode":draft_mode,
+                           "code":str(exc) if str(exc).startswith("WF105_")
+                                  else "WF105_FORECAST_INVALID",
+                           "original_plan_sha256":
+                               sha256(plan_raw.encode("utf8")).hexdigest(),
+                           "new_model_retries":0,"accepted_prose":False,
+                           "canon_writes":0}
+                    (job/f"chapter-{index:03d}-foresight-rejected.json").write_text(
+                        json.dumps(issue,ensure_ascii=False,indent=2),
+                        encoding="utf8")
+                    raise WritingExecutionError(issue["code"]) from None
             if progress:
                 progress(index,len(chapter_goals),"drafting")
             body_base=self.assist.flow.prepare(
@@ -372,6 +434,10 @@ class AutonomousWriting:
                 +"\n【上一章尚未被作者接受的候选末尾】\n"+previous[-700:]
                 +("\n【上章遗留人物变化和未解决后果】"+
                   last_chapter_pressure if last_chapter_pressure else "")
+                +("\n【过去未偿债务不可凭空消失】"+
+                  continuing_pressure if continuing_pressure else "")
+                +("\n【未来多步备选路径与危险前提，均未发生】"+
+                  future_note if future_note else "")
                 +"\n请按照因果、人物决定和冲突结果写完整原创正文，"
                 "不要解释技巧，也不要复制原著人物、设定或句子。",
                 facets,
