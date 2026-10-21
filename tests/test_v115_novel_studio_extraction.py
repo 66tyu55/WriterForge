@@ -18,7 +18,9 @@ def cli(payload):
 def story():
     return ("沈砚将火髓果放进左手心。"
             "他先确认右臂已经使不上力气，肩膀撞上石壁时仍不敢松手。"
-            "矿道里的追兵一步步走近，果子正在散热，他必须设法离开。")
+            "矿道里的追兵一步步走近，果子正在散热，他必须设法离开。"
+            "远处传来唐蜃的脚步声，矿工留下的石梯却已断裂，"
+            "沈砚不能再依靠受伤的手臂攀爬。")
 
 def event(body,*,quoted=None,entity="火髓果",old=None,new="沈砚左手",scope="author_plan",narrative="present"):
     src=quoted or body[:len("沈砚将火髓果放进左手心。")]
@@ -95,7 +97,8 @@ class PinnedLiteraryEventExtraction(unittest.TestCase):
                  "model_output":{"events":[event(src)]}})
         follow=("沈砚将火髓果从左手装入腰间布囊。"
                 "他脚下踉跄，右臂仍然疼得发抖，追兵没有消失。"
-                "矿道里响起新的碎石声，骨符也不知去向。")
+                "矿道里响起新的碎石声，骨符也不知去向。"
+                "前方木架摇摇欲坠，脚下石屑散落，追兵仍从身后逼来。")
         correct=event(follow,quoted="沈砚将火髓果从左手装入腰间布囊。",
                       old="沈砚左手",new="沈砚腰间")
         fresh=cli({"mode":"validate","source_prose":follow,
