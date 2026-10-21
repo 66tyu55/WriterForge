@@ -589,10 +589,20 @@ class AutonomousWriting:
                             rolling_goals.append(dict(beat))
                         turn_addition=make_turn_instructions(
                             beat,mode=("causal_guard" if
-                                       draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling")
+                                       draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling","continuity_guard")
                                        else draft_mode),accepted=accepted_turns,
                             author_confirmed_forbidden_phrases=(
                                 author_confirmed_forbidden_phrases))
+                        if draft_mode=="continuity_guard":
+                            prior_item_report=(current_continuity_checkpoint["report"]
+                                               if current_continuity_checkpoint else None)
+                            turn_addition+=(
+                                "\n【写作当场核对物件连续性（非已证事实）】"
+                                +(compact_status(prior_item_report)
+                                  if prior_item_report else
+                                  "上一段尚无已观察持有者。剑、符、信物从某处转移必须"
+                                  "写出实际行为；法术资源消耗后不可凭空恢复。"
+                                  "可以保留未知，不必强塞牺牲。"))
                         if draft_mode in ("emotion_rolling","foresight_rolling"):
                             turn_addition+=emotion_turn_instructions(
                                 tuple(accepted_turns))
@@ -620,7 +630,7 @@ class AutonomousWriting:
                             turn_packet,model=self.assist.model,
                             api_base=self.assist.api_base,max_tokens=1450,
                         )
-                        if draft_mode=="foresight_rolling":
+                        if draft_mode in ("foresight_rolling","continuity_guard"):
                             (job/f"chapter-{index:03d}-turn-"
                                  f"{turn_index+1:02d}-raw.json").write_text(
                                      last_turn_response,encoding="utf8")
@@ -635,22 +645,34 @@ class AutonomousWriting:
                             evidence=check_turn(
                                 last_turn_response,beat,
                                 mode=("causal_guard" if
-                                      draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling")
+                                      draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling","continuity_guard")
                                       else draft_mode),
                                 accepted=tuple(accepted_turns),
                                 author_confirmed_forbidden_phrases=(
                                     author_confirmed_forbidden_phrases))
                         accepted_turns.append(evidence)
                         accepted_beats.append(beat)
+                        if draft_mode=="continuity_guard":
+                            # Update from ACTUAL source prose, not prewritten
+                            # chapter objectives or a model's self-assessment.
+                            current_continuity_checkpoint=validated_checkpoint(
+                                prose=evidence["prose"],cast=cast,
+                                previous=current_continuity_checkpoint)
                     body=assemble_prose(accepted_turns)
                     turn_evidence=receipts_only(
                         accepted_turns,mode=("causal_guard" if
-                                             draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling")
+                                             draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling","continuity_guard")
                                              else draft_mode),
                         outline_sha=sha256(
                             turn_outline.encode("utf8")).hexdigest())
                     turn_evidence["model_prompt_sha256s"]=prompt_shas
                     turn_evidence["source_free_unverified_scene_states"]=True
+                    if draft_mode=="continuity_guard":
+                        turn_evidence["v114_source_item_memory"]=(
+                            current_continuity_checkpoint)
+                        turn_evidence["v114_observed_continuity_risks"]=(
+                            current_continuity_checkpoint["report"]["risks"])
+                        turn_evidence["v114_literary_semantics_verified"]=False
                     if draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling"):
                         turn_evidence.update({
                             "mode":draft_mode,
@@ -695,7 +717,8 @@ class AutonomousWriting:
                     ).hexdigest()
                 except (V96CausalDraftError,V98RollingPlanError,
                         V102EmotionalCausalityError,
-                        V105FutureCausalityError) as error:
+                        V105FutureCausalityError,
+                        V114ContinuityError) as error:
                     # Keep the red record, not the private failed novel.
                     # No partial draft becomes accepted or FactJournal KNOWN.
                     issue={
@@ -815,6 +838,19 @@ class AutonomousWriting:
                         "model_replan_calls":len(rolling_receipts)}
                        if draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling") else {}),
                 })
+            if draft_mode=="continuity_guard":
+                state_file=folder/"v114_candidate_item_memory.json"
+                state_file.write_text(
+                    json.dumps(current_continuity_checkpoint,
+                               ensure_ascii=False,indent=2),encoding="utf8")
+                chapter_data.update({
+                    "v114_candidate_item_memory":str(state_file),
+                    "v114_continuity_risks":len(
+                        current_continuity_checkpoint["report"]["risks"]),
+                    "v114_carry_memory_to_next_turn":True,
+                    "v114_literary_semantics_verified":False,
+                })
+                previous_continuity_checkpoint=current_continuity_checkpoint
             chapters.append(chapter_data)
             if draft_mode in ("emotion_rolling","foresight_rolling"):
                 # Immutable metadata+real prose of this unaccepted chapter
