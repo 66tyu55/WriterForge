@@ -76,8 +76,9 @@ label{font-size:13px;font-weight:600;display:block;margin-top:13px}
       <option value="causal_guard">C · 分段＋正文因果引句检查（实验）</option>
       <option value="rolling_causal">D · 正文驱动的滚动情节（额外模型调用／实验）</option>
        <option value="emotion_rolling">E · 情感＋因果＋代价＋后果（使用D相同次数的滚动规划／实验）</option>
+       <option value="foresight_rolling">F · 选择前预演两条未来＋跨章未偿代价（试验）</option>
     </select>
-    <p class="note">B/C/D/E为可选本地实验，最多两章、每次最多16个事件。D在每个后续事件前额外调用模型重拟目标，单任务最多14次额外重拟；E与D调用次数上限相同，但额外记录真实正文情感触发、行动代价、后果与下一幕压力，未经过文学独立审核不能自称理解。真实文学因果、人物动机与代价仍需审阅。所有草稿不自动接受或写入人物事实。</p>
+    <p class="note">B/C/D/E/F为可选本地实验，最多两章、每次最多16个事件。D在每个后续事件前额外调用模型重拟目标，单任务最多14次额外重拟；E与D调用次数上限相同，但额外记录真实正文情感触发、行动代价、后果与下一幕压力。F不增加后续重规划次数，但章计划输出额度更大，并尝试多步未来的符号可行性检查与跨章未偿债务；没有作者已审核的世界初始事实时只能报告未知，不能保证文学逻辑正确。旧模式默认不变。真实文学因果、人物动机与代价仍需审阅。所有草稿不自动接受或写入人物事实。</p>
     <button class="primary" type="button" id="run-auto" style="margin-top:14px;width:100%">按大纲生成章节</button>
     <div id="auto-status" class="status">尚未开始。生成需要本地模型在运行。</div>
     <div id="auto-results"></div>
@@ -220,7 +221,7 @@ async function startAuto(){
   const chapters=$("chapter-goals").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
   const draft_mode=$("draft-mode").value;
   if(draft_mode!=="single"&&chapters.length>2){
-    message("auto-status","B/C/D/E实验最多同时生成两章，请减少章节目标.",true);
+    message("auto-status","B/C/D/E/F实验最多同时生成两章，请减少章节目标.",true);
     return;
   }
   $("run-auto").disabled=true;
