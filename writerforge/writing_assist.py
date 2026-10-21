@@ -492,7 +492,7 @@ class AutonomousWriting:
                     cast=tuple(dict.fromkeys(b["actor"] for b in beats))
                     for turn_index,seed_beat in enumerate(beats):
                         beat=seed_beat
-                        if draft_mode in ("rolling_causal","emotion_rolling") and turn_index>0:
+                        if draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling") and turn_index>0:
                             if rolling_replan_calls>=MAX_ROLLING_REPLANS_PER_JOB:
                                 raise V98RollingPlanError(
                                     "WF98_REPLAN_MODEL_CALL_BUDGET_EXCEEDED")
@@ -500,10 +500,15 @@ class AutonomousWriting:
                                 accepted=tuple(accepted_turns),
                                 seed_next_beat=seed_beat,
                                 allowed_actor_names=cast)
-                            if draft_mode=="emotion_rolling":
+                            if draft_mode in ("emotion_rolling","foresight_rolling"):
                                 instructions+=(
                                     "\n【人物变化/待解决代价】"+
-                                    pressure_context(tuple(accepted_turns)))
+                                    pressure_context(tuple(accepted_turns))+
+                                    ("\n【多步前瞻及危险条件】"+future_note
+                                      if draft_mode=="foresight_rolling" else "")+
+                                    ("\n【跨章节仍欠的压力】"+continuing_pressure
+                                      if draft_mode=="foresight_rolling" and
+                                      continuing_pressure else ""))
                             rolling_packet=_enrich(
                                 body_base,
                                 "\n【本章总目标，未完成的规划不是故事事实】"+goal+
@@ -529,17 +534,25 @@ class AutonomousWriting:
                             rolling_goals.append(dict(beat))
                         turn_addition=make_turn_instructions(
                             beat,mode=("causal_guard" if
-                                       draft_mode in ("rolling_causal","emotion_rolling")
+                                       draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling")
                                        else draft_mode),accepted=accepted_turns,
                             author_confirmed_forbidden_phrases=(
                                 author_confirmed_forbidden_phrases))
-                        if draft_mode=="emotion_rolling":
+                        if draft_mode in ("emotion_rolling","foresight_rolling"):
                             turn_addition+=emotion_turn_instructions(
                                 tuple(accepted_turns))
                             if last_chapter_pressure and turn_index==0:
                                 turn_addition+=(
                                     "\n【上章情感与代价不得凭空消失】"+
                                     last_chapter_pressure)
+                            if draft_mode=="foresight_rolling":
+                                turn_addition+=(
+                                    "\n【可行未来的选择及前提（并非事实）】"+
+                                    future_note)
+                                if continuing_pressure:
+                                    turn_addition+=(
+                                        "\n【以前章节尚未偿付的代价】"+
+                                        continuing_pressure)
                         turn_packet=_enrich(
                             body_base,
                             "\n【原创章计划】"+json.dumps(
@@ -552,7 +565,7 @@ class AutonomousWriting:
                             turn_packet,model=self.assist.model,
                             api_base=self.assist.api_base,max_tokens=1450,
                         )
-                        if draft_mode=="emotion_rolling":
+                        if draft_mode in ("emotion_rolling","foresight_rolling"):
                             evidence=check_emotional_turn(
                                 last_turn_response,beat,
                                 accepted=tuple(accepted_turns),
@@ -563,7 +576,7 @@ class AutonomousWriting:
                             evidence=check_turn(
                                 last_turn_response,beat,
                                 mode=("causal_guard" if
-                                      draft_mode in ("rolling_causal","emotion_rolling")
+                                      draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling")
                                       else draft_mode),
                                 accepted=tuple(accepted_turns),
                                 author_confirmed_forbidden_phrases=(
@@ -573,13 +586,13 @@ class AutonomousWriting:
                     body=assemble_prose(accepted_turns)
                     turn_evidence=receipts_only(
                         accepted_turns,mode=("causal_guard" if
-                                             draft_mode in ("rolling_causal","emotion_rolling")
+                                             draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling")
                                              else draft_mode),
                         outline_sha=sha256(
                             turn_outline.encode("utf8")).hexdigest())
                     turn_evidence["model_prompt_sha256s"]=prompt_shas
                     turn_evidence["source_free_unverified_scene_states"]=True
-                    if draft_mode in ("rolling_causal","emotion_rolling"):
+                    if draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling"):
                         turn_evidence.update({
                             "mode":draft_mode,
                             "rolling_proposal_receipts":rolling_receipts,
@@ -593,10 +606,24 @@ class AutonomousWriting:
                             "confirmed_character_facts_written":0,
                             "additional_model_replans":len(rolling_receipts),
                         })
-                    if draft_mode=="emotion_rolling":
+                    if draft_mode in ("emotion_rolling","foresight_rolling"):
                         turn_evidence["v102_emotional_causality"]=(
                             export_candidate_emotions(accepted_turns))
                         turn_evidence["emotion_truth_independently_verified"]=False
+                    if draft_mode=="foresight_rolling":
+                        checkpoint=derive_open_checkpoint(
+                            story_sha=outline_hash,
+                            chapter=(checkpoint["chapter"]+1
+                                     if checkpoint else 1),
+                            accepted=tuple(accepted_turns),
+                            previous=checkpoint)
+                        turn_evidence["v105_forecast_sha256"]=(
+                            prospective_report["proposed_futures_sha256"])
+                        turn_evidence["v105_open_checkpoint_sha256"]=(
+                            checkpoint["receipt_sha256"])
+                        turn_evidence["long_horizon_semantics_verified"]=False
+                        turn_evidence["unreviewed_open_cost_debts"]=(
+                            checkpoint["open_debts_count"])
                     # The envelope hash must include ALL receipt metadata.
                     # Never add fields after calculating its identity.
                     turn_evidence["manifest_sha256"]=sha256(
@@ -604,7 +631,8 @@ class AutonomousWriting:
                             turn_evidence.items() if k!="manifest_sha256"})
                     ).hexdigest()
                 except (V96CausalDraftError,V98RollingPlanError,
-                        V102EmotionalCausalityError) as error:
+                        V102EmotionalCausalityError,
+                        V105FutureCausalityError) as error:
                     # Keep the red record, not the private failed novel.
                     # No partial draft becomes accepted or FactJournal KNOWN.
                     issue={
@@ -655,14 +683,14 @@ class AutonomousWriting:
                 turn_outline_path.write_text(
                     json.dumps({"candidate_turns":(
                                      list(accepted_beats) if
-                                     draft_mode in ("rolling_causal","emotion_rolling")
+                                     draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling")
                                      else list(beats)),
                                 "author_confirmed":False,
                                 "literary_truth_verified":False,
                                 **({"original_seed_plan_preserved":True}
-                                   if draft_mode in ("rolling_causal","emotion_rolling") else {})},
+                                   if draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling") else {})},
                                ensure_ascii=False,indent=2),encoding="utf8")
-                if draft_mode in ("rolling_causal","emotion_rolling"):
+                if draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling"):
                     # Private local candidate plans ONLY, never knowledge CANON
                     # or a true author-approved character state.
                     private_rolling=folder/"v98_rolling_plan.json"
@@ -677,16 +705,31 @@ class AutonomousWriting:
                             "all_drafts_pending_author_acceptance":True,
                         },ensure_ascii=False,indent=2),
                         encoding="utf8")
-                if draft_mode=="emotion_rolling":
+                if draft_mode in ("emotion_rolling","foresight_rolling"):
                     private_affect=folder/"v102_emotional_causality.json"
                     private_affect.write_text(
                         json.dumps(turn_evidence["v102_emotional_causality"],
                                    ensure_ascii=False,indent=2),encoding="utf8")
+                if draft_mode=="foresight_rolling":
+                    future_file=folder/"v105_prospective_horizon.json"
+                    future_file.write_text(
+                        json.dumps(prospective_report,ensure_ascii=False,
+                                   indent=2),encoding="utf8")
+                    checkpoint_file=folder/"v105_unreviewed_open_debts.json"
+                    checkpoint_file.write_text(
+                        json.dumps(checkpoint,ensure_ascii=False,
+                                   indent=2),encoding="utf8")
                 chapter_data.update({
                     "draft_mode":draft_mode,
+                    **({"v105_horizon_plan":str(future_file),
+                        "v105_candidate_checkpoint":str(checkpoint_file),
+                        "v105_checkpoint_sha256":checkpoint["receipt_sha256"],
+                        "open_longterm_candidate_debts":checkpoint["open_debts_count"],
+                        "forward_feasibility_independently_verified":False}
+                       if draft_mode=="foresight_rolling" else {}),
                     **({"v102_emotional_causality":str(private_affect),
                         "emotional_literary_truth_verified":False}
-                        if draft_mode=="emotion_rolling" else {}),
+                        if draft_mode in ("emotion_rolling","foresight_rolling") else {}),
                     "turn_count":len(beats),
                     "turn_evidence":str(evidence_path),
                     "turn_outline":str(turn_outline_path),
@@ -694,10 +737,10 @@ class AutonomousWriting:
                     "facts_not_committed":True,
                     **({"v98_rolling_plan":str(private_rolling),
                         "model_replan_calls":len(rolling_receipts)}
-                       if draft_mode in ("rolling_causal","emotion_rolling") else {}),
+                       if draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling") else {}),
                 })
             chapters.append(chapter_data)
-            if draft_mode=="emotion_rolling":
+            if draft_mode in ("emotion_rolling","foresight_rolling"):
                 # Immutable metadata+real prose of this unaccepted chapter
                 # are the ONLY input to next candidate chapter's hypothesis.
                 previous_emotional_turns=tuple(accepted_turns)
@@ -723,8 +766,15 @@ class AutonomousWriting:
                 **({"rolling_replan_model_calls":rolling_replan_calls,
                     "actual_written_effects_grounded_to_prompts":True,
                     "fictional_motives_are_not_confirmed_facts":True}
-                   if draft_mode in ("rolling_causal","emotion_rolling") else {}),
+                   if draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling") else {}),
             })
+        if draft_mode=="foresight_rolling":
+            receipt["final_candidate_checkpoint_sha256"]=(
+                checkpoint["receipt_sha256"] if checkpoint else None)
+            receipt["open_unreviewed_debts"]=(checkpoint["open_debts_count"]
+                                             if checkpoint else 0)
+            receipt["forecast_was_not_future_truth"]=True
+            receipt["extra_software_validation_model_calls"]=0
         (job/"job_manifest.json").write_text(
             json.dumps(receipt,ensure_ascii=False,indent=2),encoding="utf-8",
         )
