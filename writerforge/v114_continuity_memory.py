@@ -65,7 +65,7 @@ def _contexts(body):
         start=end
     if start<len(body):yield start,len(body),body[start:]
 
-def _holder_clause(segment,item,cast):
+def _holder_clause(segment,item,cast,nearby_before=""):
     if any(x in segment for x in SOFT_NARRATION):return None
     if item not in segment:return None
     # Explicit human carrier and a named item. The item need not be
@@ -74,6 +74,14 @@ def _holder_clause(segment,item,cast):
         pattern=re.escape(actor)+r".{0,9}(?:腰间|怀中|手中).{0,36}"+re.escape(item)
         if re.search(pattern,segment):
             return actor
+    # Only a LOW-CONFIDENCE narrative proposal: "他腰间" without the
+    # character name inside this sentence can refer to the most recently
+    # explicitly named on-stage actor. Do not upgrade this to KNOWLEDGE.
+    if re.search(r"他(?:的)?腰间.{0,28}"+re.escape(item),segment):
+        named=[(nearby_before.rfind(actor),actor) for actor in cast
+               if actor in nearby_before]
+        if named:
+            return max(named)[1]
     if re.search(r"(?:索头|锁魂索|钩尖|索钩).{0,36}"+re.escape(item),segment):
         if re.search(r"(?:钩尖上|索钩上|索头(?:上)?).{0,18}(?:挂|系|缠|带着)",segment):
             return "索钩"
@@ -122,7 +130,8 @@ def literal_item_continuity(prose,*,cast=(),tracked=TRACKED,prior_report=None):
     for beginning,end,segment in clauses:
         for item in tracked:
             if item not in segment:continue
-            holder=_holder_clause(segment,item,cast)
+            holder=_holder_clause(segment,item,cast,
+                                  nearby_before=prose[max(0,beginning-100):beginning])
             if holder is None:continue
             idx=segment.rfind(item)
             start=beginning+idx
