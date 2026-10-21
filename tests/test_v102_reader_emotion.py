@@ -94,7 +94,14 @@ class ReaderEmotionTests(unittest.TestCase):
     def test_single_original_precommit_reader_call_with_emotion_contract(self):
         tc=AdapterTest("test_no_valid_seal_no_llm_no_precommit")
         batch,chapter,journal,model,events,records=tc.fixture()
-        model.ask_json=Mock(side_effect=lambda **kwargs:question())
+        # The adapter fixture verifies chapter 2; the synthetic V101 base
+        # example was written for chapter 1. Its event ID must match the
+        # current fixture chapter, not be misreported as a future/old event.
+        def answered(**kwargs):
+            answer=question()
+            answer["emotions"][0]["related_event"]="e000002_choice1"
+            return answer
+        model.ask_json=Mock(side_effect=answered)
         rt=RuntimeEngine()
         rt.enter_learn()
         result=read_sealed_narrative(
