@@ -23,12 +23,17 @@ def foresight_plan():
     p["horizon"]=simple_branches()
     return json.dumps(p,ensure_ascii=False,separators=(",",":"))
 
-def replies():
+def replies(*,continued=False):
+    n1=note1()
+    n2=note2()
+    if continued:
+        n1["before"]="未知"
+        n2["before"]="不确定"
     return [
         foresight_plan(),
-        emotional(prose1(),ACTION1,EFFECT1,None,"少年",note1()),
+        emotional(prose1(),ACTION1,EFFECT1,None,"少年",n1),
         raw(proposed()),
-        emotional(prose2(),ACTION2,EFFECT2,EFFECT1,"女子",note2()),
+        emotional(prose2(),ACTION2,EFFECT2,EFFECT1,"女子",n2),
     ]
 
 class V105TrueWritingEntrypoint(unittest.TestCase):
@@ -87,13 +92,13 @@ class V105TrueWritingEntrypoint(unittest.TestCase):
             "SELECT 1 FROM accepted_prose").fetchone())
 
     def test_two_chapters_share_unpaid_cost_and_no_extra_provider_request(self):
-        doc,calls=self.run_f(replies()+replies(),goals=GOALS*2,
+        doc,calls=self.run_f(replies()+replies(continued=True),goals=GOALS*2,
                              facts={"power:station":"on"},
                              folder="f-two")
         self.assertEqual(len(calls),8)
         self.assertEqual(doc["open_unreviewed_debts"],4)
         self.assertEqual(doc["rolling_replan_model_calls"],2)
-        self.assertIn("前面章节",calls[4].args[0].prompt)
+        self.assertIn("过去数章",calls[4].args[0].prompt)
         self.assertIn("朋友仍在城中等药",calls[4].args[0].prompt)
         self.assertIn("过去未偿债务",calls[5].args[0].prompt)
         last=json.loads(Path(doc["chapters"][1][
