@@ -60,6 +60,13 @@ class SelfDirectedTenSceneExam(unittest.TestCase):
         self.assertNotIn("作者提供的范文",prompt)
         self.assertNotIn("写前思考过程",prompt)
 
+    def test_real_chinese_genre_labels_can_be_two_characters(self):
+        doc=own_scenes()
+        doc["scenes"][0]["genre"]="武侠"
+        chosen,receipt=check_plan(doc)
+        self.assertEqual(chosen[0]["genre"],"武侠")
+        self.assertIn("武侠",prompt_scene(chosen[0]))
+
     def test_never_autofix_planner_violations_or_duplicate_scene(self):
         broken=own_scenes()
         broken["scenes"][3]["id"]="s01"
