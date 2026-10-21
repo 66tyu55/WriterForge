@@ -35,6 +35,7 @@ from writerforge.deepseek_flash_model import (
 )
 from writerforge.v104_self_scene_protocol import encode,digest
 from writerforge.v105_forward_horizon import V105FutureCausalityError
+from writerforge.v107_outline_observation import observe_shared_two_turns
 
 ENDPOINT="https://wf-r2-api.3227482831.workers.dev"
 EXAM="WF-V106-E-VS-F-REAL-1-CASE-20261021"
@@ -225,6 +226,12 @@ def real():
         ptr,was_new=cas._put_content(raw_attempt)
         require(was_new is True and audit_sha(cas=cas,pointer=ptr)==raw_attempt,
                 "WF106_ORIGINAL_REQUEST_SLOT_REUSED_REFUSE_REBILL")
+        report({"status":"WF107_SINGLE_REQUEST_INTENT_R2_SEALED",
+                "precommit_sha256":run_sha,"call_no":call_index,
+                "mode":mode,"stage":stage,
+                "immutable_attempt_cas_sha256":ptr,
+                "model_response_not_yet_received":True,
+                "no_retry":True})
         reply=wf_model.ask_json(role=ROLE,system=system,user=prompt,
                                 max_tokens=out_limit)
         record={
@@ -237,6 +244,14 @@ def real():
             "source_edit_or_automatic_fix":False,
         }
         sha=seal(cas,record,"WF106_ORIGINAL_MODEL_REPLY_NOT_READABLE")
+        # An orphaned CAS pointer is not genuinely recoverable. Announce
+        # its SHA BEFORE ANY V96 or V105 validation can raise.
+        report({"status":"WF107_RAW_MODEL_REPLY_R2_SEALED_BEFORE_VALIDATION",
+                "precommit_sha256":run_sha,
+                "raw_original_model_reply_cas_sha256":sha,
+                "request_attempt_cas_sha256":ptr,
+                "stage":stage,"arm":mode,"call_no":call_index,
+                "new_model_calls_after_this_record":0})
         replies.append({
             "no":call_index,"stage":stage,"arm":mode,
             "raw_reply_cas_sha256":sha,
@@ -247,6 +262,31 @@ def real():
 
     raw_outline=provider("frozen_shared_turn_outline","both",
                          PLANNER_SYS,make_outline_request(),1450)
+    # Diagnose student's ORIGINAL JSON without canonicalizing its creative
+    # answer. Keep V96 strict; a red student response remains red forever.
+    diagnostic=observe_shared_two_turns(raw_outline)
+    if not diagnostic["exact_v96_valid"] or (
+            type(raw_outline) is not dict or
+            type(raw_outline.get("turns")) is not list or
+            len(raw_outline["turns"])!=2):
+        evidence={
+            "format":"wf.exam.v107.original-outline-red-evidence",
+            "precommit_sha256":run_sha,
+            "raw_original_model_reply_cas_sha256":
+                replies[-1]["raw_reply_cas_sha256"],
+            "diagnostic":diagnostic,
+            "V106_original_model_reply_never_edited":True,
+            "no_retries_or_manual_corrections":True,
+        }
+        red_sha=seal(cas,evidence,
+                     "WF107_INVALID_OUTLINE_EVIDENCE_R2_NOT_RECOVERABLE")
+        report({"status":"WF107_STRICT_SHARED_OUTLINE_REJECTED_WITH_EVIDENCE",
+                "red_evidence_cas_sha256":red_sha,
+                "original_model_reply_cas_sha256":
+                    replies[-1]["raw_reply_cas_sha256"],
+                "field_level_violations":diagnostic["violations"],
+                "no_model_retry":True})
+        raise V96CausalDraftError("WF96_TURN_PLAN_FIELDS_ID_OR_CRAFT_INVALID")
     outline=parse_turn_outline(json.dumps(
         raw_outline,ensure_ascii=False,separators=(",",":")))
     require(len(outline)==2 and
