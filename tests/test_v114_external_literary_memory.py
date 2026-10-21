@@ -46,6 +46,11 @@ def invoke(source,events,prior=None):
         raise RuntimeError("FALLBACK_STDERR:"+result.stderr[:200])
     return json.loads(result.stdout)
 
+from writerforge.v114_external_story_state import (
+    external_temporal_step,temporal_prompt,actual_item_events,
+    V114ExternalMemoryError,
+)
+
 class LicensedTemporalReducerTests(TestCase):
     def test_vendored_source_is_exact_and_has_mit_notice(self):
         src=(ROOT/"schema.mjs").read_text("utf8")
@@ -107,6 +112,36 @@ class LicensedTemporalReducerTests(TestCase):
         quote_event["evidence"]["quote"]="不存在的原文"
         self.assertEqual(invoke(second,[quote_event],m1["candidate_state"])["risks"][0]["kind"],
                          "UNANCHORED_EVENT")
+
+    def test_WF_python_adapter_invokes_real_Novel_Studio_reducer_not_native_fix(self):
+        before=("沈渡偏头一避。就这一瞬，她看清他腰间还挂着旧剑穗，"
+                "那是三年前亲手编的。")
+        late=("沈渡追至崖边，锁魂索没入水雾。"
+              "他收住脚，索头回落，钩尖上挂着湿透的旧剑穗。")
+        a=external_temporal_step(before,cast=("叶青梧","沈渡"))
+        self.assertIn("沈渡",str(a["reducer_result"]["candidate_state"]))
+        b=external_temporal_step(late,cast=("叶青梧","沈渡"),prior=a)
+        self.assertEqual(b["sequence"],2)
+        self.assertEqual(b["previous_checkpoint_sha256"],a["receipt_sha256"])
+        self.assertIn("UNPROVEN_ITEM_TRANSFER",
+                      [r["kind"] for r in b["reducer_result"]["risks"]])
+        self.assertEqual(b["reducer_result"]["candidate_state"],
+                         a["reducer_result"]["candidate_state"])
+        self.assertIn("沈渡",temporal_prompt(b))
+        self.assertFalse(b["semantic_truth_verified"])
+        self.assertEqual(b["canon_writes"],0)
+
+    def test_real_handoff_is_accepted_by_reducer_even_if_native_false_alarm(self):
+        before="沈渡腰间悬着旧剑穗。"
+        after=("沈渡从腰间取下旧剑穗，把它挂到索钩上。"
+               "索头回落，钩尖上挂着旧剑穗。")
+        one=external_temporal_step(before,cast=("沈渡",))
+        two=external_temporal_step(after,cast=("沈渡",),prior=one)
+        self.assertFalse(any(r["kind"]=="UNPROVEN_ITEM_TRANSFER"
+                             for r in two["reducer_result"].get("risks",[])))
+        self.assertIn("索钩",str(two["reducer_result"]["candidate_state"]))
+        self.assertNotEqual(one["reducer_result"]["candidate_state_sha256"],
+                            two["reducer_result"]["candidate_state_sha256"])
 
 if __name__=="__main__":
     import unittest
