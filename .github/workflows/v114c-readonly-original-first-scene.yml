@@ -1,0 +1,46 @@
+name: V114C independent READ ONLY original first scene and schema failure
+on:
+  push:
+    branches: [v114-chase-live-state-and-oss-fallback]
+    paths:
+      - '.github/workflows/v114c-readonly-original-first-scene.yml'
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-v114c-zero-model-first-scene-cold-forensic
+  cancel-in-progress: false
+jobs:
+  no-model-no-write:
+    if: github.repository == '66tyu55/WriterForge'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - name: Checkout unchanged V114B historical experiment and source
+        uses: actions/checkout@v4
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Only install WF plus R2 S3 client (NO DeepSeek)
+        run: python -m pip install -e '.[r2]'
+      - name: Zero model or R2 write capability allowed by code
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -z "${DEEPSEEK:-}" ]] && [[ -z "${DEEPSEEK_API_KEY:-}" ]]
+          echo 'NO MODEL API KEY IS PRESENT - zero new paid requests.'
+      - name: Independent R2 CAS cold-read rejected first genuine WF scene
+        run: python -m experiments.v114c_readonly_rejected_first_scene
+      - name: Download genuine rejected student first scene and exact schema causes
+        uses: actions/upload-artifact@v4
+        with:
+          name: V114B-original-rejected-first-WF-scene-and-real-schema-diagnosis
+          path: wf114b_original_first_turn_readonly/
+          retention-days: 30
+          if-no-files-found: error
