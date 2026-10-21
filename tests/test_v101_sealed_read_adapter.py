@@ -62,7 +62,7 @@ class AdapterTest(unittest.TestCase):
         batch=WFLargeChapterBatch.__new__(WFLargeChapterBatch)
         batch.journal=journal
         batch.model=model
-        batch.key="private-test-source"
+        batch.key="writerforge/v1/private-reading/synthetic-test-only"
         batch.keyhash=sha256(batch.key.encode("utf8")).hexdigest()
         batch.source_sha=SHA
         chapter=SimpleNamespace(
