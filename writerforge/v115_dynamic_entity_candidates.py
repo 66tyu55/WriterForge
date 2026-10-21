@@ -49,7 +49,7 @@ def discover_candidates(prose):
             # Precise artifact name appears in the prose (e.g. 火髓果):
             # only preserve last 1-2 prefix chars as a candidate alias,
             # don't select arbitrary long noun phrases as truth.
-            start=max(m.start(),m.end()-len(suffix)-2)
+            start=max(m.start(),m.end()-len(suffix)-(1 if suffix=="髓果" else 2))
             candidate.setdefault((prose[start:m.end()],"resource"),[]).append(
                 (start,m.end()))
     rows=[]
