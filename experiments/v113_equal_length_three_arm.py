@@ -182,6 +182,34 @@ def prose_observation(answer):
         "raw_prose":txt,
     }
 
+def length_fairness_by_arm(prose_by_arm):
+    """Actual Unicode lengths only; 900–1100 PLUS <=10% relative gap.
+
+    Same requested completion token allowance is never taken as proof
+    of equal output length or WF literary superiority.
+    """
+    need(type(prose_by_arm) is dict and
+         all(arm in ARMS and type(body) is str
+             for arm,body in prose_by_arm.items()),
+         "WF113_FAIRNESS_INPUT_INVALID")
+    lengths={arm:len(prose_by_arm[arm]) for arm in ARMS
+             if arm in prose_by_arm}
+    sizes=list(lengths.values())
+    gap=(max(sizes)-min(sizes))/max(sizes) if len(sizes)>=2 else None
+    all_present=set(lengths)==set(ARMS)
+    in_band=all_present and all(CHAR_LOW<=n<=CHAR_HIGH for n in sizes)
+    comparable=bool(all_present and in_band and gap is not None and gap<=0.10)
+    return {
+        "all_arms_have_original_prose":all_present,
+        "actual_characters_by_arm":lengths,
+        "each_arm_in_900_1100":bool(in_band),
+        "largest_smallest_relative_gap":gap,
+        "eligible_for_equal_length_literary_review":comparable,
+        "not_evidence_of_literary_superiority":True,
+        "no_cropping_or_repeated_generation":True,
+    }
+
+
 def run():
     need(all(os.environ.get(k) for k in
              ("DEEPSEEK_API_KEY","WRITERFORGE_R2_ACCOUNT_ID",
@@ -430,10 +458,9 @@ def run():
     }
     owner_sha=seal(cas,encode(private_owner),
                    "WF113_OWNER_ONLY_METHOD_MAP_NOT_R2")
-    lengths=[len(x) for x in prose_by_arm.values()]
-    gap=(max(lengths)-min(lengths))/max(lengths) if len(lengths)>=2 else None
-    eligible=(len(lengths)==3 and
-              all(CHAR_LOW<=v<=CHAR_HIGH for v in lengths) and gap<=0.1)
+    length_fairness=length_fairness_by_arm(prose_by_arm)
+    gap=length_fairness["largest_smallest_relative_gap"]
+    eligible=length_fairness["eligible_for_equal_length_literary_review"]
     result={
         "format":"wf.eval.v113.three-arm-original-model-experiment",
         "precommit_cas_sha256":psha,
@@ -445,6 +472,7 @@ def run():
         "owner_only_unblind_map_cas_sha256":owner_sha,
         "all_three_prose_length_comparable":eligible,
         "max_relative_length_gap":gap,
+        "strict_length_fairness_report":length_fairness,
         "model_request_count":budget.calls_reserved,
         "provider_usage":budget.public_receipt(),
         "WF_actual_literary_learning_proven":False,
