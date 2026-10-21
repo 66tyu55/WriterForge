@@ -384,7 +384,7 @@ class AutonomousWriting:
                 "内部调用结构技法，不照搬原著。只返回 JSON："
                 '{"objective":"...","conflict":"...","decision":"...",'
                 '"outcome":"...","pov":"...","needs":["dialogue","decision"]}'
-                +(horizon_prompt(pinned_world)
+                +(horizon_prompt(pinned_world=pinned_world)
                   if draft_mode=="foresight_rolling" else ""),
                 prose_task=False,
             )
