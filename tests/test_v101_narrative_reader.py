@@ -268,7 +268,9 @@ class V101NarrativeTests(unittest.TestCase):
         forged["b_evidence"]=anchor(1,"无法在原文里找到的假句子")
         with self.assertRaisesRegex(V101ReadingError,"NOT_IN_ALREADY_READ"):
             calibrate_pair(a=a,b=b,learner=forged)
-        far=calibrate_pair(a=a,b=b*3,learner=learner,external_preference="A")
+        # Keep the evidenced B sentence unique; change only total length.
+        far=calibrate_pair(a=a,b=b+"雨还在下。"*70,
+                           learner=learner,external_preference="A")
         self.assertFalse(far["comparable_length"])
         self.assertIsNone(far["preference_agreement_candidate"])
 
