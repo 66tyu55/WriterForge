@@ -195,17 +195,20 @@ class WFLargeChapterBatch:
 
     def inspect_completed_narrative(self, *, chapter, windows,
                                     runtime,story_id,
-                                    previous_reader_receipt_sha256=None):
+                                    previous_reader_receipt_sha256=None,
+                                    include_emotions=False):
         """Explicit new one-call PASS-B reader; NEVER used by old batches."""
         from .v101_sealed_read_bridge import read_sealed_narrative
         return read_sealed_narrative(
             batch=self,chapter=chapter,windows=windows,
             runtime=runtime,story_id=story_id,
-            previous_reader_receipt_sha256=previous_reader_receipt_sha256)
+            previous_reader_receipt_sha256=previous_reader_receipt_sha256,
+            include_emotions=include_emotions)
 
     def complete_with_narrative_reading(self, *, chapter, windows, runtime,
                                         story_id,
-                                        previous_reader_receipt_sha256=None):
+                                        previous_reader_receipt_sha256=None,
+                                        include_emotions=False):
         """Explicit coherent WF flow: previous relations -> new chapter -> read.
 
         Not called by V80.complete(), not an automatic chapter 16 trigger.
@@ -227,7 +230,8 @@ class WFLargeChapterBatch:
         note=self.inspect_completed_narrative(
             chapter=chapter,windows=windows,runtime=runtime,
             story_id=story_id,
-            previous_reader_receipt_sha256=previous)
+            previous_reader_receipt_sha256=previous,
+            include_emotions=include_emotions)
         self._v101_last_receipt=note["reader_receipt_cas_sha256"]
         return {"chapter":chapter_receipt,"reader":note,
                 "reader_state_continues_from_prior_cas":previous is not None,
