@@ -61,7 +61,8 @@ def hash_string(value):
     return sha256(value.encode("utf8")).hexdigest()
 
 
-def chapter_reaction_prompt(*,ordinal,previous,previous_strategy,text):
+def chapter_reaction_prompt(*,ordinal,previous,previous_strategy,text,
+                            narrative_context=""):
     """No future unit, title, or full-book context in any first-read prompt."""
     before=""
     if previous:
@@ -74,11 +75,14 @@ def chapter_reaction_prompt(*,ordinal,previous,previous_strategy,text):
     strategy=(
         "上章WF自己形成的阅读检查策略：" + previous_strategy[:280]
         if previous_strategy else "")
+    # Legacy V80 input is byte-identical unless V101 memory is opted into.
+    from_memory=("\n【以前章节的候选关系与未解决情节（未经验证）】\n"+
+                 narrative_context+"\n") if narrative_context else ""
     return (
       f"第{ordinal}个按序解锁的连续原文单位。"
       "只根据当前已经读到的材料做首次读者反应。"
       "不要复述原文，不要想象后文已经发生的事情。\n"+
-      before+strategy+"\n[当前仅此一个原文单位]\n"+text
+      before+strategy+from_memory+"\n[当前仅此一个原文单位]\n"+text
     )
 
 
@@ -136,6 +140,8 @@ class WFLargeChapterBatch:
         self.previous_experience_sha=None
         self.last_batch_pointer=None
         self.pilot_mixed=None
+        self._v101_reader_context=""
+        self._v101_next_chapter=None
 
     def audit_sealed_literary_claims(self, *, chapter, windows, gate, proposals, runtime):
         """V85 opt-in post-seal link, never part of legacy V79-V82 training.
@@ -167,6 +173,34 @@ class WFLargeChapterBatch:
         return V85SealedLearningBridge(self.journal,gate,
                                        runtime=runtime).audit_sealed_chapter(
             ident=ident,windows=tuple(windows),proposals=proposals)
+
+    def enable_prior_narrative_reading(self, *, story_id,
+                                       next_chapter,
+                                       previous_reader_receipt_sha256):
+        """Opt-in: bounded SOURCE-SCOPED candidate context; never CANON."""
+        from .v101_sealed_read_bridge import reader_memory_from_private_cas
+        need(type(next_chapter) is int and next_chapter>=2,
+             "WF101_NEXT_CHAPTER_INVALID")
+        self._v101_reader_context=reader_memory_from_private_cas(
+            journal=self.journal,pointer=previous_reader_receipt_sha256,
+            story_id=story_id,source_sha256=self.source_sha,
+            next_chapter=next_chapter)
+        self._v101_next_chapter=next_chapter
+        return {"status":"WF101_OLD_READER_CANDIDATE_CONTEXT_READY",
+                "source_sha256":self.source_sha,
+                "candidate_context_chars":len(self._v101_reader_context),
+                "unverified_reader_hypotheses":True,
+                "new_paid_model_calls":0}
+
+    def inspect_completed_narrative(self, *, chapter, windows,
+                                    runtime,story_id,
+                                    previous_reader_receipt_sha256=None):
+        """Explicit new one-call PASS-B reader; NEVER used by old batches."""
+        from .v101_sealed_read_bridge import read_sealed_narrative
+        return read_sealed_narrative(
+            batch=self,chapter=chapter,windows=windows,
+            runtime=runtime,story_id=story_id,
+            previous_reader_receipt_sha256=previous_reader_receipt_sha256)
 
     def emit(self,stage,**data):
         if self.progress:
@@ -236,7 +270,10 @@ class WFLargeChapterBatch:
                     ordinal=unit_no,
                     previous=earlier,
                     previous_strategy=self.earlier_strategy,
-                    text=windows[unit_no-1]),
+                    text=windows[unit_no-1],
+                    narrative_context=(self._v101_reader_context if
+                        self._v101_next_chapter==ident["chapter"]
+                        else "")),
                 max_tokens=900,
             )
             need(reaction_schema(response),
