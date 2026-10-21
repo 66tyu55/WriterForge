@@ -2,7 +2,7 @@ name: WriterForge Tests
 
 on:
   push:
-    branches: [main, v15-lane-runtime, v100-literary-blind-xianxia-precommit, v101-narrative-understanding-relationship-core, v102-emotion-cause-cost-consequence, v103-real-three-reveal-reading-exam, v104-self-directed-ten-scene-cold-exam, v105-forward-causal-obligations-core, v106-real-e-f-forward-causal-smoke, v107-e-f-recoverable-exam-forensics, v108-new-locked-e-f-literary-trial, v109-provider-wire-cas-and-forward-writing, v110-horizon-identity-not-story-rewrite]
+    branches: [main, v15-lane-runtime, v100-literary-blind-xianxia-precommit, v101-narrative-understanding-relationship-core, v102-emotion-cause-cost-consequence, v103-real-three-reveal-reading-exam, v104-self-directed-ten-scene-cold-exam, v105-forward-causal-obligations-core, v106-real-e-f-forward-causal-smoke, v107-e-f-recoverable-exam-forensics, v108-new-locked-e-f-literary-trial, v109-provider-wire-cas-and-forward-writing, v110-horizon-identity-not-story-rewrite, v111-matched-fantasy-chase-wf-vs-github-skill]
   pull_request:
 
 jobs:
