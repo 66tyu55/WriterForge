@@ -12,7 +12,7 @@ import {normalizeOp} from './schema.mjs';
 import {reduceBatch,stateFromJson,stateToJson,stateContentHash} from './reducer.mjs';
 
 const LIMIT=180000;
-const TRANSFER=/取下|摘下|扯下|割下|卷走|勾走|钩断|交给|递给|挂到|系到|甩到|转交|掷给|装入/;
+const TRANSFER=/取下|摘下|扯下|割下|卷走|勾走|钩断|交给|递给|挂到|系到|甩到|转交|掷给|装入|吐到/;
 const sha=(str)=>createHash('sha256').update(str,'utf8').digest('hex');
 
 function check(obj) {
@@ -38,7 +38,17 @@ function check(obj) {
     if(op.cell.domain==='item' && op.cell.predicate==='holder' &&
        op.expected.kind==='value' && op.expected.value!==op.value){
       const title=String(op.cell.entityId);
-      if(!evidence.quote.includes(title)||!TRANSFER.test(evidence.quote)){
+      // "果子" refers to a uniquely named source fruit, not an invented
+      // holder. An exact earlier source name and exact present quotation
+      // are both required before allowing the visible alias transition.
+      const alias=evidence.entity_alias;
+      const named=source.indexOf(title);
+      const safeFruitAlias=alias==='果子' &&
+        /(?:髓果|灵果|仙果)$/.test(title) &&
+        evidence.quote.includes(alias) &&
+        named>=0 && named===source.lastIndexOf(title) && named<loc;
+      if((!evidence.quote.includes(title)&&!safeFruitAlias) ||
+         !TRANSFER.test(evidence.quote)){
         risks.push({kind:'UNPROVEN_ITEM_TRANSFER',event:n,
                     item_sha256:sha(title)});continue;
       }
