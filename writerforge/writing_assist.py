@@ -394,6 +394,11 @@ class AutonomousWriting:
                 max_tokens=(2400 if draft_mode=="foresight_rolling"
                             else 650),
             )
+            if draft_mode=="foresight_rolling":
+                # Preserve the ORIGINAL student plan before any shape check.
+                # Never reveal it in public error receipts; job_dir is private.
+                (job/f"chapter-{index:03d}-raw-plan.json").write_text(
+                    plan_raw,encoding="utf8")
             plan=_chapter_plan(plan_raw,goal)
             if draft_mode=="foresight_rolling":
                 try:
@@ -522,6 +527,10 @@ class AutonomousWriting:
                                 rolling_packet,model=self.assist.model,
                                 api_base=self.assist.api_base,max_tokens=650,
                             )
+                            if draft_mode=="foresight_rolling":
+                                (job/f"chapter-{index:03d}-replan-"
+                                     f"{turn_index+1:02d}-raw.json").write_text(
+                                    last_turn_response,encoding="utf8")
                             beat,rolling_receipt=validate_replan(
                                 last_turn_response,
                                 accepted=tuple(accepted_turns),
@@ -565,6 +574,10 @@ class AutonomousWriting:
                             turn_packet,model=self.assist.model,
                             api_base=self.assist.api_base,max_tokens=1450,
                         )
+                        if draft_mode=="foresight_rolling":
+                            (job/f"chapter-{index:03d}-turn-"
+                                 f"{turn_index+1:02d}-raw.json").write_text(
+                                     last_turn_response,encoding="utf8")
                         if draft_mode in ("emotion_rolling","foresight_rolling"):
                             evidence=check_emotional_turn(
                                 last_turn_response,beat,
@@ -721,6 +734,10 @@ class AutonomousWriting:
                                    indent=2),encoding="utf8")
                 chapter_data.update({
                     "draft_mode":draft_mode,
+                    **({"v105_raw_chapter_plan":str(
+                            job/f"chapter-{index:03d}-raw-plan.json"),
+                        "v105_original_model_answers_prevalidation_stored":True}
+                       if draft_mode=="foresight_rolling" else {}),
                     **({"v105_horizon_plan":str(future_file),
                         "v105_candidate_checkpoint":str(checkpoint_file),
                         "v105_checkpoint_sha256":checkpoint["receipt_sha256"],
