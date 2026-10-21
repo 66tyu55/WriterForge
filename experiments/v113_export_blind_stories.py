@@ -13,13 +13,14 @@ from experiments.v113_equal_length_three_arm import TASK,digest
 def require(ok,code):
     if not ok:raise ValueError(code)
 
-def export():
+def export(*,cas=None):
     raw=Path(os.environ["WF113_LOCAL_RESULT_FILE"]).read_text("utf8")
     ptr=json.loads(raw)
     require(ptr.get("format")=="wf.eval.v113.github-actions-export-pointers"
             and ptr.get("author_accepted") is False,
             "WF113_EXPORT_HANDOFF_NOT_FROZEN")
-    cas=GitHubS3CAS()
+    if cas is None:
+        cas=GitHubS3CAS()
     index=json.loads(cas._get_content(ptr["blind_index_cas_sha256"]))
     require(index.get("format")==
             "wf.eval.v113.blind-original-fantasy-review-index"
