@@ -373,6 +373,7 @@ def reader_context(*,history,story_id,source_sha256,before_chapter):
     heads=["【WF过去已读章节的候选理解，未经独立语义证实】"]
     budget=MAX_CONTEXT_CHARS-len(heads[0])
     seen_actor=set()
+    seen_emotion=set()
     seen_relation=set()
     seen_debt=set()
     for doc in reversed(history):
@@ -393,7 +394,7 @@ def reader_context(*,history,story_id,source_sha256,before_chapter):
                   f"第{c}章 未解决后果/问题{p['event_id']}：{p['unresolved_debt']}。"))
         for p in reversed(doc.get("emotions",[])):
             who=p["actor_id"]
-            if who not in seen_actor:
+            if who not in seen_emotion:
                 candidates.append((("emotion",who),
                     f"第{c}章 人物{who}情感猜测：从{p['before_hypothesis']}到"
                     f"{p['after_hypothesis']}；或有另一种解释。"))
@@ -404,7 +405,7 @@ def reader_context(*,history,story_id,source_sha256,before_chapter):
             budget-=len(s)
             if k[0]=="actor":seen_actor.add(k[1])
             elif k[0]=="relation":seen_relation.add(k[1])
-            elif k[0]=="emotion":seen_actor.add(k[1])
+            elif k[0]=="emotion":seen_emotion.add(k[1])
             else:seen_debt.add(k[1])
     notice="这些是待核对假说，不是角色已知真相；不能提前看后文，不可把关系标签当剧情。"
     # Always reserve the epistemic warning: it must never be truncated away.
@@ -425,6 +426,8 @@ SYSTEM=(
 
 def model_reading_prompt(*,source_windows,prior_context="",include_emotions=False):
     _narration(source_windows)
+    require(type(include_emotions) is bool,
+            "WF102_READER_EMOTION_OPTIN_INVALID")
     require(type(prior_context) is str and
             len(prior_context)<=MAX_CONTEXT_CHARS and
             "\ufffd" not in prior_context,
