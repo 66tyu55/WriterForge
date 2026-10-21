@@ -66,7 +66,7 @@ class ExactFlashPreBudget(unittest.TestCase):
             self.assertGreaterEqual(len(value),10)
         self.assertIn("needs",fresh.CHAPTER_SYSTEM)
         self.assertIn("parent_effect_quote",fresh.TURN_SYSTEM)
-        self.assertIn("Novel Studio",fresh.precommit()["external_memory_core"])
+        self.assertIn("novel-studio",fresh.precommit()["external_memory_core"])
         self.assertFalse(fresh.precommit()["no_external_rating_model"] is False)
         self.assertEqual(fresh.precommit()["acceptance_and_skill_graduation"],"LOCKED")
 
