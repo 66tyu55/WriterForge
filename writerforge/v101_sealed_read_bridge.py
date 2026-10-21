@@ -146,8 +146,22 @@ def read_sealed_narrative(*,batch,chapter,windows,runtime,story_id,
     prompt=model_reading_prompt(source_windows=windows,prior_context=context)
     require(len(prompt)<=MAX_PROMPT_CHARS,
             "WF101_MODEL_READING_PROMPT_BUDGET_EXCEEDED")
+    # A source/chapter-unique CAS SLOT (not a prompt hash) prevents paying
+    # twice when the caller changes prompt, runtime budget or restarts.
+    slot={
+        "format":"wf.learn.narrative-one-try-slot.v101",
+        "source_key_sha256":batch.keyhash,
+        "source_sha256":batch.source_sha,
+        "chapter":chapter.ordinal,
+        "chapter_body_sha256":chapter.body_sha256,
+        "kind":"WF_NARRATIVE_POST_SEAL_FIRST_ATTEMPT_ONLY",
+    }
+    slot_sha,slot_created=journal._put_content(packed(slot))
+    require(slot_created,
+            "WF101_SOURCE_CHAPTER_ALREADY_RESERVED_NO_REPEAT_BILLING")
     pre={
         "format":"wf.learn.narrative-comprehension-authorization.v101",
+        "source_chapter_unique_slot_sha256":slot_sha,
         "story_id":story_id,"source_sha256":batch.source_sha,
         "source_key_sha256":batch.keyhash,
         "chapter":chapter.ordinal,
@@ -198,6 +212,7 @@ def read_sealed_narrative(*,batch,chapter,windows,runtime,story_id,
         "status":"WF101_WF_OWN_NARRATIVE_READING_CANDIDATE_SAVED",
         "reader_receipt_cas_sha256":note_sha,
         "precommit_cas_sha256":pre_sha,
+        "source_chapter_unique_slot_sha256":slot_sha,
         "model_raw_answer_cas_sha256":raw_sha,
         "characters_observed":len(note["cast"]),
         "relation_hypotheses":len(note["relationships"]),
