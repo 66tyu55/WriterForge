@@ -100,7 +100,7 @@ def _explanation(s,name):
     return s.strip()
 
 
-def _unpacked_model(output):
+def _unpacked_model(output,*,include_emotions=False):
     if isinstance(output,str):
         require(len(output.encode("utf8"))<=MAX_MODEL_BYTES,
                 "WF101_MODEL_OUTPUT_OVER_BUDGET")
@@ -124,7 +124,12 @@ def _unpacked_model(output):
                 "WF101_MODEL_OUTPUT_OVER_BUDGET")
     except (ValueError,UnicodeError,TypeError):
         raise V101ReadingError("WF101_MODEL_JSON_INVALID") from None
-    _fields(obj,SCHEMA,"WF101_MODEL_SCHEMA")
+    require(type(include_emotions) is bool,"WF102_READER_EMOTION_OPTIN_INVALID")
+    _fields(obj,SCHEMA|({"emotions"} if include_emotions else set()),
+            "WF101_MODEL_SCHEMA")
+    if include_emotions:
+        require(type(obj["emotions"]) is list and len(obj["emotions"])<=8,
+                "WF102_EMOTION_LIST_BOUND")
     for name,limit in (("cast",MAX_CAST),("relationships",MAX_REL),
                        ("plot",MAX_PLOT),("craft",MAX_CRAFT)):
         require(type(obj[name]) is list and len(obj[name])<=limit,
@@ -144,7 +149,7 @@ def _prior_event_index(history):
 
 
 def validate_narrative(*,story_id,source_sha256,chapter,source_windows,
-                       model_output,prior_history=()):
+                       model_output,prior_history=(),include_emotions=False):
     """Validate visible source witnesses; preserve uncertainty and hypotheses.
 
     Public source order is not fictional time. Prior history must have passed
@@ -158,7 +163,7 @@ def validate_narrative(*,story_id,source_sha256,chapter,source_windows,
     history=check_history(prior_history,story_id=story_id,
                           source_sha256=source_sha256,
                           before_chapter=chapter)
-    obj=_unpacked_model(model_output)
+    obj=_unpacked_model(model_output,include_emotions=include_emotions)
     cast=[]
     active={}
     prior_names={}
@@ -300,6 +305,13 @@ def validate_narrative(*,story_id,source_sha256,chapter,source_windows,
                 item["alternative_reading"],"ALT_READING"),
             "good_or_bad_independently_judged":False,
         })
+    # Opt-in V102 is a second dimension of the SAME per-chapter model answer,
+    # not a separate knowledge database and not another paid model call.
+    if include_emotions:
+        from .v102_reader_emotion import validate_read_emotions
+        candidate_emotions=validate_read_emotions(
+            source_windows=source_windows,cast=cast,
+            plot=plot,proposals=obj["emotions"])
     receipt={
         "format":"wf.learn.narrative-comprehension.v101",
         "story_id":story_id,"source_sha256":source_sha256,
@@ -318,6 +330,9 @@ def validate_narrative(*,story_id,source_sha256,chapter,source_windows,
         "model_weights_finetuned":False,
         "text_from_novel_not_in_receipt":True,
     }
+    if include_emotions:
+        receipt["emotions"]=candidate_emotions
+        receipt["emotional_narrative_semantics_verified"]=False
     return receipt
 
 
@@ -376,6 +391,12 @@ def reader_context(*,history,story_id,source_sha256,before_chapter):
             if p["unresolved_debt"] and p["event_id"] not in seen_debt:
                 candidates.append((("debt",p["event_id"]),
                   f"第{c}章 未解决后果/问题{p['event_id']}：{p['unresolved_debt']}。"))
+        for p in reversed(doc.get("emotions",[])):
+            who=p["actor_id"]
+            if who not in seen_actor:
+                candidates.append((("emotion",who),
+                    f"第{c}章 人物{who}情感猜测：从{p['before_hypothesis']}到"
+                    f"{p['after_hypothesis']}；或有另一种解释。"))
         for k,s in candidates:
             if len(s)>budget:
                 continue
@@ -383,6 +404,7 @@ def reader_context(*,history,story_id,source_sha256,before_chapter):
             budget-=len(s)
             if k[0]=="actor":seen_actor.add(k[1])
             elif k[0]=="relation":seen_relation.add(k[1])
+            elif k[0]=="emotion":seen_actor.add(k[1])
             else:seen_debt.add(k[1])
     notice="这些是待核对假说，不是角色已知真相；不能提前看后文，不可把关系标签当剧情。"
     # Always reserve the epistemic warning: it must never be truncated away.
@@ -401,7 +423,7 @@ SYSTEM=(
 )
 
 
-def model_reading_prompt(*,source_windows,prior_context=""):
+def model_reading_prompt(*,source_windows,prior_context="",include_emotions=False):
     _narration(source_windows)
     require(type(prior_context) is str and
             len(prior_context)<=MAX_CONTEXT_CHARS and
@@ -432,4 +454,14 @@ def model_reading_prompt(*,source_windows,prior_context=""):
       "因果没有真实可见后果时填null，不许猜不存在的句子。"
       "哪句话好应解释它因人物与情节具体有什么作用，"
       "不能只说'细腻生动'。"
+      +("\n【V102额外情感理解字段，和上述四字段一起在同一JSON返回】"
+        "emotions=[{actor_id,before,after,epistemic_mode,"
+        "trigger:{unit,quote},response:{unit,quote},"
+        "loss:null或{unit,quote},related_event:null或本章完整event_id,"
+        "next_option_change,alternative_reading}]。"
+        "不仅辨认高兴悲伤，更解释真正什么行动/关系/实际损失"
+        "改变感受和下一次选择。反应必须在触发之后。"
+        "不知道内心时少报或为空数组；保持人物知情边界，"
+        "不自动确认人物心情、作者意图和作品质量。"
+        if include_emotions else "")
     )
