@@ -1,0 +1,38 @@
+name: V114 cold-verify actual V113 951-character WF source against external temporal memory
+on:
+  push:
+    branches: [v114-chase-live-state-and-oss-fallback]
+    paths:
+      - '.github/workflows/v114-readonly-v113-memory-audit.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wf114-one-v113-readonly-original-state-audit
+  cancel-in-progress: false
+jobs:
+  zero-model-check:
+    if: github.repository == '66tyu55/WriterForge'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -e '.[r2]'
+      - name: Confirm no model API key reaches audit
+        run: |
+          test -z "${DEEPSEEK_API_KEY:-}"
+          test -z "${DEEPSEEK:-}"
+          echo 'READ ONLY, ZERO MODEL CALLS'
+      - name: Run original V113 source real input using Novel Studio reducer
+        run: python -m experiments.v114_readonly_v113_real_source
