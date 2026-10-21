@@ -258,6 +258,16 @@ class CheckpointTests(unittest.TestCase):
             derive_open_checkpoint(story_sha=STORY_SHA,chapter=2,
                                   accepted=old_two(),previous=old)
         old=deepcopy(one)
+        old["open_debts"][0]["state"]="PAID"
+        # A plain SHA digest is NOT a reviewer signature. Even a malicious
+        # caller recomputing the digest cannot self-clear a previous cost.
+        old["receipt_sha256"]=digest(packed({
+            k:v for k,v in old.items() if k!="receipt_sha256"}))
+        with self.assertRaisesRegex(V105FutureCausalityError,
+                                    "UNTRUSTED_DEBT_STATE"):
+            derive_open_checkpoint(story_sha=STORY_SHA,chapter=2,
+                                  accepted=old_two(),previous=old)
+        old=deepcopy(one)
         old["literary_semantics_verified"]=True
         with self.assertRaisesRegex(V105FutureCausalityError,"WRONG_STORY"):
             derive_open_checkpoint(story_sha=STORY_SHA,chapter=2,
