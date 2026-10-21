@@ -31,7 +31,7 @@ from writerforge.deepseek_flash_model import (
 )
 from writerforge.v79_provisional_r2_cas_journal import WFProvisionalR2CASJournal
 from writerforge.v104_self_scene_protocol import encode,digest
-from wf_railway_v108_real_e_f_once import fake_but_published_snapshot
+from experiments.v111_peer.neutral_bridge import fresh_neutral_published_snapshot as fake_but_published_snapshot
 
 EXAM="WF-V111-MATCHED-FANTASY-CHASE-1000-ORIGINAL-20261021"
 TASK="给我一个追逐打斗的玄幻1000字"
