@@ -48,6 +48,10 @@ from .v110_host_branch_identity import (
 from .v114_continuity_memory import (
     V114ContinuityError,validated_checkpoint,compact_status,
 )
+from .v114_external_story_state import (
+    V114ExternalMemoryError,require_external_runtime,
+    external_temporal_step,temporal_prompt,
+)
 
 MAX_LIVE_CONTEXT = 1400
 MAX_OUTLINE_CHARS = 6000
@@ -305,6 +309,11 @@ class AutonomousWriting:
         # planning/response interface so B/C can be fairly compared.
         if draft_mode not in ("single","split_only","causal_guard","rolling_causal","emotion_rolling","foresight_rolling","continuity_guard"):
             raise WritingExecutionError("WF96_DRAFT_MODE_NOT_OPTED_IN")
+        if draft_mode=="continuity_guard":
+            try:
+                require_external_runtime()
+            except V114ExternalMemoryError as exc:
+                raise WritingExecutionError(str(exc)) from None
         if draft_mode=="single" and (
            frozen_turn_outlines is not None or
            author_confirmed_forbidden_phrases):
@@ -362,6 +371,7 @@ class AutonomousWriting:
         rolling_replan_calls=0
         previous_emotional_turns=()
         previous_continuity_checkpoint=None
+        previous_external_story_checkpoint=None
         for index,goal in enumerate(chapter_goals,1):
             last_chapter_pressure=(
                 pressure_context(previous_emotional_turns)
@@ -374,10 +384,11 @@ class AutonomousWriting:
             host_only_branch_receipt=None
             future_note=""
             earlier_item_state=(
-                compact_status(previous_continuity_checkpoint["report"])
+                temporal_prompt(previous_external_story_checkpoint)
                 if draft_mode=="continuity_guard" and
-                   previous_continuity_checkpoint else "")
+                   previous_external_story_checkpoint else "")
             current_continuity_checkpoint=previous_continuity_checkpoint
+            current_external_story_checkpoint=previous_external_story_checkpoint
             if progress:
                 progress(index,len(chapter_goals),"planning")
             scene=f"{self.assist.scene_id}.chapter-{index:03}"
@@ -594,15 +605,13 @@ class AutonomousWriting:
                             author_confirmed_forbidden_phrases=(
                                 author_confirmed_forbidden_phrases))
                         if draft_mode=="continuity_guard":
-                            prior_item_report=(current_continuity_checkpoint["report"]
-                                               if current_continuity_checkpoint else None)
                             turn_addition+=(
-                                "\n【写作当场核对物件连续性（非已证事实）】"
-                                +(compact_status(prior_item_report)
-                                  if prior_item_report else
-                                  "上一段尚无已观察持有者。剑、符、信物从某处转移必须"
-                                  "写出实际行为；法术资源消耗后不可凭空恢复。"
-                                  "可以保留未知，不必强塞牺牲。"))
+                                "\n【真正参与下一段创作的时态物件状态（MIT Novel Studio原子归约）】"
+                                +(temporal_prompt(current_external_story_checkpoint)
+                                  if current_external_story_checkpoint else
+                                  "上一段尚无已观察持有者。剑、符、信物转移必须"
+                                  "写出真实动作；法力消耗后不能无来源恢复。"
+                                  "无法确认就保留未知，不必强塞牺牲。"))
                         if draft_mode in ("emotion_rolling","foresight_rolling"):
                             turn_addition+=emotion_turn_instructions(
                                 tuple(accepted_turns))
@@ -658,6 +667,9 @@ class AutonomousWriting:
                             current_continuity_checkpoint=validated_checkpoint(
                                 prose=evidence["prose"],cast=cast,
                                 previous=current_continuity_checkpoint)
+                            current_external_story_checkpoint=external_temporal_step(
+                                prose=evidence["prose"],cast=cast,
+                                prior=current_external_story_checkpoint)
                     body=assemble_prose(accepted_turns)
                     turn_evidence=receipts_only(
                         accepted_turns,mode=("causal_guard" if
@@ -670,6 +682,9 @@ class AutonomousWriting:
                     if draft_mode=="continuity_guard":
                         turn_evidence["v114_source_item_memory"]=(
                             current_continuity_checkpoint)
+                        turn_evidence["v114_original_novel_studio_reducer"]=(
+                            current_external_story_checkpoint)
+                        turn_evidence["v114_memory_backed_by_actual_events"]=True
                         turn_evidence["v114_observed_continuity_risks"]=(
                             current_continuity_checkpoint["report"]["risks"])
                         turn_evidence["v114_literary_semantics_verified"]=False
@@ -718,7 +733,7 @@ class AutonomousWriting:
                 except (V96CausalDraftError,V98RollingPlanError,
                         V102EmotionalCausalityError,
                         V105FutureCausalityError,
-                        V114ContinuityError) as error:
+                        V114ContinuityError,V114ExternalMemoryError) as error:
                     # Keep the red record, not the private failed novel.
                     # No partial draft becomes accepted or FactJournal KNOWN.
                     issue={
@@ -843,14 +858,21 @@ class AutonomousWriting:
                 state_file.write_text(
                     json.dumps(current_continuity_checkpoint,
                                ensure_ascii=False,indent=2),encoding="utf8")
+                external_file=folder/"v114_novel_studio_temporal_state.json"
+                external_file.write_text(
+                    json.dumps(current_external_story_checkpoint,
+                               ensure_ascii=False,indent=2),encoding="utf8")
                 chapter_data.update({
                     "v114_candidate_item_memory":str(state_file),
+                    "v114_novel_studio_temporal_state":str(external_file),
+                    "v114_external_temporal_is_not_canon":True,
                     "v114_continuity_risks":len(
                         current_continuity_checkpoint["report"]["risks"]),
                     "v114_carry_memory_to_next_turn":True,
                     "v114_literary_semantics_verified":False,
                 })
                 previous_continuity_checkpoint=current_continuity_checkpoint
+                previous_external_story_checkpoint=current_external_story_checkpoint
             chapters.append(chapter_data)
             if draft_mode in ("emotion_rolling","foresight_rolling"):
                 # Immutable metadata+real prose of this unaccepted chapter
