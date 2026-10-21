@@ -88,7 +88,8 @@ def reader_memory_from_private_cas(*,journal,pointer,story_id,
 
 
 def read_sealed_narrative(*,batch,chapter,windows,runtime,story_id,
-                          previous_reader_receipt_sha256=None):
+                          previous_reader_receipt_sha256=None,
+                          include_emotions=False):
     """One manual LEARN call per newly sealed chapter, zero implicit retry.
 
     Existing WriterForge WFLargeChapterBatch.complete() is NOT called here.
@@ -143,7 +144,11 @@ def read_sealed_narrative(*,batch,chapter,windows,runtime,story_id,
     # Previous reader results are hypotheses, not retrospective truth.
     context=reader_context(history=history,story_id=story_id,
         source_sha256=batch.source_sha,before_chapter=chapter.ordinal)
-    prompt=model_reading_prompt(source_windows=windows,prior_context=context)
+    require(type(include_emotions) is bool,
+            "WF102_READER_EMOTIONS_OPTIN_INVALID")
+    prompt=model_reading_prompt(
+        source_windows=windows,prior_context=context,
+        include_emotions=include_emotions)
     require(len(prompt)<=MAX_PROMPT_CHARS,
             "WF101_MODEL_READING_PROMPT_BUDGET_EXCEEDED")
     # A source/chapter-unique CAS SLOT (not a prompt hash) prevents paying
@@ -171,6 +176,7 @@ def read_sealed_narrative(*,batch,chapter,windows,runtime,story_id,
         "prompt_sha256":digest(prompt.encode("utf8")),
         "model_name":batch.model.name,
         "max_reserved_model_output_tokens":MODEL_CAP,
+        "v102_emotions_in_same_single_model_call":include_emotions,
         "no_auto_retry":True,"auto_training_off":True,
         "model_calls_before_this_precommit":batch.model.budget.calls_reserved,
         "self_literary_grade_disallowed":True,
@@ -196,7 +202,8 @@ def read_sealed_narrative(*,batch,chapter,windows,runtime,story_id,
             "WF101_MODEL_ANSWER_PRIVATE_CAS_READBACK_FAILED")
     note=validate_narrative(story_id=story_id,
         source_sha256=batch.source_sha,chapter=chapter.ordinal,
-        source_windows=windows,model_output=response,prior_history=history)
+        source_windows=windows,model_output=response,prior_history=history,
+        include_emotions=include_emotions)
     note.update({
         "first_read_seal_sha256":seal["event_sha256"],
         "precommit_sha256":pre_sha,
@@ -218,6 +225,8 @@ def read_sealed_narrative(*,batch,chapter,windows,runtime,story_id,
         "relation_hypotheses":len(note["relationships"]),
         "plot_hypotheses":len(note["plot"]),
         "prose_quality_hypotheses":len(note["craft"]),
+        "emotion_hypotheses":len(note.get("emotions",[])),
+        "emotion_causality_independently_verified":False,
         "future_chapter_source_seen":False,
         "human_literary_verified":False,"model_calls":1,
         "original_source_text_not_in_log":True,
