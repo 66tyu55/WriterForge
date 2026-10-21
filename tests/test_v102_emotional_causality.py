@@ -184,6 +184,39 @@ class V102WriterIntegrationTests(unittest.TestCase):
         self.assertIn('value="emotion_rolling"',html)
         self.assertIn('value="single"',html)
 
+    def test_two_chapter_emotional_pressure_survives_real_wf_chapter_boundary(self):
+        n1=note1()
+        n2=note2()
+        back1=note1();back1["before"]="未知"
+        back2=note2();back2["before"]="不确定"
+        responses=[
+            PLAN,emotional(prose1(),ACTION1,EFFECT1,None,"少年",n1),
+            raw(proposed()),
+            emotional(prose2(),ACTION2,EFFECT2,EFFECT1,"女子",n2),
+            PLAN,emotional(prose1(),ACTION1,EFFECT1,None,"少年",back1),
+            raw(proposed()),
+            emotional(prose2(),ACTION2,EFFECT2,EFFECT1,"女子",back2),
+        ]
+        with patch("writerforge.writing_assist.local_chat_completion",
+                   side_effect=responses) as model:
+            doc=AutonomousWriting(self.assist).run(
+                outline=OUTLINE,chapter_goals=GOALS*2,
+                output_dir=self.root/"two-chapters",
+                draft_mode="emotion_rolling",
+                frozen_turn_outlines=(
+                    json.dumps(turns(),ensure_ascii=False),
+                    json.dumps(turns(),ensure_ascii=False)))
+        self.assertEqual(model.call_count,8)
+        self.assertEqual(doc["chapter_count"],2)
+        self.assertEqual(doc["rolling_replan_model_calls"],2)
+        self.assertIn("朋友仍在城中等药",
+                      model.call_args_list[4].args[0].prompt)
+        self.assertIn("上章情感与代价不得凭空消失",
+                      model.call_args_list[5].args[0].prompt)
+        self.assertFalse(doc["chapters"][1]["accepted"])
+        self.assertIsNone(self.db.conn.execute(
+            "SELECT 1 FROM accepted_prose").fetchone())
+
     def test_fake_affect_stops_no_retry_and_keeps_rejection_evidence(self):
         bogus=note1();bogus["cost_quote"]="突然献出一件并不存在的法器"
         with patch("writerforge.writing_assist.local_chat_completion",
