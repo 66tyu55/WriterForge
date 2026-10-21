@@ -1,0 +1,44 @@
+name: V114D cold audit real original WF novel-state extraction coverage
+on:
+  push:
+    branches: [v114-chase-live-state-and-oss-fallback]
+    paths:
+      - '.github/workflows/v114d-readonly-first-scene-memory-coverage.yml'
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-v114d-real-prose-memory-coverage-readonly
+  cancel-in-progress: false
+jobs:
+  source-only-zero-provider:
+    if: github.repository == '66tyu55/WriterForge'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -e '.[r2]'
+      - name: Validate no model credential available
+        run: |
+          test -z "${DEEPSEEK_API_KEY:-}"
+          test -z "${DEEPSEEK:-}"
+          echo 'Only immutable prior WF short story R2 CAS read: zero inference'
+      - name: Real 964-character original story Novel Studio extraction coverage
+        run: python -m experiments.v114d_readonly_real_memory_coverage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: V114D-genuine-WF-first-scene-literary-memory-extraction-coverage
+          path: wf114d_readonly_real_memory_coverage/
+          retention-days: 30
+          if-no-files-found: error
