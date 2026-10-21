@@ -18,6 +18,11 @@ from experiments.v114c_readonly_rejected_first_scene import (
 from experiments.v114_readonly_v113_real_source import (
     V113_MANIFEST,EXPECTED_PROSE_SHA,
 )
+from experiments.v113_github_r2_cas import GitHubS3CAS as V113CAS
+
+class StrictV113ReadOnlyCAS(V113CAS):
+    def _put_content(self,*args,**kwargs):
+        raise RuntimeError("WF116_V113_ORIGINAL_CAS_NEVER_WRITABLE")
 from writerforge.v114_external_story_state import external_temporal_step,temporal_prompt
 from writerforge.v116_state_delta import extract_state_events,preflight_next_prose
 from writerforge.v96_causal_turns import MAX_PROSE_CHARS
@@ -39,26 +44,27 @@ def state_cells(value):
 def data_from_sealed():
     need(not os.getenv("DEEPSEEK") and not os.getenv("DEEPSEEK_API_KEY"),
          "WF116_MODEL_CREDENTIAL_IN_READONLY_RUNNER")
-    cas=StrictReadOnlyCAS()
-    old=load(cas,V113_MANIFEST)
+    cas_v113=StrictV113ReadOnlyCAS()
+    cas_v114=StrictReadOnlyCAS()
+    old=load(cas_v113,V113_MANIFEST)
     need(old.get("format")=="wf.eval.v113.three-arm-original-model-experiment" and
          old["arms"][0]["arm"]=="WF_SINGLE" and
          old["arms"][0]["real_codepoints"]==951 and
          old["arms"][0]["status"]=="WRITTEN","WF116_V113_OLD_MANIFEST_INVALID")
     wf_old=old["arms"][0]["prose_private_cas_sha256"]
-    raw=cas._get_content(wf_old)
+    raw=cas_v113._get_content(wf_old)
     need(sha256(raw).hexdigest()==EXPECTED_PROSE_SHA,
          "WF116_V113_PROSE_CAS_MISMATCH")
     v113=raw.decode("utf8","strict")
     need(len(v113)==951 and v113.count("剑穗")>=2,
          "WF116_V113_PROSE_IDENTITY_FAILED")
-    v114b=load(cas,V114B_MANIFEST)
+    v114b=load(cas_v114,V114B_MANIFEST)
     need(v114b.get("result",{}).get("status")=="WF_WRITING_REJECTED_NO_RETRY" and
          v114b.get("actual_calls")==3 and
          "WF96_TURN_PROSE_OR_TRACE_SCHEMA_INVALID"
              in v114b["result"].get("reason",""),
          "WF116_V114B_OLD_FAILURE_NOT_PRESERVED")
-    original=load(cas,SCENE_ORIGINAL)
+    original=load(cas_v114,SCENE_ORIGINAL)
     need(original.get("wire_sha256")==SCENE_WIRE and
          type(original.get("student_unmodified_answer")) is dict,
          "WF116_V114B_WIRE_IDENTITY_FAILED")
