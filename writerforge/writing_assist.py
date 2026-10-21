@@ -33,6 +33,10 @@ from .v98_rolling_causal_planner import (
     V98RollingPlanError,MAX_ROLLING_REPLANS_PER_JOB,
     prepare_replan_instructions,validate_replan,
 )
+from .v102_emotional_causality import (
+    V102EmotionalCausalityError,check_emotional_turn,
+    pressure_context,emotion_turn_instructions,export_candidate_emotions,
+)
 
 MAX_LIVE_CONTEXT = 1400
 MAX_OUTLINE_CHARS = 6000
@@ -286,7 +290,7 @@ class AutonomousWriting:
         # 'single' remains byte-for-byte compatible with legacy output
         # behavior. split_only vs causal_guard share the SAME JSON turn
         # planning/response interface so B/C can be fairly compared.
-        if draft_mode not in ("single","split_only","causal_guard","rolling_causal"):
+        if draft_mode not in ("single","split_only","causal_guard","rolling_causal","emotion_rolling"):
             raise WritingExecutionError("WF96_DRAFT_MODE_NOT_OPTED_IN")
         if draft_mode=="single" and (
            frozen_turn_outlines is not None or
@@ -413,7 +417,7 @@ class AutonomousWriting:
                     cast=tuple(dict.fromkeys(b["actor"] for b in beats))
                     for turn_index,seed_beat in enumerate(beats):
                         beat=seed_beat
-                        if draft_mode=="rolling_causal" and turn_index>0:
+                        if draft_mode in ("rolling_causal","emotion_rolling") and turn_index>0:
                             if rolling_replan_calls>=MAX_ROLLING_REPLANS_PER_JOB:
                                 raise V98RollingPlanError(
                                     "WF98_REPLAN_MODEL_CALL_BUDGET_EXCEEDED")
@@ -421,6 +425,10 @@ class AutonomousWriting:
                                 accepted=tuple(accepted_turns),
                                 seed_next_beat=seed_beat,
                                 allowed_actor_names=cast)
+                            if draft_mode=="emotion_rolling":
+                                instructions+=(
+                                    "\n【人物变化/待解决代价】"+
+                                    pressure_context(tuple(accepted_turns)))
                             rolling_packet=_enrich(
                                 body_base,
                                 "\n【本章总目标，未完成的规划不是故事事实】"+goal+
@@ -446,10 +454,13 @@ class AutonomousWriting:
                             rolling_goals.append(dict(beat))
                         turn_addition=make_turn_instructions(
                             beat,mode=("causal_guard" if
-                                       draft_mode=="rolling_causal"
+                                       draft_mode in ("rolling_causal","emotion_rolling")
                                        else draft_mode),accepted=accepted_turns,
                             author_confirmed_forbidden_phrases=(
                                 author_confirmed_forbidden_phrases))
+                        if draft_mode=="emotion_rolling":
+                            turn_addition+=emotion_turn_instructions(
+                                tuple(accepted_turns))
                         turn_packet=_enrich(
                             body_base,
                             "\n【原创章计划】"+json.dumps(
@@ -462,28 +473,35 @@ class AutonomousWriting:
                             turn_packet,model=self.assist.model,
                             api_base=self.assist.api_base,max_tokens=1450,
                         )
-                        evidence=check_turn(
-                            last_turn_response,beat,
-                            mode=("causal_guard" if
-                                  draft_mode=="rolling_causal"
-                                  else draft_mode),
-                            accepted=tuple(accepted_turns),
-                            author_confirmed_forbidden_phrases=(
-                                author_confirmed_forbidden_phrases))
+                        if draft_mode=="emotion_rolling":
+                            evidence=check_emotional_turn(
+                                last_turn_response,beat,
+                                accepted=tuple(accepted_turns),
+                                author_confirmed_forbidden_phrases=(
+                                    author_confirmed_forbidden_phrases))
+                        else:
+                            evidence=check_turn(
+                                last_turn_response,beat,
+                                mode=("causal_guard" if
+                                      draft_mode in ("rolling_causal","emotion_rolling")
+                                      else draft_mode),
+                                accepted=tuple(accepted_turns),
+                                author_confirmed_forbidden_phrases=(
+                                    author_confirmed_forbidden_phrases))
                         accepted_turns.append(evidence)
                         accepted_beats.append(beat)
                     body=assemble_prose(accepted_turns)
                     turn_evidence=receipts_only(
                         accepted_turns,mode=("causal_guard" if
-                                             draft_mode=="rolling_causal"
+                                             draft_mode in ("rolling_causal","emotion_rolling")
                                              else draft_mode),
                         outline_sha=sha256(
                             turn_outline.encode("utf8")).hexdigest())
                     turn_evidence["model_prompt_sha256s"]=prompt_shas
                     turn_evidence["source_free_unverified_scene_states"]=True
-                    if draft_mode=="rolling_causal":
+                    if draft_mode in ("rolling_causal","emotion_rolling"):
                         turn_evidence.update({
-                            "mode":"rolling_causal",
+                            "mode":draft_mode,
                             "rolling_proposal_receipts":rolling_receipts,
                             "rolling_replan_prompt_sha256s":
                                 rolling_prompt_shas,
@@ -495,13 +513,18 @@ class AutonomousWriting:
                             "confirmed_character_facts_written":0,
                             "additional_model_replans":len(rolling_receipts),
                         })
+                    if draft_mode=="emotion_rolling":
+                        turn_evidence["v102_emotional_causality"]=(
+                            export_candidate_emotions(accepted_turns))
+                        turn_evidence["emotion_truth_independently_verified"]=False
                     # The envelope hash must include ALL receipt metadata.
                     # Never add fields after calculating its identity.
                     turn_evidence["manifest_sha256"]=sha256(
                         causal_canonical({k:v for k,v in
                             turn_evidence.items() if k!="manifest_sha256"})
                     ).hexdigest()
-                except (V96CausalDraftError,V98RollingPlanError) as error:
+                except (V96CausalDraftError,V98RollingPlanError,
+                        V102EmotionalCausalityError) as error:
                     # Keep the red record, not the private failed novel.
                     # No partial draft becomes accepted or FactJournal KNOWN.
                     issue={
@@ -552,14 +575,14 @@ class AutonomousWriting:
                 turn_outline_path.write_text(
                     json.dumps({"candidate_turns":(
                                      list(accepted_beats) if
-                                     draft_mode=="rolling_causal"
+                                     draft_mode in ("rolling_causal","emotion_rolling")
                                      else list(beats)),
                                 "author_confirmed":False,
                                 "literary_truth_verified":False,
                                 **({"original_seed_plan_preserved":True}
-                                   if draft_mode=="rolling_causal" else {})},
+                                   if draft_mode in ("rolling_causal","emotion_rolling") else {})},
                                ensure_ascii=False,indent=2),encoding="utf8")
-                if draft_mode=="rolling_causal":
+                if draft_mode in ("rolling_causal","emotion_rolling"):
                     # Private local candidate plans ONLY, never knowledge CANON
                     # or a true author-approved character state.
                     private_rolling=folder/"v98_rolling_plan.json"
@@ -574,8 +597,16 @@ class AutonomousWriting:
                             "all_drafts_pending_author_acceptance":True,
                         },ensure_ascii=False,indent=2),
                         encoding="utf8")
+                if draft_mode=="emotion_rolling":
+                    private_affect=folder/"v102_emotional_causality.json"
+                    private_affect.write_text(
+                        json.dumps(turn_evidence["v102_emotional_causality"],
+                                   ensure_ascii=False,indent=2),encoding="utf8")
                 chapter_data.update({
                     "draft_mode":draft_mode,
+                    **({"v102_emotional_causality":str(private_affect),
+                        "emotional_literary_truth_verified":False}
+                        if draft_mode=="emotion_rolling" else {}),
                     "turn_count":len(beats),
                     "turn_evidence":str(evidence_path),
                     "turn_outline":str(turn_outline_path),
@@ -583,7 +614,7 @@ class AutonomousWriting:
                     "facts_not_committed":True,
                     **({"v98_rolling_plan":str(private_rolling),
                         "model_replan_calls":len(rolling_receipts)}
-                       if draft_mode=="rolling_causal" else {}),
+                       if draft_mode in ("rolling_causal","emotion_rolling") else {}),
                 })
             chapters.append(chapter_data)
             previous=body[-750:]  # Bound retained cross-chapter context memory.
@@ -608,7 +639,7 @@ class AutonomousWriting:
                 **({"rolling_replan_model_calls":rolling_replan_calls,
                     "actual_written_effects_grounded_to_prompts":True,
                     "fictional_motives_are_not_confirmed_facts":True}
-                   if draft_mode=="rolling_causal" else {}),
+                   if draft_mode in ("rolling_causal","emotion_rolling") else {}),
             })
         (job/"job_manifest.json").write_text(
             json.dumps(receipt,ensure_ascii=False,indent=2),encoding="utf-8",
