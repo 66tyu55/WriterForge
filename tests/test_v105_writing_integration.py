@@ -100,7 +100,7 @@ class V105TrueWritingEntrypoint(unittest.TestCase):
         self.assertEqual(doc["rolling_replan_model_calls"],2)
         self.assertIn("过去数章",calls[4].args[0].prompt)
         self.assertIn("朋友仍在城中等药",calls[4].args[0].prompt)
-        self.assertIn("过去未偿债务",calls[5].args[0].prompt)
+        self.assertIn("以前章节尚未偿付的代价",calls[5].args[0].prompt)
         last=json.loads(Path(doc["chapters"][1][
             "v105_candidate_checkpoint"]).read_text("utf8"))
         first=json.loads(Path(doc["chapters"][0][
