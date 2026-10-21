@@ -212,11 +212,14 @@ class CheckpointTests(unittest.TestCase):
                 chapter=chapter,accepted=old_two(),previous=history)
         self.assertEqual(history["open_debts_count"],46)
         self.assertIn("还有",open_debt_context(history))
+        history=derive_open_checkpoint(story_sha=STORY_SHA,
+                chapter=24,accepted=old_two(),previous=history)
+        self.assertEqual(history["open_debts_count"],48)
         with self.assertRaisesRegex(V105FutureCausalityError,
                                     "CAPACITY_REFUSE_SILENT_FORGET"):
             derive_open_checkpoint(story_sha=STORY_SHA,
-                chapter=24,accepted=old_two(),previous=history)
-        self.assertEqual(len(history["open_debts"]),46)
+                chapter=25,accepted=old_two(),previous=history)
+        self.assertEqual(len(history["open_debts"]),48)
 
 if __name__=="__main__":
     unittest.main()
