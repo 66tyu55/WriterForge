@@ -275,6 +275,18 @@ def make_turn_instructions(beat,*,mode,accepted=(),
             "请承认不确定，不得凭空宣布已造成后果。"
             "你对人物动机的判断尚未证明，不能输出已验证事实状态。"
         )
+    if mode=="causal_guard":
+        if beat["causal_parent"] is None:
+            # The model must not confuse a planned objective with an ACTUAL
+            # preceding event. This is a JSON provenance rule, not a
+            # writer-supplied motivation or narrative plot answer.
+            note+=("\n【第一事件的前因字段】此事件没有前一段已写正文；"
+                   'trace.parent_effect_quote 必须是JSON null。'
+                   "不可把规划里的目标、章节概括或未发生的选择当作引用。")
+        else:
+            note+=("\n【承接真实已写前因】trace.parent_effect_quote"
+                   "必须逐字引用前文已实际出现的后果，"
+                   "不能凭计划概括、虚构或自行改写。")
     output=(
         "\n【滚动场景目标（候选大纲，不是已知事实）】"
         +json.dumps(beat,ensure_ascii=False,separators=(",",":"))
