@@ -104,6 +104,12 @@ def run():
     need(("item","火髓果","consumption","author_plan") not in state,
          "WF116_FRUIT_CONSUMPTION_FABRICATED")
     events=second["source_anchored_events"]
+    # Guard against nearby mentions of Tang Shen accidentally becoming
+    # Shen Yan's bodily harm. A correctly anchored sentence alone is NOT
+    # sufficient proof that the injured person was identified correctly.
+    need(all(op["cell"]["entityId"]=="沈砚" for ev in events
+             for op in ev["ops"] if op["cell"]["domain"]=="character"),
+         "WF116_REAL_964_WRONG_ARM_INJURY_ACTOR")
     fruit=[e for e in events if
            e["ops"][0]["cell"]["entityId"]=="火髓果"]
     need(len(fruit)==2 and
@@ -159,6 +165,15 @@ def run():
             "right_forearm_injury_candidate":"丹火灼及右前臂",
             "fruit_consumed":False,
             "event_proposal_count":len(events),
+            "anchored_event_ledger":[
+                 {"start":ev["evidence"]["start"],
+                  "end":ev["evidence"]["end"],
+                  "domain":op["cell"]["domain"],
+                  "entity":op["cell"]["entityId"],
+                  "predicate":op["cell"]["predicate"],
+                  "value":op["value"]}
+                 for ev in events for op in ev["ops"]],
+            "unresolved_source_claims":second["unresolved"][:12],
             "mit_temporal_reducer_applied_events":
                  actual["reducer_result"]["verified_events"],
             "novel_studio_next_turn_state_prompt_contains_fruit_arm":True,
