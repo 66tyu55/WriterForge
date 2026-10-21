@@ -76,6 +76,12 @@ class V105TrueWritingEntrypoint(unittest.TestCase):
         self.assertIn("未来只是假设",calls[2].args[0].prompt)
         self.assertIn("未来只是假设",calls[3].args[0].prompt)
         ch=doc["chapters"][0]
+        self.assertTrue(ch["v105_original_model_answers_prevalidation_stored"])
+        self.assertIn("horizon",Path(ch["v105_raw_chapter_plan"]).read_text("utf8"))
+        private_raw=list((self.root/"f").rglob("*-raw.json"))
+        # The old first model output and next-turn replan are saved before
+        # structural filters, never printed as a public literary verdict.
+        self.assertGreaterEqual(len(private_raw),3)
         self.assertEqual(ch["draft_mode"],"foresight_rolling")
         self.assertFalse(ch["accepted"])
         self.assertEqual(doc["rolling_replan_model_calls"],1)
@@ -144,6 +150,10 @@ class V105TrueWritingEntrypoint(unittest.TestCase):
         self.assertEqual(len(red),1)
         saved=json.loads(red[0].read_text("utf8"))
         self.assertEqual(saved["new_model_retries"],0)
+        preplan=list((self.root/"impossible").rglob("*-raw-plan.json"))
+        self.assertEqual(len(preplan),1)
+        self.assertEqual(json.loads(preplan[0].read_text("utf8")),
+                         p)
         self.assertEqual(saved["accepted_prose"],False)
         self.assertFalse(list((self.root/"impossible").rglob("candidate.txt")))
 
