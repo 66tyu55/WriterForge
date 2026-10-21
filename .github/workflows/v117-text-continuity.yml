@@ -5,6 +5,8 @@ on:
     paths:
       - .github/workflows/v117-text-continuity.yml
       - writerforge/v117_continuity_trace.py
+      - writerforge/v117_continuity_debts.py
+      - writerforge/v114_external_story_state.py
       - writerforge/writing_assist.py
       - experiments/v117_novel_studio/**
       - experiments/v117_readonly_original_text_trace.py
