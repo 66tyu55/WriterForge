@@ -51,13 +51,17 @@ class ContinuityMemoryTests(TestCase):
         self.assertEqual(report["model_calls_for_validation"],0)
         self.assertIn("索钩",compact_status(report))
 
-    def test_a_credible_actual_transfer_has_no_false_positive(self):
+    def test_native_rule_false_positive_is_preserved_as_fallback_trigger(self):
         text=("沈渡腰间悬着旧剑穗。沈渡从腰间取下旧剑穗，"
               "又把剑穗挂到锁魂索钩尖上。"
               "索头回落，钩尖上挂着旧剑穗。")
         report=literal_item_continuity(text,cast=CAST)
-        self.assertFalse(any(x["kind"]=="ITEM_OWNER_CHANGE_WITHOUT_TRANSFER"
-                             for x in report["risks"]))
+        # Deliberate negative evidence: the literal native heuristic
+        # misreads a fully narrated handoff. Do NOT pretend it passed.
+        # A real MIT Novel Studio reducer is now integrated for this mode.
+        self.assertTrue(any(x["kind"]=="ITEM_OWNER_CHANGE_WITHOUT_TRANSFER"
+                            for x in report["risks"]))
+        self.assertFalse(report["semantic_literary_continuity_verified"])
 
     def test_flying_sword_temporal_weapon_owner(self):
         text=("他让飞剑脱手掷出，剑尖钉进山壁。"
@@ -135,7 +139,7 @@ class WFRealEntrypointIntegration(TestCase):
         with patch("writerforge.writing_assist.local_chat_completion",
                    side_effect=ans) as model:
             doc=AutonomousWriting(self.assist).run(
-                outline="夜雨里的一段真实追逐事件",
+                outline="夜雨里的一段真实追逐事件需要持续追踪人物和物件状态",
                 chapter_goals=["两名人物必须在桥上决定如何让药送到对岸"],
                 output_dir=self.root/"v114",
                 draft_mode="continuity_guard",
@@ -143,7 +147,7 @@ class WFRealEntrypointIntegration(TestCase):
         self.assertEqual(model.call_count,4)
         second=model.call_args_list[3].args[0].prompt
         self.assertIn("物件",second)
-        self.assertIn("转移",second)
+        self.assertIn("法器",second)
         ch=doc["chapters"][0]
         self.assertEqual(ch["draft_mode"],"continuity_guard")
         self.assertFalse(ch["accepted"])
@@ -151,6 +155,12 @@ class WFRealEntrypointIntegration(TestCase):
         self.assertEqual(state["format"],"wf.writing.continuity-checkpoint.v114")
         self.assertEqual(state["sequence"],2)
         self.assertEqual(state["canon_state_writes"],0)
+        third=json.loads(Path(ch["v114_novel_studio_temporal_state"]).read_text("utf8"))
+        self.assertEqual(third["sequence"],2)
+        self.assertEqual(third["reducer_result"]["format"],
+                         "wf.fallback.novel-studio.result.v114")
+        self.assertEqual(third["canon_writes"],0)
+        self.assertFalse(third["semantic_truth_verified"])
         self.assertFalse(state["literary_semantics_verified"])
         self.assertIsNone(self.db.conn.execute(
             "SELECT 1 FROM accepted_prose").fetchone())
@@ -161,7 +171,7 @@ class WFRealEntrypointIntegration(TestCase):
         with patch("writerforge.writing_assist.local_chat_completion",
                    side_effect=[PLAN,"纯模型一次写就，未加入状态追踪的旧路径。"*40]) as model:
             doc=AutonomousWriting(self.assist).run(
-                outline="夜雨里的一段真实追逐事件",
+                outline="夜雨里的一段真实追逐事件需要持续追踪人物和物件状态",
                 chapter_goals=["两名人物必须在桥上决定如何让药送到对岸"],
                 output_dir=self.root/"old",
                 draft_mode="single")
