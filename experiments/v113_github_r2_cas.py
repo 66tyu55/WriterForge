@@ -26,7 +26,7 @@ class GitHubS3CAS:
     def _key(digest):
         if (type(digest) is not str or len(digest)!=64 or
             any(ch not in "0123456789abcdef" for ch in digest)):
-            raise V113CASException("WF112_INVALID_PRIVATE_CAS_SHA")
+            raise V113CASException("WF113_INVALID_PRIVATE_CAS_SHA")
         return PREFIX+digest[:2]+"/"+digest
 
     def require_writer_ready(self):
@@ -50,25 +50,25 @@ class GitHubS3CAS:
                 close=getattr(body,"close",None)
                 if callable(close):close()
         except ClientError:
-            raise V113CASException("WF112_R2_CAS_READ_FAILED") from None
+            raise V113CASException("WF113_R2_CAS_READ_FAILED") from None
         if (type(raw) is not bytes or len(raw)>MAX_OBJECT_BYTES
             or sha256(raw).hexdigest()!=digest):
-            raise V113CASException("WF112_R2_CAS_CONTENT_HASH_MISMATCH")
+            raise V113CASException("WF113_R2_CAS_CONTENT_HASH_MISMATCH")
         return raw
 
     def _put_content(self,content):
         if (type(content) is not bytes or not (0<len(content)<=MAX_OBJECT_BYTES)):
-            raise V113CASException("WF112_R2_OBJECT_SIZE_INVALID")
+            raise V113CASException("WF113_R2_OBJECT_SIZE_INVALID")
         digest=sha256(content).hexdigest()
         key=self._key(digest)
         try:
             self.client.head_object(Bucket=self.bucket,Key=key)
         except ClientError as e:
             if self._remote_error(e) not in ("404","NoSuchKey","NotFound"):
-                raise V113CASException("WF112_R2_HEAD_PERMISSION_OR_NETWORK_FAILURE") from None
+                raise V113CASException("WF113_R2_HEAD_PERMISSION_OR_NETWORK_FAILURE") from None
         else:
             if self._get_content(digest)!=content:
-                raise V113CASException("WF112_EXISTING_CAS_COLLISION")
+                raise V113CASException("WF113_EXISTING_CAS_COLLISION")
             return digest,False
         try:
             # If a parallel run races for the same content, only one can
@@ -83,7 +83,7 @@ class GitHubS3CAS:
                                          "ConditionalRequestConflict"):
                 first=False
             else:
-                raise V113CASException("WF112_R2_CONDITIONAL_PUT_FAILED") from None
+                raise V113CASException("WF113_R2_CONDITIONAL_PUT_FAILED") from None
         if self._get_content(digest)!=content:
-            raise V113CASException("WF112_R2_FRESH_CAS_READBACK_FAILED")
+            raise V113CASException("WF113_R2_FRESH_CAS_READBACK_FAILED")
         return digest,first
