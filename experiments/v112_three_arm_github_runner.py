@@ -448,6 +448,17 @@ def run():
         "qualified_literary_winner":"UNDETERMINED",
     }
     msha=seal(cas,encode(result),"WF112_MANIFEST_PRIVATE_R2_NOT_VERIFIED")
+    receipt_path=os.environ.get("WF112_LOCAL_RESULT_FILE")
+    if receipt_path:
+        # Local GitHub runner handoff contains CAS pointers ONLY; NEVER raw
+        # provider wire, model credentials, method-keyed prose or unblind map.
+        Path(receipt_path).write_text(json.dumps({
+            "format":"wf.eval.v112.github-actions-export-pointers",
+            "manifest_cas_sha256":msha,
+            "blind_index_cas_sha256":judge_sha,
+            "available_anonymous_packets":len(blinded),
+            "author_accepted":False,
+        },ensure_ascii=False,sort_keys=True),encoding="utf8")
     tell({
         "status":"WF112_WF_VS_GITHUB_STORYTELLER_VS_BASE_ALL_RECEIPTS_SEALED",
         "manifest_cas_sha256":msha,
