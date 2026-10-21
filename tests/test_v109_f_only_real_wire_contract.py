@@ -51,8 +51,10 @@ class V109FOnlyContractTests(unittest.TestCase):
         self.assertIn("没有前面真实已写事件时必须是JSON null",trial.SYS_SCENE)
         self.assertEqual(trial.MAX_CALLS,4)
         self.assertEqual(trial.MAX_RESERVED,2400+1450+650+1450)
-        self.assertIn("v108",trial.FROM_V108_PRECOMMIT.lower()
-                      if "v108" in trial.FROM_V108_PRECOMMIT.lower() else "v108")
+        self.assertEqual(len(trial.FROM_V108_PRECOMMIT),64)
+        self.assertEqual(len(trial.FROM_V108_SHARED),64)
+        self.assertTrue(all(ch in "0123456789abcdef"
+                            for ch in trial.FROM_V108_SHARED))
 
 if __name__=="__main__":
     unittest.main()
