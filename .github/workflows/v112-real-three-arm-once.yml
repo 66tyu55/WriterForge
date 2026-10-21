@@ -1,0 +1,71 @@
+name: V112 one-shot WF vs Storyteller vs DeepSeek - GitHub only
+on:
+  push:
+    branches: [v112-github-native-matched-deepseek]
+    paths:
+      - '.github/workflows/v112-real-three-arm-once.yml'
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-v112-three-arm-github-native-one-shot
+  cancel-in-progress: false
+jobs:
+  original-writing:
+    if: github.repository == '66tyu55/WriterForge' && github.ref == 'refs/heads/v112-github-native-matched-deepseek'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+      WF112_LOCAL_RESULT_FILE: ${{ runner.temp }}/wf112_result_cas.json
+      WF112_BLIND_ARTIFACT_DIR: ${{ runner.temp }}/wf112_blind_stories
+    steps:
+      - name: Checkout new source only (Railway is never used)
+        uses: actions/checkout@v4
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing WF and private R2 S3 client
+        run: python -m pip install -e '.[r2]'
+      - name: Zero-cost strict V111 and V112 preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v111_matched_fantasy_chase.py -q
+          python -m unittest discover -s tests -p test_v112_github_native_three_arm.py -q
+          python - <<'PY'
+          import os
+          from experiments.v112_three_arm_github_runner import skill_original,freeze
+          key_names=("DEEPSEEK_API_KEY","WRITERFORGE_R2_ACCOUNT_ID","WRITERFORGE_R2_BUCKET","WRITERFORGE_R2_ACCESS_KEY_ID","WRITERFORGE_R2_SECRET_ACCESS_KEY")
+          assert all(os.environ.get(k) for k in key_names),"V112_REQUIRED_SECRET_MISSING"
+          skill,_=skill_original()
+          f=freeze(skill)
+          assert f["exact_common_user_question"]=="给我一个追逐打斗的玄幻1000字"
+          assert f["max_provider_calls"]==4
+          assert f["max_reserved_output_tokens"]==8450
+          assert f["third_party_judge_model_calls"]==0
+          assert f["literary_grade"]=="UNDETERMINED"
+          print("V112 PRECOMMIT CONTRACT OK; no network requests in preflight.")
+          PY
+      - name: ONE SHOT - same official DeepSeek, actual WF plus pinned GitHub Skill and bare baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m experiments.v112_three_arm_github_runner
+      - name: Cold-verify and export only anonymous finished originals
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m experiments.v112_export_blind_stories
+      - name: Provide original anonymous manuscripts for independent review
+        uses: actions/upload-artifact@v4
+        with:
+          name: V112-original-Xuanhuan-1000-char-anonymous-manuscripts
+          path: ${{ runner.temp }}/wf112_blind_stories/
+          retention-days: 30
+          if-no-files-found: error
