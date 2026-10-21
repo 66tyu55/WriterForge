@@ -1,0 +1,316 @@
+"""V116: source-only temporal proposals and next-turn preflight.
+
+Deterministic *narrow* Chinese evidence probes. These are candidate changes,
+NOT a claim to understand arbitrary prose. No inference API, memory database,
+automatic revision, canon writes or historical prose alteration.
+
+The real semantic/expected-old-value decision belongs to the PINNED Novel
+Studio MIT reducer, invoked by v114_external_story_state.py.
+"""
+from __future__ import annotations
+
+from hashlib import sha256
+import json
+import re
+
+from .v115_dynamic_entity_candidates import discover_candidates
+
+MAX_PROSE = 20000
+MAX_EVENTS = 16
+MAX_ISSUES = 24
+MAX_CAST = 10
+BAD_NARRATIVE = ("梦里","梦见","做梦","想象","假如","若是","假若","听说","传言","据说")
+CLAUSE = re.compile(r"[^。！？\n]*[。！？\n]|[^。！？\n]+$")
+ITEM_SUFFIXES = ("髓果","灵果","仙果")
+POSITION_VERBS = ("吐到","递给","交给","移入","收进","装进","放进","放到","吞下","吃掉")
+ARM_ACTIONS = ("挥剑","持剑","拔剑","挥刀","出拳","抓住","攀上","攀爬","单手提起")
+RECOVERY = ("恢复","痊愈","治好","复原","愈合","重新有力")
+RECOVERY_CAUSE = ("丹药","疗伤","治愈","灵气","药液","医师","法术","重接经脉")
+FMT = "wf.writing.sealed-temporal-deltas.v116"
+
+
+def _sha(s):
+    return sha256(s.encode("utf8")).hexdigest()
+
+
+def _cell(domain, entity, predicate):
+    return json.dumps([domain,entity,predicate,"author_plan",None],
+                      ensure_ascii=False,separators=(",",":"))
+
+
+def _prior(state, domain, entity, predicate):
+    return state.get(_cell(domain,entity,predicate))
+
+
+def _segments(prose):
+    """Source offsets and whether the *start* lies inside dialogue."""
+    in_dialogue=False
+    for m in CLAUSE.finditer(prose):
+        raw=m.group()
+        start=m.start()
+        # Clauses starting with a closing quote may still be outside speech:
+        # evaluate position from the entire prefix, not last speaker heuristic.
+        before=prose[:start]
+        in_dialogue=before.count("“") > before.count("”")
+        # If quote opens before actionable phrase in this clause, the proposed
+        # action itself is tested separately with _present below.
+        yield start,m.end(),raw,in_dialogue
+
+
+def _present(prose, start, end):
+    if any(x in prose[start:end] for x in BAD_NARRATIVE):
+        return False
+    prefix=prose[:start]
+    if prefix.count("“") > prefix.count("”"):
+        return False
+    frag=prose[start:end]
+    # Entirely inside speech is never a narrative event.
+    return not (frag.lstrip().startswith("“") and
+                frag.find("”") < 0)
+
+
+def _actor(prose, start, cast, *, limit=220):
+    """Anchor the nearest explicit name; speaker quotes never establish actor."""
+    choices=[]
+    for name in cast:
+        pos=prose.rfind(name,max(0,start-limit),start+1)
+        if pos>=0 and _present(prose,pos,pos+len(name)):
+            choices.append((pos,name))
+    return max(choices)[1] if choices else None
+
+
+def _fruit_name(report):
+    found={r["term"] for r in report["mentions"] if
+           r["kind"]=="resource" and
+           r["term"].endswith(ITEM_SUFFIXES)}
+    # No pronoun/alias binding with several different candidate fruits.
+    return next(iter(found)) if len(found)==1 else None
+
+
+def extract_state_events(prose, *, cast=(), prior_state=None):
+    if type(prose) is not str or not 0<len(prose)<=MAX_PROSE:
+        raise ValueError("WF116_SOURCE_BOUNDS")
+    if type(cast) not in (tuple,list) or len(cast)>MAX_CAST or any(
+        type(x) is not str or not 1<=len(x)<=20 for x in cast):
+        raise ValueError("WF116_CAST_BOUNDS")
+    old=prior_state or {}
+    if type(old) is not dict or len(old)>36:
+        raise ValueError("WF116_PRIOR_STATE_BOUNDS")
+    candidates=discover_candidates(prose)
+    fruit=_fruit_name(candidates)
+    events=[]
+    unresolved=[]
+    working=dict(old)
+    def issue(code,span=None):
+        if len(unresolved)<MAX_ISSUES:
+            unresolved.append({"code":code,"source_span":span})
+    def put(quote, start, *, domain, entity, predicate, value, alias=None):
+        end=start+len(quote)
+        if (not 3<=len(quote)<=150 or prose[start:end]!=quote or
+            prose.count(quote)!=1 or not _present(prose,start,end)):
+            issue("WF116_ANCHOR_OR_NARRATIVE_UNRESOLVED",[start,end]);return
+        if len(events)>=MAX_EVENTS:
+            issue("WF116_EVENT_BUDGET_EXHAUSTED",[start,end]);return
+        key=_cell(domain,entity,predicate)
+        prior=working.get(key)
+        if prior==value:return
+        ev={
+            "id":f"wf116_e{len(events)+1:02d}",
+            "evidence":{"quote":quote,"start":start,"end":end,
+                        "narrative":"present",
+                        **({"entity_alias":alias} if alias else {})},
+            "ops":[{"type":"set",
+                    "cell":{"domain":domain,"entityId":entity,
+                            "predicate":predicate,"scope":"author_plan"},
+                    "expected":({"kind":"missing"} if key not in working else
+                                {"kind":"value","value":prior}),
+                    "value":value}],
+        }
+        events.append(ev)
+        working[key]=value
+    clauses=list(_segments(prose))
+    for begin,end,clause,in_dialogue in clauses:
+        if in_dialogue or not clause.strip():continue
+        # Extract only a *narrated* hold, and only when one previously named
+        # fruit permits unambiguous binding of the later word "果子".
+        if fruit:
+            aliases=(fruit,"果子")
+            alias_regex="(?:"+ "|".join(map(re.escape,aliases)) +")"
+            for m in re.finditer(
+                r"把(?:那枚|这枚|一枚|那颗|这颗)?("+alias_regex+
+                r")往齿间一咬",clause):
+                start=begin+m.start()
+                actor=_actor(prose,start,cast)
+                if not actor:
+                    issue("WF116_FRUIT_HOLDER_ACTOR_UNKNOWN",[start,begin+m.end()])
+                    continue
+                # Actor must be named in this clause, not guessed from a
+                # preceding line of dialogue or a long-range subject.
+                if actor not in clause[:m.end()]:
+                    issue("WF116_FRUIT_HOLDER_PRONOUN_UNRESOLVED",[start,begin+m.end()])
+                    continue
+                alias=m.group(1)
+                if alias!=fruit and prose.find(fruit)>=start:
+                    issue("WF116_ALIAS_NOT_PREVIOUSLY_NAMED",[start,begin+m.end()])
+                    continue
+                put(clause.strip(),begin+len(clause)-len(clause.lstrip()),
+                    domain="item",entity=fruit,predicate="holder",
+                    value=actor+"齿间",alias=alias if alias!=fruit else None)
+            for m in re.finditer(
+                r"把(?:那枚|这枚)?("+alias_regex+
+                r")从齿间吐到(左手心|右手心|掌心)",clause):
+                start=begin+m.start()
+                actor=_actor(prose,start,cast)
+                if not actor or actor not in clause[:m.end()]:
+                    issue("WF116_FRUIT_TRANSFER_ACTOR_UNKNOWN",[start,begin+m.end()])
+                    continue
+                alias=m.group(1)
+                if alias!=fruit and prose.find(fruit)>=start:
+                    issue("WF116_ALIAS_NOT_PREVIOUSLY_NAMED",[start,begin+m.end()])
+                    continue
+                key=_cell("item",fruit,"holder")
+                expected=working.get(key)
+                if expected!=actor+"齿间":
+                    issue("WF116_MISSING_TEETH_TO_PALM_PRECONDITION",
+                          [start,begin+m.end()])
+                    continue
+                pos=m.group(2)
+                if pos=="掌心":pos="掌心(左右未明)"
+                put(clause.strip(),begin+len(clause)-len(clause.lstrip()),
+                    domain="item",entity=fruit,predicate="holder",
+                    value=actor+pos,alias=alias if alias!=fruit else None)
+        # A source-narrated arm incapacity, not an adversary's "废了" speech.
+        if ("右手" in clause and
+            "锁脉诀" in clause and
+            any(x in clause for x in ("发麻","不听使唤"))):
+            actor=_actor(prose,begin,cast)
+            if actor:
+                put(clause.strip(),begin+len(clause)-len(clause.lstrip()),
+                    domain="character",entity=actor,predicate="右臂可用性",
+                    value="受限")
+        # The actual V114B first disability spans TWO adjacent source
+        # sentences; both must be contiguous and explicitly describe cause.
+        if "灵力从肘弯往下被截断" in clause and "手指头瞬间不听使唤" in clause:
+            prev=next(((b,e,s) for b,e,s,_ in clauses if e==begin),None)
+            if prev and "右手" in prev[2] and "锁脉诀" in prev[2]:
+                actor=_actor(prose,prev[0],cast)
+                quote=prose[prev[0]:end].strip()
+                if actor:
+                    put(quote,prev[0],domain="character",entity=actor,
+                        predicate="右臂可用性",value="受限")
+                else:issue("WF116_ARM_SUBJECT_UNRESOLVED",[prev[0],end])
+        if ("丹火" in clause and "右前臂" in clause and
+            any(x in clause for x in ("舔上","烧到","灼到","灼伤"))):
+            actor=_actor(prose,begin,cast)
+            if actor:
+                put(clause.strip(),begin+len(clause)-len(clause.lstrip()),
+                    domain="character",entity=actor,predicate="右臂伤情",
+                    value="丹火灼及右前臂")
+            else:issue("WF116_BURN_SUBJECT_UNRESOLVED",[begin,end])
+        if "右臂" in clause and (
+            "甩在身后" in clause or "垂着" in clause or "抬不起来" in clause):
+            actor=_actor(prose,begin,cast)
+            if actor:
+                put(clause.strip(),begin+len(clause)-len(clause.lstrip()),
+                    domain="character",entity=actor,predicate="右臂可用性",
+                    value="受限")
+            else:issue("WF116_ARM_DISABILITY_SUBJECT_UNRESOLVED",[begin,end])
+    events.sort(key=lambda e:e["evidence"]["start"])
+    for i,e in enumerate(events,1):e["id"]=f"wf116_e{i:02d}"
+    return {
+        "format":FMT,"source_sha256":_sha(prose),
+        "named_entity_candidates":candidates,
+        "source_anchored_events":events[:MAX_EVENTS],
+        "unresolved":unresolved[:MAX_ISSUES],
+        "no_unanchored_fruit_consumption":True,
+        "no_permanent_arm_diagnosis":True,
+        "canonical_fact_writes":0,"model_calls":0,
+        "semantic_truth_independently_proven":False,
+    }
+
+
+def preflight_next_prose(next_prose, *, previous_candidate_state,
+                         previous_risks=()):
+    """Reject demonstrable state jumps *before accepting* a generated turn.
+
+    Called AFTER one model response, BEFORE accepted_turns.append. Never
+    triggers a retry, rewrites prose, or promotes a candidate to truth.
+    """
+    if type(next_prose) is not str or len(next_prose)>MAX_PROSE:
+        raise ValueError("WF116_NEXT_PROSE_BOUNDS")
+    if type(previous_candidate_state) is not dict or len(previous_candidate_state)>36:
+        raise ValueError("WF116_PREVIOUS_STATE_BOUNDS")
+    findings=[]
+    arm=next((v for k,v in previous_candidate_state.items()
+              if '"character"' in k and '"右臂可用性"' in k and v=="受限"),None)
+    fruit=next(((k,v) for k,v in previous_candidate_state.items()
+                if '"item"' in k and '"holder"' in k and
+                   ("髓果" in k or "灵果" in k or "仙果" in k)),None)
+    if arm and re.search(r"(?:右手|右臂).{0,10}(?:"+
+                         "|".join(ARM_ACTIONS)+r")",next_prose):
+        if not any(x in next_prose for x in RECOVERY):
+            findings.append("WF116_ARM_USED_WITHOUT_RECOVERY")
+        elif not any(x in next_prose for x in RECOVERY_CAUSE):
+            findings.append("WF116_ARM_RECOVERY_WITHOUT_SOURCE")
+        else:
+            findings.append("WF116_ARM_RECOVERY_CLAIM_NEEDS_REVIEW")
+    if fruit:
+        key,holder=fruit
+        actor=holder.split("左手心")[0].split("右手心")[0].split("齿间")[0]
+        if ("左手心" in holder or "右手心" in holder):
+            if re.search(r"(?:果子|火髓果).{0,12}(?:仍|还)?(?:在|含|咬).{0,3}齿间",next_prose) and not any(
+                v in next_prose for v in ("送入口","塞入口","含到","咬住","放入口")):
+                findings.append("WF116_FRUIT_TEETH_WITHOUT_REHANDOFF")
+            if re.search(r"(?:唐蜃.{0,8}(?:手里|手中).{0,8}(?:果子|火髓果)|"
+                         r"(?:果子|火髓果).{0,8}(?:在|落在)唐蜃(?:手里|手中))",
+                         next_prose) and not any(x in next_prose for x in (
+                             "交给唐蜃","递给唐蜃","抢走","夺走","掷给唐蜃")):
+                findings.append("WF116_FRUIT_TELEPORT_TO_OTHER_ACTOR")
+        if re.search(r"(?:吃了|吞了|服下|吞服)(?:果子|火髓果)",next_prose) and not any(
+            x in next_prose for x in ("送入口","塞入口","放入口","从掌心拿","拿起","送到嘴边")):
+            findings.append("WF116_FRUIT_CONSUMPTION_WITHOUT_HANDOFF")
+        if (("法力" in next_prose or "灵力" in next_prose) and
+            re.search(r"(?:恢复|回涨|补满|充盈|暴涨)",next_prose) and
+            not any(x in next_prose for x in (
+                "吞下","吞服","吃下","丹药","运转功法","吸收","丹火","灵阵"))):
+            findings.append("WF116_ENERGY_RECOVERY_WITHOUT_SOURCE")
+    # Old V113 sword-tassel case stays unsettled: a new scene cannot
+    # silently declare an already-disputed move a trusted prior fact.
+    risks=list(previous_risks)[:16]
+    if any(x.get("kind") in ("UNPROVEN_ITEM_TRANSFER",
+                              "ITEM_OWNER_CHANGE_WITHOUT_TRANSFER")
+           for x in risks) and re.search(r"(?:旧剑穗|剑穗).{0,24}(?:一直|早已|本来就在|自然就在)(?:索钩|钩尖)",next_prose):
+        findings.append("WF116_SWORD_TASSEL_UNRESOLVED_RETCON")
+    return {
+        "format":"wf.writing.preflight.v116",
+        "next_prose_sha256":_sha(next_prose),
+        "blocked":bool(findings),
+        "findings":findings[:12],
+        "model_calls":0,"literary_truth_proven":False,
+        "automatic_rewrite":False,"new_model_retries":0,
+    }
+
+
+def compact_verified_delta_context(report, reducer):
+    """Bounded *existing* temporal state for the next writer prompt."""
+    if report.get("format")!=FMT:raise ValueError("WF116_BAD_SOURCE_REPORT")
+    if reducer.get("format")!="wf.fallback.novel-studio.result.v114":
+        raise ValueError("WF116_BAD_REDUCER_REPORT")
+    state=reducer.get("candidate_state",{})
+    lines=["【原文动作事件的候选状态，非正典；下一段须交代状态变化】"]
+    for key,value in sorted(state.items()):
+        try: domain,entity,predicate,scope,_=json.loads(key)
+        except (TypeError,ValueError):continue
+        if scope!="author_plan":continue
+        if domain=="item" and predicate=="holder":
+            lines.append(f"{entity}：上一段最后有证据的位置为{value}；转移需写出交接动作。")
+        if domain=="character" and predicate in ("右臂可用性","右臂伤情"):
+            lines.append(f"{entity}{predicate}：{value}；受伤未自动痊愈，"
+                         "继续打斗不能凭空恢复右臂动作。")
+    for risk in reducer.get("risks",[])[:4]:
+        lines.append("未决变化："+risk["kind"]+"；不自动改写或接受。")
+    for risk in report.get("unresolved",[])[:3]:
+        lines.append("不确定证据："+risk["code"])
+    lines.append("咬住灵果不等于吞服，未看到资源补充就不能推定法力恢复；"
+                 "保持正常小说节奏，不要解释成清单。")
+    return "\n".join(lines)[:1150]
