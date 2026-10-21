@@ -1,0 +1,66 @@
+name: V114B unique real WF continuity Novel Studio 150K fixed - GitHub only
+on:
+  push:
+    branches: [v114-chase-live-state-and-oss-fallback]
+    paths:
+      - '.github/workflows/v114b-real-one-shot-continuity.yml'
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-v114b-fixed-budget-real-novel-studio-one-shot
+  cancel-in-progress: false
+jobs:
+  live-native-writing:
+    if: github.repository == '66tyu55/WriterForge' && github.ref == 'refs/heads/v114-chase-live-state-and-oss-fallback'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - name: Checkout unique pre-registered V114B experiment
+        uses: actions/checkout@v4
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Node 22 original MIT Novel Studio state reducer
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install WF plus private R2 S3 client
+        run: python -m pip install -e '.[r2]'
+      - name: Zero-cost full budget and actual memory integration contract checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v114b_flash_budget_and_json_preflight.py -q
+          python -m unittest discover -s tests -p test_v114_real_staged_writing_preflight.py -q
+          python -m unittest discover -s tests -p test_v114_continuity_memory.py -q
+          python -m unittest discover -s tests -p test_v114_external_literary_memory.py -q
+          python - <<'PY'
+          import os
+          from experiments import v114b_real_wf_continuity_once as t
+          from writerforge.v114_external_story_state import require_external_runtime
+          require_external_runtime()
+          assert t.EXAM=='WF-V114B-FIXED-150K-REAL-CONTINUITY-20261021'
+          assert t.MAX_TOTAL==150000 and t.MAX_CALLS==4 and t.MAX_OUTPUT==5000
+          assert t.TASK=='给我一个追逐打斗的玄幻1000字'
+          assert all('JSON' in s for s in (t.PLAN_SYSTEM,t.CHAPTER_SYSTEM,t.TURN_SYSTEM))
+          assert t.precommit()['V114B_is_new_precommit_not_replay'] is True
+          assert t.precommit()['acceptance_and_skill_graduation']=='LOCKED'
+          assert all(os.environ.get(name) for name in (
+            'DEEPSEEK_API_KEY','WRITERFORGE_R2_ACCOUNT_ID',
+            'WRITERFORGE_R2_BUCKET','WRITERFORGE_R2_ACCESS_KEY_ID',
+            'WRITERFORGE_R2_SECRET_ACCESS_KEY'))
+          print('V114B exact budget, offline original WF path, source memory PASS - zero calls')
+          PY
+      - name: ONE PAID EXPERIMENT - new V114B only, never replay original V114
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m experiments.v114b_real_wf_continuity_once
