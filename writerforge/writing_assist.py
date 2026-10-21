@@ -53,6 +53,10 @@ from .v114_external_story_state import (
     external_temporal_step,temporal_prompt,
 )
 from .v116_state_delta import preflight_next_prose
+from .v117_continuity_trace import (
+    audit_continuity,compact_context,preflight_continuation,
+    make_resume,read_resume,ContinuityTraceError,
+)
 
 MAX_LIVE_CONTEXT = 1400
 MAX_OUTLINE_CHARS = 6000
@@ -304,7 +308,9 @@ class AutonomousWriting:
             author_confirmed_forbidden_phrases:tuple[str,...]=(),
             frozen_turn_outlines:tuple[str,...]|None=None,
             forward_author_pinned_facts:dict[str,str]|None=None,
-            resume_candidate_checkpoint:dict|None=None) -> dict:
+            resume_candidate_checkpoint:dict|None=None,
+            resume_story_checkpoint:dict|None=None,
+            continuity_reference:dict|None=None) -> dict:
         # 'single' remains byte-for-byte compatible with legacy output
         # behavior. split_only vs causal_guard share the SAME JSON turn
         # planning/response interface so B/C can be fairly compared.
@@ -325,6 +331,25 @@ class AutonomousWriting:
             resume_candidate_checkpoint is not None):
             raise WritingExecutionError(
                 "WF105_FORWARD_ONLY_GUARDS_CANNOT_BE_IGNORED_BY_OTHER_MODES")
+        if draft_mode!="continuity_guard" and (
+            resume_story_checkpoint is not None or
+            continuity_reference is not None):
+            raise WritingExecutionError(
+                "WF117_TEXT_CONTINUITY_ONLY_PARAMETERS_REFUSED")
+        # Source-checkpoint resume is explicit, signed, project-scoped, and
+        # NEVER silently imports a previous unaccepted draft as canon.
+        earlier_external=None
+        first_story_chapter_index=0
+        if resume_story_checkpoint is not None:
+            try:
+                earlier_external=read_resume(
+                    resume_story_checkpoint,
+                    project_id=self.assist.project_id,
+                    scene_id=self.assist.scene_id)
+                first_story_chapter_index=(
+                    resume_story_checkpoint["chapter_index"]+1)
+            except ContinuityTraceError as exc:
+                raise WritingExecutionError(str(exc)) from None
         if draft_mode!="single" and len(chapter_goals)>MAX_SEGMENTED_CHAPTERS_PER_JOB:
             raise WritingExecutionError(
                 "WF96_SEGMENTED_CHAPTER_REQUEST_BUDGET_EXCEEDED")
@@ -372,7 +397,7 @@ class AutonomousWriting:
         rolling_replan_calls=0
         previous_emotional_turns=()
         previous_continuity_checkpoint=None
-        previous_external_story_checkpoint=None
+        previous_external_story_checkpoint=earlier_external
         for index,goal in enumerate(chapter_goals,1):
             last_chapter_pressure=(
                 pressure_context(previous_emotional_turns)
@@ -541,6 +566,7 @@ class AutonomousWriting:
                 )
                 accepted_turns=[]
                 accepted_beats=[]
+                trace_checks=[]
                 rolling_receipts=[]
                 rolling_goals=[]
                 rolling_prompt_shas=[]
@@ -613,6 +639,13 @@ class AutonomousWriting:
                                   "上一段尚无已观察持有者。剑、符、信物转移必须"
                                   "写出真实动作；法力消耗后不能无来源恢复。"
                                   "无法确认就保留未知，不必强塞牺牲。"))
+                            if current_external_story_checkpoint is not None:
+                                trace_frame=audit_continuity(
+                                    current_external_story_checkpoint,
+                                    project_id=self.assist.project_id,
+                                    chapter_index=first_story_chapter_index+index-1,
+                                    reference=continuity_reference)
+                                turn_addition+=("\n"+compact_context(trace_frame))
                         if draft_mode in ("emotion_rolling","foresight_rolling"):
                             turn_addition+=emotion_turn_instructions(
                                 tuple(accepted_turns))
@@ -662,25 +695,20 @@ class AutonomousWriting:
                                     author_confirmed_forbidden_phrases))
                         if (draft_mode=="continuity_guard" and
                             current_external_story_checkpoint is not None):
-                            # A segment must not become accepted while using
-                            # a prior item/arm state without a stated transition.
-                            # Candidate-only: refusal, NEVER silent rewriting or
-                            # a second model request.
-                            preflight=preflight_next_prose(
+                            # Same model response, same original prose. Audit
+                            # source state + chapter time + POV knowledge.
+                            # Lexical ambiguity is flagged, not overblocked.
+                            preflight=preflight_continuation(
                                 evidence["prose"],
-                                previous_candidate_state=(
-                                    current_external_story_checkpoint[
-                                        "reducer_result"]["candidate_state"]),
-                                previous_risks=(
-                                    current_external_story_checkpoint[
-                                        "reducer_result"].get("risks",[])+
-                                    current_external_story_checkpoint[
-                                        "original_native_candidate_report"
-                                    ].get("risks",[])))
+                                current_external_story_checkpoint,
+                                project_id=self.assist.project_id,
+                                chapter_index=first_story_chapter_index+index-1,
+                                reference=continuity_reference)
+                            trace_checks.append(preflight)
                             if preflight["blocked"]:
-                                raise WritingExecutionError(
-                                    "WF116_NEXT_TURN_STATE_PRECONDITION_REJECTED:"+
-                                    ",".join(preflight["findings"]))
+                                raise ContinuityTraceError(
+                                    "WF117_NEXT_TURN_STATE_PRECONDITION_REJECTED:"+
+                                    ",".join(preflight["state_findings"]))
                         accepted_turns.append(evidence)
                         accepted_beats.append(beat)
                         if draft_mode=="continuity_guard":
@@ -710,6 +738,8 @@ class AutonomousWriting:
                         turn_evidence["v114_observed_continuity_risks"]=(
                             current_continuity_checkpoint["report"]["risks"])
                         turn_evidence["v114_literary_semantics_verified"]=False
+                        turn_evidence["v117_cross_chapter_preflight"]=trace_checks
+                        turn_evidence["v117_extra_model_calls"]=0
                     if draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling"):
                         turn_evidence.update({
                             "mode":draft_mode,
@@ -755,7 +785,8 @@ class AutonomousWriting:
                 except (V96CausalDraftError,V98RollingPlanError,
                         V102EmotionalCausalityError,
                         V105FutureCausalityError,
-                        V114ContinuityError,V114ExternalMemoryError) as error:
+                        V114ContinuityError,V114ExternalMemoryError,
+                        ContinuityTraceError) as error:
                     # Keep the red record, not the private failed novel.
                     # No partial draft becomes accepted or FactJournal KNOWN.
                     issue={
@@ -892,6 +923,22 @@ class AutonomousWriting:
                         current_continuity_checkpoint["report"]["risks"]),
                     "v114_carry_memory_to_next_turn":True,
                     "v114_literary_semantics_verified":False,
+                })
+                # Keep candidate continuity as a bounded continuation receipt
+                # within existing local chapter artifacts, no new database.
+                resume=make_resume(
+                    project_id=self.assist.project_id,
+                    scene_id=self.assist.scene_id,
+                    chapter_index=first_story_chapter_index+index-1,
+                    checkpoint=current_external_story_checkpoint)
+                resume_file=folder/"v117_unreviewed_text_trace_resume.json"
+                resume_file.write_text(json.dumps(
+                    resume,ensure_ascii=False,indent=2),encoding="utf8")
+                chapter_data.update({
+                    "v117_unreviewed_text_trace_resume":str(resume_file),
+                    "v117_source_only_preflight_count":len(trace_checks),
+                    "v117_new_model_calls_for_tracking":0,
+                    "v117_source_state_still_not_canon":True,
                 })
                 previous_continuity_checkpoint=current_continuity_checkpoint
                 previous_external_story_checkpoint=current_external_story_checkpoint
