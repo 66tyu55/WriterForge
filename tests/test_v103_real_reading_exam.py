@@ -90,7 +90,7 @@ class V103RealExamContract(unittest.TestCase):
         self.assertFalse(rec["predictive_accuracy_verified"])
         obs=public_read_observation(1,self.sample_answer(),True,None)
         self.assertEqual(obs["semantic_grade"],"UNDETERMINED")
-        self.assertIn("不",obs["student_plot"])
+        self.assertIn("葛梨",obs["student_plot"])
 
     def test_unwritten_evidence_and_future_leak_are_not_accepted(self):
         fake=self.sample_answer()
