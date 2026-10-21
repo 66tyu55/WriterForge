@@ -43,18 +43,32 @@ def _prior(state, domain, entity, predicate):
 
 
 def _segments(prose):
-    """Source offsets and whether the *start* lies inside dialogue."""
-    in_dialogue=False
-    for m in CLAUSE.finditer(prose):
-        raw=m.group()
-        start=m.start()
-        # Clauses starting with a closing quote may still be outside speech:
-        # evaluate position from the entire prefix, not last speaker heuristic.
-        before=prose[:start]
-        in_dialogue=before.count("“") > before.count("”")
-        # If quote opens before actionable phrase in this clause, the proposed
-        # action itself is tested separately with _present below.
-        yield start,m.end(),raw,in_dialogue
+    """Character offsets with nested Chinese dialogue punctuation respected.
+
+    Sentence-final stops *inside* “speech” cannot cut off the closing quote,
+    otherwise the following narrator sentence falsely inherits dialogue.
+    A segment containing direct quotation is always non-event evidence.
+    """
+    start=0
+    depth=0
+    for index,ch in enumerate(prose):
+        was_quoted=depth>0
+        if ch in ("“","「"):
+            depth+=1
+        elif ch in ("”","」"):
+            depth=max(0,depth-1)
+        boundary=(depth==0 and (ch in "。！？\n" or
+                  (ch in ("”","」") and was_quoted)))
+        if boundary:
+            fragment=prose[start:index+1]
+            spoken=any(mark in fragment for mark in ("“","”","「","」"))
+            yield start,index+1,fragment,spoken
+            start=index+1
+    if start<len(prose):
+        fragment=prose[start:]
+        spoken=(depth>0 or any(
+            mark in fragment for mark in ("“","”","「","」")))
+        yield start,len(prose),fragment,spoken
 
 
 def _present(prose, start, end):
@@ -64,9 +78,9 @@ def _present(prose, start, end):
     if prefix.count("“") > prefix.count("”"):
         return False
     frag=prose[start:end]
-    # Entirely inside speech is never a narrative event.
-    return not (frag.lstrip().startswith("“") and
-                frag.find("”") < 0)
+    # Even a dialogue line with a narrator speech-tag is not a source
+    # assertion of the quoted action. No quoted action event.
+    return not any(mark in frag for mark in ("“","”","「","」"))
 
 
 def _actor(prose, start, cast, *, limit=220):
