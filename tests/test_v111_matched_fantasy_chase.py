@@ -15,7 +15,7 @@ from writerforge import WriterForgeDB,RuntimeEngine
 from writerforge.writing_assist import (
     InvisibleWritingAssist,AutonomousWriting,
 )
-from wf_railway_v108_real_e_f_once import fake_but_published_snapshot
+from experiments.v111_peer.neutral_bridge import fresh_neutral_published_snapshot as fake_but_published_snapshot
 
 class V111MatchedOriginalProse(unittest.TestCase):
     def test_real_pinned_MIT_github_skill_installed_text_only(self):
