@@ -1,0 +1,58 @@
+name: V116 V113-V114B sealed zero-model state continuity audit
+on:
+  push:
+    branches: [v116-sealed-zero-model-state-delta-preflight]
+    paths:
+      - .github/workflows/v116-readonly-sealed-state-delta.yml
+      - writerforge/v116_state_delta.py
+      - writerforge/v114_external_story_state.py
+      - writerforge/writing_assist.py
+      - experiments/v114_fallback_novel_studio/bridge.mjs
+      - experiments/v116_readonly_sealed_state_audit.py
+      - tests/test_v116_state_delta.py
+
+permissions:
+  contents: read
+concurrency:
+  group: wf116-sealed-zero-model-state-delta
+  cancel-in-progress: false
+
+jobs:
+  offline-and-sealed:
+    if: github.repository == '66tyu55/WriterForge'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm inference keys deliberately absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${DEEPSEEK:-}"
+          test -z "${DEEPSEEK_API_KEY:-}"
+          echo "No DeepSeek, no new model budget; R2 original CAS only read"
+      - name: Install existing local project and read-only S3 dependency
+        run: python -m pip install -e '.[r2]'
+      - name: Check targeted zero-model event and preflight regression
+        run: python -m unittest discover -s tests -p test_v116_state_delta.py -v
+      - name: Read exact sealed original R2 bytes and apply original MIT reducer
+        run: python -m experiments.v116_readonly_sealed_state_audit
+      - name: Archive source-free numeric and checksum receipt only
+        uses: actions/upload-artifact@v4
+        with:
+          name: V116-original-V113-V114B-state-delta-zero-model-audit
+          path: wf116_sealed_state_audit_summary/STATE_DELTA_READONLY_AUDIT.json
+          retention-days: 30
+          if-no-files-found: error
