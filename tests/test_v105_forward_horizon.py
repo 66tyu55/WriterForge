@@ -145,7 +145,7 @@ class FutureWorldTests(unittest.TestCase):
     def test_hidden_spoilers_and_untrusted_pins_are_not_injected(self):
         instructions=horizon_prompt()
         self.assertNotIn("original novel sentence",instructions)
-        self.assertIn("不能偷偷扩充",instructions)
+        self.assertIn("模型不得偷偷扩充",instructions)
         with self.assertRaisesRegex(V105FutureCausalityError,"PINNED_AUTHOR"):
             validate_horizon(simple_branches(),
                              author_pinned={"Power Invalid Key":"on"})
