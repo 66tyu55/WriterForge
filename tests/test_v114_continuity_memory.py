@@ -126,7 +126,7 @@ class WFRealEntrypointIntegration(TestCase):
         from test_v102_emotional_causality import note1,note2
         ans=[
             PLAN,                    # whole chapter plan
-            json.dumps({"turns":turns()},ensure_ascii=False),
+            json.dumps(turns(),ensure_ascii=False),
             json.dumps({
                 "prose":prose1(),
                 "trace":{"action_quote":ACTION1,"effect_quote":EFFECT1,
