@@ -34,7 +34,7 @@ jobs:
           test -z "${DEEPSEEK_API_KEY:-}"
           test -z "${DEEPSEEK:-}"
           echo 'Only immutable prior WF short story R2 CAS read: zero inference'
-      - name: V115 real 964-character original dynamically discovered entities and Novel Studio candidate coverage
+      - name: V115 verify fire marrow fruit and right-arm body-part both retained as unknown-state source mentions
         run: python -m experiments.v114d_readonly_real_memory_coverage
       - uses: actions/upload-artifact@v4
         with:
