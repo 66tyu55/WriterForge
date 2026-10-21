@@ -195,6 +195,12 @@ def external_temporal_step(prose,*,cast=(),prior=None):
          result.get("no_automatic_canon_promotion") is True and
          result.get("literary_semantics_verified") is False,
          "WF114_EXTERNAL_REDUCER_CERTIFICATE_INVALID")
+    # Upstream can refuse an entire atomic batch on a stale expected value.
+    # Do not pretend that state verification succeeded or move to the next
+    # draft on a silent no-op. Old V113 UNPROVEN transfer is a separate,
+    # reportable, non-fatal unresolved risk (not reducer error_code).
+    need(result.get("error_code") is None,
+         "WF116_NOVEL_STUDIO_PRECONDITION_OR_REDUCER_FAILED_CLOSED")
     checkpoint={
         "format":"wf.writing.external-temporal-checkpoint.v114",
         "source_sha256":hashb(prose.encode("utf8")),
