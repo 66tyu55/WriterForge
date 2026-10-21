@@ -25,6 +25,9 @@ from .v114_continuity_memory import (
 from .v115_dynamic_entity_candidates import (
     discover_candidates,compact_entity_context,
 )
+from .v116_state_delta import (
+    extract_state_events,compact_verified_delta_context,
+)
 
 FORMAT="wf.fallback.novel-studio.result.v114"
 MAX_PACKET_BYTES=130000
@@ -157,7 +160,12 @@ def external_temporal_step(prose,*,cast=(),prior=None):
         seq=prior["sequence"]+1
     report,events=actual_item_events(prose,cast=cast,prior_state=old)
     named_candidates=discover_candidates(prose)
-    need(len(events)<=55,"WF114_EXTERNAL_EVENT_LIST_UNBOUNDED")
+    dynamic_delta=extract_state_events(prose,cast=cast,prior_state=old)
+    # One PINNED reducer, one candidate state. Native static observations and
+    # dynamic source actions share expected-old-value semantics and time order.
+    events=sorted(events+dynamic_delta["source_anchored_events"],
+                  key=lambda e:e["evidence"]["start"])
+    need(len(events)<=30,"WF116_EXTERNAL_EVENT_LIST_UNBOUNDED")
     packet={
         "format":"wf.fallback.novel-studio.input.v114",
         "source_prose":prose,
@@ -193,6 +201,7 @@ def external_temporal_step(prose,*,cast=(),prior=None):
         "sequence":seq,"previous_checkpoint_sha256":prev_sha,
         "original_native_candidate_report":report,
         "dynamic_source_entity_candidates":named_candidates,
+        "v116_anchored_state_delta":dynamic_delta,
         "dynamic_entity_mentions_are_not_events":True,
         "source_anchored_events_count":len(events),
         "reducer_result":result,
@@ -212,6 +221,9 @@ def temporal_prompt(checkpoint):
     output=checkpoint["reducer_result"]
     state=_prior_owners(output["candidate_state"])
     parts=["【真实正文中的候选物件状态（Novel Studio时态归约，非已确认正典）】"]
+    if checkpoint.get("v116_anchored_state_delta"):
+        parts.append(compact_verified_delta_context(
+            checkpoint["v116_anchored_state_delta"],output))
     for item,holder in sorted(state.items()):
         parts.append(f"{item}：此前明确由{holder}持有或位于该处。"
                      "后续移动必须有实际转移过程，不能靠抒情句子改变位置。")
