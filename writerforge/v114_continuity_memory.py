@@ -109,7 +109,12 @@ def literal_item_continuity(prose,*,cast=(),tracked=TRACKED,prior_report=None):
                 prior_report.get("format")==
                     "wf.writing.candidate-literal-continuity.v114",
                 "WF114_PRIOR_REPORT_NOT_CANDIDATE")
-        for e in prior_report.get("observations",[]):
+        previous_active=prior_report.get(
+            "active_state",prior_report.get("observations",[]))
+        require(type(previous_active) is list and
+                len(previous_active)<=MAX_ITEMS,
+                "WF114_PRIOR_ACTIVE_STATE_UNBOUNDED")
+        for e in previous_active:
             seen[e["item"]]={
                 "item":e["item"],"holder_hypothesis":e["holder_hypothesis"],
                 "anchor":e["anchor"],"event_end":0}
@@ -184,6 +189,7 @@ def literal_item_continuity(prose,*,cast=(),tracked=TRACKED,prior_report=None):
         "prose_sha256":hashb(prose.encode("utf8")),
         "items_seen":len(candidates),
         "observations":candidates,
+        "active_state":[seen[k] for k in sorted(seen)],
         "risks":risks,
         "no_silent_transfer_or_resource_creation":True,
         "mechanical_coverage_limited_to_observable_phrases":True,
@@ -198,7 +204,7 @@ def compact_status(report):
             "WF114_REPORT_NOT_VALIDATED")
     # Only grounded, observed claims in *previous* actual prose.
     latest={}
-    for e in report["observations"]:
+    for e in report.get("active_state",report["observations"]):
         latest[e["item"]]=e["holder_hypothesis"]
     parts=["【前段真实正文的候选物件状态（不能把预测或修辞当成正典）】"]
     for item,holder in sorted(latest.items()):
