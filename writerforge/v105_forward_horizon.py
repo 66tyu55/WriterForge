@@ -155,6 +155,8 @@ def validate_horizon(plan,*,author_pinned=None):
                 "WF105_FUTURE_STEPS_BOUNDS")
         projected=dict(pinned)
         origins={k:"AUTHOR_PINNED" for k in pinned}
+        originating_step={}
+        causal_links=[]
         concerns=[]
         debt_ids=set()
         promised=[]
@@ -195,6 +197,14 @@ def validate_horizon(plan,*,author_pinned=None):
                     status=("SUPPORTED_BY_AUTHOR_PIN"
                             if origins[fact]=="AUTHOR_PINNED"
                             else "DEPENDS_ON_UNVERIFIED_PLANNED_EFFECT")
+                if origins.get(fact)=="PLANNED_UNVERIFIED":
+                    causal_links.append({
+                        "from_step":originating_step[fact],
+                        "to_step":s["id"],"fact_key":fact,
+                        "kind":("SYMBOLIC_CAUSAL_SUPPORT_UNVERIFIED"
+                                if current==expected
+                                else "SYMBOLIC_CAUSAL_THREAT"),
+                        "literary_semantics_verified":False})
                 if status not in ("SUPPORTED_BY_AUTHOR_PIN",):
                     this_issues.append({
                         "kind":status,"step_id":s["id"],"fact_key":fact,
@@ -208,6 +218,7 @@ def validate_horizon(plan,*,author_pinned=None):
                 changed_in_this_step.add(fact)
                 projected[fact]=new
                 origins[fact]="PLANNED_UNVERIFIED"
+                originating_step[fact]=s["id"]
             for debt in s["future_debts"]:
                 _debt(debt)
                 require(debt["id"] not in debt_ids,
@@ -265,6 +276,7 @@ def validate_horizon(plan,*,author_pinned=None):
                       "NOT_CONTRADICTED_BY_KNOWN_SYMBOLS"),
             "step_findings":traces,
             "all_findings":concerns,
+            "symbolic_causal_links":causal_links,
             "forecast_debts":promised,
             "semantic_writing_feasibility_verified":False,
             "branch_winner":False,
