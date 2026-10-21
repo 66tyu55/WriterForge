@@ -84,7 +84,7 @@ class EqualLengthThreeArm(unittest.TestCase):
             "GITHUB_STORYTELLER":"逃"*1100,
         })["eligible_for_equal_length_literary_review"])
         self.assertFalse(new.length_fairness_by_arm({
-            k:v for k,v in good.items() if k!="WF_SINGLE",
+            k:v for k,v in good.items() if k!="WF_SINGLE"
         })["eligible_for_equal_length_literary_review"])
 
     def test_original_prose_never_cropped_even_when_overlong(self):
