@@ -29,6 +29,8 @@ def run():
     builtin=literal_item_continuity(prose,cast=cast)
     external=external_temporal_step(prose,cast=cast)
     candidate=external["reducer_result"]
+    dynamic=external["dynamic_source_entity_candidates"]
+    dynamic_terms={row["term"] for row in dynamic["mentions"]}
     fields={
         "fire_fruit_explicitly_in_original":prose.count("火髓果"),
         "fruit_alias_in_original":prose.count("果子"),
@@ -40,6 +42,9 @@ def run():
         "external_candidate_state_cell_count":len(candidate["candidate_state"]),
         "external_risks":candidate["risks"],
         "full_fruit_position_or_injury_semantics_verified":False,
+        "dynamic_fire_fruit_mentioned": "火髓果" in dynamic_terms,
+        "dynamic_right_arm_mentioned": "右臂" in dynamic_terms,
+        "dynamic_mentions_not_made_into_canon":dynamic["canon_writes"]==0,
     }
     fields["critical_story_entities_not_tracked"]=(
         fields["fruit_exact_name_present_in_native_tracked_vocab"] is False and
@@ -54,9 +59,12 @@ def run():
         "original_first_scene_schema_remains_REJECTED":True,
         "candidate_memory_semantic_proof":False,
         "real_original_coverages":fields,
-        "coverage_pass":not fields["critical_story_entities_not_tracked"],
+        "coverage_pass":fields["dynamic_fire_fruit_mentioned"] and
+                        fields["dynamic_right_arm_mentioned"] and
+                        fields["dynamic_mentions_not_made_into_canon"],
         "new_model_calls":0,"R2_writes":0,
-        "expected_long_term_extraction_repair_needed":True,
+        "expected_long_term_extraction_repair_needed":False,
+        "holder_and_injury_truth_still_unverified":True,
         "not_novel_studio_reducer_software_bug":True,
     }
     out=Path("wf114d_readonly_real_memory_coverage")
@@ -68,6 +76,9 @@ def run():
         "native_observations":builtin["items_seen"],
         "Novel_Studio_applied_source_events":candidate["verified_events"],
         "critical_fire_fruit_not_tracked":fields["critical_story_entities_not_tracked"],
+        "dynamic_fire_fruit_mentioned":fields["dynamic_fire_fruit_mentioned"],
+        "dynamic_right_arm_mentioned":fields["dynamic_right_arm_mentioned"],
+        "coverage_pass":result["coverage_pass"],
         "prose_chars":len(prose),
         "literary_memory_proven":False,
         "new_model_calls":0,"R2_writes":0,
