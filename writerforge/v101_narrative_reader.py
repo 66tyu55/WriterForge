@@ -310,7 +310,11 @@ def check_history(history,*,story_id,source_sha256,before_chapter):
     require(type(history) in (tuple,list) and len(history)<=MAX_HISTORY,
             "WF101_HISTORY_OVER_BUDGET")
     former=0
-    prior_sha=None
+    # A bounded history may be a suffix of a longer immutable CAS chain.
+    prior_sha=history[0].get("previous_reader_receipt_sha256") if history else None
+    require(prior_sha is None or (type(prior_sha) is str and
+            _SHA.fullmatch(prior_sha) is not None),
+            "WF101_HISTORY_PARENT_CAS_INVALID")
     for rec in history:
         require(type(rec) is dict and
                 rec.get("format")=="wf.learn.narrative-comprehension.v101"
@@ -365,9 +369,10 @@ def reader_context(*,history,story_id,source_sha256,before_chapter):
             if k[0]=="actor":seen_actor.add(k[1])
             elif k[0]=="relation":seen_relation.add(k[1])
             else:seen_debt.add(k[1])
-    heads.append("这些是待核对假说，不是角色已知真相；不能提前看后文，不可把关系标签当剧情。")
-    # Reserve the mandatory uncertainty notice from the start by slicing.
-    return "\n".join(heads)[:MAX_CONTEXT_CHARS]
+    notice="这些是待核对假说，不是角色已知真相；不能提前看后文，不可把关系标签当剧情。"
+    # Always reserve the epistemic warning: it must never be truncated away.
+    return ("\n".join(heads)[:MAX_CONTEXT_CHARS-len(notice)-1]
+            +"\n"+notice)
 
 
 SYSTEM=(
