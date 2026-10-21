@@ -28,3 +28,14 @@
 E对照F的两篇新真实小说没有生成，故**V105写前预演是否使文学逻辑、人物选择和实际代价更自然，仍是UNDETERMINED**。下一轮不应按本次失败继续增量付费修格式，而应先验收本轮记录与正确的完整原答索引方案，再以新、唯一冻结题目在固定预算内运行。此处的根因是结构化数据契约与实验日志设计，不能用前瞻规划“模型不聪明”搪塞。
 
 Railway生产服务保持 `python -u wf_railway_v82_safe_idle.py` 和 `restartPolicyType=NEVER`，第二文学窗口仍 `LOCKED`，V49历史失败保留。
+
+
+## 实际零模型R2冷恢复回执（2026-10-21）
+
+- 隔离只读Railway部署：`77b260e9-e128-4122-9c12-419d3fef58b2`，启动命令 `wf_railway_v107_v106_readonly_forensic.py`，只有 `WF_API_TOKEN`，且启动时主动移除 `DEEPSEEK_API_KEY` 和写入凭据。真实日志状态 `WF107_V106_ORIGINAL_PRECOMMIT_AND_REQUEST_COLD_VERIFIED`；最终退出码0。
+- 按原V106源码**重新计算**的预注册 CAS SHA：`8bd27fa9ed193decc2fbb2953e47333dc1cedd48f064929b958af0564011550f`；远端全文字节与计算值完全一致。
+- 第一次模型实际请求意图 CAS SHA：`e99c1d3954d16965c673abfcf3c9c544b6c3a28ff322e05946570553f6327c95`；远端按原系统提示、用户提示、最大1450输出预约、`self_scene_writing`角色及 call_no=1 校验字节完全一致。
+- 因旧执行器在V96异常前没有日志索引模型答复 SHA，`original_provider_response_cas_sha256=null` **仍然必须保留**。这不是模型未产生答复，而是已写对象缺少可寻址证据；不得推测原答字段、从模型再生成“同一份答复”，或声称“已恢复全文”。
+- 本次只读核验新增DeepSeek调用0，R2写入0；原主服务生产未更改，第15章、V97七答和V104十篇原稿未触动。
+- GitHub最终V107 CI [#39554516252](https://github.com/66tyu55/WriterForge/actions/runs/39554516252) = `SUCCESS`，1,157项离线测试执行，4 skipped，0 failures，包含新V107诊断和“原答SHA先于异常保存”回归。
+- **下一阶段明确前提**：只有新且未消费的预注册实验可以使用修复后的索引流程运行。旧V106的唯一实验身份已消费，绝不重新部署付费重跑旧请求。新实验必须冻结后才可执行；无可信独立文学审查前，F文学改进 = `UNDETERMINED`。
