@@ -327,7 +327,12 @@ class AutonomousWriting:
         chapters=[]
         issued_turns=0
         rolling_replan_calls=0
+        previous_emotional_turns=()
         for index,goal in enumerate(chapter_goals,1):
+            last_chapter_pressure=(
+                pressure_context(previous_emotional_turns)
+                if draft_mode=="emotion_rolling" and previous_emotional_turns
+                else "")
             if progress:
                 progress(index,len(chapter_goals),"planning")
             scene=f"{self.assist.scene_id}.chapter-{index:03}"
@@ -339,6 +344,8 @@ class AutonomousWriting:
                 "\n原创新作的大纲：\n"+outline
                 +"\n本章目标：\n"+goal
                 +"\n上一章仅为候选、尚未作者接受的末尾：\n"+previous[-700:]
+                +("\n【上章尚未证实的情感后果和待处理代价】"+
+                  last_chapter_pressure if last_chapter_pressure else "")
                 +"\n请先规划本章，不写正文。必须明确人物目的、冲突、选择、后果和视角；"
                 "内部调用结构技法，不照搬原著。只返回 JSON："
                 '{"objective":"...","conflict":"...","decision":"...",'
@@ -363,6 +370,8 @@ class AutonomousWriting:
                 "\n【完整原创大纲】\n"+outline[:2300]
                 +"\n【本章内部规划】\n"+json.dumps(plan,ensure_ascii=False)
                 +"\n【上一章尚未被作者接受的候选末尾】\n"+previous[-700:]
+                +("\n【上章遗留人物变化和未解决后果】"+
+                  last_chapter_pressure if last_chapter_pressure else "")
                 +"\n请按照因果、人物决定和冲突结果写完整原创正文，"
                 "不要解释技巧，也不要复制原著人物、设定或句子。",
                 facets,
@@ -461,6 +470,10 @@ class AutonomousWriting:
                         if draft_mode=="emotion_rolling":
                             turn_addition+=emotion_turn_instructions(
                                 tuple(accepted_turns))
+                            if last_chapter_pressure and turn_index==0:
+                                turn_addition+=(
+                                    "\n【上章情感与代价不得凭空消失】"+
+                                    last_chapter_pressure)
                         turn_packet=_enrich(
                             body_base,
                             "\n【原创章计划】"+json.dumps(
@@ -477,6 +490,7 @@ class AutonomousWriting:
                             evidence=check_emotional_turn(
                                 last_turn_response,beat,
                                 accepted=tuple(accepted_turns),
+                                previous_chapter=previous_emotional_turns,
                                 author_confirmed_forbidden_phrases=(
                                     author_confirmed_forbidden_phrases))
                         else:
@@ -617,6 +631,10 @@ class AutonomousWriting:
                        if draft_mode in ("rolling_causal","emotion_rolling") else {}),
                 })
             chapters.append(chapter_data)
+            if draft_mode=="emotion_rolling":
+                # Immutable metadata+real prose of this unaccepted chapter
+                # are the ONLY input to next candidate chapter's hypothesis.
+                previous_emotional_turns=tuple(accepted_turns)
             previous=body[-750:]  # Bound retained cross-chapter context memory.
             if progress:
                 progress(index,len(chapter_goals),"saved")
