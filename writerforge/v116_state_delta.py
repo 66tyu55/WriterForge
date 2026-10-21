@@ -84,7 +84,17 @@ def _present(prose, start, end):
 
 
 def _actor(prose, start, cast, *, limit=220):
-    """Anchor the nearest explicit name; speaker quotes never establish actor."""
+    """Prefer the current narrated sentence's explicit subject.
+
+    The nearest name in PREVIOUS context can be an adversary ("唐蜃收诀了")
+    while the actual next sentence opens "沈砚左手一撑...右臂...".
+    In that case global nearest-name attribution causes invented injuries.
+    Remaining pronoun cases are still ONLY hypotheses, never canonical.
+    """
+    leading=prose[start:start+25].lstrip()
+    explicit=[name for name in cast if leading.startswith(name)]
+    if len(explicit)==1:
+        return explicit[0]
     choices=[]
     for name in cast:
         pos=prose.rfind(name,max(0,start-limit),start+1)
