@@ -200,11 +200,12 @@ def validate_horizon(plan,*,author_pinned=None):
                         "kind":status,"step_id":s["id"],"fact_key":fact,
                         "expected":expected,"known_or_projected":current,
                         "source":origins.get(fact,"UNKNOWN")})
+            changed_in_this_step=set()
             for effect in s["sets"]:
                 fact,new=_effect(effect)
-                require(fact not in [x["key"] for x in s["sets"]
-                    if x is not effect],
-                    "WF105_TWO_EFFECTS_SAME_FACT_IN_STEP")
+                require(fact not in changed_in_this_step,
+                        "WF105_TWO_EFFECTS_SAME_FACT_IN_STEP")
+                changed_in_this_step.add(fact)
                 projected[fact]=new
                 origins[fact]="PLANNED_UNVERIFIED"
             for debt in s["future_debts"]:
