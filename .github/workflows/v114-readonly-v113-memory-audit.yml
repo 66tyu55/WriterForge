@@ -34,5 +34,5 @@ jobs:
           test -z "${DEEPSEEK_API_KEY:-}"
           test -z "${DEEPSEEK:-}"
           echo 'READ ONLY, ZERO MODEL CALLS'
-      - name: Run original V113 source real input using Novel Studio reducer
+      - name: Run V114 exact old WF novel memory regression via original MIT reducer
         run: python -m experiments.v114_readonly_v113_real_source
