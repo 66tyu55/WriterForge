@@ -122,7 +122,14 @@ def actual_item_events(prose,*,cast=(),prior_state=None):
         former[item]=current
     return report,events
 
-def external_temporal_step(prose,*,cast=(),prior=None,backup_required=True):
+def require_external_runtime():
+    binary=shutil.which("node")
+    need(binary is not None and SHIM.is_file(),
+         "WF114_EXTERNAL_LICENSED_NODE_RUNTIME_UNAVAILABLE")
+    return binary
+
+
+def external_temporal_step(prose,*,cast=(),prior=None):
     """Use REAL upstream temporal reducer; hard failure without Node.
 
     A detected contradiction is never secretly auto-repaired. Without
@@ -155,9 +162,7 @@ def external_temporal_step(prose,*,cast=(),prior=None,backup_required=True):
     raw=packed(packet)
     need(len(raw)<=MAX_PACKET_BYTES,
          "WF114_EXTERNAL_INPUT_TOO_LARGE")
-    command=shutil.which("node")
-    need(command is not None and SHIM.is_file(),
-         "WF114_EXTERNAL_LICENSED_NODE_RUNTIME_UNAVAILABLE")
+    command=require_external_runtime()
     try:
         p=subprocess.run(
             [command,str(SHIM)],input=raw,capture_output=True,
