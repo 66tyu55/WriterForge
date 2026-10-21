@@ -1,0 +1,74 @@
+name: V113 strict equal-length WF vs Storyteller vs DeepSeek
+on:
+  push:
+    branches: [v113-equal-length-chase-causal-blind]
+    paths:
+      - '.github/workflows/v113-real-three-arm-equal-length-once.yml'
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-v113-strict-900-1100-three-arm-one-shot
+  cancel-in-progress: false
+jobs:
+  original-equal-length:
+    if: github.repository == '66tyu55/WriterForge' && github.ref == 'refs/heads/v113-equal-length-chase-causal-blind'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+      WF113_LOCAL_RESULT_FILE: wf113_result_cas.json
+      WF113_BLIND_ARTIFACT_DIR: wf113_blind_stories
+    steps:
+      - name: GitHub source checkout (Railway never contacted)
+        uses: actions/checkout@v4
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install current WF with S3 R2 support
+        run: python -m pip install -e '.[r2]'
+      - name: Zero-cost frozen protocol and no-retry checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_v111_matched_fantasy_chase.py -q
+          python -m unittest discover -s tests -p test_v112_github_native_three_arm.py -q
+          python -m unittest discover -s tests -p test_v113_equal_length_three_arm.py -q
+          python - <<'PY'
+          import os
+          from experiments.v113_equal_length_three_arm import (
+              TASK,MODEL,MAX_CALLS,PROSE_TOKENS,WF_PLAN_TOKENS,
+              common_prose_instruction,skill_original,freeze)
+          assert TASK=="给我一个追逐打斗的玄幻1000字"
+          assert MODEL=="deepseek-flash"
+          assert MAX_CALLS==4 and PROSE_TOKENS==2600 and WF_PLAN_TOKENS==650
+          assert "最终必须在900至1100字符之间" in common_prose_instruction()
+          assert freeze(skill_original()[0])["actual_length_gate_fails_closed_no_cropping"]
+          assert all(os.environ.get(k) for k in (
+            "DEEPSEEK_API_KEY","WRITERFORGE_R2_ACCOUNT_ID",
+            "WRITERFORGE_R2_BUCKET","WRITERFORGE_R2_ACCESS_KEY_ID",
+            "WRITERFORGE_R2_SECRET_ACCESS_KEY"))
+          print("V113 FROZEN ZERO-COST CHECK PASSED")
+          PY
+      - name: ONE SHOT 4 calls max WF vs MIT Storyteller vs bare official DeepSeek
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m experiments.v113_equal_length_three_arm
+      - name: Verify and export anonymous untouched original prose
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m experiments.v113_export_blind_stories
+      - name: Original blind review packets without method unblinding
+        uses: actions/upload-artifact@v4
+        with:
+          name: V113-strict-original-1000char-fantasy-chase-anonymous
+          path: wf113_blind_stories/
+          retention-days: 30
+          if-no-files-found: error
