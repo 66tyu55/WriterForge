@@ -213,7 +213,13 @@ def temporal_prompt(checkpoint):
         parts.append("旧候选未通过来源核验："+risk["kind"]+
                      "；如无法证实，保持旧状态并标记未知。")
     for risk in checkpoint["original_native_candidate_report"]["risks"][:4]:
-        parts.append("需审查的行文连续性："+risk["kind"])
+        if risk["kind"]=="ITEM_OWNER_CHANGE_WITHOUT_TRANSFER":
+            parts.append("连续性未核验："+str(risk["item"])+"此前由"+
+                str(risk["before_holder"])+"持有，本段却声称出现在"+
+                str(risk["after_claimed_holder"])+
+                "；并无已证的转移过程，下一段不能把这次移动当事实。")
+        else:
+            parts.append("需审查的行文连续性："+risk["kind"])
     parts.append("法器、武器和法力用掉后必须有来源才能再使用。"
                  "未知、幻术、倒叙可明说，不为了修补牺牲小说自然度。")
     return "\n".join(parts)[:1450]
