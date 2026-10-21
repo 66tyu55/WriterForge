@@ -65,7 +65,7 @@ CHAPTER_GOAL="这一小章：人物需要在氧气下降时实际选择路线，
 HORIZON_PINS={
     "power:station":"on",
     "drill:supply":"mains_only",
-    "battery:tool":"unknown",
+    # No battery pin: "unknown" is not evidence that a battery exists.
 }
 TARGET_MIN=250
 TARGET_MAX=3000
