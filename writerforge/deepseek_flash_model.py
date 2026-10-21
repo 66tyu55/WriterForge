@@ -155,6 +155,7 @@ class DeepSeekFlashModel:
         budget: FlashBudget | None = None,
         transport=None,
         timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
+        on_response_wire=None,
     ):
         key = api_key if api_key is not None else os.environ.get(TOKEN_ENV)
         require(
@@ -169,7 +170,14 @@ class DeepSeekFlashModel:
         self._api_key = key
         self.budget = budget if budget is not None else FlashBudget()
         self.timeout_seconds = timeout_seconds
+        # Optional per-request *private* immutable evidence callback.
+        # It observes the bytes directly from the provider BEFORE JSON
+        # parsing so a schema/truncation error does not erase the paid reply.
+        # The caller is responsible for an R2 CAS sink and zero public text.
+        require(on_response_wire is None or callable(on_response_wire),
+                "WF_FLASH_WIRE_SINK_NOT_CALLABLE")
         self._transport = transport or self._real_transport
+        self._on_response_wire = on_response_wire
 
     def _real_transport(self, request: Request) -> bytes:
         opener = build_opener(
@@ -248,6 +256,10 @@ class DeepSeekFlashModel:
             isinstance(response, bytes) and 0 < len(response) <= MAX_RESPONSE_BYTES,
             "WF_FLASH_RESPONSE_TOO_LARGE_OR_EMPTY",
         )
+        if self._on_response_wire is not None:
+            # Never swallow an evidence persistence error and never retry
+            # a possibly billed response; fail closed before interpreting.
+            self._on_response_wire(response)
         try:
             data = json.loads(response.decode("utf-8"))
             require(isinstance(data, dict), "WF_FLASH_WIRE_JSON_NOT_OBJECT")
