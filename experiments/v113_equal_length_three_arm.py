@@ -75,7 +75,7 @@ def skill_original():
          b"MIT License" in rights and
          b"name: storyteller" in content[:500] and
          len(content)<=20000,
-         "WF112_PINNED_GITHUB_STORYTELLER_SOURCE_MISMATCH")
+         "WF113_PINNED_GITHUB_STORYTELLER_SOURCE_MISMATCH")
     return content.decode("utf8","strict"),rights.decode("utf8","strict")
 
 def user_question():
@@ -152,14 +152,14 @@ def freeze(skill_bytes):
 
 def verify_r2(cas,sha):
     need(type(sha) is str and re.fullmatch(r"[0-9a-f]{64}",sha),
-         "WF112_CAS_SHA_NOT_VALID")
+         "WF113_CAS_SHA_NOT_VALID")
     b=cas._get_content(sha)
-    need(digest(b)==sha,"WF112_PRIVATE_CAS_REMOTE_CORRUPTED")
+    need(digest(b)==sha,"WF113_PRIVATE_CAS_REMOTE_CORRUPTED")
     return b
 
 def seal(cas,payload,code):
     need(type(payload) is bytes and 0<len(payload)<=250000,
-         "WF112_PRIVATE_R2_BLOB_TOO_BIG")
+         "WF113_PRIVATE_R2_BLOB_TOO_BIG")
     sha,_=cas._put_content(payload)
     need(verify_r2(cas,sha)==payload,code)
     return sha
@@ -171,7 +171,7 @@ def prose_observation(answer):
                 "body_sha256":None,"raw_prose":None}
     txt=answer["prose"]
     need(len(txt.encode("utf8"))<=MAX_PROSE_BYTES,
-         "WF112_MODEL_ORIGINAL_PROSE_BYTES_LIMIT")
+         "WF113_MODEL_ORIGINAL_PROSE_BYTES_LIMIT")
     return {
         "status":("LENGTH_WITHIN_TARGET" if CHAR_LOW<=len(txt)<=CHAR_HIGH
                   else "LENGTH_OFF_TARGET"),
@@ -187,7 +187,7 @@ def run():
              ("DEEPSEEK_API_KEY","WRITERFORGE_R2_ACCOUNT_ID",
               "WRITERFORGE_R2_BUCKET","WRITERFORGE_R2_ACCESS_KEY_ID",
               "WRITERFORGE_R2_SECRET_ACCESS_KEY")),
-         "WF112_GITHUB_DEEPSEEK_AND_R2_S3_SECRETS_REQUIRED")
+         "WF113_GITHUB_DEEPSEEK_AND_R2_S3_SECRETS_REQUIRED")
     skill,license_text=skill_original()
     cas=GitHubS3CAS()
     cas.require_writer_ready()
@@ -195,7 +195,7 @@ def run():
     psha,created=cas._put_content(original)
     need(created is True and psha==digest(original) and
          verify_r2(cas,psha)==original,
-         "WF112_ONCE_ONLY_PRECOMMIT_REFUSES_DOUBLE_BILL")
+         "WF113_ONCE_ONLY_PRECOMMIT_REFUSES_DOUBLE_BILL")
     budget=FlashBudget(max_calls=MAX_CALLS,
                        max_reserved_output_tokens=MAX_RESERVED_TOKENS,
                        max_total_tokens=MAX_TOTAL_CONSERVATIVE)
@@ -205,12 +205,12 @@ def run():
     prose_by_arm={}
     def on_response_wire(raw):
         need(type(raw) is bytes and 0<len(raw)<=MAX_WIRE_BYTES,
-             "WF112_RECEIVED_PROVIDER_WIRE_TOO_BIG_TO_SEAL")
+             "WF113_RECEIVED_PROVIDER_WIRE_TOO_BIG_TO_SEAL")
         need(phase["attempt"] and phase["wire"] is None,
-             "WF112_UNEXPECTED_DUPLICATE_PROVIDER_WIRE")
-        sha=seal(cas,raw,"WF112_PROVIDER_WIRE_PRIVATE_READBACK_FAILED")
+             "WF113_UNEXPECTED_DUPLICATE_PROVIDER_WIRE")
+        sha=seal(cas,raw,"WF113_PROVIDER_WIRE_PRIVATE_READBACK_FAILED")
         phase["wire"]=sha
-        tell({"status":"WF112_RAW_PROVIDER_WIRE_PRIVATE_SEALED",
+        tell({"status":"WF113_RAW_PROVIDER_WIRE_PRIVATE_SEALED",
               "call_index":phase["id"],"stage":phase["stage"],
               "wire_cas_sha256":sha,"raw_wire_not_public":True})
 
@@ -221,9 +221,9 @@ def run():
         need(stage in ("WF_CHAPTER_PLAN","WF_PROSE","PEER_PROSE","BARE_PROSE")
              and role==ROLE and type(prompt) is str and 0<len(prompt)<=11000
              and type(system) is str and 10<=len(system)<=22000,
-             "WF112_PROVIDER_PROMPT_FORMAT_INVALID")
+             "WF113_PROVIDER_PROMPT_FORMAT_INVALID")
         new_id=phase["id"]+1
-        need(new_id<=MAX_CALLS,"WF112_GLOBAL_CALL_LIMIT")
+        need(new_id<=MAX_CALLS,"WF113_GLOBAL_CALL_LIMIT")
         identity={
             "format":"wf.eval.v113.one-request-intent",
             "experiment_precommit_sha256":psha,
@@ -238,9 +238,9 @@ def run():
         adr,one=cas._put_content(rb)
         need(one is True and adr==digest(rb)
              and verify_r2(cas,adr)==rb,
-             "WF112_REPEAT_REQUEST_SLOT_NOT_ALLOWED")
+             "WF113_REPEAT_REQUEST_SLOT_NOT_ALLOWED")
         phase.update({"id":new_id,"stage":stage,"wire":None,"attempt":adr})
-        tell({"status":"WF112_ATTEMPT_R2_RESERVED_BEFORE_PROVIDER",
+        tell({"status":"WF113_ATTEMPT_R2_RESERVED_BEFORE_PROVIDER",
               "stage":stage,"call_index":new_id,
               "attempt_cas_sha256":adr,"precommit_sha256":psha})
         try:
@@ -249,7 +249,7 @@ def run():
         except Exception as err:
             safe=str(err)
             if not re.fullmatch("WF_FLASH_[A-Z0-9_]{3,150}",safe):
-                safe="WF112_PROVIDER_TRANSPORT_OR_PRIVATE_EVIDENCE_FAILURE"
+                safe="WF113_PROVIDER_TRANSPORT_OR_PRIVATE_EVIDENCE_FAILURE"
             receipt={
                 "stage":stage,"call_index":new_id,
                 "attempt_cas_sha256":adr,
@@ -259,12 +259,12 @@ def run():
                 "error_code":safe,
             }
             receipts.append(receipt)
-            tell({"status":"WF112_ONE_PROVIDER_REQUEST_FAILED_NO_RETRY",
+            tell({"status":"WF113_ONE_PROVIDER_REQUEST_FAILED_NO_RETRY",
                   "stage":stage,"call_index":new_id,
                   "wire_cas_sha256":phase["wire"],
                   "error_code":safe})
             raise
-        need(phase["wire"] is not None,"WF112_NO_WIRE_RECEIPT_ON_SUCCESS")
+        need(phase["wire"] is not None,"WF113_NO_WIRE_RECEIPT_ON_SUCCESS")
         doc=encode({
             "format":"wf.eval.v113.one-unmodified-model-answer",
             "precommit_sha256":psha,
@@ -273,13 +273,13 @@ def run():
             "original_answer":raw,
             "not_manually_corrected":True,
         })
-        dec=seal(cas,doc,"WF112_DECODED_JSON_NOT_R2_VERIFIED")
+        dec=seal(cas,doc,"WF113_DECODED_JSON_NOT_R2_VERIFIED")
         receipts.append({
             "stage":stage,"call_index":new_id,
             "attempt_cas_sha256":adr,"wire_cas_sha256":phase["wire"],
             "decoded_cas_sha256":dec,"status":"DECODED_NOT_YET_LITERARY_JUDGED",
         })
-        tell({"status":"WF112_JSON_PRIVATE_SEALED_BEFORE_VALIDATION",
+        tell({"status":"WF113_JSON_PRIVATE_SEALED_BEFORE_VALIDATION",
               "stage":stage,"call_index":new_id,
               "decoded_cas_sha256":dec})
         return raw
@@ -301,11 +301,11 @@ def run():
         def wf_transport(packet,*,model,api_base,max_tokens,**kwargs):
             need(model==MODEL and kwargs=={} and
                  packet.project_id=="v111-benchmark-only",
-                 "WF112_WF_WRITER_PROVIDER_ISOLATION_BROKEN")
+                 "WF113_WF_WRITER_PROVIDER_ISOLATION_BROKEN")
             step=("WF_CHAPTER_PLAN" if phase["id"]==0 else "WF_PROSE")
             expected=(WF_PLAN_TOKENS if step=="WF_CHAPTER_PLAN" else PROSE_TOKENS)
             need(max_tokens==expected,
-                 "WF112_WRITER_OFFLINE_CALL_SCHEDULE_CHANGED")
+                 "WF113_WRITER_OFFLINE_CALL_SCHEDULE_CHANGED")
             system=( "你是WriterForge创作流程的原创章计划模型。只依据当前WF提示"
                      "自主组织场景目标、人物冲突与推进。不写正文、不引用外部技能。"
                      "只输出合法JSON对象。"
@@ -318,7 +318,7 @@ def run():
                                   separators=(",",":"))
             observation=prose_observation(reply)
             need(observation["raw_prose"] is not None,
-                 "WF112_WF_PROVIDER_PROSE_NOT_SINGLE_JSON")
+                 "WF113_WF_PROVIDER_PROSE_NOT_SINGLE_JSON")
             return observation["raw_prose"]
 
         try:
@@ -331,7 +331,7 @@ def run():
             ch=outcome["chapters"][0]
             txt=Path(ch["candidate"]).read_text("utf8")
             body_sha=seal(cas,txt.encode("utf8"),
-                          "WF112_WF_UNMODIFIED_ORIGINAL_PROSE_NOT_R2")
+                          "WF113_WF_UNMODIFIED_ORIGINAL_PROSE_NOT_R2")
             prose_by_arm["WF_SINGLE"]=txt
             arm_summaries.append({
                 "arm":"WF_SINGLE","status":"WRITTEN",
@@ -344,15 +344,15 @@ def run():
         except Exception as err:
             arm_summaries.append({
                 "arm":"WF_SINGLE","status":"FAILED",
-                "safe_failure":"WF112_WF_GENERATION_OR_STRUCTURE_FAILED",
+                "safe_failure":"WF113_WF_GENERATION_OR_STRUCTURE_FAILED",
                 "prose_private_cas_sha256":None,
                 "no_second_try":True})
-            tell({"status":"WF112_WF_ARM_FAILED_NO_RETRY",
+            tell({"status":"WF113_WF_ARM_FAILED_NO_RETRY",
                   "raw_decoded_replies_saved":len(receipts)})
         finally:
             n=db.conn.execute("SELECT COUNT(*) FROM accepted_prose").fetchone()[0]
             db.close()
-            need(n==0,"WF112_ACCIDENTAL_CANON_WRITE_OR_AUTHOR_ACCEPTANCE")
+            need(n==0,"WF113_ACCIDENTAL_CANON_WRITE_OR_AUTHOR_ACCEPTANCE")
     # Peer only loads the exact pinned GitHub Skill text; NEVER injected WF.
     for arm in ("GITHUB_STORYTELLER","BARE_DEEPSEEK"):
         if phase["id"]>=MAX_CALLS:
@@ -366,10 +366,10 @@ def run():
                          prompt=user_question(),out_tokens=PROSE_TOKENS)
             observation=prose_observation(response)
             need(observation["raw_prose"] is not None,
-                 "WF112_PEER_OR_BASE_MODEL_PROSE_SCHEMA_FAILED")
+                 "WF113_PEER_OR_BASE_MODEL_PROSE_SCHEMA_FAILED")
             txt=observation["raw_prose"]
             ptr=seal(cas,txt.encode("utf8"),
-                     "WF112_ORIGINAL_EXTERNAL_ARM_PROSE_NOT_R2")
+                     "WF113_ORIGINAL_EXTERNAL_ARM_PROSE_NOT_R2")
             prose_by_arm[arm]=txt
             arm_summaries.append({
                 "arm":arm,"status":"WRITTEN",
@@ -381,9 +381,9 @@ def run():
             })
         except Exception:
             arm_summaries.append({"arm":arm,"status":"FAILED",
-                                  "safe_failure":"WF112_EXTERNAL_ARM_OR_JSON_FAILED",
+                                  "safe_failure":"WF113_EXTERNAL_ARM_OR_JSON_FAILED",
                                   "no_second_try":True})
-            tell({"status":"WF112_EXTERNAL_ARM_FAILED_NO_RETRY",
+            tell({"status":"WF113_EXTERNAL_ARM_FAILED_NO_RETRY",
                   "arm":arm,"raw_request_receipts_saved":len(receipts)})
     # Anonymous full-text packets are separated from owner arm map.
     # Reviewers cannot see the model arm, skill name, plan request count or
@@ -403,7 +403,7 @@ def run():
             "literary_quality_judged":"NOT_PERFORMED",
         }
         sha=seal(cas,encode(data),
-                 "WF112_ANON_ORIGINAL_PROSE_NOT_COLD_READABLE")
+                 "WF113_ANON_ORIGINAL_PROSE_NOT_COLD_READABLE")
         blinded.append({"label":label,"full_prose_cas_sha256":sha})
         mapping.append({
             "label":label,"arm":arm,"length":len(body),
@@ -420,7 +420,7 @@ def run():
         "blind_method_identity_hidden":True,
     }
     judge_sha=seal(cas,encode(judge),
-                   "WF112_PRIVATE_BLIND_READER_INDEX_NOT_RECOVERABLE")
+                   "WF113_PRIVATE_BLIND_READER_INDEX_NOT_RECOVERABLE")
     private_owner={
         "format":"wf.eval.v113.owner-only-method-unblind",
         "blind_index_cas_sha256":judge_sha,
@@ -429,7 +429,7 @@ def run():
         "method_identity_not_in_judge_packets":True,
     }
     owner_sha=seal(cas,encode(private_owner),
-                   "WF112_OWNER_ONLY_METHOD_MAP_NOT_R2")
+                   "WF113_OWNER_ONLY_METHOD_MAP_NOT_R2")
     lengths=[len(x) for x in prose_by_arm.values()]
     gap=(max(lengths)-min(lengths))/max(lengths) if len(lengths)>=2 else None
     eligible=(len(lengths)==3 and
@@ -455,8 +455,8 @@ def run():
         "old_failed_record_changed":False,
         "qualified_literary_winner":"UNDETERMINED",
     }
-    msha=seal(cas,encode(result),"WF112_MANIFEST_PRIVATE_R2_NOT_VERIFIED")
-    receipt_path=os.environ.get("WF112_LOCAL_RESULT_FILE")
+    msha=seal(cas,encode(result),"WF113_MANIFEST_PRIVATE_R2_NOT_VERIFIED")
+    receipt_path=os.environ.get("WF113_LOCAL_RESULT_FILE")
     if receipt_path:
         # Local GitHub runner handoff contains CAS pointers ONLY; NEVER raw
         # provider wire, model credentials, method-keyed prose or unblind map.
@@ -468,7 +468,7 @@ def run():
             "author_accepted":False,
         },ensure_ascii=False,sort_keys=True),encoding="utf8")
     tell({
-        "status":"WF112_WF_VS_GITHUB_STORYTELLER_VS_BASE_ALL_RECEIPTS_SEALED",
+        "status":"WF113_WF_VS_GITHUB_STORYTELLER_VS_BASE_ALL_RECEIPTS_SEALED",
         "manifest_cas_sha256":msha,
         "blind_original_index_cas_sha256":judge_sha,
         "owner_only_unblind_cas_sha256":owner_sha,
@@ -491,7 +491,7 @@ def run():
     return 0
 
 if __name__=="__main__":
-    tell({"status":"WF112_THREE_ARM_REAL_WRITING_START",
+    tell({"status":"WF113_THREE_ARM_REAL_WRITING_START",
           "external_skill_only_standalone_peer":True,
           "user_exact_question":TASK,"max_paid_calls":MAX_CALLS,
           "no_auto_retries":True})
@@ -501,10 +501,10 @@ if __name__=="__main__":
         if not re.fullmatch(
              r"(?:WF111|WF_FLASH|WF105|WF96|WF102|WF_V79|WF_INDEX)_[A-Z0-9_]{1,150}",
              msg):
-            msg="WF112_STOPPED_UNCLASSIFIED_NO_RETRY"
-        tell({"status":"WF112_REAL_WRITING_ABORTED_NO_RETRY",
+            msg="WF113_STOPPED_UNCLASSIFIED_NO_RETRY"
+        tell({"status":"WF113_REAL_WRITING_ABORTED_NO_RETRY",
               "safe_error_code":msg,
               "private_originals_not_replaced":True})
         rc=1
-    tell({"status":"WF112_EXPERIMENT_EXIT","code":rc})
+    tell({"status":"WF113_EXPERIMENT_EXIT","code":rc})
     raise SystemExit(rc)
