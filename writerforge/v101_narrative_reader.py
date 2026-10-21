@@ -311,7 +311,8 @@ def validate_narrative(*,story_id,source_sha256,chapter,source_windows,
         from .v102_reader_emotion import validate_read_emotions
         candidate_emotions=validate_read_emotions(
             source_windows=source_windows,cast=cast,
-            plot=plot,proposals=obj["emotions"])
+            plot=plot,relationships=relationships,
+            proposals=obj["emotions"])
     receipt={
         "format":"wf.learn.narrative-comprehension.v101",
         "story_id":story_id,"source_sha256":source_sha256,
@@ -461,6 +462,7 @@ def model_reading_prompt(*,source_windows,prior_context="",include_emotions=Fals
         "emotions=[{actor_id,before,after,epistemic_mode,"
         "trigger:{unit,quote},response:{unit,quote},"
         "loss:null或{unit,quote},related_event:null或本章完整event_id,"
+        "related_relation:null或本章关系id,"
         "next_option_change,alternative_reading}]。"
         "不仅辨认高兴悲伤，更解释真正什么行动/关系/实际损失"
         "改变感受和下一次选择。反应必须在触发之后。"
