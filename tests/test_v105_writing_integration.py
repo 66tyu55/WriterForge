@@ -157,6 +157,28 @@ class V105TrueWritingEntrypoint(unittest.TestCase):
         self.assertEqual(saved["accepted_prose"],False)
         self.assertFalse(list((self.root/"impossible").rglob("candidate.txt")))
 
+    def test_malformed_chapter_plan_still_stores_raw_evidence_and_red(self):
+        incomplete='{"objective":"空故事，但关键字段没有齐全"}'
+        with patch("writerforge.writing_assist.local_chat_completion",
+                   side_effect=[incomplete]) as calls:
+            with self.assertRaises(WritingExecutionError):
+                AutonomousWriting(self.assist).run(
+                    outline=OUTLINE,chapter_goals=GOALS,
+                    output_dir=self.root/"bad-json-forecast",
+                    draft_mode="foresight_rolling",
+                    frozen_turn_outlines=(
+                        json.dumps(turns(),ensure_ascii=False),))
+        self.assertEqual(calls.call_count,1)
+        body=list((self.root/"bad-json-forecast").rglob(
+            "*-raw-plan.json"))
+        self.assertEqual(len(body),1)
+        self.assertEqual(body[0].read_text("utf8"),incomplete)
+        red=list((self.root/"bad-json-forecast").rglob(
+            "*-foresight-rejected.json"))
+        self.assertEqual(len(red),1)
+        self.assertEqual(json.loads(red[0].read_text("utf8"))["code"],
+                         "WF105_ORIGINAL_CHAPTER_PLAN_INVALID")
+
     def test_f_only_author_controls_cannot_launder_model_into_canon(self):
         with patch("writerforge.writing_assist.local_chat_completion") as model:
             with self.assertRaisesRegex(WritingExecutionError,
