@@ -35,6 +35,11 @@ def load(cas,pointer):
          "WF113C_UNKNOWN_OR_INVALID_POINTER")
     return json.loads(cas._get_content(pointer).decode("utf8","strict"))
 
+class StrictReadOnlyCAS(GitHubS3CAS):
+    def _put_content(self,*args,**kwargs):
+        raise RuntimeError("WF113C_R2_WRITE_FORBIDDEN_IN_COLD_READER")
+
+
 def recover():
     need(not os.environ.get("DEEPSEEK_API_KEY") and
          not os.environ.get("DEEPSEEK") and
@@ -44,7 +49,7 @@ def recover():
              "WRITERFORGE_R2_ACCESS_KEY_ID",
              "WRITERFORGE_R2_SECRET_ACCESS_KEY")),
          "WF113C_R2_READER_ONLY_CREDENTIAL_BOUNDARY")
-    cas=GitHubS3CAS()
+    cas=StrictReadOnlyCAS()
     original_pre=load(cas,PRECOMMIT)
     need(original_pre.get("experiment")==EXAM
          and original_pre.get("max_provider_calls")==4
@@ -131,7 +136,7 @@ def recover():
     path.write_text(json.dumps(handoff,ensure_ascii=False,
                                sort_keys=True),encoding="utf8")
     artifact=Path(os.environ["WF113_BLIND_ARTIFACT_DIR"])
-    result=export_anonymous()
+    result=export_anonymous(cas=cas)
     need(result==0 and (artifact/"anonymous_01.txt").is_file() and
          (artifact/"anonymous_02.txt").is_file(),
          "WF113C_EXPORT_DID_NOT_RECOVER_TWO_FULL_ORIGINAL_STORIES")
