@@ -21,6 +21,7 @@ SOURCE=(
     "他右手撑住炉沿要翻身，半空里忽然一麻——锁脉诀到了。"
     "灵力从肘弯往下被截断，手指头瞬间不听使唤，整个人斜栽。"
     "炉壁里的丹火忽然舔上他右前臂，烧出焦臭。"
+    "唐蜃收诀了。"
     "沈砚左手一撑灰堆，右臂甩在身后像条死口袋。"
     "唐蜃大叫：“你右臂废了也敢跑。”"
     "沈砚把果子从齿间吐到左手心，攥紧。"
@@ -48,6 +49,9 @@ class ActualPinnedTemporalBoundary(unittest.TestCase):
         self.assertEqual(proposal["model_calls"],0)
         self.assertEqual(proposal["canonical_fact_writes"],0)
         self.assertGreaterEqual(len(events),4,events)
+        self.assertFalse(any(op["cell"]["entityId"]=="唐蜃"
+            for ev in events for op in ev["ops"] if
+            op["cell"]["domain"]=="character"),events)
         self.assertTrue(all(SOURCE.count(e["evidence"]["quote"])==1 for e in events))
         fruit=[e for e in events if e["ops"][0]["cell"]["entityId"]=="火髓果"]
         self.assertEqual(len(fruit),2,fruit)
