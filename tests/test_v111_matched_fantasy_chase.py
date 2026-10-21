@@ -113,8 +113,6 @@ class V111MatchedOriginalProse(unittest.TestCase):
         self.assertIn("draft_mode=\"single\"",raw)
         self.assertNotIn("manual_fix_wrong_json",raw)
         self.assertNotIn("accept_draft(",raw)
-        self.assertNotIn("storyteller",Path(
-            __file__).parts[-2] if False else "irrelevant_to_source")
         self.assertIn("blind_method_identity_hidden",raw)
         self.assertIn("unblind_after_review_only",raw)
 
