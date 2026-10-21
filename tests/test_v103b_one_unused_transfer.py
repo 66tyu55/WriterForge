@@ -28,10 +28,11 @@ class V103BPreflight(unittest.TestCase):
         tree=ast.parse(src)
         self.assertTrue(any(x.name=="try_run" for x in tree.body
                             if isinstance(x,ast.FunctionDef)))
-        self.assertIn("original_reader",src.lower() if "original_reader" in src.lower() else "original_reader")
+        self.assertIn("parent[\"real_premium_model_calls\"]+1<=MAX_CALLS",src)
         self.assertIn("old_red_remains_red",src)
         self.assertIn("posthoc_protocol_deviation_from_original",src)
-        self.assertIn("ALREADY",src if "ALREADY" in src else "ALREADY")
+        self.assertIn("WF103B_DUPLICATE_POSTHOC_SLOT_REFUSE_TO_REBILL",src)
+        self.assertEqual(src.count("model.ask_json("),1)
         self.assertNotIn("accept_prose(",src)
         self.assertNotIn("append_temporal_claim(",src)
 
