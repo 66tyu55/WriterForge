@@ -83,6 +83,41 @@ class FutureWorldTests(unittest.TestCase):
         self.assertIn("未来只是假设",context)
         self.assertIn("模型不得偷偷扩充",horizon_prompt())
 
+    def test_futures_protect_one_use_resource_and_actor_location(self):
+        plan={"choices":[
+            {"id":"permit_path","steps":[
+                step("use_once",
+                     requires=[requirement("permit:letter","unused")],
+                     sets=[change("permit:letter","used")],
+                     action="守门人当场收走唯一的通行文书"),
+                step("use_again",
+                     requires=[requirement("permit:letter","unused")],
+                     action="仍想依赖同一张已经交出的文书再次过关")]},
+            {"id":"travel_path","steps":[
+                step("leave_room",
+                     requires=[requirement("actor:hero","inside")],
+                     sets=[change("actor:hero","outside")],
+                     action="人物确实从屋里出门去求援"),
+                step("use_inside",
+                     requires=[requirement("actor:hero","inside")],
+                     action="未经返回却又在屋内启动机器")]}
+        ]}
+        answer=validate_horizon(plan,author_pinned={
+            "permit:letter":"unused","actor:hero":"inside"})
+        self.assertEqual([x["status"] for x in answer["branches"]],
+                         ["SYMBOLICALLY_BLOCKED","SYMBOLICALLY_BLOCKED"])
+        for candidate in answer["branches"]:
+            self.assertIn("THREATENS_PREVIOUS_PLANNED_EFFECT",
+                          [z["kind"] for z in candidate["all_findings"]])
+        # A single extra observable step restores availability only as
+        # a tentative future claim, not as a confirmed scene fact.
+        plan["choices"][1]["steps"][1]["sets"]=[
+            change("actor:hero","inside")]
+        still=validate_horizon(plan,author_pinned={
+            "permit:letter":"unused","actor:hero":"inside"})
+        self.assertEqual(still["branches"][1]["status"],"SYMBOLICALLY_BLOCKED")
+        self.assertFalse(still["literary_causality_proven"])
+
     def test_author_facts_are_immutable_and_unknown_is_not_false(self):
         source={"power:station":"off"}
         cases=deepcopy(simple_branches())
