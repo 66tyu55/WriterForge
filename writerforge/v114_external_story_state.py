@@ -28,6 +28,7 @@ from .v115_dynamic_entity_candidates import (
 from .v116_state_delta import (
     extract_state_events,compact_verified_delta_context,
 )
+from .v117_continuity_debts import merge_open_debts,compact_debts
 
 FORMAT="wf.fallback.novel-studio.result.v114"
 MAX_PACKET_BYTES=130000
@@ -217,6 +218,8 @@ def external_temporal_step(prose,*,cast=(),prior=None):
         "original_source_not_rewritten":True,
         "external_memory_core":"MIT Novel Studio exact pinned schema/reducer",
     }
+    checkpoint["v117_open_continuity_debts"]=merge_open_debts(
+        prior,checkpoint)
     checkpoint["receipt_sha256"]=hashb(packed(checkpoint))
     return checkpoint
 
@@ -227,6 +230,8 @@ def temporal_prompt(checkpoint):
     output=checkpoint["reducer_result"]
     state=_prior_owners(output["candidate_state"])
     parts=["【真实正文中的候选物件状态（Novel Studio时态归约，非已确认正典）】"]
+    open_debts=compact_debts(checkpoint)
+    if open_debts:parts.append(open_debts)
     if checkpoint.get("v116_anchored_state_delta"):
         parts.append(compact_verified_delta_context(
             checkpoint["v116_anchored_state_delta"],output))
