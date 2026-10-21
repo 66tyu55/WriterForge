@@ -42,6 +42,9 @@ from .v105_forward_horizon import (
     horizon_context,derive_open_checkpoint,open_debt_context,
     _frozen_author_world,_validate_prior_checkpoint,
 )
+from .v110_host_branch_identity import (
+    V110IdentityError,recover_host_branch_identity,
+)
 
 MAX_LIVE_CONTEXT = 1400
 MAX_OUTLINE_CHARS = 6000
@@ -364,6 +367,7 @@ class AutonomousWriting:
                 open_debt_context(checkpoint)
                 if draft_mode=="foresight_rolling" and checkpoint else "")
             prospective_report=None
+            host_only_branch_receipt=None
             future_note=""
             if progress:
                 progress(index,len(chapter_goals),"planning")
@@ -419,18 +423,31 @@ class AutonomousWriting:
             if draft_mode=="foresight_rolling":
                 try:
                     plan_obj=_decode_json(plan_raw)
-                    prospective_report=validate_horizon(
-                        plan_obj.get("horizon"),author_pinned=pinned_world)
+                    raw_horizon=plan_obj.get("horizon")
+                    try:
+                        prospective_report=validate_horizon(
+                            raw_horizon,author_pinned=pinned_world)
+                    except V105FutureCausalityError as primary:
+                        if str(primary)!="WF105_BRANCH_ID_NOT_UNIQUE":
+                            raise
+                        # Original model choice/action/debt text is not
+                        # edited; route labels are host-owned metadata.
+                        # The byte-exact JSON remains the raw-plan file.
+                        derived,host_only_branch_receipt=(
+                            recover_host_branch_identity(raw_horizon))
+                        prospective_report=validate_horizon(
+                            derived,author_pinned=pinned_world)
                     future_note=horizon_context(prospective_report)
                     if all(b["status"]=="SYMBOLICALLY_BLOCKED"
                            for b in prospective_report["branches"]):
                         raise V105FutureCausalityError(
                             "WF105_ALL_FUTURE_PATHS_SYMBOLICALLY_BLOCKED")
-                except (V105FutureCausalityError,ValueError) as exc:
+                except (V105FutureCausalityError,V110IdentityError,ValueError) as exc:
                     # Preserve a red receipt: never recharge by retrying.
                     issue={"format":"wf.writing.failed-foresight-preflight.v105",
                            "chapter":index,"draft_mode":draft_mode,
-                           "code":str(exc) if str(exc).startswith("WF105_")
+                           "code":str(exc) if str(exc).startswith(
+                               ("WF105_","WF110_"))
                                   else "WF105_FORECAST_INVALID",
                            "original_plan_sha256":
                                sha256(plan_raw.encode("utf8")).hexdigest(),
@@ -648,6 +665,10 @@ class AutonomousWriting:
                             previous=checkpoint)
                         turn_evidence["v105_forecast_sha256"]=(
                             prospective_report["proposed_futures_sha256"])
+                        if host_only_branch_receipt is not None:
+                            turn_evidence["v110_host_only_branch_route"]=(
+                                host_only_branch_receipt)
+                            turn_evidence["model_original_future_plan_untouched"]=True
                         turn_evidence["v105_open_checkpoint_sha256"]=(
                             checkpoint["receipt_sha256"])
                         turn_evidence["long_horizon_semantics_verified"]=False
@@ -739,6 +760,10 @@ class AutonomousWriting:
                     private_affect.write_text(
                         json.dumps(turn_evidence["v102_emotional_causality"],
                                    ensure_ascii=False,indent=2),encoding="utf8")
+                if draft_mode=="foresight_rolling" and host_only_branch_receipt is not None:
+                    (folder/"v110_host_only_branch_identity.json").write_text(
+                        json.dumps(host_only_branch_receipt,
+                                   ensure_ascii=False,indent=2),encoding="utf8")
                 if draft_mode=="foresight_rolling":
                     future_file=folder/"v105_prospective_horizon.json"
                     future_file.write_text(
@@ -754,6 +779,11 @@ class AutonomousWriting:
                             job/f"chapter-{index:03d}-raw-plan.json"),
                         "v105_original_model_answers_prevalidation_stored":True}
                        if draft_mode=="foresight_rolling" else {}),
+                    **({"v110_branch_identity_receipt":str(
+                             folder/"v110_host_only_branch_identity.json"),
+                         "v110_only_software_labels_changed":True}
+                         if draft_mode=="foresight_rolling" and
+                            host_only_branch_receipt is not None else {}),
                     **({"v105_horizon_plan":str(future_file),
                         "v105_candidate_checkpoint":str(checkpoint_file),
                         "v105_checkpoint_sha256":checkpoint["receipt_sha256"],
