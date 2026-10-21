@@ -20,7 +20,7 @@ EXACT_SUFFIX=("髓果","灵果","仙果","灵丹","宝丹","丹药","剑穗",
               "佩剑","飞剑","法剑","符箓","宝符","阵旗","法器","法宝")
 COMMON=("右臂","左臂","右手","左手","右腿","左腿","胸口","肩头","丹田")
 HURT=("断","伤","裂","折","流血","骨折","无力","发麻","灼","疼","痛")
-MENTION_KINDS={"resource","injury"}
+MENTION_KINDS={"resource","injury","body_part_unresolved"}
 class EntityDiscoveryError(ValueError):
     pass
 
@@ -42,9 +42,10 @@ def discover_candidates(prose):
     for part in COMMON:
         for match in re.finditer(re.escape(part),prose):
             nearby=prose[max(0,match.start()-12):min(len(prose),match.end()+20)]
-            if any(w in nearby for w in HURT):
-                candidate.setdefault((part,"injury"),[]).append(
-                    (match.start(),match.end()))
+            kind=("injury" if any(w in nearby for w in HURT)
+                  else "body_part_unresolved")
+            candidate.setdefault((part,kind),[]).append(
+                (match.start(),match.end()))
     # In fluent CJK the first regex can miss a specific proper compound
     # embedded after preceding hanzi. Match suffix terms bounded by source
     # punctuation/adjacent textual phrase, never assign holder.
@@ -91,7 +92,9 @@ def compact_entity_context(report):
         seen.setdefault(row["term"],row["kind"])
     lines=["【原文实际出现但尚未确认位置/持有人的实体、伤势】"]
     for name,kind in list(seen.items())[:18]:
-        lines.append(name+("（身体伤势线索）" if kind=="injury"
+        lines.append(name+("（身体伤势线索，尚待核实）" if kind=="injury"
+                           else "（身体部位出现，伤势未知）" if
+                           kind=="body_part_unresolved"
                            else "（物件/力量来源线索）")+
                      "：只有名字出现，不能自称已知道谁拥有、能否使用或是否痊愈。")
     lines.append("下一段继续观察这些对象，真正发生交接、伤害或恢复时再提出证据事件。")
