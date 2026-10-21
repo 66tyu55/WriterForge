@@ -2,7 +2,7 @@ name: WriterForge Tests
 
 on:
   push:
-    branches: [main, v15-lane-runtime, v100-literary-blind-xianxia-precommit, v101-narrative-understanding-relationship-core]
+    branches: [main, v15-lane-runtime, v100-literary-blind-xianxia-precommit, v101-narrative-understanding-relationship-core, v102-emotion-cause-cost-consequence]
   pull_request:
 
 jobs:
