@@ -92,6 +92,17 @@ class MITNovelStudioIntegrated(unittest.TestCase):
             self.assertEqual(hashlib.sha1(header+data).hexdigest(),blob)
         self.assertIn("MIT License",(OSS/"LICENSE").read_text("utf8"))
 
+    def test_original_source_anchored_item_chain_automatically_available(self):
+        frame=audit_continuity(checked(),project_id="novel-z",
+                               chapter_index=1,boundary="before")
+        prop=[p for p in frame["prop_verdicts"]
+              if p["entity"]=="火髓果"]
+        self.assertEqual(len(prop),1)
+        self.assertTrue(prop[0]["ok"])
+        self.assertEqual(prop[0]["latest_state"],"沈砚左手心")
+        self.assertFalse(frame["coverage"]["knowledge_coverage_proven"])
+        self.assertEqual(frame["no_model_call"],True)
+
     def test_state_as_of_chapter_avoids_future_and_other_pov_leaks(self):
         prior=checked()
         frame=audit_continuity(
