@@ -46,8 +46,8 @@ def encode(value):
 def digest(b):
     return sha256(b).hexdigest()
 
-def short(value):
-    return (type(value) is str and _MIN_SOURCE_CHARS<=len(value.strip())
+def short(value,minimum=_MIN_SOURCE_CHARS):
+    return (type(value) is str and minimum<=len(value.strip())
             <=_MAX_SOURCE_CHARS and "\ufffd" not in value
             and "\x00" not in value and "\n" not in value
             and not any(ord(c)<32 for c in value))
@@ -126,8 +126,8 @@ def check_plan(obj):
         need(type(item) is dict and
              set(item)=={"id","genre","setting","conflict","stakes"} and
              item["id"]==f"s{i:02d}" and
-             all(short(item[k]) for k in
-                 ("genre","setting","conflict","stakes")),
+             all(short(item[k],minimum=(2 if k=="genre" else 6))
+                 for k in ("genre","setting","conflict","stakes")),
              "WF104_SCENE_SLOT_OR_FIELD_INVALID")
         proposals.append(dict(item))
         fingerprints.append(digest(encode({
@@ -145,7 +145,8 @@ def prompt_scene(item):
          set(item)=={"id","genre","setting","conflict","stakes"},
          "WF104_SCENE_PLAN_FIELDS_UNSAFE")
     for k in ("genre","setting","conflict","stakes"):
-        need(short(item[k]),"WF104_SCENE_BOUNDS")
+        need(short(item[k],minimum=(2 if k=="genre" else 6)),
+             "WF104_SCENE_BOUNDS")
     # No prose samples, no exact sentences, no technique or twist quota.
     # All plot decisions, pacing, voice, resolution belong to WF's generator.
     return (
