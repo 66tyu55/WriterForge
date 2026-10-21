@@ -111,6 +111,21 @@ class FutureWorldTests(unittest.TestCase):
         text=horizon_context(final)
         self.assertIn("只是假设",text)
 
+    def test_future_deadline_and_irreversible_cost_cannot_be_written_away(self):
+        a=simple_branches()
+        a["choices"][0]["steps"][0]["future_debts"][0]["due_after"]=1
+        a["choices"][0]["steps"][0]["future_debts"][0]["severity"]="IRREVERSIBLE"
+        first=validate_horizon(a,author_pinned={"power:station":"on"})
+        kinds={i["kind"] for i in first["branches"][0]["all_findings"]}
+        self.assertIn("FUTURE_DUE_PRESSURE_UNADDRESSED",kinds)
+        a["choices"][0]["steps"][1]["claims_resolved"]=["lose_power"]
+        second=validate_horizon(a,author_pinned={"power:station":"on"})
+        kinds={i["kind"] for i in second["branches"][0]["all_findings"]}
+        self.assertIn("FUTURE_SETTLEMENT_ONLY_NOT_YET_PAID",kinds)
+        self.assertIn("IRREVERSIBLE_LOSS_NOT_ERASED_BY_COMPENSATION",kinds)
+        self.assertIn("不可",horizon_context(second))
+        self.assertTrue(second["future_debts_not_yet_paid_or_incurred"])
+
     def test_two_distinct_quiet_future_paths_are_permitted(self):
         obj={"choices":[
             {"id":"calm_day","steps":[step("visit_neighbor",action=
