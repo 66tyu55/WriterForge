@@ -30,9 +30,15 @@ def discover_candidates(prose):
     candidate={}
     for m in PAT.finditer(prose):
         term=m.group(1)
+        start=m.start(1)
+        # A Chinese classifier ('一枚火髓果') must not be mistaken for
+        # the object's actual name. Keep exact span of 火髓果 instead.
+        if term.endswith("髓果") and len(term)>3:
+            term=term[-3:]
+            start=m.end(1)-3
         # The native prompt cannot assume a captured prose word is a fact.
         # Only source-anchored entity mention; decide holder separately.
-        candidate.setdefault((term,"resource"),[]).append((m.start(1),m.end(1)))
+        candidate.setdefault((term,"resource"),[]).append((start,m.end(1)))
     for part in COMMON:
         for match in re.finditer(re.escape(part),prose):
             nearby=prose[max(0,match.start()-12):min(len(prose),match.end()+20)]
