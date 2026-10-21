@@ -91,7 +91,7 @@ def _independent_transfer(body,before,after,item):
     if item not in text:return False
     return any(verb in text for verb in DISCLOSED_TRANSFER)
 
-def literal_item_continuity(prose,*,cast=(),tracked=TRACKED):
+def literal_item_continuity(prose,*,cast=(),tracked=TRACKED,prior_report=None):
     """Detect source-anchored continuity risks, NOT a semantic correction."""
     require(type(prose) is str and 0<len(prose)<=MAX_PROSE,
             "WF114_PROSE_BOUNDS")
@@ -104,6 +104,15 @@ def literal_item_continuity(prose,*,cast=(),tracked=TRACKED):
     candidates=[]
     risks=[]
     seen={}
+    if prior_report is not None:
+        require(type(prior_report) is dict and
+                prior_report.get("format")==
+                    "wf.writing.candidate-literal-continuity.v114",
+                "WF114_PRIOR_REPORT_NOT_CANDIDATE")
+        for e in prior_report.get("observations",[]):
+            seen[e["item"]]={
+                "item":e["item"],"holder_hypothesis":e["holder_hypothesis"],
+                "anchor":e["anchor"],"event_end":0}
     clauses=list(_contexts(prose))
     for beginning,end,segment in clauses:
         for item in tracked:
@@ -204,9 +213,9 @@ def compact_status(report):
 
 def validated_checkpoint(*,prose,cast=(),previous=None):
     """Signed candidate chain; no notebook/canon promotion or model retry."""
-    result=literal_item_continuity(prose,cast=cast)
     prior=None
     n=1
+    prior_report=None
     if previous is not None:
         require(type(previous) is dict and
                 previous.get("format")=="wf.writing.continuity-checkpoint.v114" and
@@ -215,6 +224,9 @@ def validated_checkpoint(*,prose,cast=(),previous=None):
                 "WF114_OLD_CONTINUITY_CHECKPOINT_UNTRUSTED")
         prior=previous["receipt_sha256"]
         n=previous["sequence"]+1
+        prior_report=previous["report"]
+    result=literal_item_continuity(prose,cast=cast,
+                                   prior_report=prior_report)
     snapshot={
         "format":"wf.writing.continuity-checkpoint.v114",
         "sequence":n,"previous_checkpoint_sha256":prior,
