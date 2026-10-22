@@ -13,7 +13,7 @@ permissions:
   contents: read
 concurrency:
   group: wf-unified-r2-memory
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   full-regression-offline:
     runs-on: ubuntu-latest
