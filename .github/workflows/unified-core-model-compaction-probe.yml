@@ -1,0 +1,31 @@
+name: WF Unified Core One-Time Discovery and DeepSeek Compaction Probe
+on:
+  push:
+    branches: [refactor-unified-narrative-core]
+    paths:
+      - .github/workflows/unified-core-model-compaction-probe.yml
+      - experiments/unified_core_live_compaction_probe_once.py
+permissions:
+  contents: read
+concurrency:
+  group: wf-unified-compaction-once
+  cancel-in-progress: false
+jobs:
+  one-limited-synthetic-inference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Single bounded pair of synthetic compaction proposals
+        run: python -m experiments.unified_core_live_compaction_probe_once
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WF-Core-Synthetic-Compaction-Two-Call-Receipt
+          path: wf_unified_model_compaction_probe/MODEL_STATUS.json
+          retention-days: 30
+          if-no-files-found: error
