@@ -561,12 +561,12 @@ class GraphWithPriorityAndKnowledge(unittest.TestCase):
                 if n==1:oldpath=file
                 graph=advance_graph(graph,project_id=P,scene_id=S,
                                     chapter_index=n,prose=raw)
-                kw={"summary_proposal":{
+                kw=({"summary_proposal":{
                     "source_sha256":hashlib.sha256(
                         oldpath.read_bytes()).hexdigest(),
                     "summary":"本章被模型推断为秘密已经揭露",
                     "quote_anchors":["正文里并不存在的原话"]}}
-                    if n==4 else {}
+                    if n==4 else {})
                 if n==4:
                     with self.assertRaisesRegex(
                             NarrativeCoreError,"SOURCE_ANCHORS_MISSING"):
