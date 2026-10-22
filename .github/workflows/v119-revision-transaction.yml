@@ -1,0 +1,36 @@
+name: V119 zero-model source-locked revision regression
+
+on:
+  push:
+    branches: [v119-source-locked-revision-transaction]
+    paths:
+      - .github/workflows/v119-revision-transaction.yml
+      - writerforge/v119_revision_transaction.py
+      - writerforge/writing_assist.py
+      - tests/test_v119_revision_transaction.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf119-source-locked-revision
+  cancel-in-progress: false
+
+jobs:
+  complete-no-secret-suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 23
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm no model API credentials are available
+        run: |
+          python -c 'import os; assert not any(os.getenv(k) for k in ("DEEPSEEK_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY"))'
+      - run: python -m pip install -e '.[r2]'
+      - name: Full WriterForge regression with no model keys
+        run: python -m unittest discover -s tests -q
