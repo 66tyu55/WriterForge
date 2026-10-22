@@ -13,6 +13,7 @@ import unittest
 from writerforge.v116_state_delta import preflight_next_prose
 from writerforge.v118_lamp_scheduler import (
     plan_scene_lamps, LampDecisionError, MAX_CHARS, checked_previous,
+    CANONICAL_PHRASES,
 )
 from writerforge.writing_assist import (
     _prepare_guarded_turn_packet, AutonomousWriting, WritingExecutionError,
@@ -183,10 +184,12 @@ class BoundedOptionalPrompt(unittest.TestCase):
         self.assertIsNone(second["craft_suppression"])
 
     def test_preserve_risk_lamp_before_literary_question(self):
+        risk_only=len("【只在确实涉及该变化时遵守的前文约束】\n"+
+                      CANONICAL_PHRASES["arm"])
         x=plan_scene_lamps(
             project_id="novel-z",chapter_index=0,turn_index=0,
-            beat=beat(),frame=frame(),max_prompt_chars=105)
-        self.assertLessEqual(len(x["prompt"]),105)
+            beat=beat(),frame=frame(),max_prompt_chars=risk_only)
+        self.assertLessEqual(len(x["prompt"]),risk_only)
         self.assertIn("arm",x["risk_lamps"])
         self.assertIsNone(x["craft_id"])
         self.assertTrue(x["budget_suppressed_craft"])
