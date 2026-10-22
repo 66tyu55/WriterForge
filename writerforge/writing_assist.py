@@ -59,6 +59,9 @@ from .v117_continuity_trace import (
 )
 from .v118_lamp_scheduler import plan_scene_lamps,LampDecisionError
 from .v119_revision_transaction import preview_revision as preview_surgical_revision
+from .v120_plan_prose_gate import (
+    compare_plan_to_prose, pending_dependency_hint, PlanExecutionError,
+)
 
 MAX_LIVE_CONTEXT = 1400
 MAX_OUTLINE_CHARS = 6000
@@ -589,6 +592,7 @@ class AutonomousWriting:
                 trace_checks=[]
                 last_lamp_receipt=None
                 lamp_decisions=[]
+                plan_execution_checks=[]
                 rolling_receipts=[]
                 rolling_goals=[]
                 rolling_prompt_shas=[]
@@ -681,6 +685,12 @@ class AutonomousWriting:
                             lamp_decisions.append(lamps)
                             if lamps["prompt"]:
                                 turn_addition+="\n"+lamps["prompt"]
+                        if draft_mode=="continuity_guard":
+                            # Only a direct causal child of an unproven typed
+                            # previous intention receives this optional lamp.
+                            # No extra inference, do not enforce the old plan.
+                            turn_addition+=pending_dependency_hint(
+                                beat,plan_execution_checks)
                         if draft_mode in ("emotion_rolling","foresight_rolling"):
                             turn_addition+=emotion_turn_instructions(
                                 tuple(accepted_turns))
@@ -728,6 +738,22 @@ class AutonomousWriting:
                                 accepted=tuple(accepted_turns),
                                 author_confirmed_forbidden_phrases=(
                                     author_confirmed_forbidden_phrases))
+                        if draft_mode=="continuity_guard":
+                            # Validate what actually reached the page. Beat
+                            # goal and model's self-reported trace are NOT
+                            # source evidence. Keep non-matching goals as
+                            # candidate debt, not as silently completed plot.
+                            prior_candidate_state=(
+                                current_external_story_checkpoint[
+                                    "reducer_result"]["candidate_state"]
+                                if current_external_story_checkpoint is not None
+                                else {})
+                            execution_comparison=compare_plan_to_prose(
+                                project_id=self.assist.project_id,
+                                scene_id=scene,
+                                beat=beat,prose=evidence["prose"],cast=cast,
+                                prior_candidate_state=prior_candidate_state)
+                            plan_execution_checks.append(execution_comparison)
                         if (draft_mode=="continuity_guard" and
                             current_external_story_checkpoint is not None):
                             # Same model response, same original prose. Audit
@@ -778,6 +804,11 @@ class AutonomousWriting:
                         turn_evidence["v118_event_lamp_decisions"]=lamp_decisions
                         turn_evidence["v118_lamp_extra_model_calls"]=0
                         turn_evidence["v118_no_mandatory_literary_template"]=True
+                        turn_evidence["v120_plan_prose_source_receipts"]=(
+                            plan_execution_checks)
+                        turn_evidence["v120_typed_intent_not_whole_plan"]=True
+                        turn_evidence["v120_extra_model_calls"]=0
+                        turn_evidence["v120_auto_rewrites"]=0
                     if draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling"):
                         turn_evidence.update({
                             "mode":draft_mode,
@@ -824,7 +855,8 @@ class AutonomousWriting:
                         V102EmotionalCausalityError,
                         V105FutureCausalityError,
                         V114ContinuityError,V114ExternalMemoryError,
-                        ContinuityTraceError,LampDecisionError) as error:
+                        ContinuityTraceError,LampDecisionError,
+                        PlanExecutionError) as error:
                     # Keep the red record, not the private failed novel.
                     # No partial draft becomes accepted or FactJournal KNOWN.
                     issue={
