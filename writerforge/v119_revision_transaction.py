@@ -69,7 +69,8 @@ def preview_revision(*, project_id: str, scene_id: str, source: str,
                      expected_original: str, replacement: str,
                      pinned_quotes: tuple[str, ...] = (),
                      previous_candidate_state: dict | None = None,
-                     previous_risks: tuple[dict, ...] = ()) -> dict:
+                     previous_risks: tuple[dict, ...] = (),
+                     cast: tuple[str, ...] = ()) -> dict:
     """Build candidate by replacing exactly one verified slice of SOURCE.
 
     Unedited prefix/suffix are impossible for a model to alter. A new
@@ -94,9 +95,14 @@ def preview_revision(*, project_id: str, scene_id: str, source: str,
     _need(type(previous_risks) is tuple and len(previous_risks) <= 32 and
           all(type(r) is dict for r in previous_risks),
           "WF119_PRIOR_RISK_SCHEMA_INVALID")
+    _need(type(cast) is tuple and len(cast) <= 10 and
+          all(type(name) is str and 1 <= len(name) <= 70
+              for name in cast) and len(set(cast)) == len(cast),
+          "WF119_CHARACTER_CAST_INVALID")
     prior_report = None
     revised_report = None
     introduced = []
+    review_introduced = []
     if previous_candidate_state is not None:
         _need(type(previous_candidate_state) is dict and
               len(previous_candidate_state) <= 36,
@@ -104,12 +110,17 @@ def preview_revision(*, project_id: str, scene_id: str, source: str,
         from .v116_state_delta import preflight_next_prose
         prior_report = preflight_next_prose(
             source, previous_candidate_state=previous_candidate_state,
-            previous_risks=previous_risks)
+            previous_risks=previous_risks,cast=cast)
         revised_report = preflight_next_prose(
             candidate, previous_candidate_state=previous_candidate_state,
-            previous_risks=previous_risks)
+            previous_risks=previous_risks,cast=cast)
         introduced = sorted(set(revised_report["findings"])
                             - set(prior_report["findings"]))
+        # Actor-uncertain prose is not an automatic hard contradiction. It
+        # must nevertheless be VISIBLE in the local edit receipt.
+        review_introduced = sorted(
+            set(revised_report.get("review_findings",[]))
+            - set(prior_report.get("review_findings",[])))
     status = "BLOCKED_NEW_STATE_WARNING" if introduced else "PROVISIONAL_REVIEW"
     receipt = {
         "format": FORMAT, "project_id": project_id, "scene_id": scene_id,
@@ -123,6 +134,10 @@ def preview_revision(*, project_id: str, scene_id: str, source: str,
         "locked_quote_sha256s": [_hash(q) for q in pinned_quotes],
         "status": status,
         "new_preflight_warnings": introduced,
+        "new_preflight_review_flags": review_introduced,
+        "preflight_actor_scope": (
+            revised_report.get("arm_actor_scope")
+            if revised_report else "NO_PRIOR_STATE_PROVIDED"),
         "preflight_coverage": ("V116_SOURCE_ONLY_NARROW"
                                if previous_candidate_state is not None else
                                "NO_PRIOR_STATE_PROVIDED"),
@@ -130,6 +145,8 @@ def preview_revision(*, project_id: str, scene_id: str, source: str,
             prior_report["findings"] if prior_report else []),
         "revision_preflight_warnings": (
             revised_report["findings"] if revised_report else []),
+        "revision_review_findings": (
+            revised_report["review_findings"] if revised_report else []),
         "only_declared_selection_changed": True,
         "model_justification_was_not_evidence": True,
         "intent_fulfillment_verified": False,
@@ -151,7 +168,8 @@ def inspect_whole_rewrite(*, proposed_whole_text: str, project_id: str,
                           start: int, end: int, expected_original: str,
                           pinned_quotes: tuple[str, ...] = (),
                           previous_candidate_state: dict | None = None,
-                          previous_risks: tuple[dict, ...] = ()) -> dict:
+                          previous_risks: tuple[dict, ...] = (),
+                          cast: tuple[str, ...] = ()) -> dict:
     """Strictly reject whole-output model edits outside the declared span.
 
     Models may return a complete manuscript instead of the requested fragment.
@@ -178,5 +196,5 @@ def inspect_whole_rewrite(*, proposed_whole_text: str, project_id: str,
         start=start, end=end, expected_original=expected_original,
         replacement=replacement, pinned_quotes=pinned_quotes,
         previous_candidate_state=previous_candidate_state,
-        previous_risks=previous_risks,
+        previous_risks=previous_risks,cast=cast,
     )
