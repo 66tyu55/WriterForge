@@ -141,7 +141,8 @@ class GraphWithPriorityAndKnowledge(unittest.TestCase):
             source,source,"WITNESS",
             actor="沈砚",fact_id="secret-letter")])
         proposals=propose_source_interactions(
-            graph,project_id=P,scene_id=S,prose=msg)
+            graph,project_id=P,scene_id=S,prose=msg,
+            cast=("沈砚","叶青梧"))
         self.assertEqual(len(proposals["source_disclosure_proposals"]),1)
         self.assertEqual(
             proposals["source_disclosure_proposals"][0]["speaker"],
