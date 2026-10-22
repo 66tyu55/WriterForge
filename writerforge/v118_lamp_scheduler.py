@@ -87,7 +87,9 @@ def checked_previous(old,project,chapter):
            k:v for k,v in old.items() if k!="receipt_sha256"
          }) and
          type(old.get("turn_index")) is int and
-         type(old.get("craft_id")) in (str,type(None)),
+         type(old.get("craft_id")) in (str,type(None)) and
+         type(old.get("last_active_craft_id")) in (str,type(None)) and
+         type(old.get("last_active_craft_turn")) in (int,type(None)),
          "WF118_LAMP_OLD_STATE_INVALID_OR_CROSS_PROJECT")
     return old
 
@@ -161,7 +163,8 @@ def plan_scene_lamps(*,project_id,chapter_index,turn_index,beat,
                     ("灵力","法力","补充","回涨","吞","服","吃")))):
                 active.append("resource")
                 reasons.append("KNOWN_ITEM_NEEDS_EXPLICIT_RESOURCE_CHANGE")
-        if (type(knowledge.get("unknown")) is list and knowledge["unknown"] and
+        if (frame is not None and frame.get("pov_character_id")==actor and
+            type(knowledge.get("unknown")) is list and knowledge["unknown"] and
             "knowledge" not in active):
             active.append("knowledge")
             reasons.append("POV_KNOWLEDGE_BOUNDARY_VISIBLE")
@@ -171,14 +174,16 @@ def plan_scene_lamps(*,project_id,chapter_index,turn_index,beat,
     # Existing CraftEngine, not a second catalogue of style recipes.
     keys=[SIGNALS[x] for x in beat["craft_focus"] if x in SIGNALS]
     if beat["craft_focus"]==["none"]:keys=[]
-    if not keys and kind=="decision":keys=["interiority"]
+    if not keys and kind=="decision" and "none" not in beat["craft_focus"]:
+        keys=["interiority"]
     craft=CraftEngine().plan(CraftRequest(needs=tuple(keys),max_groups=1))
     chosen=craft.techniques[0].id if craft.techniques else None
     skip=None
-    if chosen and prior and prior.get("craft_id")==chosen and (
-         prior.get("source_checkpoint_sha256")==
-         (frame.get("source_checkpoint_sha256") if frame else None)):
-        skip="REPEATED_CRAFT_AND_UNCHANGED_EVIDENCE"
+    if (chosen and prior and
+        prior.get("last_active_craft_id")==chosen and
+        prior.get("last_active_craft_turn") is not None and
+        turn_index-prior["last_active_craft_turn"]<=2):
+        skip="CRAFT_COOLDOWN_LAST_TWO_TURNS"
         chosen=None
     lines=[]
     if active:
@@ -201,6 +206,10 @@ def plan_scene_lamps(*,project_id,chapter_index,turn_index,beat,
         "risk_lamps":active,
         "risk_reason_codes":reason_codes,
         "craft_id":chosen,
+        "last_active_craft_id":chosen if chosen else (
+            prior.get("last_active_craft_id") if prior else None),
+        "last_active_craft_turn":turn_index if chosen else (
+            prior.get("last_active_craft_turn") if prior else None),
         "craft_suppression":skip,
         "prompt":prompt,
         "prompt_chars":len(prompt),
