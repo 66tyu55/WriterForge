@@ -215,6 +215,61 @@ class TwentyChapterAuthorConfirmedRevenge(unittest.TestCase):
             audit_revenge_prose(resumed,project_id=P,
                                scene_id=S,prose="沈砚望着屋檐。")["blocked"])
 
+    def test_actual_10000_char_prompt_builder_preserves_revenge_context(self):
+        from writerforge.writing_assist import _prepare_guarded_turn_packet
+        from writerforge.verified_flow import GroundedDraftPacket
+        arc=vow()
+        for chapter in range(1,20):
+            arc=advance_open_revenge(
+                arc,project_id=P,scene_id=S,chapter_index=chapter,
+                prose=f"第{chapter}章叶青梧静静整理旧书。")
+        target_beat={
+            "id":"t01","kind":"decision","actor":"沈砚",
+            "goal":"沈砚在旧庙重遇唐蜃，先查父亲旧案真相",
+            "causal_parent":None,"craft_focus":["interiority"],
+        }
+        hint=relevant_revenge_hint(
+            arc,project_id=P,scene_id=S,beat=target_beat)
+        base=GroundedDraftPacket(
+            project_id=P,scene_id=S,snapshot_id=1,
+            evidence=(),craft_ids=(),prompt="已有来源校验的当前小说场景。",
+            prompt_sha256=hashlib.sha256(
+                "已有来源校验的当前小说场景。".encode()).hexdigest())
+        final,lamps,delivery=_prepare_guarded_turn_packet(
+            base,plan={"objective":"追问旧案"},facets=(),
+            hard_turn_addition="本段承接真实事实。\n"+hint,
+            dependency_hint="",project_id=P,
+            chapter_index=20,turn_index=0,beat=target_beat,
+            frame=None,previous_lamp_receipt=None)
+        self.assertIn("旧目标仍是OPEN",final.prompt)
+        self.assertIn("唐蜃",final.prompt)
+        self.assertIn("第19章",final.prompt)
+        self.assertEqual(delivery["delivered_prompt_sha256"],
+                         final.prompt_sha256)
+        self.assertTrue(delivery["hard_context_preserved"])
+        self.assertTrue(delivery["no_model_call_for_prompt_scheduling"])
+
+    def test_model_cannot_toggle_author_confirmed_arc_status_to_completed(self):
+        fake=copy.deepcopy(vow())
+        fake["status"]="COMPLETED_BY_MODEL"
+        with self.assertRaisesRegex(
+                LongArcError,"ARC_SCOPE_OR_AUTHORITY_INVALID"):
+            verify_long_arc(fake,project_id=P,scene_id=S)
+
+    def test_cannot_start_opt_in_arc_without_prior_chapter_resume(self):
+        class FakeAssist:
+            project_id=P
+            scene_id=S
+        with self.assertRaisesRegex(
+                WritingExecutionError,
+                "WF123_LONG_ARC_REQUIRES_PRIOR_STORY_RESUME"):
+            AutonomousWriting(FakeAssist()).run(
+                outline="这是测试用玄幻小说开篇大纲：沈砚追查旧案。",
+                chapter_goals=["沈砚在破庙门前继续寻访旧案线索"],
+                output_dir="/tmp/wf123_must_not_create_write_dir",
+                draft_mode="continuity_guard",
+                long_arc_checkpoint=vow())
+
     def test_writerforge_real_continuity_guard_invokes_arc_hooks(self):
         source=inspect.getsource(AutonomousWriting.run)
         self.assertIn("read_long_arc_from_resume(",source)
