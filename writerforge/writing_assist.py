@@ -57,6 +57,7 @@ from .v117_continuity_trace import (
     audit_continuity,compact_context,preflight_continuation,
     make_resume,read_resume,ContinuityTraceError,
 )
+from .v118_lamp_scheduler import plan_scene_lamps,LampDecisionError
 
 MAX_LIVE_CONTEXT = 1400
 MAX_OUTLINE_CHARS = 6000
@@ -567,6 +568,8 @@ class AutonomousWriting:
                 accepted_turns=[]
                 accepted_beats=[]
                 trace_checks=[]
+                last_lamp_receipt=None
+                lamp_decisions=[]
                 rolling_receipts=[]
                 rolling_goals=[]
                 rolling_prompt_shas=[]
@@ -646,6 +649,19 @@ class AutonomousWriting:
                                     chapter_index=first_story_chapter_index+index-1,
                                     reference=continuity_reference)
                                 turn_addition+=("\n"+compact_context(trace_frame))
+                        if draft_mode=="continuity_guard":
+                            lamps=plan_scene_lamps(
+                                project_id=self.assist.project_id,
+                                chapter_index=first_story_chapter_index+index-1,
+                                turn_index=turn_index,beat=beat,
+                                frame=(trace_frame if
+                                       current_external_story_checkpoint is not None
+                                       else None),
+                                previous=last_lamp_receipt)
+                            last_lamp_receipt=lamps
+                            lamp_decisions.append(lamps)
+                            if lamps["prompt"]:
+                                turn_addition+="\n"+lamps["prompt"]
                         if draft_mode in ("emotion_rolling","foresight_rolling"):
                             turn_addition+=emotion_turn_instructions(
                                 tuple(accepted_turns))
@@ -740,6 +756,9 @@ class AutonomousWriting:
                         turn_evidence["v114_literary_semantics_verified"]=False
                         turn_evidence["v117_cross_chapter_preflight"]=trace_checks
                         turn_evidence["v117_extra_model_calls"]=0
+                        turn_evidence["v118_event_lamp_decisions"]=lamp_decisions
+                        turn_evidence["v118_lamp_extra_model_calls"]=0
+                        turn_evidence["v118_no_mandatory_literary_template"]=True
                     if draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling"):
                         turn_evidence.update({
                             "mode":draft_mode,
@@ -786,7 +805,7 @@ class AutonomousWriting:
                         V102EmotionalCausalityError,
                         V105FutureCausalityError,
                         V114ContinuityError,V114ExternalMemoryError,
-                        ContinuityTraceError) as error:
+                        ContinuityTraceError,LampDecisionError) as error:
                     # Keep the red record, not the private failed novel.
                     # No partial draft becomes accepted or FactJournal KNOWN.
                     issue={
