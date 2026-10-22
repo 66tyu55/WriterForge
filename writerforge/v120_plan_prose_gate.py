@@ -14,7 +14,10 @@ from hashlib import sha256
 import json
 import re
 
-from .v116_state_delta import extract_state_events
+from .v116_state_delta import (
+    extract_state_events, _segments as source_segments,
+    _present as source_narrated,
+)
 
 FORMAT = "wf.writing.v120.plan-prose-source-comparison"
 STATES = frozenset((
@@ -160,6 +163,47 @@ def _safe_anchor(event, source, intent, cast):
             "event_id": event.get("id")}
 
 
+def _corroborating_arm_evidence(source, intent, cast):
+    """Retain a fresh *source quote* even when an unchanged V116 cell emits
+    no new state operation. Repeated observations are provenance, not new
+    canonical events or an excuse to infer an unstated character.
+    """
+    if intent["operation"] != "RIGHT_ARM_LIMITED":
+        return []
+    actor = intent["acting_actor"]
+    others = [name for name in cast if name != actor]
+    rows = []
+    for start, end, clause, in_speech in source_segments(source):
+        if in_speech or not source_narrated(source, start, end):
+            continue
+        quote = clause.strip()
+        if not quote.startswith(actor) or len(quote) > 150 or \
+           source.count(quote) != 1:
+            continue
+        found = re.search(r"右臂.{0,8}(?:甩在身后|垂着|抬不起来)|"
+                          r"右手.{0,8}(?:不听使唤)", quote)
+        if not found:
+            continue
+        # "沈砚看着唐蜃右臂垂着" is not an injury of 沈砚.
+        if any(name in quote[:found.start()] for name in others):
+            continue
+        if any(term in quote for term in
+               ("不再", "并非", "没有", "不曾", "尚未", "装作", "假装",
+                "似乎", "好像", "仿佛", "恢复", "痊愈", "治好",
+                "看着", "看见", "望着", "瞧见")):
+            continue
+        offset = start + len(clause) - len(clause.lstrip())
+        # Keep a source span and hash. No raw words leave the audit.
+        rows.append({
+            "start": offset,
+            "end": offset + len(quote),
+            "quote_sha256": _hash(quote),
+            "event_id": "wf120_source_arm_reaffirmation",
+            "observed_value": "受限",
+        })
+    return rows
+
+
 def compare_plan_to_prose(*, project_id: str, scene_id: str,
                           beat: dict, prose: str,
                           cast: tuple[str, ...],
@@ -211,6 +255,11 @@ def compare_plan_to_prose(*, project_id: str, scene_id: str,
                     intent["predicate"], "author_plan"):
                     continue
                 observed.append({**anchor, "observed_value": op["value"]})
+        # Upstream's reducer intentionally suppresses repeated identical
+        # values. A later explicitly named narrative clause can still be
+        # critical independent corroboration for the actor and state.
+        observed.extend(_corroborating_arm_evidence(
+            prose, intent, cast))
     observed.sort(key=lambda x: (x["start"], x["end"]))
     latest = observed[-1] if observed else None
     if latest is None:
