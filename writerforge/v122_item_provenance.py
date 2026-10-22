@@ -97,14 +97,14 @@ def _status_mismatch(item, old, new, *, unspecified_person=False):
     if old==new:
         return None
     fruit=item.endswith(FRUIT_ENDINGS)
+    if _is_consumed(old):
+        return ("WF116_CONSUMED_FRUIT_RESURRECTED"
+                if fruit else "WF122_CONSUMED_ITEM_REAPPEARED")
     if unspecified_person and new.endswith("齿间"):
         return ("WF116_FRUIT_TEETH_WITHOUT_REHANDOFF"
                 if fruit else "WF122_ITEM_LOCATION_WITHOUT_TRANSFER")
     if unspecified_person:
         return "WF122_ITEM_LOCATION_WITHOUT_TRANSFER"
-    if _is_consumed(old):
-        return ("WF116_CONSUMED_FRUIT_RESURRECTED"
-                if fruit else "WF122_CONSUMED_ITEM_REAPPEARED")
     if _is_consumed(new):
         return ("WF116_FRUIT_CONSUMPTION_WITHOUT_HANDOFF"
                 if fruit else "WF122_ITEM_CONSUMPTION_SOURCE_UNPROVEN")
