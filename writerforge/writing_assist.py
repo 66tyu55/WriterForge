@@ -79,6 +79,7 @@ from .narrative_core import (
     record_chapter_memory,
     buffered_memory_context,
     character_collision_context,
+    relevant_history_context,
 )
 
 MAX_LIVE_CONTEXT = 1400
@@ -704,7 +705,12 @@ class AutonomousWriting:
                         active_narrative_core,
                         project_id=self.assist.project_id,
                         scene_id=self.assist.scene_id,
-                        max_chars=700))
+                        max_chars=700),
+                    relevant_history_context(
+                        active_narrative_core,
+                        project_id=self.assist.project_id,
+                        scene_id=self.assist.scene_id,
+                        scene_goal=goal,max_chars=650))
                 plan_tail=""
                 for note in planning_notes:
                     if note and len(plan_prompt.prompt)+len(plan_tail)+len(
