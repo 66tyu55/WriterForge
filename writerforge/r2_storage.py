@@ -621,3 +621,170 @@ class R2StudyVault:
             "verified":True, "from_local_cache":cached,
             "stats":manifest["stats"],
         }
+
+
+# Unified WriterForge narrative memory (same private R2 client and namespace).
+# The project/scene SHA fixes object ownership. No new database or index server.
+NARRATIVE_MEM_PREFIX="writerforge/v1/narrative-memory/v1"
+NARRATIVE_MEM_MAX_SOURCE=80000
+NARRATIVE_MEM_MAX_CAPSULE=16000
+NARRATIVE_MEM_MAX_RESUME=180000
+
+
+class R2NarrativeMemoryStore:
+    """Private R2 CAS for source chapters, cold capsules and V117 resumes.
+
+    Immutable scope-bound objects only; no mutable 'latest' pointer, no
+    public URLs, no model calls. Caller must explicitly opt in via the
+    writing_assist memory_backend='r2' argument and provide R2 credentials.
+
+    User manuscripts are not logged; this store never sends data to an LLM.
+    """
+
+    def __init__(self, config: R2Config, *, project_id: str,
+                 scene_id: str, client=None):
+        if not (isinstance(project_id,str) and
+                1<=len(project_id)<=128 and
+                isinstance(scene_id,str) and
+                1<=len(scene_id)<=128):
+            raise R2StorageError("WF_R2_NARRATIVE_SCOPE_INVALID")
+        self.config=config
+        self.scope_sha256=sha256(_canonical([project_id,scene_id])).hexdigest()
+        self.project_id=project_id
+        self.scene_id=scene_id
+        self.root=(NARRATIVE_MEM_PREFIX+"/"+self.scope_sha256)
+        self.vault=R2StudyVault(config,client=client)
+
+    def _key(self,kind,digest):
+        if kind not in ("sources","capsules","resumes") or not (
+                isinstance(digest,str) and SHA_RE.fullmatch(digest)):
+            raise R2StorageError("WF_R2_NARRATIVE_KIND_OR_SHA_INVALID")
+        ext=".txt" if kind=="sources" else ".json"
+        return self.root+"/"+kind+"/"+digest+ext
+
+    def _ref(self,kind,digest):
+        # This is a private locator, NOT a public URL or signed request.
+        return "r2://"+self.config.bucket+"/"+self._key(kind,digest)
+
+    def _read_ref(self,ref,kind,expected_sha):
+        if not isinstance(expected_sha,str) or not SHA_RE.fullmatch(expected_sha):
+            raise R2StorageError("WF_R2_NARRATIVE_EXPECTED_SHA_INVALID")
+        if ref!=self._ref(kind,expected_sha):
+            raise R2StorageError("WF_R2_NARRATIVE_CROSS_SCOPE_OR_PATH_REJECTED")
+        key=self._key(kind,expected_sha)
+        limit={"sources":NARRATIVE_MEM_MAX_SOURCE,
+               "capsules":NARRATIVE_MEM_MAX_CAPSULE,
+               "resumes":NARRATIVE_MEM_MAX_RESUME}[kind]
+        head=self.vault._head(key)
+        if (head is None or head.get("Metadata",{}).get("sha256")!=expected_sha
+            or not 0<int(head.get("ContentLength",-1))<=limit):
+            raise R2StorageError("WF_R2_NARRATIVE_MISSING_OR_BAD_METADATA")
+        value=_read_body(
+            self.vault.client.get_object(
+                Bucket=self.config.bucket,Key=key),limit)
+        if sha256(value).hexdigest()!=expected_sha:
+            raise R2StorageError("WF_R2_NARRATIVE_SOURCE_OR_CAPSULE_SHA_CHANGED")
+        return value
+
+    def _put(self,kind,value):
+        limit={"sources":NARRATIVE_MEM_MAX_SOURCE,
+               "capsules":NARRATIVE_MEM_MAX_CAPSULE,
+               "resumes":NARRATIVE_MEM_MAX_RESUME}[kind]
+        if not isinstance(value,bytes) or not 0<len(value)<=limit:
+            raise R2StorageError("WF_R2_NARRATIVE_PAYLOAD_TOO_LARGE")
+        h=sha256(value).hexdigest()
+        key=self._key(kind,h)
+        old=self.vault._head(key)
+        if old is not None:
+            if (int(old.get("ContentLength",-1))!=len(value) or
+                old.get("Metadata",{}).get("sha256")!=h):
+                raise R2StorageError("WF_R2_NARRATIVE_IMMUTABLE_COLLISION")
+        else:
+            self.vault.client.put_object(
+                Bucket=self.config.bucket,Key=key,Body=value,
+                ContentType=(
+                    "text/plain; charset=utf-8" if kind=="sources"
+                    else "application/json; charset=utf-8"),
+                Metadata={"sha256":h})
+        ref=self._ref(kind,h)
+        # Durable readback BEFORE allowing any checkpoint to refer to it.
+        if self._read_ref(ref,kind,h)!=value:
+            raise R2StorageError("WF_R2_NARRATIVE_REMOTE_READBACK_MISMATCH")
+        return ref
+
+    def put_original(self,local_path,source_sha256):
+        p=Path(local_path)
+        if not (isinstance(source_sha256,str) and
+                SHA_RE.fullmatch(source_sha256) and p.is_file()
+                and 0<p.stat().st_size<=NARRATIVE_MEM_MAX_SOURCE):
+            raise R2StorageError("WF_R2_NARRATIVE_UNSAVED_OR_EXCESS_SOURCE")
+        value=p.read_bytes()
+        if sha256(value).hexdigest()!=source_sha256:
+            raise R2StorageError("WF_R2_NARRATIVE_LOCAL_SOURCE_CHANGED")
+        return self._put("sources",value)
+
+    def read_original(self,ref,source_sha256):
+        raw=self._read_ref(ref,"sources",source_sha256)
+        try:
+            value=raw.decode("utf8","strict")
+        except UnicodeError:
+            raise R2StorageError("WF_R2_NARRATIVE_SOURCE_NOT_UTF8") from None
+        if not 0<len(value)<=20000:
+            raise R2StorageError("WF_R2_NARRATIVE_SOURCE_CHARACTER_BOUND")
+        return value
+
+    def put_capsule(self,packet):
+        if not (type(packet) is dict and
+                packet.get("format")=="wf.narrative.cold-capsule-page.v1" and
+                packet.get("project_id")==self.project_id and
+                packet.get("scene_id")==self.scene_id and
+                type(packet.get("chapter_index")) is int and
+                type(packet.get("capsule")) is dict):
+            raise R2StorageError("WF_R2_NARRATIVE_CAPSULE_SCOPE_INVALID")
+        data=_canonical(packet)
+        ref=self._put("capsules",data)
+        return {"path":ref,"sha256":sha256(data).hexdigest()}
+
+    def read_capsule(self,receipt):
+        if (type(receipt) is not dict or
+            set(receipt)!={"path","sha256"}):
+            raise R2StorageError("WF_R2_NARRATIVE_CAPSULE_RECEIPT_INVALID")
+        raw=self._read_ref(
+            receipt["path"],"capsules",receipt["sha256"])
+        try:
+            obj=json.loads(raw)
+        except (ValueError,UnicodeError):
+            raise R2StorageError("WF_R2_NARRATIVE_CAPSULE_JSON_INVALID") from None
+        if not (type(obj) is dict and
+                obj.get("format")=="wf.narrative.cold-capsule-page.v1" and
+                obj.get("project_id")==self.project_id and
+                obj.get("scene_id")==self.scene_id):
+            raise R2StorageError("WF_R2_NARRATIVE_CAPSULE_CROSS_PROJECT")
+        return obj
+
+    def put_resume(self,resume):
+        from .v117_continuity_trace import read_resume
+        if type(resume) is not dict:
+            raise R2StorageError("WF_R2_NARRATIVE_RESUME_NOT_DICT")
+        # Project/scene and V114/V117 graph are verified before publishing.
+        read_resume(resume,project_id=self.project_id,scene_id=self.scene_id)
+        raw=_canonical(resume)
+        return self._put("resumes",raw)
+
+    def read_resume(self,ref):
+        # Only scoped content-addressed immutable references are accepted.
+        if not isinstance(ref,str):
+            raise R2StorageError("WF_R2_NARRATIVE_RESUME_URI_INVALID")
+        ext=".json"
+        stem=ref.rsplit("/",1)[-1]
+        if not (stem.endswith(ext) and
+                SHA_RE.fullmatch(stem[:-len(ext)])):
+            raise R2StorageError("WF_R2_NARRATIVE_RESUME_URI_INVALID")
+        raw=self._read_ref(ref,"resumes",stem[:-len(ext)])
+        try:
+            resume=json.loads(raw)
+        except (ValueError,UnicodeError):
+            raise R2StorageError("WF_R2_NARRATIVE_RESUME_JSON_INVALID") from None
+        from .v117_continuity_trace import read_resume
+        read_resume(resume,project_id=self.project_id,scene_id=self.scene_id)
+        return resume
