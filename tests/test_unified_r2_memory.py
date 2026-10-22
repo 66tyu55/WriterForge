@@ -153,11 +153,16 @@ class DurableR2StoryMemory(unittest.TestCase):
             source_reader=new_client.read_original,
             archive_reader=new_client.read_capsule)
         self.assertEqual(restored,START)
+        requests_before=self.backend.get_count
         hint=relevant_history_context(
             rebuilt,project_id=P,scene_id=S,
             scene_goal="沈砚重逢唐蜃，重阳要追查旧案，还记得密令藏在井底",
             source_reader=new_client.read_original,
             archive_reader=new_client.read_capsule)
+        # Index selects the single relevant first chapter rather than
+        # loading all 17 unrelated private R2 cold pages.
+        self.assertLessEqual(
+            self.backend.get_count-requests_before,4)
         self.assertIn("原文第1章",hint)
         self.assertIn("沈砚",hint)
         self.assertIn("密令",hint)
@@ -165,6 +170,59 @@ class DurableR2StoryMemory(unittest.TestCase):
         self.assertGreater(self.backend.get_count,5)
         self.assertEqual(self.writer.vault.config.bucket,self.cfg.bucket)
         self.assertNotIn("secret_access_key",repr(resume))
+
+    def test_old_local_chapter_memory_without_node_index_is_not_forgotten(self):
+        from writerforge.narrative_core import _signed
+        with TemporaryDirectory() as temp:
+            g=make_graph()
+            for chapter in range(1,16):
+                content=(START if chapter==1 else
+                         f"第{chapter}章，叶青梧看山听雨，未遇敌人。")
+                if chapter>1:
+                    g=advance_graph(
+                        g,project_id=P,scene_id=S,
+                        chapter_index=chapter,prose=content)
+                file=Path(temp)/f"older-{chapter}.txt"
+                file.write_text(content,encoding="utf8")
+                g=record_chapter_memory(
+                    g,project_id=P,scene_id=S,chapter_index=chapter,
+                    source_path=str(file),prose=content,
+                    archive_writer=lambda page:self._local_capsule(
+                        Path(temp),page))
+            self.assertGreater(g["memory"]["cold_count"],0)
+            # Old signed V117 resumes had a cold_head but no per-node
+            # index. Carry them forward without silently losing old hooks.
+            old={k:v for k,v in g.items() if k!="receipt_sha256"}
+            old["memory"]=dict(old["memory"])
+            del old["memory"]["cold_node_heads"]
+            del old["memory"]["cold_index_complete"]
+            old=_signed(old)
+            next_text="第16章，叶青梧再访旧日山庙。"
+            chapter_path=Path(temp)/"older-16.txt"
+            chapter_path.write_text(next_text,encoding="utf8")
+            step=advance_graph(
+                old,project_id=P,scene_id=S,
+                chapter_index=16,prose=next_text)
+            step=record_chapter_memory(
+                step,project_id=P,scene_id=S,chapter_index=16,
+                source_path=str(chapter_path),prose=next_text,
+                archive_writer=lambda page:self._local_capsule(
+                    Path(temp),page))
+            self.assertFalse(step["memory"]["cold_index_complete"])
+            result=relevant_history_context(
+                step,project_id=P,scene_id=S,
+                scene_goal="沈砚与唐蜃重逢，他们仍记得密令藏在井底")
+            self.assertIn("原文第1章",result)
+
+    @staticmethod
+    def _local_capsule(root,packet):
+        raw=json.dumps(
+            packet,ensure_ascii=False,sort_keys=True,
+            separators=(",",":")).encode()
+        h=sha256(raw).hexdigest()
+        file=root/(h+".json")
+        file.write_bytes(raw)
+        return {"path":str(file),"sha256":h}
 
     def test_original_cas_idempotent_scope_verified_and_no_foreign_bucket(self):
         local=self.root/"source.md"
