@@ -285,7 +285,7 @@ def _trace_provenance(prose,old,cast):
         claim_patterns=[]
         if people:
             claim_patterns.extend([
-                re.compile(objects+r"(?:仍|还|依然|早已|已经|就)?"
+                re.compile(objects+r"(?:仍|还|又|再度|再次|依然|早已|已经|就)?"
                            r"(?:在|落在|留在|握在|攥在|含在)"
                            r"(?P<owner>"+people+r")(?:的)?(?P<pos>"+
                            PLACES+r")"),
