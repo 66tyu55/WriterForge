@@ -84,6 +84,36 @@ class PlanIsNotReality(unittest.TestCase):
         self.assertEqual(shen["status"], "OBSERVED_SOURCE_SUPPORTED")
         self.assertEqual(tang["status"], "UNPROVEN")
 
+    def test_repeated_arm_state_is_corroborated_by_explicit_later_prose(self):
+        # V116 retains one value-change event; its first quotation says
+        # "他", then a later sentence explicitly names the injured subject.
+        # The second mention must still be usable as new source evidence.
+        prose = (
+            "沈砚退到石壁。他右手撑住石壁，锁脉诀到了。"
+            "灵力从肘弯往下被截断，手指头瞬间不听使唤。"
+            "沈砚左手撑墙，右臂甩在身后。"
+        )
+        a = audit("沈砚右臂受限", prose)
+        self.assertEqual(a["status"], "OBSERVED_SOURCE_SUPPORTED")
+        self.assertEqual(a["observed_anchor"]["event_id"],
+                         "wf120_source_arm_reaffirmation")
+
+    def test_watcher_is_not_injured_subject(self):
+        prose = "沈砚看着唐蜃右臂垂着，心头一沉。"
+        a = audit("沈砚右臂受限", prose)
+        self.assertEqual(a["status"], "UNPROVEN")
+        self.assertIsNone(a["observed_anchor"])
+
+    def test_negated_arm_state_not_accepted_by_lexical_extractor(self):
+        prose = "沈砚右臂不再垂着，他已经恢复了力量。"
+        a = audit("沈砚右臂受限", prose)
+        self.assertEqual(a["status"], "UNPROVEN")
+
+    def test_dialogue_arm_claim_not_source_proof(self):
+        prose = "唐蜃冷笑道：“沈砚右臂垂着。”"
+        a = audit("沈砚右臂受限", prose)
+        self.assertEqual(a["status"], "UNPROVEN")
+
     def test_other_character_using_healthy_arm_does_not_mean_hero_healed(self):
         old = cell("character", "沈砚", "右臂可用性", "受限")
         prose = "唐蜃右手挥剑，沈砚用左肩撞开石门。"
