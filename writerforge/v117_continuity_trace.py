@@ -94,8 +94,18 @@ def _source_anchored_prop_chains(checkpoint,reducer):
     events=delta.get("source_anchored_events")
     if type(events) is not list or len(events)>16:
         return []
+    # V122 extras have independent source spans and validated old values,
+    # but only the pinned reducer can certify successful application.
+    extra=checkpoint.get("v122_extra_reducer_source_events",[])
+    if (type(extra) is not list or len(extra)>30 or
+        checkpoint.get("v122_extra_reducer_events_count",
+                       len(extra))!=len(extra)):
+        return []
     if reducer.get("verified_events")!=checkpoint.get(
          "source_anchored_events_count"):
+        return []
+    events=sorted(events+extra,key=lambda e:e["evidence"]["start"])
+    if len(events)>40:
         return []
     by_item={}
     for ev in events:
