@@ -129,12 +129,21 @@ def main():
     else:
         report["status"]="DISCOVERY_SECRET_UNAVAILABLE_NO_CALLS"
     report["model_calls"]=calls
+    valid=sum(r.get("status")==
+              "SOURCE_QUOTES_VERIFIED_SUMMARY_UNVERIFIED"
+              for r in report["results"])
+    report["valid_candidate_count"]=valid
+    report["provider_generation_success"]=valid>0
     if "status" not in report:
-        report["status"]="BOUNDED_CALLS_COMPLETED"
+        report["status"]=(
+            "CANDIDATE_SOURCE_ANCHORS_VERIFIED"
+            if valid else "NO_USABLE_MODEL_SUMMARY_PRODUCED")
     (output/"MODEL_STATUS.json").write_text(json.dumps(
         report,ensure_ascii=False,sort_keys=True,indent=2),encoding="utf8")
     print(json.dumps(report,ensure_ascii=False,sort_keys=True))
-    return 0
+    # A safe run is NOT the same as a successful provider/inference trial.
+    # Keep the failure receipt via upload-artifact if: always().
+    return 0 if valid else (2 if calls==0 else 3)
 
 
 if __name__=="__main__":
