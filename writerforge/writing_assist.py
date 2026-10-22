@@ -321,7 +321,8 @@ def _prepare_guarded_turn_packet(
         dependency_hint:str,project_id:str,chapter_index:int,
         turn_index:int,beat:dict,frame:dict|None,
         previous_lamp_receipt:dict|None,
-        narrative_graph:dict|None=None):
+        narrative_graph:dict|None=None,
+        narrative_scene_id:str|None=None):
     """V121: source/causal constraints have priority over optional cues.
 
     A speculative chapter plan may be dropped if it crowds out actual prior
@@ -333,9 +334,7 @@ def _prepare_guarded_turn_packet(
     if narrative_graph is not None:
         lane=schedule_narrative(
             narrative_graph,project_id=project_id,
-            scene_id=body_base.scene_id.split(".chapter-",1)[0]
-                if ".chapter-" in body_base.scene_id
-                else body_base.scene_id,
+            scene_id=(narrative_scene_id or body_base.scene_id),
             beat=beat,chapter_index=chapter_index)
         if lane["required_context"]:
             hard_turn_addition+="\n"+lane["required_context"]
@@ -888,7 +887,8 @@ class AutonomousWriting:
                                            current_external_story_checkpoint is not None
                                            else None),
                                     previous_lamp_receipt=last_lamp_receipt,
-                                    narrative_graph=active_narrative_core))
+                                    narrative_graph=active_narrative_core,
+                                    narrative_scene_id=self.assist.scene_id))
                             if delivery["unified_narrative_priority_dispatch"]:
                                 narrative_lane_decisions.append(
                                     delivery["unified_narrative_priority_dispatch"])
