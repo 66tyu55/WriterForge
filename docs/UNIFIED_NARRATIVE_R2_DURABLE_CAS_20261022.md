@@ -32,3 +32,11 @@
 - 新的 R2 `r2://...` 是**私有 CAS 引用**，不是公网文件地址，也不应放到公开 GitHub README 或日志里。历史原稿仍保留完整、并以 SHA 按需读取。SHA 检测数据变化，但不是账号访问授权；权限由原有 R2 私有凭证控制。
 - 模型端的云接入与 R2 是独立问题：已有 WF WriterForge `local_chat_completion` 仍默认只允许本地 HTTP loopback；不要误称切到 R2 就能让其使用 Discovery 云 API。前一次真实 Discovery 压缩小试验中 intern-s2 超时、DeepSeek 返回 HTTP 429，因此没有可验证摘要；未来如要做真实章节压缩，应单独处理明确授权的云模型调用预算。
 - 本轮绝未写入老 R2 书库索引或旧模型原稿；只允许上述独立前缀的合成烟雾测试对象。没有 Railway 部署，没有生产 main 更改；所有真实 AI 调用本轮为 0。
+
+## 索引优化终态离线验证
+
+新增后续 per-node 冷索引、Legacy fallback 及 28 章独立私有 R2 模拟客户端回归。完整脱敏离线校验：
+https://github.com/66tyu55/WriterForge/actions/runs/39793854484
+（`full-regression-offline` job 1,385 tests run、4 skipped、0 failures）。对 17 页无关冷页、1 页真正相关的合成场景，用节点链约束旧线索回查 R2 GET 次数不超过 4；旧快照缺少节点索引时依然走有界历史链，不把索引缺失判为故事事实消失。
+
+此运行的 live R2 smoke 在检查时仍处于排队状态；不要借上述离线结果宣称该 live job 已完成。远端原文/冷页/resume 真正三类 CAS 的已观测成功记录仍是本交接上面的 #39792584714。生产 main 与 Railway 均未修改。
