@@ -347,13 +347,16 @@ def _direct_arm_actor(clause, match, limited, cast):
     names=set(cast)|set(limited)
     positions=[]
     for name in names:
-        if re.search(r"(?<![\u3400-\u9fff])"+re.escape(name)+
-                     r"(?:的)?$",pre):
+        if re.search(re.escape(name)+r"(?:的)?$",pre):
             positions.append(name)
-    if len(positions)==1:
-        return positions[0], "DIRECT"
     if positions:
-        return None,"AMBIGUOUS_DIRECT"
+        # A distinct longer name wins if character names overlap. The
+        # preceding words may be "看着唐蜃"; the immediate arm subject
+        # is 唐蜃, not the earlier narrator subject 沈砚.
+        longest=max(len(n) for n in positions)
+        choices=[n for n in positions if len(n)==longest]
+        return (choices[0],"DIRECT") if len(choices)==1 else (
+            None,"AMBIGUOUS_DIRECT")
     # The arm-action clause omits a subject only after an explicit opening
     # narrator subject and a separate previous arm limitation in this clause.
     for who in limited:
