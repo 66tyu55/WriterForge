@@ -449,33 +449,34 @@ def preflight_next_prose(next_prose, *, previous_candidate_state,
         raise ValueError("WF121_SOURCE_CAST_INVALID")
     findings,review_findings=_check_arm_action_source(
         next_prose,previous_candidate_state,cast)
-    fruit=next(((k,v) for k,v in previous_candidate_state.items()
-                if '"item"' in k and '"holder"' in k and
-                   ("髓果" in k or "灵果" in k or "仙果" in k)),None)
-    if fruit:
-        key,holder=fruit
-        actor=holder.split("左手心")[0].split("右手心")[0].split("齿间")[0]
-        if holder.startswith("已消耗") and re.search(
-            r"(?:果子|火髓果).{0,8}(?:还在|仍在|握在|放在)(?:手中|掌中|齿间|左手)",
-            next_prose):
-            findings.append("WF116_CONSUMED_FRUIT_RESURRECTED")
-        if ("左手心" in holder or "右手心" in holder):
-            if re.search(r"(?:果子|火髓果).{0,12}(?:仍|还)?(?:在|含|咬).{0,3}齿间",next_prose) and not any(
-                v in next_prose for v in ("送入口","塞入口","含到","咬住","放入口")):
-                findings.append("WF116_FRUIT_TEETH_WITHOUT_REHANDOFF")
-            if re.search(r"(?:唐蜃.{0,8}(?:手里|手中).{0,8}(?:果子|火髓果)|"
-                         r"(?:果子|火髓果).{0,8}(?:在|落在)唐蜃(?:手里|手中))",
-                         next_prose) and not any(x in next_prose for x in (
-                             "交给唐蜃","递给唐蜃","抢走","夺走","掷给唐蜃")):
-                findings.append("WF116_FRUIT_TELEPORT_TO_OTHER_ACTOR")
-        if re.search(r"(?:吃了|吞了|服下|吞服)(?:果子|火髓果)",next_prose) and not any(
-            x in next_prose for x in ("送入口","塞入口","放入口","从掌心拿","拿起","送到嘴边")):
-            findings.append("WF116_FRUIT_CONSUMPTION_WITHOUT_HANDOFF")
-        if (("法力" in next_prose or "灵力" in next_prose) and
-            re.search(r"(?:恢复|回涨|补满|充盈|暴涨)",next_prose) and
-            not any(x in next_prose for x in (
-                "吞下","吞服","吃下","丹药","运转功法","吸收","丹火","灵阵"))):
-            findings.append("WF116_ENERGY_RECOVERY_WITHOUT_SOURCE")
+    # V122: all structured item/holder cells, not an arbitrary first fruit.
+    # Avoid a circular import: V122 reuses V116's source segmentation but
+    # is invoked only when this preflight is called after module load.
+    from .v122_item_provenance import audit_item_provenance
+    item_audit=audit_item_provenance(
+        prose=next_prose,
+        previous_candidate_state=previous_candidate_state,
+        cast=cast)
+    findings.extend(item_audit["hard_findings"])
+    review_findings.extend(item_audit["review_findings"])
+    # Remain conservative about unexplained mana recovery until a separately
+    # anchored energy-state reducer exists. This was an older red-line.
+    has_old_fruit=False
+    for key,holder in previous_candidate_state.items():
+        try:cell=json.loads(key)
+        except (TypeError,ValueError):continue
+        if (type(cell) is list and len(cell)==5 and cell[0]=="item"
+            and cell[2]=="holder" and cell[3]=="author_plan"
+            and type(cell[1]) is str and
+            cell[1].endswith(("髓果","灵果","仙果"))):
+            has_old_fruit=True
+            break
+    if has_old_fruit and (
+        ("法力" in next_prose or "灵力" in next_prose) and
+        re.search(r"(?:恢复|回涨|补满|充盈|暴涨)",next_prose) and
+        not any(x in next_prose for x in (
+            "吞下","吞服","吃下","丹药","运转功法","吸收","丹火","灵阵"))):
+        findings.append("WF116_ENERGY_RECOVERY_WITHOUT_SOURCE")
     # Old V113 sword-tassel case stays unsettled: a new scene cannot
     # silently declare an already-disputed move a trusted prior fact.
     risks=list(previous_risks)[:16]
@@ -491,6 +492,10 @@ def preflight_next_prose(next_prose, *, previous_candidate_state,
         "needs_review":bool(review_findings),
         "review_findings":review_findings[:12],
         "arm_actor_scope":"EXPLICIT_SOURCE_SUBJECT_ONLY",
+        "v122_item_state_audit_sha256":item_audit["receipt_sha256"],
+        "v122_item_actor_scope":"EXPLICIT_NARRATED_SOURCE_ONLY",
+        "v122_source_events_count":len(item_audit["candidate_source_events"]),
+        "v122_candidate_state_not_promoted_to_reducer":True,
         "model_calls":0,"literary_truth_proven":False,
         "automatic_rewrite":False,"new_model_retries":0,
     }
