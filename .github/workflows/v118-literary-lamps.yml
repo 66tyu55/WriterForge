@@ -1,0 +1,63 @@
+name: V118 sealed adaptive literary lamps zero-model audit
+on:
+  push:
+    branches: [v118-event-lit-lamps-zero-model]
+    paths:
+      - .github/workflows/v118-literary-lamps.yml
+      - writerforge/v118_lamp_scheduler.py
+      - writerforge/writing_assist.py
+      - tests/test_v118_lamp_scheduler.py
+      - experiments/v118_readonly_lamp_cold_audit.py
+
+permissions:
+  contents: read
+concurrency:
+  group: wf118-conditional-literary-guidance
+  cancel-in-progress: false
+
+jobs:
+  zero-secret-whole-suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 23
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -e '.[r2]'
+      - run: python -m unittest discover -s tests -q
+
+  sealed-private-source-readonly:
+    if: github.repository == '66tyu55/WriterForge'
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: No model credential at all
+        run: |
+          test -z "${DEEPSEEK:-}"
+          test -z "${DEEPSEEK_API_KEY:-}"
+      - run: python -m pip install -e '.[r2]'
+      - name: Genuine source sealed CAS read and adaptive cue-only checks
+        run: python -m experiments.v118_readonly_lamp_cold_audit
+      - uses: actions/upload-artifact@v4
+        with:
+          name: V118-V113-V114B-real-source-guidance-no-provider
+          path: wf118_sealed_lamp_probe/SOURCE_ONLY_STATUS.json
+          retention-days: 30
+          if-no-files-found: error
