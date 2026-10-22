@@ -58,6 +58,7 @@ from .v117_continuity_trace import (
     make_resume,read_resume,ContinuityTraceError,
 )
 from .v118_lamp_scheduler import plan_scene_lamps,LampDecisionError
+from .v119_revision_transaction import preview_revision as preview_surgical_revision
 
 MAX_LIVE_CONTEXT = 1400
 MAX_OUTLINE_CHARS = 6000
@@ -302,6 +303,24 @@ class AutonomousWriting:
 
     def __init__(self,assist:InvisibleWritingAssist):
         self.assist=assist
+
+    def preview_local_revision(self, *, source:str, source_sha256:str,
+                               start:int, end:int, expected_original:str,
+                               replacement:str, pinned_quotes:tuple[str,...]=(),
+                               previous_candidate_state:dict|None=None,
+                               previous_risks:tuple[dict,...]=()) -> dict:
+        """Opt-in host-bound text revision. No provider, disk, DB or canon writes.
+
+        The model only proposes a replacement fragment. This returns a preview,
+        never changes the original or marks a literary quality claim as true.
+        """
+        return preview_surgical_revision(
+            project_id=self.assist.project_id, scene_id=self.assist.scene_id,
+            source=source, source_sha256=source_sha256,
+            start=start, end=end, expected_original=expected_original,
+            replacement=replacement, pinned_quotes=pinned_quotes,
+            previous_candidate_state=previous_candidate_state,
+            previous_risks=previous_risks)
 
     def run(self,*,outline:str,chapter_goals:list[str],
             output_dir:str|Path,progress=None,
