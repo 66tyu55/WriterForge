@@ -365,6 +365,68 @@ def _trace_provenance(prose,old,cast):
     return findings,review,events,state
 
 
+def supplemental_reducer_events(*, prose, audit, earlier_events=()):
+    """Convert only proven source actions to the pinned V114 reducer schema.
+
+    Existing native/V116 operations win exact duplicates. Upstream reducer
+    still enforces expected-old-value transitions atomically; this function
+    can never claim a canonical fact or repair the original paragraph.
+    """
+    _need(type(audit) is dict and audit.get("format")==FORMAT and
+          audit.get("source_prose_sha256")==_digest(prose) and
+          type(earlier_events) in (list,tuple) and len(earlier_events)<=30,
+          "WF122_REDUCER_ADAPTER_SOURCE_OR_INPUT_INVALID")
+    known=set()
+    for ev in earlier_events:
+        if type(ev) is not dict:continue
+        src=ev.get("evidence",{})
+        for op in ev.get("ops",[]):
+            cell=op.get("cell",{})
+            if cell.get("domain")!="item" or \
+               cell.get("predicate")!="holder" or \
+               cell.get("scope")!="author_plan":
+                continue
+            known.add((src.get("start"),src.get("end"),
+                       cell.get("entityId"),op.get("value")))
+    extra=[]
+    for event in audit["candidate_source_events"]:
+        start,end=event["source_start"],event["source_end"]
+        item=event["item"]
+        before,after=event["before_holder"],event["after_holder"]
+        _need(type(start) is int and type(end) is int and
+              0<=start<end<=len(prose) and end-start<=150 and
+              type(item) is str and 1<=len(item)<=36 and
+              type(before) is str and type(after) is str,
+              "WF122_REDUCER_ADAPTER_EVENT_SCHEMA_INVALID")
+        quote=prose[start:end]
+        _need(_digest(quote)==event["source_quote_sha256"] and
+              prose.count(quote)==1 and _present(prose,start,end),
+              "WF122_REDUCER_ADAPTER_EVENT_SOURCE_UNPROVEN")
+        identity=(start,end,item,after)
+        if identity in known or before==after:
+            continue
+        known.add(identity)
+        alias=("果子" if item not in quote and "果子" in quote
+               and item.endswith(FRUIT_ENDINGS) else None)
+        evidence={"quote":quote,"start":start,"end":end,
+                  "narrative":"present"}
+        if alias:
+            evidence["entity_alias"]=alias
+        extra.append({
+            "id":f"wf122_e{len(extra)+1:02d}",
+            "evidence":evidence,
+            "ops":[{
+                "type":"set",
+                "cell":{"domain":"item","entityId":item,
+                        "predicate":"holder","scope":"author_plan"},
+                "expected":{"kind":"value","value":before},
+                "value":after,
+            }],
+        })
+    _need(len(extra)<=30,"WF122_REDUCER_ADAPTER_EVENT_BUDGET")
+    return extra
+
+
 def audit_item_provenance(*, prose,previous_candidate_state,cast=()):
     _need(type(prose) is str and 0<len(prose)<=MAX_TEXT,
           "WF122_SOURCE_TEXT_BOUNDS")
