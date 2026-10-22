@@ -480,17 +480,25 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
     optional=[]
     deferred=[]
     used=0
+    thread_count=0
     for item in ordered:
         value=item["text"]
         size=len(value)+(1 if used else 0)
+        if item["lane"]=="LONG_THREAD" and thread_count>=3:
+            # Hundreds of dormant hooks must not explode a scene prompt.
+            # Deferred IDs remain in graph/receipt; NO accidental closure.
+            deferred.append(item["key"])
+            continue
         if used+size>max_prompt_chars:
-            if item["mandatory"]:
+            if item["mandatory"] and item["lane"]!="LONG_THREAD":
                 raise NarrativeCoreError(
                     "WFCORE_REQUIRED_SCENE_GUARD_EXCEEDS_BUDGET")
             deferred.append(item["key"])
             continue
         (mandatory if item["mandatory"] else optional).append(value)
         used+=size
+        if item["lane"]=="LONG_THREAD":
+            thread_count+=1
     content="\n".join(mandatory+optional)
     _need(len(content)<=max_prompt_chars,
           "WFCORE_PROMPT_BUDGET_INVARIANT")
@@ -505,6 +513,8 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
                             "\n".join(mandatory),
         "optional_context":"\n".join(optional),
         "deferred_tasks":deferred,
+        "deferred_unresolved_thread_count":len([
+            k for k in deferred if k.startswith("thread:")]),
         "prompt_chars":len(content),
         "priority_order":["HARD_STATE","NPC_KNOWLEDGE",
                           "LONG_THREAD","CRAFT"],
