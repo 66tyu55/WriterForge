@@ -389,7 +389,8 @@ class AutonomousWriting:
                                start:int, end:int, expected_original:str,
                                replacement:str, pinned_quotes:tuple[str,...]=(),
                                previous_candidate_state:dict|None=None,
-                               previous_risks:tuple[dict,...]=()) -> dict:
+                               previous_risks:tuple[dict,...]=(),
+                               cast:tuple[str,...]=()) -> dict:
         """Opt-in host-bound text revision. No provider, disk, DB or canon writes.
 
         The model only proposes a replacement fragment. This returns a preview,
@@ -401,7 +402,7 @@ class AutonomousWriting:
             start=start, end=end, expected_original=expected_original,
             replacement=replacement, pinned_quotes=pinned_quotes,
             previous_candidate_state=previous_candidate_state,
-            previous_risks=previous_risks)
+            previous_risks=previous_risks,cast=cast)
 
     def run(self,*,outline:str,chapter_goals:list[str],
             output_dir:str|Path,progress=None,
