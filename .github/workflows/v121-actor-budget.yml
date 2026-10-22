@@ -7,7 +7,11 @@ on:
       - writerforge/v116_state_delta.py
       - writerforge/v117_continuity_trace.py
       - writerforge/v118_lamp_scheduler.py
+      - writerforge/v119_revision_transaction.py
+      - writerforge/v120_plan_prose_gate.py
       - writerforge/writing_assist.py
+      - tests/test_v118_lamp_scheduler.py
+      - tests/test_v119_revision_transaction.py
       - tests/test_v121_actor_and_budget.py
       - experiments/v121_readonly_actor_budget_cold_audit.py
 
