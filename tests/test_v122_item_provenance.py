@@ -69,7 +69,7 @@ class MultiActorItemSourceAudit(unittest.TestCase):
         self.assertEqual(event["before_holder"],"沈砚左手心")
         self.assertEqual(event["after_holder"],"唐蜃手中")
         self.assertEqual(event["source_quote_sha256"],
-                         hashlib.sha256(prose.split("。")[0].encode()).hexdigest())
+                         hashlib.sha256((prose.split("。")[0]+"。").encode()).hexdigest())
         self.assertFalse(before(prose)["blocked"])
         self.assertTrue(report["candidate_state_not_promoted_to_reducer"])
 
