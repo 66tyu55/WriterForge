@@ -15,6 +15,11 @@ from writerforge.narrative_core import (
 )
 from writerforge.v114_external_story_state import external_temporal_step
 from writerforge.v117_continuity_trace import make_resume,read_resume
+from writerforge.writing_assist import (
+    _prepare_guarded_turn_packet,AutonomousWriting,WritingExecutionError,
+)
+from writerforge.verified_flow import GroundedDraftPacket
+import hashlib
 
 
 P="novel-graph"
@@ -88,7 +93,6 @@ class GraphWithPriorityAndKnowledge(unittest.TestCase):
                          chapter_index=4,
                          beat=beat("叶青梧已经知道密令藏在井底",actor="叶青梧"))
         self.assertIn("人物认知边界",preview["required_context"])
-        self.assertIn("缺",str(preview["tasks"])+"缺") if False else None
         self.assertNotIn("旧案血债的幕后人尚未查明",
                          preview["required_context"])
         self.assertEqual(preview["tasks"][0]["lane"],"NPC_KNOWLEDGE")
@@ -281,6 +285,92 @@ class GraphWithPriorityAndKnowledge(unittest.TestCase):
             schedule(graph,project_id=P,scene_id=S,
                      chapter_index=3,max_prompt_chars=5,
                      beat=beat("叶青梧知道密令藏在井底",actor="叶青梧"))
+
+    def test_actual_turn_dispatch_prioritizes_unknown_npc_over_craft(self):
+        graph=intro()
+        source="叶青梧尚不知道密令藏在井底。"
+        graph=update(graph,source,[annotation(
+            source,source,"UNKNOWN",actor="叶青梧",
+            fact_id="secret-letter")])
+        target_beat=beat("叶青梧早已知道密令藏在井底",
+                         actor="叶青梧",kind="decision")
+        target_beat["craft_focus"]=["interiority"]
+        source_prompt="字"*9200
+        packet=GroundedDraftPacket(
+            scene_id=S+".chapter-003",project_id=P,snapshot_id=1,
+            evidence=(),craft_ids=(),prompt=source_prompt,
+            prompt_sha256=hashlib.sha256(
+                source_prompt.encode("utf8")).hexdigest())
+        out,lamps,receipt=_prepare_guarded_turn_packet(
+            packet,plan={"objective":"她试探旧案"},facets=(),
+            hard_turn_addition="角色以明确已发生的物理状态行事。",
+            dependency_hint="",
+            project_id=P,chapter_index=3,turn_index=0,
+            beat=target_beat,frame=None,previous_lamp_receipt=None,
+            narrative_graph=graph,narrative_scene_id=S)
+        self.assertIn("人物认知边界",out.prompt)
+        self.assertLessEqual(len(out.prompt),10000)
+        self.assertTrue(receipt["hard_context_preserved"])
+        self.assertEqual(
+            receipt["unified_narrative_priority_dispatch"]["tasks"][0]["lane"],
+            "NPC_KNOWLEDGE")
+        self.assertEqual(receipt["delivered_prompt_sha256"],out.prompt_sha256)
+        self.assertEqual(receipt["priority_lanes_ordered"],
+                         ["HARD_STATE","NPC_KNOWLEDGE","LONG_THREAD","CRAFT"])
+
+    def test_no_unified_graph_can_be_loaded_over_v123_legacy_arc(self):
+        from writerforge.v123_long_arc import register_revenge
+        source="沈砚说他要找唐蜃讨回旧债。"
+        arc=register_revenge(
+            project_id=P,scene_id=S,origin_chapter=1,
+            source_prose=source,source_quote=source,
+            arc_id="legacy-arc",actor="沈砚",target="唐蜃",
+            motive="旧案仍有疑点",truth_scope="CHARACTER_BELIEF",
+            author_confirmed=True)
+        checkpoint=external_temporal_step(source,cast=("沈砚","唐蜃"))
+        with self.assertRaisesRegex(Exception,"DUPLICATE_NARRATIVE_MEMORY"):
+            make_resume(project_id=P,scene_id=S,chapter_index=1,
+                        checkpoint=checkpoint,
+                        long_arc_checkpoint=arc,
+                        unified_narrative_core=intro())
+
+    def test_host_refuses_unmatched_graph_before_any_model_request(self):
+        class FakeAssist:
+            project_id=P
+            scene_id=S
+        with self.assertRaisesRegex(
+                WritingExecutionError,
+                "WFCORE_EXPLICIT_STATE_REQUIRES_MATCHED_STORY_RESUME"):
+            AutonomousWriting(FakeAssist()).run(
+                outline="这是小说大纲：沈砚调查密令与旧案，寻找线索。",
+                chapter_goals=["沈砚在山寺重新寻找密令的真正主人"],
+                output_dir="/tmp/wf_unified_core_must_not_touch",
+                draft_mode="continuity_guard",
+                narrative_core_checkpoint=intro())
+
+    def test_many_relevant_hooks_are_deduped_and_deferred_not_deleted(self):
+        graph=intro()
+        for i in range(12):
+            text=f"沈砚对唐蜃发誓保留第{i}道未解之谜。"
+            graph=update(graph,text,[annotation(
+                text,text,"THREAD_OPEN",
+                thread_id=f"mystery-{i:02}",
+                owner="沈砚",target="唐蜃",
+                thread_kind="MYSTERY",premise=f"第{i}道谜尚待解释",
+                truth_scope="CHARACTER_BELIEF")])
+        result=schedule(
+            graph,project_id=P,scene_id=S,
+            chapter_index=graph["chapter_index"]+1,
+            beat=beat("沈砚询问唐蜃十二道旧谜",actor="沈砚"))
+        self.assertLessEqual(len(result["required_context"]),1300)
+        self.assertLessEqual(
+            len([x for x in result["tasks"]
+                 if x["lane"]=="LONG_THREAD"]),13)
+        self.assertGreater(result["deferred_unresolved_thread_count"],0)
+        self.assertEqual(
+            sum(x["kind"]=="THREAD" for x in graph["nodes"].values()),13)
+        self.assertTrue(all(n["props"]["status"]=="OPEN"
+            for n in graph["nodes"].values() if n["kind"]=="THREAD"))
 
     def test_chapter_and_event_replay_never_mutate_live_state(self):
         graph=intro()
