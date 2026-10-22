@@ -78,6 +78,7 @@ from .narrative_core import (
     NarrativeCoreError,
     record_chapter_memory,
     buffered_memory_context,
+    character_collision_context,
 )
 
 MAX_LIVE_CONTEXT = 1400
@@ -664,10 +665,11 @@ class AutonomousWriting:
                 scene,goal,concerns=("scene","decision"),
                 genre=self.assist.source_genre,
             )
-            plan_prompt=_enrich(base,
+            plan_addition=(
                 "\n原创新作的大纲：\n"+outline
                 +"\n本章目标：\n"+goal
-                +"\n上一章仅为候选、尚未作者接受的末尾：\n"+previous[-700:]
+                +"\n上一章仅为候选、尚未作者接受的末尾：\n"+(previous[-260:] if active_narrative_core is not None
+                    else previous[-700:])
                 +("\n【上章尚未证实的情感后果和待处理代价】"+
                   last_chapter_pressure if last_chapter_pressure else "")
                 +("\n【过去数章未偿压力的只读候选账本】"+
@@ -681,8 +683,32 @@ class AutonomousWriting:
                 '"outcome":"...","pov":"...","needs":["dialogue","decision"]}'
                 +(horizon_prompt(pinned_world=pinned_world)
                   if draft_mode=="foresight_rolling" else ""),
-                prose_task=False,
-            )
+                            )
+            plan_prompt=_enrich(base,plan_addition,prose_task=False)
+            if active_narrative_core is not None:
+                # A writer considers independent character motives at
+                # planning time, but the authored result is still provisional.
+                # The warm buffer is for continuity of voice, mood, pacing;
+                # protected hard knowledge and physical state remain separate.
+                planning_notes=(
+                    character_collision_context(
+                        active_narrative_core,
+                        project_id=self.assist.project_id,
+                        scene_id=self.assist.scene_id,
+                        scene_goal=goal,max_chars=800),
+                    buffered_memory_context(
+                        active_narrative_core,
+                        project_id=self.assist.project_id,
+                        scene_id=self.assist.scene_id,
+                        max_chars=700))
+                plan_tail=""
+                for note in planning_notes:
+                    if note and len(plan_prompt.prompt)+len(plan_tail)+len(
+                            note)+1<=MAX_PROMPT_CHARS:
+                        plan_tail+="\n"+note
+                if plan_tail:
+                    plan_prompt=_enrich(
+                        base,plan_addition+plan_tail,prose_task=False)
             plan_raw=local_chat_completion(
                 plan_prompt,model=self.assist.model,
                 api_base=self.assist.api_base,
