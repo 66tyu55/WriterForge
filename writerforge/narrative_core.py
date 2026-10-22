@@ -30,7 +30,7 @@ HOT_CHAPTERS=3
 WARM_CAPSULES=8
 HOT_EXCERPT_CHARS=1600
 CAPSULE_MAX_CHARS=640
-MAX_MEMORY_BYTES=24000
+MAX_MEMORY_BYTES=42000  # UTF-8 bytes: Chinese hot excerpts are ~3 bytes/char
 CHARACTER_LENS_FIELDS=frozenset((
     "desire","fear","value","temperament","habit","emotion","relationship_stance",
     "immediate_intention",
