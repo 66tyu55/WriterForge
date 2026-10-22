@@ -19,6 +19,7 @@ from writerforge.writing_assist import (
     _prepare_guarded_turn_packet, AutonomousWriting, WritingExecutionError,
 )
 from writerforge.verified_flow import MAX_PROMPT_CHARS, GroundedDraftPacket
+from writerforge.v119_revision_transaction import preview_revision
 
 import json
 
@@ -164,6 +165,39 @@ class SourceActorBoundaries(unittest.TestCase):
                              ensure_ascii=False):"受限"}
         result=check("沈砚右手挥剑。",prior=previous)
         self.assertFalse(result["blocked"])
+
+
+class GuardedSurgicalRevision(unittest.TestCase):
+    @staticmethod
+    def patch(source, target, replacement):
+        start=source.index(target)
+        return preview_revision(
+            project_id="novel-z",scene_id="chapter-8",
+            source=source,
+            source_sha256=sha256(source.encode("utf8")).hexdigest(),
+            start=start,end=start+len(target),expected_original=target,
+            replacement=replacement,
+            previous_candidate_state=cell("沈砚"),
+            cast=("沈砚","唐蜃"),
+        )
+
+    def test_enemy_right_arm_edit_does_not_wrongly_block_repair(self):
+        original="沈砚靠着石壁休息。唐蜃后退一步。"
+        r=self.patch(original,"后退一步","右手挥剑")
+        self.assertEqual(r["status"],"PROVISIONAL_REVIEW")
+        self.assertIn("唐蜃右手挥剑",r["candidate_prose"])
+        self.assertEqual(r["receipt"]["new_preflight_warnings"],[])
+        self.assertEqual(r["receipt"]["new_preflight_review_flags"],[])
+        self.assertEqual(r["receipt"]["canon_writes"],0)
+
+    def test_new_unresolved_pronoun_is_reported_instead_of_hidden(self):
+        original="沈砚退到石壁旁。脚下沙石松动。"
+        r=self.patch(original,"脚下沙石松动","他右手挥剑试探前路")
+        self.assertEqual(r["status"],"PROVISIONAL_REVIEW")
+        self.assertIn("WF121_RIGHT_ARM_ACTION_ACTOR_UNRESOLVED",
+                      r["receipt"]["new_preflight_review_flags"])
+        self.assertFalse(r["receipt"]["author_accepted"])
+        self.assertTrue(r["receipt"]["only_declared_selection_changed"])
 
 
 class BoundedOptionalPrompt(unittest.TestCase):
