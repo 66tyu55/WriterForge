@@ -552,11 +552,14 @@ def propose_source_interactions(graph,*,project_id,scene_id,prose):
         pos=start+len(clause)-len(clause.lstrip())
         if not (3<=len(quote)<=150 and prose.count(quote)==1):
             continue
-        for a in people:
-            if a not in quote:
-                continue
-            for b in people:
-                if a==b or b not in quote:
+        present_people=[p for p in people if p in quote]
+        if len(present_people)>8:
+            # A group scene requires higher-fidelity recognition; do not
+            # run quadratic name combinations or invent participants.
+            continue
+        for a in present_people:
+            for b in present_people:
+                if a==b:
                     continue
                 # Name-bound narrated encounter only; proximity doesn't
                 # imply a conversation and neither event implies KNOWS.
