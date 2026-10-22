@@ -9,6 +9,7 @@ import copy
 import json
 import tempfile
 from pathlib import Path
+import inspect
 import unittest
 
 from writerforge.narrative_core import (
