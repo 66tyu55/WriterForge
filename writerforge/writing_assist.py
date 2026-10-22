@@ -19,6 +19,9 @@ import re
 import os
 
 from .db import WriterForgeDB
+from .r2_storage import (
+    R2NarrativeMemoryStore,R2Config,R2StorageError,
+)
 from .encyclopedia import FictionEncyclopedia, FacetQuery
 from .runtime import RuntimeEngine
 from .prose_style import format_prose_reference
@@ -493,10 +496,39 @@ class AutonomousWriting:
             frozen_turn_outlines:tuple[str,...]|None=None,
             forward_author_pinned_facts:dict[str,str]|None=None,
             resume_candidate_checkpoint:dict|None=None,
-            resume_story_checkpoint:dict|None=None,
+            resume_story_checkpoint:dict|str|None=None,
             continuity_reference:dict|None=None,
             long_arc_checkpoint:dict|None=None,
-            narrative_core_checkpoint:dict|None=None) -> dict:
+            narrative_core_checkpoint:dict|None=None,
+            narrative_memory_backend:str="local") -> dict:
+        # R2 remains explicit opt-in, never inferred from unrelated secrets.
+        # The same unified memory graph owns both local and R2 references.
+        if narrative_memory_backend not in ("local","r2"):
+            raise WritingExecutionError(
+                "WFCORE_MEMORY_BACKEND_MUST_BE_LOCAL_OR_R2")
+        if narrative_memory_backend=="r2" and draft_mode!="continuity_guard":
+            raise WritingExecutionError(
+                "WFCORE_R2_ONLY_ON_UNIFIED_CONTINUITY_GUARD")
+        narrative_store=None
+        if narrative_memory_backend=="r2":
+            try:
+                narrative_store=R2NarrativeMemoryStore(
+                    R2Config.from_environment(),
+                    project_id=self.assist.project_id,
+                    scene_id=self.assist.scene_id)
+            except R2StorageError:
+                raise WritingExecutionError(
+                    "WFCORE_R2_UNAVAILABLE_OR_INVALID_CREDENTIALS") from None
+        if type(resume_story_checkpoint) is str:
+            if narrative_store is None:
+                raise WritingExecutionError(
+                    "WFCORE_REMOTE_RESUME_NEEDS_R2_BACKEND")
+            try:
+                resume_story_checkpoint=narrative_store.read_resume(
+                    resume_story_checkpoint)
+            except (R2StorageError,ContinuityTraceError,ValueError):
+                raise WritingExecutionError(
+                    "WFCORE_R2_RESUME_READ_OR_HASH_FAILED") from None
         # 'single' remains byte-for-byte compatible with legacy output
         # behavior. split_only vs causal_guard share the SAME JSON turn
         # planning/response interface so B/C can be fairly compared.
@@ -589,6 +621,15 @@ class AutonomousWriting:
         if active_narrative_core is not None and active_long_arc is not None:
             raise WritingExecutionError(
                 "WFCORE_DUPLICATE_LONG_ARC_OWNERS_NOT_ALLOWED")
+        if active_narrative_core is not None and narrative_store is None:
+            mem=active_narrative_core.get("memory") or {}
+            remote=(any(entry.get("source_path","").startswith("r2://")
+                        for entry in mem.get("hot",[])+mem.get("warm",[]))
+                    or type(mem.get("cold_head")) is dict and
+                    mem["cold_head"].get("path","").startswith("r2://"))
+            if remote:
+                raise WritingExecutionError(
+                    "WFCORE_REMOTE_STORY_REQUIRES_R2_BACKEND")
         if draft_mode!="single" and len(chapter_goals)>MAX_SEGMENTED_CHAPTERS_PER_JOB:
             raise WritingExecutionError(
                 "WF96_SEGMENTED_CHAPTER_REQUEST_BUDGET_EXCEEDED")
@@ -710,7 +751,11 @@ class AutonomousWriting:
                         active_narrative_core,
                         project_id=self.assist.project_id,
                         scene_id=self.assist.scene_id,
-                        scene_goal=goal,max_chars=650))
+                        scene_goal=goal,max_chars=650,
+                        source_reader=(narrative_store.read_original
+                                       if narrative_store else None),
+                        archive_reader=(narrative_store.read_capsule
+                                        if narrative_store else None)))
                 plan_tail=""
                 for note in planning_notes:
                     if note and len(plan_prompt.prompt)+len(plan_tail)+len(
@@ -1329,8 +1374,16 @@ class AutonomousWriting:
                         scene_id=self.assist.scene_id,
                         chapter_index=first_story_chapter_index+index-1,
                         source_path=saved["candidate"],prose=body,
-                        archive_writer=lambda capsule: (
-                            _save_unified_cold_capsule(root,capsule)))
+                        source_writer=(narrative_store.put_original
+                                       if narrative_store else None),
+                        source_reader=(narrative_store.read_original
+                                       if narrative_store else None),
+                        archive_writer=(
+                            narrative_store.put_capsule
+                            if narrative_store else lambda capsule:
+                            _save_unified_cold_capsule(root,capsule)),
+                        archive_reader=(narrative_store.read_capsule
+                                        if narrative_store else None))
                 state_file=folder/"v114_candidate_item_memory.json"
                 state_file.write_text(
                     json.dumps(current_continuity_checkpoint,
@@ -1360,8 +1413,18 @@ class AutonomousWriting:
                 resume_file=folder/"v117_unreviewed_text_trace_resume.json"
                 resume_file.write_text(json.dumps(
                     resume,ensure_ascii=False,indent=2),encoding="utf8")
+                r2_resume_ref=None
+                if narrative_store is not None:
+                    try:
+                        r2_resume_ref=narrative_store.put_resume(resume)
+                    except (R2StorageError,ContinuityTraceError,ValueError):
+                        raise WritingExecutionError(
+                            "WFCORE_R2_RESUME_NOT_DURABLE_CANDIDATE_ONLY") from None
                 chapter_data.update({
                     "v117_unreviewed_text_trace_resume":str(resume_file),
+                    **({"v117_r2_private_resume_ref":r2_resume_ref,
+                        "v117_private_cloud_checkpoint_verified":True}
+                       if r2_resume_ref is not None else {}),
                     "v117_source_only_preflight_count":len(trace_checks),
                     "v117_new_model_calls_for_tracking":0,
                     "v117_source_state_still_not_canon":True,
