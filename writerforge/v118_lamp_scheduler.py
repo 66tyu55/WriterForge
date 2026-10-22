@@ -113,7 +113,7 @@ def frame_state(frame,*,project_id,chapter_index):
     return state,debt,knowledge
 
 def plan_scene_lamps(*,project_id,chapter_index,turn_index,beat,
-                     frame=None,previous=None):
+                     frame=None,previous=None,max_prompt_chars=MAX_CHARS):
     need(type(project_id) is str and 0<len(project_id)<=128 and
          type(chapter_index) is int and 0<=chapter_index<=1000000 and
          type(turn_index) is int and 0<=turn_index<=20 and
@@ -123,7 +123,8 @@ def plan_scene_lamps(*,project_id,chapter_index,turn_index,beat,
          type(beat.get("goal")) is str and 1<=len(beat["goal"])<=220 and
          type(beat.get("craft_focus")) is list and
          len(beat["craft_focus"])<=2 and
-         all(x in VALID_FOCUS for x in beat["craft_focus"]),
+         all(x in VALID_FOCUS for x in beat["craft_focus"]) and
+         type(max_prompt_chars) is int and 0<=max_prompt_chars<=MAX_CHARS,
          "WF118_LAMP_BAD_SCENE_CONTRACT")
     prior=checked_previous(previous,project_id,chapter_index)
     need(prior is None or turn_index==prior["turn_index"]+1,
@@ -185,16 +186,34 @@ def plan_scene_lamps(*,project_id,chapter_index,turn_index,beat,
         turn_index-prior["last_active_craft_turn"]<=2):
         skip="CRAFT_COOLDOWN_LAST_TWO_TURNS"
         chosen=None
-    lines=[]
-    if active:
-        lines.append("【只在确实涉及该变化时遵守的前文约束】")
-        lines.extend(CANONICAL_PHRASES[k] for k in active)
-    if chosen:
-        lines.append("【本段至多一个文学思考提示（不要求解释思考过程）】"+
-                     QUESTIONS.get(chosen,"只让人物行为自然推动场景变化。"))
-    # A quiet scene with no relevant signal must be allowed to stay quiet.
-    prompt="\n".join(lines)
-    need(len(prompt)<=MAX_CHARS,"WF118_LAMP_PROMPT_BUDGET")
+    # V121 context-pressure constraint: render only what the model will
+    # ACTUALLY receive. Omitted optional advice must not cause craft cooldown.
+    # Physical continuity reducer constraints remain separate and mandatory.
+    proposed_risks=list(active)
+    chosen_before_budget=chosen
+    def _render():
+        lines=[]
+        if active:
+            lines.append("【只在确实涉及该变化时遵守的前文约束】")
+            lines.extend(CANONICAL_PHRASES[k] for k in active)
+        if chosen:
+            lines.append("【本段至多一个文学思考提示（不要求解释思考过程）】"+
+                         QUESTIONS.get(chosen,"只让人物行为自然推动场景变化。"))
+        return "\n".join(lines)
+    prompt=_render()
+    while len(prompt)>max_prompt_chars:
+        if chosen:
+            chosen=None
+            skip="WF121_CRAFT_OMITTED_FOR_CONTEXT_BUDGET"
+        elif active:
+            active.pop()
+            reason_codes.pop()
+        else:
+            break
+        prompt=_render()
+    need(len(prompt)<=max_prompt_chars and len(prompt)<=MAX_CHARS,
+         "WF121_OPTIONAL_LAMP_BUDGET_INVARIANT")
+    suppressed_risks=proposed_risks[len(active):]
     receipt={
         "format":FORMAT,
         "project_id":project_id,
@@ -211,6 +230,10 @@ def plan_scene_lamps(*,project_id,chapter_index,turn_index,beat,
         "last_active_craft_turn":turn_index if chosen else (
             prior.get("last_active_craft_turn") if prior else None),
         "craft_suppression":skip,
+        "prompt_budget_chars":max_prompt_chars,
+        "budget_suppressed_risks":suppressed_risks,
+        "budget_suppressed_craft":(
+            chosen_before_budget is not None and chosen is None),
         "prompt":prompt,
         "prompt_chars":len(prompt),
         "zero_lamp_is_valid":not active and not chosen,
