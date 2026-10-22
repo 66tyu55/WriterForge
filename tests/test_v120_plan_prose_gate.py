@@ -104,6 +104,12 @@ class PlanIsNotReality(unittest.TestCase):
         self.assertEqual(a["status"], "UNPROVEN")
         self.assertIsNone(a["observed_anchor"])
 
+    def test_ambiguous_patient_pronoun_does_not_injure_the_caster(self):
+        prose = "唐蜃的法术使他右臂垂着。"
+        a = audit("唐蜃右臂受限", prose, actor="唐蜃")
+        self.assertEqual(a["status"], "UNPROVEN")
+        self.assertIsNone(a["observed_anchor"])
+
     def test_negated_arm_state_not_accepted_by_lexical_extractor(self):
         prose = "沈砚右臂不再垂着，他已经恢复了力量。"
         a = audit("沈砚右臂受限", prose)
