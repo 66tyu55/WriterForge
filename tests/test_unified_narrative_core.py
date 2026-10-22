@@ -7,12 +7,15 @@ from __future__ import annotations
 
 import copy
 import json
+import tempfile
+from pathlib import Path
 import unittest
 
 from writerforge.narrative_core import (
     NarrativeCoreError,Patch,new_graph,advance_graph,keyed_diff,
     schedule,knows,audit_candidate,propose_source_interactions,
-    validate,read_core_from_resume,
+    validate,read_core_from_resume,record_chapter_memory,
+    recall_original,buffered_memory_context,
 )
 from writerforge.v114_external_story_state import external_temporal_step
 from writerforge.v117_continuity_trace import make_resume,read_resume
@@ -439,6 +442,178 @@ class GraphWithPriorityAndKnowledge(unittest.TestCase):
             sum(x["kind"]=="THREAD" for x in graph["nodes"].values()),13)
         self.assertTrue(all(n["props"]["status"]=="OPEN"
             for n in graph["nodes"].values() if n["kind"]=="THREAD"))
+
+    def test_character_has_self_drives_without_forcing_plot(self):
+        base=new_graph(project_id=P,scene_id=S)
+        prose="沈砚害怕唐蜃认出自己，却更想查明父亲的死因。"
+        reflect=annotation(
+            prose,prose,"CHARACTER_REFLECT",actor="沈砚",
+            dimension="desire",value="更想查明父亲的死因",
+            evidence_scope="NARRATED_INNER")
+        state=advance_graph(base,project_id=P,scene_id=S,
+                            chapter_index=1,prose=prose,events=(reflect,))
+        shen=schedule(state,project_id=P,scene_id=S,chapter_index=2,
+                      beat=beat("沈砚再次经过唐蜃的府邸",actor="沈砚"))
+        self.assertIn("人物自主行动张力",shen["required_context"])
+        self.assertIn("更想查明父亲的死因",shen["required_context"])
+        self.assertIn("可以不按原大纲行动",shen["required_context"])
+        tang=schedule(state,project_id=P,scene_id=S,chapter_index=2,
+                      beat=beat("唐蜃独自看守府邸",actor="唐蜃"))
+        self.assertNotIn("查明父亲",tang["required_context"])
+        self.assertNotIn("沈砚",tang["required_context"])
+        self.assertEqual(
+            state["nodes"]["character:沈砚"]["props"]["lens"]["desire"][
+                "evidence_scope"],"NARRATED_INNER")
+
+    def test_delay_compaction_keeps_source_and_never_promotes_model_summary(self):
+        from writerforge.writing_assist import _save_unified_cold_capsule
+        with tempfile.TemporaryDirectory() as td:
+            graph=new_graph(project_id=P,scene_id=S)
+            paths={}
+            for n in range(1,42):
+                raw=f"第{n}章，沈砚行过石桥，雨声渐远。" + "山风渐冷。"*120
+                file=Path(td)/f"ch-{n:03}.md"
+                file.write_text(raw,encoding="utf8")
+                paths[n]=file
+                graph=advance_graph(
+                    graph,project_id=P,scene_id=S,
+                    chapter_index=n,prose=raw)
+                candidate=None
+                if n==4:
+                    first=paths[1].read_text("utf8")
+                    candidate={
+                        "source_sha256":hashlib.sha256(
+                            first.encode()).hexdigest(),
+                        "summary":"模型认为沈砚已经找到真凶——未证实的文学推测",
+                        "quote_anchors":["第1章，沈砚行过石桥，雨声渐远。"],
+                    }
+                graph=record_chapter_memory(
+                    graph,project_id=P,scene_id=S,
+                    chapter_index=n,source_path=str(file),prose=raw,
+                    summary_proposal=candidate,
+                    archive_writer=lambda page:_save_unified_cold_capsule(
+                        Path(td),page))
+                mem=graph["memory"]
+                self.assertEqual(mem["last_recorded_chapter"],n)
+                self.assertLessEqual(len(mem["hot"]),3)
+                self.assertLessEqual(len(mem["warm"]),8)
+                self.assertLess(len(json.dumps(mem,ensure_ascii=False)),24000)
+                if n<=3:
+                    self.assertEqual(len(mem["warm"]),0)
+                if n==4:
+                    self.assertEqual(
+                        mem["warm"][0]["summary_kind"],
+                        "MODEL_PROPOSAL_UNVERIFIED")
+                    self.assertFalse(
+                        mem["warm"][0]["literary_interpretation_verified"])
+                    self.assertNotIn("真凶",json.dumps(
+                        graph["nodes"],ensure_ascii=False))
+            self.assertEqual(len(graph["memory"]["hot"]),3)
+            self.assertEqual(len(graph["memory"]["warm"]),8)
+            self.assertEqual(graph["memory"]["cold_count"],30)
+            for index in (1,9,20,39,41):
+                original=recall_original(
+                    graph,project_id=P,scene_id=S,chapter_index=index)
+                self.assertEqual(original,paths[index].read_text("utf8"))
+            memo=buffered_memory_context(
+                graph,project_id=P,scene_id=S,max_chars=850)
+            self.assertIn("近几章工作缓冲",memo)
+            self.assertIn("第41章",memo)
+            self.assertNotIn("第1章",memo)
+            self.assertLessEqual(len(memo),850)
+            self.assertEqual(graph["model_calls"],0)
+            self.assertEqual(graph["canon_writes"],0)
+
+    def test_compaction_fails_closed_when_archive_unavailable(self):
+        with tempfile.TemporaryDirectory() as td:
+            graph=new_graph(project_id=P,scene_id=S)
+            for n in range(1,12):
+                raw=f"第{n}章，一只鸟落在井边。"
+                file=Path(td)/f"{n}.md"
+                file.write_text(raw,encoding="utf8")
+                graph=advance_graph(graph,project_id=P,scene_id=S,
+                                    chapter_index=n,prose=raw)
+                graph=record_chapter_memory(
+                    graph,project_id=P,scene_id=S,
+                    chapter_index=n,source_path=str(file),prose=raw)
+            pre=graph
+            raw="第12章，又落了一场雨。"
+            file=Path(td)/"12.md"
+            file.write_text(raw,encoding="utf8")
+            graph=advance_graph(graph,project_id=P,scene_id=S,
+                                chapter_index=12,prose=raw)
+            with self.assertRaisesRegex(
+                    NarrativeCoreError,"COLD_ARCHIVE_REQUIRED"):
+                record_chapter_memory(
+                    graph,project_id=P,scene_id=S,
+                    chapter_index=12,source_path=str(file),prose=raw)
+            self.assertEqual(pre["memory"]["last_recorded_chapter"],11)
+            self.assertEqual(pre["memory"]["cold_count"],0)
+
+    def test_summary_with_ungrounded_anchor_must_not_replace_original(self):
+        with tempfile.TemporaryDirectory() as td:
+            graph=new_graph(project_id=P,scene_id=S)
+            oldpath=None
+            for n in range(1,5):
+                raw=f"第{n}章，叶青梧静坐，窗外下雨。"
+                file=Path(td)/f"{n}.md"
+                file.write_text(raw,encoding="utf8")
+                if n==1:oldpath=file
+                graph=advance_graph(graph,project_id=P,scene_id=S,
+                                    chapter_index=n,prose=raw)
+                kw={"summary_proposal":{
+                    "source_sha256":hashlib.sha256(
+                        oldpath.read_bytes()).hexdigest(),
+                    "summary":"本章被模型推断为秘密已经揭露",
+                    "quote_anchors":["正文里并不存在的原话"]}}
+                    if n==4 else {}
+                if n==4:
+                    with self.assertRaisesRegex(
+                            NarrativeCoreError,"SOURCE_ANCHORS_MISSING"):
+                        record_chapter_memory(
+                            graph,project_id=P,scene_id=S,
+                            chapter_index=n,source_path=str(file),prose=raw,
+                            **kw)
+                else:
+                    graph=record_chapter_memory(
+                        graph,project_id=P,scene_id=S,
+                        chapter_index=n,source_path=str(file),prose=raw)
+            self.assertTrue(oldpath.exists())
+
+    def test_working_memory_prompt_keeps_hard_context_and_can_be_dropped(self):
+        from writerforge.verified_flow import GroundedDraftPacket
+        with tempfile.TemporaryDirectory() as td:
+            graph=new_graph(project_id=P,scene_id=S)
+            source="沈砚缓步走进旧院，远处传来钟声。"
+            file=Path(td)/"1.md"
+            file.write_text(source,encoding="utf8")
+            graph=advance_graph(graph,project_id=P,scene_id=S,
+                                chapter_index=1,prose=source)
+            graph=record_chapter_memory(
+                graph,project_id=P,scene_id=S,
+                chapter_index=1,source_path=str(file),prose=source)
+            base=GroundedDraftPacket(
+                scene_id=S+".chapter-002",project_id=P,
+                snapshot_id=1,evidence=(),craft_ids=(),
+                prompt="模型原始提示正文。",
+                prompt_sha256=hashlib.sha256(
+                    "模型原始提示正文。".encode()).hexdigest())
+            note=buffered_memory_context(
+                graph,project_id=P,scene_id=S)
+            final,lamp,receipt=_prepare_guarded_turn_packet(
+                base,plan={"objective":"人物有自己的选择"},facets=(),
+                hard_turn_addition="【不可丢失】上章有物件未交接。",
+                dependency_hint="",project_id=P,
+                chapter_index=2,turn_index=0,
+                beat=beat("沈砚走进旧院",actor="沈砚"),
+                frame=None,previous_lamp_receipt=None,
+                narrative_graph=graph,narrative_scene_id=S,
+                working_memory_context=note)
+            self.assertIn("【不可丢失】",final.prompt)
+            self.assertIn("近几章工作缓冲",final.prompt)
+            self.assertTrue(receipt["working_memory_context_delivered"])
+            self.assertTrue(receipt["hard_context_preserved"])
+            self.assertFalse(receipt["no_canon_promotion"] is False)
 
     def test_chapter_and_event_replay_never_mutate_live_state(self):
         graph=intro()
