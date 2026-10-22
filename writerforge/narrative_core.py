@@ -523,6 +523,94 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
     }
 
 
+def propose_source_interactions(graph,*,project_id,scene_id,prose):
+    """Detect only narrowly narrated contacts/explicit disclosures.
+
+    This is *proposal extraction*, not author confirmation or a knowledge
+    graph write. Relationship contact is not equivalent to learning a fact.
+    """
+    validate(graph,project_id=project_id,scene_id=scene_id)
+    _need(type(prose) is str and 1<=len(prose)<=MAX_CHARS,
+          "WFCORE_PROPOSAL_TEXT_BOUNDS")
+    from .v116_state_delta import _segments
+    people=sorted([
+        row["props"]["name"] for row in graph["nodes"].values()
+        if row["kind"]=="CHARACTER"],key=lambda n:(-len(n),n))
+    facts=[
+        (k.split(":",1)[1],v["props"]["name"])
+        for k,v in graph["nodes"].items() if v["kind"]=="FACT"]
+    contacts=[]
+    disclosures=[]
+    seen=set()
+    for start,end,clause,spoken in _segments(prose):
+        if spoken or len(contacts)+len(disclosures)>=32 or \
+           any(x in clause for x in (
+               "如果","假如","梦见","梦中","想象","传闻","听说",
+               "据说","有人说","可能","似乎","仿佛")):
+            continue
+        quote=clause.strip()
+        pos=start+len(clause)-len(clause.lstrip())
+        if not (3<=len(quote)<=150 and prose.count(quote)==1):
+            continue
+        for a in people:
+            if a not in quote:
+                continue
+            for b in people:
+                if a==b or b not in quote:
+                    continue
+                # Name-bound narrated encounter only; proximity doesn't
+                # imply a conversation and neither event implies KNOWS.
+                hit=re.search(
+                    re.escape(a)+r".{0,12}?"
+                    r"(?:遇见|碰见|遇到|相遇|会见|交谈|见面)"+
+                    re.escape(b),quote)
+                if hit:
+                    key=("CONTACT",*sorted((a,b)),pos)
+                    if key not in seen:
+                        seen.add(key)
+                        contacts.append({
+                            "kind":"CONTACT","actors":sorted((a,b)),
+                            "source_start":pos,"source_end":pos+len(quote),
+                            "quote_sha256":_hash(quote),
+                            "author_confirmed":False,
+                            "must_not_propagate_knowledge":True,
+                        })
+                # A proposed disclosure is reportable only when the precise
+                # FACT NAME appears in the same narrated clause, and its
+                # speaker already has a source-backed KNOWS/BELIEVES edge.
+                for fid,content in facts:
+                    if content not in quote or not re.search(
+                        re.escape(a)+r".{0,10}?"
+                        r"(?:告诉|告知|传话给|说给|解释给)"+
+                        re.escape(b),quote):
+                        continue
+                    k=knows(graph,character=a,fact_id=fid)
+                    if k not in ("KNOWN","BELIEVED_NOT_PROVEN"):
+                        continue
+                    key=("SHARE",a,b,fid,pos)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    disclosures.append({
+                        "kind":"SHARE","speaker":a,"receiver":b,
+                        "fact_id":fid,"speaker_status":k,
+                        "source_start":pos,"source_end":pos+len(quote),
+                        "quote_sha256":_hash(quote),
+                        "author_confirmed":False,
+                        "not_a_knowledge_commit":True,
+                    })
+    return {
+        "format":"wf.narrative.source-interaction-proposals.v1",
+        "prose_sha256":_hash(prose),
+        "source_contact_proposals":contacts[:24],
+        "source_disclosure_proposals":disclosures[:24],
+        "automatic_contact_commits":0,
+        "automatic_knowledge_commits":0,
+        "model_calls":0,"canon_writes":0,
+        "model_or_reader_knowledge_not_shared_by_default":True,
+    }
+
+
 def audit_candidate(graph,*,project_id,scene_id,prose):
     """Review explicit NPC-knowledge claims; never let prose mutate edges.
 
@@ -573,8 +661,11 @@ def audit_candidate(graph,*,project_id,scene_id,prose):
                         findings.append("WFCORE_AUTHOR_UNKNOWN_RETCON_CONFLICT")
                 elif "WFCORE_UNPROVEN_CHARACTER_KNOWLEDGE" not in reviews:
                     reviews.append("WFCORE_UNPROVEN_CHARACTER_KNOWLEDGE")
+    proposals=propose_source_interactions(
+        graph,project_id=project_id,scene_id=scene_id,prose=prose)
     return {
         "format":"wf.narrative.source-preflight.v1",
+        "source_interaction_proposals":proposals,
         "prose_sha256":_hash(prose),
         "graph_receipt_sha256":graph["receipt_sha256"],
         "blocked":bool(findings),
