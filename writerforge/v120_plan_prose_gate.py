@@ -122,6 +122,29 @@ def _plan_goal(beat, cast):
     return None, "UNSUPPORTED_GOAL_OR_AMBIGUOUS_ACTOR"
 
 
+def _arm_predicate_negated(quote, span):
+    """Scope negation to the injury predicate, never the entire sentence.
+
+    '右臂垂着，却没有停步' is AFFIRMATIVE arm limitation.
+    '右臂不再垂着' is NOT affirmative limitation.
+    """
+    predicate = span.group(0)
+    before = quote[max(0, span.start()-5):span.start()]
+    if any(w in predicate for w in
+           ("不再", "没有", "并非", "不是", "尚未", "未曾",
+            "假装", "装作", "似乎", "好像", "仿佛")):
+        return True
+    if re.search(r"(?:没有|并非|不是|未曾|尚未|假装|装作|"
+                 r"似乎|好像|仿佛|看着|看见|望着|瞧见)$", before):
+        return True
+    # A clear later narrator reversal in the SAME sentence makes a
+    # single limited-state conclusion insufficient for the final state.
+    after = quote[span.end():]
+    if re.search(r"(?:右臂|右手).{0,9}(?:恢复|痊愈|复原|灵活)", after):
+        return True
+    return False
+
+
 def _safe_anchor(event, source, intent, cast):
     evidence = event.get("evidence")
     if type(evidence) is not dict:
@@ -148,21 +171,15 @@ def _safe_anchor(event, source, intent, cast):
     else:
         # V116 may assign the nearest subject in "沈砚看着唐蜃右臂垂着"
         # to 沈砚; do NOT treat such a narrated observation as his injury.
-        marker = re.search(r"右臂|右手", clean)
+        marker = re.search(r"右臂.{0,8}(?:甩在身后|垂着|抬不起来)|"
+                           r"右手.{0,8}(?:不听使唤)", clean)
         if not clean.startswith(actor) or marker is None:
             return None
         if any(name != actor and name in clean[:marker.start()]
                for name in cast):
             return None
-        # "唐蜃的法术使他右臂垂着" has an ambiguous patient; the
-        # initial named actor is the caster, not necessarily the injured one.
-        if re.search(r"[他她其]右(?:臂|手)", clean[:marker.end()]):
-            return None
-        if any(term in clean for term in
-               ("不再", "并非", "没有", "不曾", "尚未", "装作",
-                "假装", "似乎", "好像", "仿佛", "恢复",
-                "痊愈", "治好", "看着", "看见", "望着",
-                "瞧见")):
+        # "唐蜃的法术使他右臂垂着" has an ambiguous patient.
+        if re.search(r"[他她其]右(?:臂|手)", clean[:marker.end()]) or            _arm_predicate_negated(clean, marker):
             return None
     # The event quotation may use a disambiguated "果子" alias. Alias
     # resolution only comes from the existing V116 source-bound extractor.
@@ -203,10 +220,7 @@ def _corroborating_arm_evidence(source, intent, cast):
             continue
         if re.search(r"[他她其]右(?:臂|手)", quote[:found.end()]):
             continue
-        if any(term in quote for term in
-               ("不再", "并非", "没有", "不曾", "尚未", "装作", "假装",
-                "似乎", "好像", "仿佛", "恢复", "痊愈", "治好",
-                "看着", "看见", "望着", "瞧见")):
+        if _arm_predicate_negated(quote, found):
             continue
         offset = start + len(clause) - len(clause.lstrip())
         # Keep a source span and hash. No raw words leave the audit.
