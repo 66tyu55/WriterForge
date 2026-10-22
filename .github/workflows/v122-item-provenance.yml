@@ -4,6 +4,7 @@ on:
     branches: [v122-multi-actor-prop-provenance]
     paths:
       - .github/workflows/v122-item-provenance.yml
+      - writerforge/v114_external_story_state.py
       - writerforge/v116_state_delta.py
       - writerforge/v122_item_provenance.py
       - writerforge/v117_continuity_trace.py
