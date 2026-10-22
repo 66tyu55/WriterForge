@@ -281,8 +281,17 @@ def preflight_continuation(next_prose,checkpoint,*,project_id,chapter_index,
     }
 
 def make_resume(*,project_id,scene_id,chapter_index,checkpoint,
-                long_arc_checkpoint=None):
+                long_arc_checkpoint=None,unified_narrative_core=None):
     _checkpoint(checkpoint)
+    need(not (long_arc_checkpoint is not None and
+              unified_narrative_core is not None),
+         "WFCORE_DUPLICATE_NARRATIVE_MEMORY_OWNERS")
+    if unified_narrative_core is not None:
+        from .narrative_core import validate
+        validate(unified_narrative_core,project_id=project_id,
+                 scene_id=scene_id)
+        need(unified_narrative_core["chapter_index"]==chapter_index,
+             "WFCORE_RESUME_CHAPTER_MISMATCH")
     if long_arc_checkpoint is not None:
         from .v123_long_arc import verify_long_arc
         verify_long_arc(long_arc_checkpoint,project_id=project_id,
@@ -303,6 +312,9 @@ def make_resume(*,project_id,scene_id,chapter_index,checkpoint,
         "literary_truth_verified":False,
         "canon_writes":0,"model_calls":0,
     }
+    if unified_narrative_core is not None:
+        # One canonical cross-chapter graph; no parallel bespoke arc ledger.
+        p["unified_narrative_core"]=unified_narrative_core
     if long_arc_checkpoint is not None:
         # Bounded author-reviewed goal travels inside the EXISTING signed
         # resume envelope. No second database, no unapproved canon writes.
@@ -331,6 +343,13 @@ def read_resume(value,*,project_id,scene_id):
     need(old["receipt_sha256"]==value.get("source_checkpoint_sha256") and
          old["source_sha256"]==value.get("source_prose_sha256"),
          "WF117_RESUME_EVENT_SOURCE_MISMATCH")
+    if "unified_narrative_core" in value:
+        from .narrative_core import validate
+        core=validate(value["unified_narrative_core"],
+                      project_id=project_id,scene_id=scene_id)
+        need(core["chapter_index"]==value["chapter_index"] and
+             "v123_open_character_arc" not in value,
+             "WFCORE_RESUME_CHAPTER_OR_DUPLICATE_OWNER")
     if "v123_open_character_arc" in value:
         from .v123_long_arc import verify_long_arc
         arc=verify_long_arc(value["v123_open_character_arc"],
