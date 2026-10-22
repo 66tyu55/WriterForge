@@ -146,9 +146,19 @@ def _safe_anchor(event, source, intent, cast):
             if recipient not in clean:
                 return None
     else:
-        # Event must name the specific disabled character, and cannot
-        # attribute a narrator's description of another character to them.
-        if not clean.startswith(actor):
+        # V116 may assign the nearest subject in "沈砚看着唐蜃右臂垂着"
+        # to 沈砚; do NOT treat such a narrated observation as his injury.
+        marker = re.search(r"右臂|右手", clean)
+        if not clean.startswith(actor) or marker is None:
+            return None
+        if any(name != actor and name in clean[:marker.start()]
+               for name in cast):
+            return None
+        if any(term in clean for term in
+               ("不再", "并非", "没有", "不曾", "尚未", "装作",
+                "假装", "似乎", "好像", "仿佛", "恢复",
+                "痊愈", "治好", "看着", "看见", "望着",
+                "瞧见")):
             return None
     # The event quotation may use a disambiguated "果子" alias. Alias
     # resolution only comes from the existing V116 source-bound extractor.
