@@ -777,6 +777,227 @@ def audit_candidate(graph,*,project_id,scene_id,prose,cast=()):
     }
 
 
+def _verify_source_file(path,expected_sha):
+    """Original manuscript remains the backing store; summaries are never it."""
+    from pathlib import Path
+    _need(type(path) is str and 1<=len(path)<=4096 and
+          type(expected_sha) is str and SHA.fullmatch(expected_sha),
+          "WFCORE_SOURCE_LOCATOR_INVALID")
+    source=Path(path)
+    _need(source.is_file() and source.stat().st_size<=MAX_CHARS*4,
+          "WFCORE_ORIGINAL_MANUSCRIPT_NOT_ARCHIVED")
+    raw=source.read_bytes()
+    _need(sha256(raw).hexdigest()==expected_sha,
+          "WFCORE_ORIGINAL_MANUSCRIPT_HASH_CHANGED")
+    return raw.decode("utf8","strict")
+
+
+def _source_excerpt(prose):
+    """Keep up to 1,600 source characters in the delayed hot buffer."""
+    if len(prose)<=HOT_EXCERPT_CHARS:
+        return prose,True
+    # Do not pretend this source excerpt is a complete chapter.
+    return prose[:370]+"\n【中段仍在原文归档，未被删除】\n"+prose[-1190:],False
+
+
+def _condense_source(hot, *, proposal=None,graph_nodes=None):
+    """A capsule is a lossy recall index, NEVER replacement for source facts.
+
+    Model-made prose is allowed only as a clearly UNVERIFIED literary
+    interpretation with verifiable literal anchors. Hard state, item ownership,
+    open obligations, NPC beliefs and timelines remain in structured records.
+    """
+    original=_verify_source_file(
+        hot["source_path"],hot["source_sha256"])
+    names=[]
+    for nid,row in sorted((graph_nodes or {}).items()):
+        props=row["props"]
+        terms=[props.get("name"),props.get("owner"),props.get("target")]
+        if any(type(t) is str and t in original for t in terms):
+            names.append(nid)
+        if len(names)>=18:break
+    if proposal is not None:
+        _need(type(proposal) is dict and
+              set(proposal)=={"source_sha256","summary","quote_anchors"} and
+              proposal["source_sha256"]==hot["source_sha256"] and
+              _text(proposal["summary"],CAPSULE_MAX_CHARS) and
+              type(proposal["quote_anchors"]) is list and
+              1<=len(proposal["quote_anchors"])<=6 and
+              all(_text(q,150) and original.count(q)==1
+                  for q in proposal["quote_anchors"]),
+              "WFCORE_MODEL_SUMMARY_SOURCE_ANCHORS_MISSING")
+        summary=proposal["summary"]
+        summary_kind="MODEL_PROPOSAL_UNVERIFIED"
+        refs=[_hash(q) for q in proposal["quote_anchors"]]
+    else:
+        summary=original[-CAPSULE_MAX_CHARS:]
+        summary_kind="EXTRACTIVE_SOURCE_EXCERPT_ONLY"
+        refs=[]
+    return {
+        "chapter":hot["chapter"],
+        "source_sha256":hot["source_sha256"],
+        "source_path":hot["source_path"],
+        "summary":summary,
+        "summary_kind":summary_kind,
+        "source_quote_anchor_sha256s":refs,
+        "connected_protected_nodes":names,
+        "cannot_replace_canon_or_open_obligations":True,
+        "literary_interpretation_verified":False,
+        "original_source_persists":True,
+    }
+
+
+def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
+                          source_path,prose,summary_proposal=None,
+                          archive_writer=None):
+    """Delayed compaction: 3 hot chapters -> 8 warm capsules -> cold CAS.
+
+    Must be called AFTER original candidate.md has been durably saved. The
+    exact source hash is verified against the saved file. When warm memory
+    spills, an injected archive_writer must durably store its capsule
+    and parent hash; no writer means FAIL CLOSED rather than forgetting.
+    Text summaries NEVER mutate character state or formal story events.
+    """
+    validate(graph,project_id=project_id,scene_id=scene_id)
+    _need(type(prose) is str and 1<=len(prose)<=MAX_CHARS and
+          graph["chapter_index"]==chapter_index,
+          "WFCORE_BUFFER_NOT_AT_SAVED_CHAPTER")
+    source_sha=_hash(prose)
+    _need(_verify_source_file(source_path,source_sha)==prose,
+          "WFCORE_SAVED_SOURCE_DIFFERENT_FROM_CANDIDATE")
+    memory=json.loads(json.dumps(graph.get("memory",{
+        "hot":[],"warm":[],"cold_head":None,"cold_count":0,
+        "last_recorded_chapter":None}),ensure_ascii=False))
+    old=memory["last_recorded_chapter"]
+    _need(old is None or chapter_index==old+1,
+          "WFCORE_BUFFER_REPLAY_OR_CHAPTER_GAP")
+    excerpt,complete=_source_excerpt(prose)
+    memory["hot"].append({
+        "chapter":chapter_index,
+        "source_sha256":source_sha,
+        "source_path":source_path,
+        "buffered_excerpt":excerpt,
+        "entire_source_in_buffer":complete,
+        "original_source_persists":True,
+        "compression_status":"NOT_YET_ELIGIBLE",
+    })
+    if len(memory["hot"])>HOT_CHAPTERS:
+        oldest=memory["hot"][0]
+        # A compact note can be proposed by Discovery / DeepSeek, but the
+        # preserved source and protected graph determine all hard constraints.
+        capsule=_condense_source(
+            oldest,proposal=summary_proposal,
+            graph_nodes=graph["nodes"])
+        memory["warm"].append(capsule)
+        memory["hot"].pop(0)
+    if len(memory["warm"])>WARM_CAPSULES:
+        oldest=memory["warm"][0]
+        _need(callable(archive_writer),
+              "WFCORE_COLD_ARCHIVE_REQUIRED_BEFORE_EVICTION")
+        prior=memory["cold_head"]
+        packet={
+            "format":"wf.narrative.cold-capsule-page.v1",
+            "project_id":project_id,"scene_id":scene_id,
+            "chapter_index":oldest["chapter"],
+            "capsule":oldest,"previous":prior,
+        }
+        archive=archive_writer(packet)
+        _need(type(archive) is dict and
+              set(archive)=={"path","sha256"} and
+              type(archive["path"]) is str and
+              1<=len(archive["path"])<=4096 and
+              type(archive["sha256"]) is str and
+              SHA.fullmatch(archive["sha256"]),
+              "WFCORE_COLD_ARCHIVE_RECEIPT_INVALID")
+        stored=_verify_cold_archive(archive)
+        _need(stored==packet,
+              "WFCORE_COLD_ARCHIVE_PROOF_DOES_NOT_MATCH_PAYLOAD")
+        memory["cold_head"]=archive
+        memory["cold_count"]+=1
+        memory["warm"].pop(0)
+    memory["last_recorded_chapter"]=chapter_index
+    _need(len(_bytes(memory))<=MAX_MEMORY_BYTES,
+          "WFCORE_WORKING_MEMORY_BUDGET_REFUSE_TRUNCATION")
+    result={k:v for k,v in graph.items() if k!="receipt_sha256"}
+    result["memory"]=memory
+    # This is still the same completed chapter; no duplicate new chapter.
+    return validate(_signed(result),project_id=project_id,scene_id=scene_id)
+
+
+def _verify_cold_archive(ref):
+    from pathlib import Path
+    path=Path(ref["path"])
+    _need(path.is_file() and path.stat().st_size<=12000,
+          "WFCORE_COLD_ARCHIVE_MISSING")
+    raw=path.read_bytes()
+    _need(sha256(raw).hexdigest()==ref["sha256"],
+          "WFCORE_COLD_ARCHIVE_HASH_CHANGED")
+    try:
+        data=json.loads(raw.decode("utf8","strict"))
+    except (ValueError,UnicodeError):
+        raise NarrativeCoreError("WFCORE_COLD_ARCHIVE_BAD_JSON") from None
+    _need(data.get("format")=="wf.narrative.cold-capsule-page.v1",
+          "WFCORE_COLD_ARCHIVE_FORMAT_INVALID")
+    return data
+
+
+def recall_original(graph,*,project_id,scene_id,chapter_index,
+                    max_pages=1000):
+    """Explicit provenance lookup, never silently use a dubious summary.
+
+    Original book text is returned only when the private backing candidate
+    file exists AND its SHA matches. A model cannot fabricate this source.
+    """
+    validate(graph,project_id=project_id,scene_id=scene_id)
+    _need(type(chapter_index) is int and 0<=chapter_index<=graph[
+        "chapter_index"] and type(max_pages) is int and
+        1<=max_pages<=1000, "WFCORE_RECALL_INDEX_INVALID")
+    memory=graph.get("memory") or {}
+    for entry in memory.get("hot",[])+memory.get("warm",[]):
+        if entry["chapter"]==chapter_index:
+            return _verify_source_file(
+                entry["source_path"],entry["source_sha256"])
+    head=memory.get("cold_head")
+    pages=0
+    while head is not None and pages<max_pages:
+        data=_verify_cold_archive(head)
+        _need(data["project_id"]==project_id and
+              data["scene_id"]==scene_id,
+              "WFCORE_RECALL_CROSS_PROJECT_ARCHIVE")
+        capsule=data["capsule"]
+        if capsule["chapter"]==chapter_index:
+            return _verify_source_file(
+                capsule["source_path"],capsule["source_sha256"])
+        head=data["previous"]
+        pages+=1
+    _need(not (head is not None and pages>=max_pages),
+          "WFCORE_RECALL_PAGINATION_LIMIT_NO_FALSE_MISS")
+    return None
+
+
+def buffered_memory_context(graph,*,project_id,scene_id,
+                            max_chars=850):
+    """Short *creative* recall, never overwrite protected state/knowledge.
+
+    The chapter tail may seed scene rhythm and subjective carryover.
+    Exact actions and facts are still checked against Novel Studio and graph.
+    """
+    validate(graph,project_id=project_id,scene_id=scene_id)
+    _need(type(max_chars) is int and 0<=max_chars<=1800,
+          "WFCORE_CONTEXT_MEMORY_BUDGET_INVALID")
+    memory=graph.get("memory") or {}
+    hot=memory.get("hot",[])
+    if not hot or max_chars<60:return ""
+    lines=["【近几章工作缓冲（候选文字，不是正典；可按需回查原稿）】"]
+    for entry in reversed(hot[-HOT_CHAPTERS:]):
+        snippet=entry["buffered_excerpt"][-240:]
+        line=f"第{entry['chapter']}章真实候选原文片段："+snippet
+        if sum(len(x)+1 for x in lines)+len(line)>max_chars:
+            continue
+        lines.append(line)
+    return "\n".join(lines)[:max_chars]
+
+
 def read_core_from_resume(resume,*,project_id,scene_id):
     from .v117_continuity_trace import read_resume
     read_resume(resume,project_id=project_id,scene_id=scene_id)
