@@ -451,7 +451,7 @@ def _prepare_guarded_turn_packet(
         "lamp_dropped_craft":lamps["budget_suppressed_craft"],
         "unified_narrative_priority_dispatch":lane,
         "priority_lanes_ordered":["HARD_STATE","NPC_KNOWLEDGE",
-                                  "LONG_THREAD","CRAFT"],
+                                  "CHARACTER_INTENT","LONG_THREAD","CRAFT"],
         "no_model_call_for_prompt_scheduling":True,
         "no_canon_promotion":True,
     }
