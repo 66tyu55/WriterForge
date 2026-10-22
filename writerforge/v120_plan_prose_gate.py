@@ -154,6 +154,10 @@ def _safe_anchor(event, source, intent, cast):
         if any(name != actor and name in clean[:marker.start()]
                for name in cast):
             return None
+        # "唐蜃的法术使他右臂垂着" has an ambiguous patient; the
+        # initial named actor is the caster, not necessarily the injured one.
+        if re.search(r"[他她其]右(?:臂|手)", clean[:marker.end()]):
+            return None
         if any(term in clean for term in
                ("不再", "并非", "没有", "不曾", "尚未", "装作",
                 "假装", "似乎", "好像", "仿佛", "恢复",
@@ -196,6 +200,8 @@ def _corroborating_arm_evidence(source, intent, cast):
             continue
         # "沈砚看着唐蜃右臂垂着" is not an injury of 沈砚.
         if any(name in quote[:found.start()] for name in others):
+            continue
+        if re.search(r"[他她其]右(?:臂|手)", quote[:found.end()]):
             continue
         if any(term in quote for term in
                ("不再", "并非", "没有", "不曾", "尚未", "装作", "假装",
