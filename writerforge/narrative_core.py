@@ -361,20 +361,25 @@ def keyed_diff(before,after):
           after["chapter_index"]==before["chapter_index"]+1,
           "WFCORE_DIFF_PARENT_OR_CHAPTER_INVALID")
     touched=set(after["last_delta_flags"])
+    edge_keys=set(before["edges"])|set(after["edges"])
+    changed_edges={
+        k for k in edge_keys
+        if before["edges"].get(k)!=after["edges"].get(k)}
+    edge_impacted=set()
+    for key in changed_edges:
+        row=after["edges"].get(key) or before["edges"].get(key)
+        edge_impacted.add(row["source"])
+        edge_impacted.add(row["target"])
     actual={k for k in touched
-            if before["nodes"].get(k)!=after["nodes"].get(k) or
-            any(before["edges"].get(e)!=after["edges"].get(e)
-                for e in (set(before["edges"])|set(after["edges"]))
-                if e.startswith("KNOWS|"+k+"|") or
-                   e.startswith("UNKNOWN|"+k+"|") or
-                   e.startswith("BELIEVES|"+k+"|") or
-                   e.startswith("CONTACT|"+k+"|") or e.endswith("|"+k))}
+            if before["nodes"].get(k)!=after["nodes"].get(k)
+            or k in edge_impacted}
     # Do not report an event that left the keyed graph unchanged.
     return {
         "dirty_nodes":sorted(actual),
         "patch_flags":{k:after["last_delta_flags"][k]
                        for k in sorted(actual)},
-        "reused_nodes":len(set(before["nodes"])&set(after["nodes"]))-len(actual),
+        "reused_nodes":len(
+            (set(before["nodes"])&set(after["nodes"]))-actual),
         "full_reindex_needed":False,
         "chapter":after["chapter_index"],
         "no_model_call":True,
@@ -457,11 +462,19 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
         truth=("人物看法尚未确证" if
                t["truth_scope"]=="CHARACTER_BELIEF"
                else "作者确认过的前提")
-        queue("LONG_THREAD",nid,
-              f"【长期叙事线索】{t['thread_kind']}："
-              f"{t['owner']}—{t['target']}；{t['premise']}。"
-              f"{truth}；这条线尚未由作者确认完结。"
-              "允许转折、放弃或反转，但不得把计划与猜测自动当作结案。")
+        if actor==t["owner"]:
+            context=(f"【长期叙事线索】{t['thread_kind']}："
+                     f"{t['owner']}—{t['target']}；{t['premise']}。"
+                     f"{truth}；这条线尚未由作者确认完结。"
+                     "允许转折、放弃或反转，但不得把计划与猜测自动当作结案。")
+        else:
+            # A thread can involve an NPC without that NPC knowing the
+            # protagonist's private motive. Never leak hidden premise into
+            # a foreign POV merely because they crossed paths.
+            context=(f"【叙事视角边界】{actor}与一条尚未结束的长线有关，"
+                     "但不能据此认定其知道主角的隐秘动机；"
+                     "只按当前人物已有的知识和实际交流描写。")
+        queue("LONG_THREAD",nid,context)
     ordered=[v for k,v in sorted(tasks.items())]
     mandatory=[]
     optional=[]
@@ -497,6 +510,70 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
                           "LONG_THREAD","CRAFT"],
         "model_calls":0,"canon_writes":0,
         "knowledge_is_character_scoped":True,
+    }
+
+
+def audit_candidate(graph,*,project_id,scene_id,prose):
+    """Review explicit NPC-knowledge claims; never let prose mutate edges.
+
+    Only a direct prior author-pinned UNKNOWN paired with "早已知道"
+    (without an observed disclosure in this paragraph) is a hard red flag.
+    Other claims may be legitimate reveals and require review. This is NOT a
+    full Chinese semantic or coreference analyser.
+    """
+    validate(graph,project_id=project_id,scene_id=scene_id)
+    _need(type(prose) is str and 1<=len(prose)<=MAX_CHARS,
+          "WFCORE_AUDIT_PROSE_INVALID")
+    from .v116_state_delta import _segments
+    findings=[]
+    reviews=[]
+    for _,__,clause,dialogue in _segments(prose):
+        if dialogue:
+            # Dialogue isn't a narrator assertion of knowledge.
+            continue
+        if any(x in clause for x in
+               ("如果","假如","梦见","据说","听说","传闻")):
+            continue
+        for key,node in graph["nodes"].items():
+            if node["kind"]!="FACT":
+                continue
+            fid=key.split(":",1)[1]
+            label=node["props"]["name"]
+            if label not in clause:
+                continue
+            for chkey,ch in graph["nodes"].items():
+                if ch["kind"]!="CHARACTER":
+                    continue
+                actor=ch["props"]["name"]
+                if actor not in clause:
+                    continue
+                m=re.search(re.escape(actor)+
+                            r".{0,10}?(早已知道|已经知道|知道|得知|晓得|明白)"+
+                            r".{0,12}?"+re.escape(label),clause)
+                if not m:
+                    continue
+                knowledge=knows(graph,character=actor,fact_id=fid)
+                if knowledge=="KNOWN":
+                    continue
+                if (knowledge=="AUTHOR_ASSERTED_UNKNOWN" and
+                    m.group(1) in ("早已知道","已经知道") and
+                    not any(x in clause for x in ("告诉","告知","传信",
+                                                 "说给","递给"))):
+                    if "WFCORE_AUTHOR_UNKNOWN_RETCON_CONFLICT" not in findings:
+                        findings.append("WFCORE_AUTHOR_UNKNOWN_RETCON_CONFLICT")
+                elif "WFCORE_UNPROVEN_CHARACTER_KNOWLEDGE" not in reviews:
+                    reviews.append("WFCORE_UNPROVEN_CHARACTER_KNOWLEDGE")
+    return {
+        "format":"wf.narrative.source-preflight.v1",
+        "prose_sha256":_hash(prose),
+        "graph_receipt_sha256":graph["receipt_sha256"],
+        "blocked":bool(findings),
+        "hard_findings":findings,
+        "review_findings":reviews,
+        "needs_review":bool(reviews),
+        "model_calls":0,"canon_writes":0,
+        "prose_did_not_mutate_graph":True,
+        "semantic_coverage_limited":True,
     }
 
 
