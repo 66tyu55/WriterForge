@@ -15,7 +15,7 @@ from writerforge.narrative_core import (
     NarrativeCoreError,Patch,new_graph,advance_graph,keyed_diff,
     schedule,knows,audit_candidate,propose_source_interactions,
     validate,read_core_from_resume,record_chapter_memory,
-    recall_original,buffered_memory_context,
+    recall_original,buffered_memory_context,character_collision_context,
 )
 from writerforge.v114_external_story_state import external_temporal_step
 from writerforge.v117_continuity_trace import make_resume,read_resume
@@ -387,7 +387,8 @@ class GraphWithPriorityAndKnowledge(unittest.TestCase):
             "NPC_KNOWLEDGE")
         self.assertEqual(receipt["delivered_prompt_sha256"],out.prompt_sha256)
         self.assertEqual(receipt["priority_lanes_ordered"],
-                         ["HARD_STATE","NPC_KNOWLEDGE","LONG_THREAD","CRAFT"])
+                         ["HARD_STATE","NPC_KNOWLEDGE",
+                          "CHARACTER_INTENT","LONG_THREAD","CRAFT"])
 
     def test_no_unified_graph_can_be_loaded_over_v123_legacy_arc(self):
         from writerforge.v123_long_arc import register_revenge
@@ -465,6 +466,68 @@ class GraphWithPriorityAndKnowledge(unittest.TestCase):
             state["nodes"]["character:沈砚"]["props"]["lens"]["desire"][
                 "evidence_scope"],"NARRATED_INNER")
 
+    def test_character_collisions_are_planned_from_separate_worldviews(self):
+        initial=new_graph(project_id=P,scene_id=S)
+        text=("沈砚想揭开密令的真相。"
+              "唐蜃害怕密令落到朝廷手中。")
+        actors=[
+            annotation(text,"沈砚想揭开密令的真相。",
+                "CHARACTER_REFLECT",id="shen-want",
+                actor="沈砚",dimension="desire",
+                value="想揭开密令的真相",
+                evidence_scope="NARRATED_INNER"),
+            annotation(text,"唐蜃害怕密令落到朝廷手中。",
+                "CHARACTER_REFLECT",id="tang-fear",
+                actor="唐蜃",dimension="fear",
+                value="害怕密令落到朝廷手中",
+                evidence_scope="NARRATED_INNER"),
+        ]
+        graph=advance_graph(
+            initial,project_id=P,scene_id=S,chapter_index=1,
+            prose=text,events=actors)
+        memo=character_collision_context(
+            graph,project_id=P,scene_id=S,
+            scene_goal="沈砚和唐蜃为一封密令在山洞相遇")
+        self.assertIn("人物各自的选择空间",memo)
+        self.assertIn("想揭开密令的真相",memo)
+        self.assertIn("害怕密令落到朝廷手中",memo)
+        self.assertIn("不以读者投票替代人物动机",memo)
+        self.assertLessEqual(len(memo),1050)
+        none=character_collision_context(
+            graph,project_id=P,scene_id=S,
+            scene_goal="叶青梧听雨",max_chars=1050)
+        self.assertEqual(none,"")
+        from writerforge.writing_assist import AutonomousWriting
+        src=inspect.getsource(AutonomousWriting.run)
+        self.assertIn("character_collision_context(",src)
+        self.assertIn("buffered_memory_context(",src)
+        self.assertIn("结局只作候选",src)
+
+    def test_real_resume_survives_delayed_hot_memory(self):
+        with tempfile.TemporaryDirectory() as td:
+            graph=new_graph(project_id=P,scene_id=S)
+            state=external_temporal_step(ORIGIN,cast=("沈砚","唐蜃"))
+            for n in range(1,6):
+                prose=f"第{n}章，沈砚暂且隐忍，在边关结识了新友。"
+                file=Path(td)/f"chapter-{n:02}.md"
+                file.write_text(prose,encoding="utf8")
+                graph=advance_graph(graph,project_id=P,scene_id=S,
+                                    chapter_index=n,prose=prose)
+                graph=record_chapter_memory(
+                    graph,project_id=P,scene_id=S,
+                    chapter_index=n,source_path=str(file),prose=prose)
+            envelope=make_resume(project_id=P,scene_id=S,
+                                  chapter_index=5,checkpoint=state,
+                                  unified_narrative_core=graph)
+            self.assertEqual(read_resume(
+                json.loads(json.dumps(envelope,ensure_ascii=False)),
+                project_id=P,scene_id=S),state)
+            rebuilt=read_core_from_resume(
+                envelope,project_id=P,scene_id=S)
+            self.assertEqual(rebuilt["memory"]["last_recorded_chapter"],5)
+            self.assertEqual(len(rebuilt["memory"]["warm"]),2)
+            self.assertEqual(len(rebuilt["memory"]["hot"]),3)
+
     def test_delay_compaction_keeps_source_and_never_promotes_model_summary(self):
         from writerforge.writing_assist import _save_unified_cold_capsule
         with tempfile.TemporaryDirectory() as td:
@@ -523,6 +586,29 @@ class GraphWithPriorityAndKnowledge(unittest.TestCase):
             self.assertLessEqual(len(memo),850)
             self.assertEqual(graph["model_calls"],0)
             self.assertEqual(graph["canon_writes"],0)
+
+    def test_corrupt_original_cannot_be_reconstructed_from_summary(self):
+        with tempfile.TemporaryDirectory() as td:
+            graph=new_graph(project_id=P,scene_id=S)
+            paths=[]
+            for n in range(1,5):
+                text=f"第{n}章，唐蜃沿山径走向远处的茅舍。"
+                file=Path(td)/f"chapter-{n}.md"
+                file.write_text(text,encoding="utf8")
+                paths.append(file)
+                graph=advance_graph(graph,project_id=P,scene_id=S,
+                                    chapter_index=n,prose=text)
+                graph=record_chapter_memory(
+                    graph,project_id=P,scene_id=S,
+                    chapter_index=n,source_path=str(file),prose=text)
+            self.assertEqual(len(graph["memory"]["warm"]),1)
+            paths[0].write_text("第1章，发生了没有来源的剧情篡改。",encoding="utf8")
+            with self.assertRaisesRegex(
+                    NarrativeCoreError,"ORIGINAL_MANUSCRIPT_HASH_CHANGED"):
+                recall_original(graph,project_id=P,scene_id=S,
+                                chapter_index=1)
+            self.assertEqual(graph["memory"]["warm"][0][
+                "summary_kind"],"EXTRACTIVE_SOURCE_EXCERPT_ONLY")
 
     def test_compaction_fails_closed_when_archive_unavailable(self):
         with tempfile.TemporaryDirectory() as td:
