@@ -129,7 +129,11 @@ class LightsNotChecklist(unittest.TestCase):
     def test_existing_single_route_stays_explicit_and_no_new_llm_calls(self):
         src=(Path(__file__).resolve().parents[1]/
              "writerforge/writing_assist.py").read_text("utf8")
-        self.assertIn('if draft_mode=="continuity_guard":\n                            lamps=plan_scene_lamps(',src)
+        # V121 keeps the old single route unchanged, while moving opt-in
+        # continuity lamps into a budget-guarded packet assembly helper.
+        self.assertIn('if draft_mode=="single":',src)
+        self.assertIn('_prepare_guarded_turn_packet(',src)
+        self.assertIn('lamps=plan_scene_lamps(',src)
         self.assertIn('"v118_event_lamp_decisions"',src)
         self.assertNotIn("openai.ChatCompletion",src)
         self.assertFalse(hasattr(plan_scene_lamps,"model"))
