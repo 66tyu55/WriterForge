@@ -57,7 +57,9 @@ from .v117_continuity_trace import (
     audit_continuity,compact_context,preflight_continuation,
     make_resume,read_resume,ContinuityTraceError,
 )
-from .v118_lamp_scheduler import plan_scene_lamps,LampDecisionError
+from .v118_lamp_scheduler import (
+    plan_scene_lamps,LampDecisionError,MAX_CHARS as MAX_LAMP_CHARS,
+)
 from .v119_revision_transaction import preview_revision as preview_surgical_revision
 from .v120_plan_prose_gate import (
     compare_plan_to_prose, pending_dependency_hint, PlanExecutionError,
@@ -338,7 +340,7 @@ def _prepare_guarded_turn_packet(
         dep_delivered=True
     # Lamp text carries an added newline when present. Leave one character
     # for that newline; zero available characters yields a zero-lamp receipt.
-    lamp_budget=min(460,max(0,space-1))
+    lamp_budget=min(MAX_LAMP_CHARS,max(0,space-1))
     lamps=plan_scene_lamps(
         project_id=project_id,chapter_index=chapter_index,
         turn_index=turn_index,beat=beat,frame=frame,
