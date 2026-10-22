@@ -1058,6 +1058,122 @@ def buffered_memory_context(graph,*,project_id,scene_id,
     return "\n".join(lines)[:max_chars]
 
 
+def relevant_history_context(graph,*,project_id,scene_id,
+                             scene_goal,max_chars=700,max_pages=1000):
+    """Retrieve precise ORIGINAL text for a reopened hook from warm/cold CAS.
+
+    Compressed chapter summaries are INDEX CANDIDATES only. Nothing written
+    by a summarizing model is promoted into a fact, used verbatim here, or
+    taken as proof of a character's knowledge. Only SHA-verified ORIGINAL
+    source excerpts are allowed into the writer's planning context.
+
+    This is a bounded, deliberately conservative warm/cold lookup. A later
+    persistent inverted index may replace the cold-chain scan, but omission
+    MUST NOT be interpreted as a fully researched absence.
+    """
+    validate(graph,project_id=project_id,scene_id=scene_id)
+    _need(type(scene_goal) is str and 1<=len(scene_goal)<=600
+          and type(max_chars) is int and 0<=max_chars<=1300
+          and type(max_pages) is int and 1<=max_pages<=1000,
+          "WFCORE_HISTORY_QUERY_OR_BUDGET_INVALID")
+    if max_chars<110:
+        return ""
+    graph_memory=graph.get("memory") or {}
+    relevant={}
+    keywords={}
+    for key,node in graph["nodes"].items():
+        props=node["props"]
+        if node["kind"]=="FACT":
+            name=props.get("name")
+            if type(name) is str and name in scene_goal:
+                relevant[key]=12
+                keywords[key]=(name,)
+        elif node["kind"]=="THREAD":
+            owner,target=props.get("owner"),props.get("target")
+            thread_id=key.split(":",1)[-1]
+            if ((type(owner) is str and type(target) is str
+                 and owner in scene_goal and target in scene_goal)
+                or thread_id in scene_goal):
+                relevant[key]=9
+                keywords[key]=(target,owner)
+        elif node["kind"]=="CHARACTER":
+            name=props.get("name")
+            if type(name) is str and name in scene_goal:
+                relevant[key]=1
+                keywords[key]=(name,)
+    # One character appearing by itself is too weak a signal to wake old
+    # chapters; this prevents a protagonist's every appearance from loading
+    # hundreds of irrelevant distant memories.
+    if not any(score>=9 for score in relevant.values()):
+        return ""
+    records=list(graph_memory.get("warm",[]))
+    head=graph_memory.get("cold_head")
+    pages=0
+    while head is not None and pages<max_pages:
+        page=_verify_cold_archive(head)
+        _need(page.get("project_id")==project_id
+              and page.get("scene_id")==scene_id
+              and type(page.get("capsule")) is dict,
+              "WFCORE_OLD_CAPSULE_WRONG_PROJECT_OR_SCHEMA")
+        records.append(page["capsule"])
+        head=page.get("previous")
+        pages+=1
+    _need(head is None,
+          "WFCORE_COLD_HISTORY_SCAN_LIMIT_REFUSE_FALSE_COMPLETENESS")
+    weighted=[]
+    for item in records:
+        ids=item.get("connected_protected_nodes")
+        if type(ids) is not list:
+            continue
+        active=[k for k in ids if k in relevant]
+        if not active or max(relevant[k] for k in active)<9:
+            continue
+        score=sum(relevant[k] for k in active)
+        weighted.append((score,item["chapter"],item,active))
+    if not weighted:
+        return ""
+    weighted.sort(key=lambda x:(-x[0],-x[1]))
+    lines=["【按当前伏笔从旧章回查的真实原文（只供作家构思，人物未必知道）】"]
+    shown=0
+    for _score,_chapter,item,ids in weighted[:5]:
+        # Cold source is independently SHA-checked before ANY old prose
+        # enters the model input. Do not send unverifiable summaries.
+        original=_verify_source_file(
+            item["source_path"],item["source_sha256"])
+        terms=[]
+        for key in ids:
+            terms.extend(x for x in keywords.get(key,())
+                         if type(x) is str and len(x)>1)
+        from .v116_state_delta import _segments
+        relevant_clauses=[]
+        for _start,_end,clause,spoken in _segments(original):
+            if spoken:
+                continue
+            text=clause.strip()
+            if not text or len(text)>170:
+                continue
+            if any(term in text for term in terms):
+                relevant_clauses.append(text)
+            if len(relevant_clauses)>=2:
+                break
+        if not relevant_clauses:
+            relevant_clauses=[original[:165]]
+        excerpt="".join(relevant_clauses)[:255]
+        line=f"原文第{item['chapter']}章（原文已校验）：{excerpt}"
+        if sum(len(x)+1 for x in lines)+len(line)>max_chars:
+            continue
+        lines.append(line)
+        shown+=1
+        if shown>=2:
+            break
+    if not shown:
+        return ""
+    tail="严禁把旧章的角色信念、摘要推测当作客观真相；当前人物只能使用其已获知的信息。"
+    if sum(len(x)+1 for x in lines)+len(tail)<=max_chars:
+        lines.append(tail)
+    return "\n".join(lines)
+
+
 def read_core_from_resume(resume,*,project_id,scene_id):
     from .v117_continuity_trace import read_resume
     read_resume(resume,project_id=project_id,scene_id=scene_id)
