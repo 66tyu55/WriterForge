@@ -307,8 +307,131 @@ def extract_state_events(prose, *, cast=(), prior_state=None):
     }
 
 
+
+# V121 actor-bound physical continuity. A mere mention of "右手挥剑"
+# cannot implicate every injured person from the previous checkpoint.
+_ARM_USE=re.compile(r"右(?:手|臂)(?P<between>.{0,10}?)(?P<verb>"+
+                    "|".join(map(re.escape,ARM_ACTIONS))+r")")
+_ARM_PREDICATE_NEGATION=("没有","并未","不曾","未曾","无力","无法",
+                         "不能","没能","未能","不敢","欲","想",
+                         "试图","尝试","打算","准备","假装","刚要")
+_ARM_RECOVERY=re.compile(r"右(?:手|臂).{0,18}(?:恢复|痊愈|治好|复原|愈合|重新有力)")
+_ARM_PRIOR_CONDITION=re.compile(r"右(?:手|臂).{0,18}(?:受伤|受限|负伤|麻痹|不听使唤|抬不起来)")
+
+
+def _limited_arm_actors(prior):
+    """Interpret structured reducer cells, not substring-matched JSON keys."""
+    names=set()
+    for raw,value in prior.items():
+        try:
+            cell=json.loads(raw)
+        except (TypeError,ValueError):
+            continue
+        if (type(cell) is list and len(cell)==5 and
+            cell[0]=="character" and type(cell[1]) is str and
+            1<=len(cell[1])<=70 and cell[2]=="右臂可用性" and
+            cell[3]=="author_plan" and value=="受限"):
+            names.add(cell[1])
+    return names
+
+
+def _direct_arm_actor(clause, match, limited, cast):
+    """Return an explicitly bound subject, other subject, or unknown.
+
+    Explicit names must be immediately linked to the right arm or be the
+    opening subject of an already-injured-arm condition leading into action.
+    Never resolve 他/她 by proximity or carry the previous sentence's actor.
+    """
+    pre=clause[:match.start()]
+    # Directly named actor next to the limb (or after a comma).
+    names=set(cast)|set(limited)
+    positions=[]
+    for name in names:
+        if re.search(r"(?<![\u3400-\u9fff])"+re.escape(name)+
+                     r"(?:的)?$",pre):
+            positions.append(name)
+    if len(positions)==1:
+        return positions[0], "DIRECT"
+    if positions:
+        return None,"AMBIGUOUS_DIRECT"
+    # The arm-action clause omits a subject only after an explicit opening
+    # narrator subject and a separate previous arm limitation in this clause.
+    for who in limited:
+        lead=re.fullmatch(
+            r"\s*"+re.escape(who)+r"(?P<condition>右(?:手|臂).{0,30}?)[，,]\s*",
+            pre)
+        if lead and _ARM_PRIOR_CONDITION.search(lead["condition"]):
+            if not any(other!=who and other in pre for other in names):
+                return who,"SAME_CLAUSE_INJURY_SUBJECT"
+    return None,"UNKNOWN_ACTOR"
+
+
+def _arm_recovery_before(source, before_offset, actor, cast):
+    """Return causal claim class only for this actor, before the action."""
+    windows=[]
+    for start,end,fragment,spoken in _segments(source):
+        if start>=before_offset:
+            break
+        if spoken or not _present(source,start,end):
+            continue
+        candidate=fragment[:max(0,before_offset-start)]
+        if not candidate:
+            continue
+        # A recovered enemy in the same sentence does NOT heal our actor.
+        if _ARM_RECOVERY.search(candidate):
+            heal=_ARM_RECOVERY.search(candidate)
+            names=set(cast)|{actor}
+            subject=_direct_arm_actor(candidate,heal,{actor},names)[0]
+            if subject!=actor:
+                continue
+            windows.append((start,end,candidate,heal))
+    if not windows:
+        return "NO_SOURCE_RECOVERY"
+    start,end,clause,healing=windows[-1]
+    before=source[max(0,start-120):start]+clause[:healing.end()]
+    # A source/medicine in a different person's clause is insufficient.
+    if any(x in clause[:healing.end()] for x in RECOVERY_CAUSE):
+        return "HEALING_SOURCE_REQUIRES_REVIEW"
+    # Adjacent earlier clause must name the SAME actor for a source.
+    prev=source[max(0,start-120):start]
+    tail=prev.split("。")[-1]
+    if actor in tail and any(x in tail for x in RECOVERY_CAUSE):
+        return "HEALING_SOURCE_REQUIRES_REVIEW"
+    return "HEALING_WITHOUT_SOURCE"
+
+
+def _check_arm_action_source(prose, prior, cast=()):
+    limited=_limited_arm_actors(prior)
+    if not limited:
+        return [],[]
+    hard=[]
+    uncertain=[]
+    for start,end,clause,spoken in _segments(prose):
+        if spoken or not _present(prose,start,end):
+            continue
+        for match in _ARM_USE.finditer(clause):
+            between=match["between"]
+            if any(x in between for x in _ARM_PREDICATE_NEGATION):
+                continue
+            actor,binding=_direct_arm_actor(clause,match,limited,cast)
+            if actor not in limited:
+                if actor is None:
+                    # The arm use may belong to an injured actor, but the
+                    # text has not actually grounded who acted.
+                    uncertain.append("WF121_RIGHT_ARM_ACTION_ACTOR_UNRESOLVED")
+                continue
+            recovery=_arm_recovery_before(prose,start+match.start(),actor,cast)
+            if recovery=="NO_SOURCE_RECOVERY":
+                hard.append("WF116_ARM_USED_WITHOUT_RECOVERY")
+            elif recovery=="HEALING_WITHOUT_SOURCE":
+                hard.append("WF116_ARM_RECOVERY_WITHOUT_SOURCE")
+            else:
+                uncertain.append("WF116_ARM_RECOVERY_CLAIM_NEEDS_REVIEW")
+    return list(dict.fromkeys(hard)),list(dict.fromkeys(uncertain))
+
+
 def preflight_next_prose(next_prose, *, previous_candidate_state,
-                         previous_risks=()):
+                         previous_risks=(), cast=()):
     """Reject demonstrable state jumps *before accepting* a generated turn.
 
     Called AFTER one model response, BEFORE accepted_turns.append. Never
@@ -318,20 +441,14 @@ def preflight_next_prose(next_prose, *, previous_candidate_state,
         raise ValueError("WF116_NEXT_PROSE_BOUNDS")
     if type(previous_candidate_state) is not dict or len(previous_candidate_state)>36:
         raise ValueError("WF116_PREVIOUS_STATE_BOUNDS")
-    findings=[]
-    arm=next((v for k,v in previous_candidate_state.items()
-              if '"character"' in k and '"右臂可用性"' in k and v=="受限"),None)
+    if type(cast) not in (tuple,list) or len(cast)>MAX_CAST or any(
+            type(x) is not str or not 1<=len(x)<=70 for x in cast):
+        raise ValueError("WF121_SOURCE_CAST_INVALID")
+    findings,review_findings=_check_arm_action_source(
+        next_prose,previous_candidate_state,cast)
     fruit=next(((k,v) for k,v in previous_candidate_state.items()
                 if '"item"' in k and '"holder"' in k and
                    ("髓果" in k or "灵果" in k or "仙果" in k)),None)
-    if arm and re.search(r"(?:右手|右臂).{0,10}(?:"+
-                         "|".join(ARM_ACTIONS)+r")",next_prose):
-        if not any(x in next_prose for x in RECOVERY):
-            findings.append("WF116_ARM_USED_WITHOUT_RECOVERY")
-        elif not any(x in next_prose for x in RECOVERY_CAUSE):
-            findings.append("WF116_ARM_RECOVERY_WITHOUT_SOURCE")
-        else:
-            findings.append("WF116_ARM_RECOVERY_CLAIM_NEEDS_REVIEW")
     if fruit:
         key,holder=fruit
         actor=holder.split("左手心")[0].split("右手心")[0].split("齿间")[0]
@@ -368,6 +485,9 @@ def preflight_next_prose(next_prose, *, previous_candidate_state,
         "next_prose_sha256":_sha(next_prose),
         "blocked":bool(findings),
         "findings":findings[:12],
+        "needs_review":bool(review_findings),
+        "review_findings":review_findings[:12],
+        "arm_actor_scope":"EXPLICIT_SOURCE_SUBJECT_ONLY",
         "model_calls":0,"literary_truth_proven":False,
         "automatic_rewrite":False,"new_model_retries":0,
     }
