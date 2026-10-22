@@ -16,6 +16,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 import json
 import re
+import os
 
 from .db import WriterForgeDB
 from .encyclopedia import FictionEncyclopedia, FacetQuery
@@ -75,6 +76,8 @@ from .narrative_core import (
     audit_candidate as audit_narrative_candidate,
     advance_graph as advance_narrative_graph,
     NarrativeCoreError,
+    record_chapter_memory,
+    buffered_memory_context,
 )
 
 MAX_LIVE_CONTEXT = 1400
@@ -315,6 +318,37 @@ def _chapter_plan(raw:str,chapter_goal:str) -> dict:
             "literary_quality_verified":False}
 
 
+def _save_unified_cold_capsule(root:Path,packet:dict) -> dict:
+    """Private append-only local cold manifest; a future R2 adapter may
+    provide the same path/hash proof without changing the narrative core.
+
+    This does not overwrite the original candidate.md or erase earlier
+    archive pages. Fail closed if any persisted bytes do not match.
+    """
+    from .narrative_core import _bytes
+    raw=_bytes(packet)
+    digest=sha256(raw).hexdigest()
+    page_dir=Path(root)/".wf-unified-cold"
+    page_dir.mkdir(parents=True,exist_ok=True)
+    path=page_dir/(f"chapter-{packet['chapter_index']:06d}-"+
+                   digest[:20]+".json")
+    if path.exists():
+        if path.read_bytes()!=raw:
+            raise WritingExecutionError(
+                "WFCORE_COLD_ARCHIVE_IMMUTABLE_FILE_CONFLICT")
+    else:
+        try:
+            with path.open("xb") as output:
+                output.write(raw)
+                output.flush()
+                os.fsync(output.fileno())
+        except FileExistsError:
+            if path.read_bytes()!=raw:
+                raise WritingExecutionError(
+                    "WFCORE_COLD_ARCHIVE_RACE_CONFLICT") from None
+    return {"path":str(path),"sha256":digest}
+
+
 def _prepare_guarded_turn_packet(
         body_base:GroundedDraftPacket,*,plan:dict,
         hard_turn_addition:str,facets:tuple[dict,...],
@@ -322,7 +356,8 @@ def _prepare_guarded_turn_packet(
         turn_index:int,beat:dict,frame:dict|None,
         previous_lamp_receipt:dict|None,
         narrative_graph:dict|None=None,
-        narrative_scene_id:str|None=None):
+        narrative_scene_id:str|None=None,
+        working_memory_context:str=""):
     """V121: source/causal constraints have priority over optional cues.
 
     A speculative chapter plan may be dropped if it crowds out actual prior
@@ -342,10 +377,19 @@ def _prepare_guarded_turn_packet(
     # If even the source/causal constraints cannot fit, fail BEFORE
     # any LLM call; never quietly shorten their contents.
     hard_packet=_enrich(body_base,hard,facets)
+    if not isinstance(working_memory_context,str) or len(
+            working_memory_context)>1800:
+        raise WritingExecutionError("WFCORE_WORKING_MEMORY_CONTEXT_INVALID")
+    memory_suffix=("\n"+working_memory_context
+                   if working_memory_context else "")
+    memory_reserve=(len(memory_suffix)
+                    if len(memory_suffix)<=MAX_PROMPT_CHARS-len(
+                        hard_packet.prompt) else 0)
     plan_part="\n【原创章计划】"+json.dumps(plan,ensure_ascii=False)
     with_plan=plan_part+hard
     plan_delivered=False
-    if len(plan_part)<=MAX_PROMPT_CHARS-len(hard_packet.prompt):
+    if len(plan_part)+memory_reserve<=MAX_PROMPT_CHARS-len(
+            hard_packet.prompt):
         # Plan is only proposed intent. It is lower-priority than hard state.
         core_packet=_enrich(body_base,with_plan,facets)
         core_addition=with_plan
@@ -354,6 +398,12 @@ def _prepare_guarded_turn_packet(
         core_packet=hard_packet
         core_addition=hard
     space=MAX_PROMPT_CHARS-len(core_packet.prompt)
+    memory_delivered=False
+    used_memory=""
+    if memory_suffix and len(memory_suffix)<=space:
+        used_memory=memory_suffix
+        space-=len(used_memory)
+        memory_delivered=True
     dep_delivered=False
     used_debt=""
     if dependency_hint and len(dependency_hint)<=space:
@@ -368,7 +418,7 @@ def _prepare_guarded_turn_packet(
         turn_index=turn_index,beat=beat,frame=frame,
         previous=previous_lamp_receipt,max_prompt_chars=lamp_budget)
     lamp_suffix=("\n"+lamps["prompt"]) if lamps["prompt"] else ""
-    delivered_addition=core_addition+used_debt+lamp_suffix
+    delivered_addition=core_addition+used_memory+used_debt+lamp_suffix
     final=_enrich(body_base,delivered_addition,facets)
     if not (len(final.prompt)<=MAX_PROMPT_CHARS and
             hard_turn_addition in final.prompt):
@@ -391,6 +441,9 @@ def _prepare_guarded_turn_packet(
         "provisional_plan_dropped_due_to_budget":not plan_delivered,
         "unproven_dependency_hint_eligible":bool(dependency_hint),
         "unproven_dependency_hint_delivered":dep_delivered,
+        "working_memory_context_delivered":memory_delivered,
+        "working_memory_context_chars":len(used_memory),
+        "working_memory_not_canon":True,
         "lamp_prompt_delivered":bool(lamps["prompt"]),
         "lamp_prompt_characters":lamps["prompt_chars"],
         "lamp_dropped_risks":lamps["budget_suppressed_risks"],
@@ -888,7 +941,14 @@ class AutonomousWriting:
                                            else None),
                                     previous_lamp_receipt=last_lamp_receipt,
                                     narrative_graph=active_narrative_core,
-                                    narrative_scene_id=self.assist.scene_id))
+                                    narrative_scene_id=self.assist.scene_id,
+                                    working_memory_context=(
+                                        buffered_memory_context(
+                                            active_narrative_core,
+                                            project_id=self.assist.project_id,
+                                            scene_id=self.assist.scene_id)
+                                        if active_narrative_core is not None
+                                        else "")))
                             if delivery["unified_narrative_priority_dispatch"]:
                                 narrative_lane_decisions.append(
                                     delivery["unified_narrative_priority_dispatch"])
@@ -1224,6 +1284,17 @@ class AutonomousWriting:
                         scene_id=self.assist.scene_id,
                         chapter_index=first_story_chapter_index+index-1,
                         prose=body,events=())
+                    # The candidate.md file exists BEFORE compaction. Keep
+                    # its verified bytes as the immutable local source and
+                    # move only bounded working-memory excerpts/capsules.
+                    active_narrative_core=record_chapter_memory(
+                        active_narrative_core,
+                        project_id=self.assist.project_id,
+                        scene_id=self.assist.scene_id,
+                        chapter_index=first_story_chapter_index+index-1,
+                        source_path=saved["candidate"],prose=body,
+                        archive_writer=lambda capsule: (
+                            _save_unified_cold_capsule(root,capsule)))
                 state_file=folder/"v114_candidate_item_memory.json"
                 state_file.write_text(
                     json.dumps(current_continuity_checkpoint,
@@ -1263,7 +1334,13 @@ class AutonomousWriting:
                         "unified_narrative_core_chapter":
                             active_narrative_core["chapter_index"],
                         "unified_narrative_model_calls":0,
-                        "unified_narrative_canon_writes":0}
+                        "unified_narrative_canon_writes":0,
+                        "unified_narrative_buffered_chapters":len(
+                            active_narrative_core["memory"]["hot"]),
+                        "unified_narrative_warm_capsules":len(
+                            active_narrative_core["memory"]["warm"]),
+                        "unified_narrative_cold_archive_pages":
+                            active_narrative_core["memory"]["cold_count"]}
                        if active_narrative_core is not None else {}),
                     **({"v123_long_arc_checkpoint_sha256":
                             active_long_arc["receipt_sha256"],
