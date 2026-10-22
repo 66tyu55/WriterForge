@@ -957,7 +957,7 @@ class AutonomousWriting:
                                 active_narrative_core,
                                 project_id=self.assist.project_id,
                                 scene_id=self.assist.scene_id,
-                                prose=evidence["prose"])
+                                prose=evidence["prose"],cast=cast)
                             narrative_source_reviews.append(review)
                             if review["blocked"]:
                                 raise NarrativeCoreError(
