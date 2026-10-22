@@ -682,8 +682,12 @@ class AutonomousWriting:
                 '{"objective":"...","conflict":"...","decision":"...",'
                 '"outcome":"...","pov":"...","needs":["dialogue","decision"]}'
                 +(horizon_prompt(pinned_world=pinned_world)
-                  if draft_mode=="foresight_rolling" else ""),
-                            )
+                  if draft_mode=="foresight_rolling" else "")
+                +("\n【本章构思不是命运】不同人物可以因自身目标、"
+                  "认知和眼前冲突改变初始选择，结局只作候选；"
+                  "正文的真实决定和后果优先于预写大纲。"
+                  if active_narrative_core is not None else "")
+            )
             plan_prompt=_enrich(base,plan_addition,prose_task=False)
             if active_narrative_core is not None:
                 # A writer considers independent character motives at
