@@ -132,8 +132,11 @@ def validate(graph,*,project_id,scene_id):
     memory=graph.get("memory")
     if memory is not None:
         _need(type(memory) is dict and
-              set(memory)=={"hot","warm","cold_head","cold_count",
-                             "last_recorded_chapter"} and
+              set(memory) in (
+                  {"hot","warm","cold_head","cold_count",
+                   "last_recorded_chapter"},
+                  {"hot","warm","cold_head","cold_count",
+                   "last_recorded_chapter","cold_node_heads"}) and
               type(memory["hot"]) is list and
               len(memory["hot"])<=HOT_CHAPTERS and
               type(memory["warm"]) is list and
@@ -150,6 +153,17 @@ def validate(graph,*,project_id,scene_id):
                 memory["last_recorded_chapter"]<=graph["chapter_index"])) and
               len(_bytes(memory))<=MAX_MEMORY_BYTES,
               "WFCORE_MEMORY_STRUCTURE_OR_BUDGET_INVALID")
+        heads=memory.get("cold_node_heads",{})
+        _need(type(heads) is dict and len(heads)<=MAX_NODES,
+              "WFCORE_COLD_NODE_INDEX_BOUNDS")
+        for key,receipt in heads.items():
+            _need(type(key) is str and key in graph["nodes"] and
+                  type(receipt) is dict and
+                  set(receipt)=={"path","sha256"} and
+                  _text(receipt["path"],4096) and
+                  type(receipt["sha256"]) is str and
+                  SHA.fullmatch(receipt["sha256"]),
+                  "WFCORE_COLD_NODE_INDEX_TAMPERED")
         for entry in memory["hot"]+memory["warm"]:
             _need(type(entry) is dict and
                   type(entry.get("chapter")) is int and
@@ -184,7 +198,8 @@ def new_graph(*,project_id,scene_id,chapter_index=0):
         "parent_sha256":None,"nodes":{},"edges":{},
         "last_delta_flags":{},"last_event_count":0,
         "memory":{"hot":[],"warm":[],"cold_head":None,
-                  "cold_count":0,"last_recorded_chapter":None},
+                  "cold_count":0,"last_recorded_chapter":None,
+                  "cold_node_heads":{}},
         "author_annotation_required":True,
         "model_calls":0,"canon_writes":0,
     })
@@ -890,7 +905,8 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
               "WFCORE_R2_CHAPTER_UPLOAD_NOT_DURABLE")
     memory=json.loads(json.dumps(graph.get("memory",{
         "hot":[],"warm":[],"cold_head":None,"cold_count":0,
-        "last_recorded_chapter":None}),ensure_ascii=False))
+        "last_recorded_chapter":None,
+        "cold_node_heads":{} }),ensure_ascii=False))
     old=memory["last_recorded_chapter"]
     _need(old is None or chapter_index==old+1,
           "WFCORE_BUFFER_REPLAY_OR_CHAPTER_GAP")
@@ -919,11 +935,19 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
         _need(callable(archive_writer),
               "WFCORE_COLD_ARCHIVE_REQUIRED_BEFORE_EVICTION")
         prior=memory["cold_head"]
+        heads=memory.setdefault("cold_node_heads",{})
+        indexed=[key for key in oldest.get(
+            "connected_protected_nodes",[]) if key in graph["nodes"]]
+        _need(len(indexed)<=18,"WFCORE_COLD_NODE_INDEX_INPUT_BOUNDS")
         packet={
             "format":"wf.narrative.cold-capsule-page.v1",
             "project_id":project_id,"scene_id":scene_id,
             "chapter_index":oldest["chapter"],
             "capsule":oldest,"previous":prior,
+            # Per-node links mean a late foreshadowing lookup only reads
+            # pages where THAT node was relevant, not hundreds of quiet
+            # chapters' capsule pages.
+            "node_previous":{key:heads.get(key) for key in indexed},
         }
         archive=archive_writer(packet)
         _need(type(archive) is dict and
@@ -939,6 +963,8 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
               "WFCORE_COLD_ARCHIVE_PROOF_DOES_NOT_MATCH_PAYLOAD")
         memory["cold_head"]=archive
         memory["cold_count"]+=1
+        for key in indexed:
+            heads[key]=archive
         memory["warm"].pop(0)
     memory["last_recorded_chapter"]=chapter_index
     _need(len(_bytes(memory))<=MAX_MEMORY_BYTES,
