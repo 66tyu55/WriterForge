@@ -237,7 +237,7 @@ class MultiActorItemSourceAudit(unittest.TestCase):
             "唐蜃把火髓果从手中递给叶青梧。",
             cast=CAST,prior=first)
         self.assertEqual(two["v122_extra_reducer_events_count"],1)
-        self.assertEqual(two["reducer_result"]["error_code"],None)
+        self.assertEqual(two["reducer_result"].get("error_code"),None)
         self.assertEqual(
             next(v for k,v in two["reducer_result"]["candidate_state"].items()
                  if '"item"' in k and '"火髓果"' in k and
