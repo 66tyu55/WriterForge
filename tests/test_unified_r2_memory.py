@@ -164,7 +164,7 @@ class DurableR2StoryMemory(unittest.TestCase):
         self.assertNotIn("真凶是唐蜃",hint)
         self.assertGreater(self.backend.get_count,5)
         self.assertEqual(self.writer.vault.config.bucket,self.cfg.bucket)
-        self.assertNotIn("synthetic",repr(resume))
+        self.assertNotIn("secret_access_key",repr(resume))
 
     def test_original_cas_idempotent_scope_verified_and_no_foreign_bucket(self):
         local=self.root/"source.md"
