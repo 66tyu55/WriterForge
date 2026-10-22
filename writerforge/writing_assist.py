@@ -320,7 +320,8 @@ def _prepare_guarded_turn_packet(
         hard_turn_addition:str,facets:tuple[dict,...],
         dependency_hint:str,project_id:str,chapter_index:int,
         turn_index:int,beat:dict,frame:dict|None,
-        previous_lamp_receipt:dict|None):
+        previous_lamp_receipt:dict|None,
+        narrative_graph:dict|None=None):
     """V121: source/causal constraints have priority over optional cues.
 
     A speculative chapter plan may be dropped if it crowds out actual prior
@@ -328,6 +329,16 @@ def _prepare_guarded_turn_packet(
     Never trim source constraints, silently claim a cue was sent, or move a
     dropped craft cue into the next turn's cooldown history.
     """
+    lane=None
+    if narrative_graph is not None:
+        lane=schedule_narrative(
+            narrative_graph,project_id=project_id,
+            scene_id=body_base.scene_id.split(".chapter-",1)[0]
+                if ".chapter-" in body_base.scene_id
+                else body_base.scene_id,
+            beat=beat,chapter_index=chapter_index)
+        if lane["required_context"]:
+            hard_turn_addition+="\n"+lane["required_context"]
     hard="\n【本章当前事件】"+hard_turn_addition
     # If even the source/causal constraints cannot fit, fail BEFORE
     # any LLM call; never quietly shorten their contents.
@@ -385,6 +396,9 @@ def _prepare_guarded_turn_packet(
         "lamp_prompt_characters":lamps["prompt_chars"],
         "lamp_dropped_risks":lamps["budget_suppressed_risks"],
         "lamp_dropped_craft":lamps["budget_suppressed_craft"],
+        "unified_narrative_priority_dispatch":lane,
+        "priority_lanes_ordered":["HARD_STATE","NPC_KNOWLEDGE",
+                                  "LONG_THREAD","CRAFT"],
         "no_model_call_for_prompt_scheduling":True,
         "no_canon_promotion":True,
     }
@@ -841,19 +855,6 @@ class AutonomousWriting:
                                 # author-registered open goal is a durable
                                 # constraint and cannot be silently dropped.
                                 turn_addition+="\n"+active_arc_hint
-                        if (draft_mode=="continuity_guard" and
-                            active_narrative_core is not None):
-                            # One scheduler for long threads and NPC knowledge;
-                            # physical reducer hard checks remain authoritative.
-                            lane=schedule_narrative(
-                                active_narrative_core,
-                                project_id=self.assist.project_id,
-                                scene_id=self.assist.scene_id,
-                                chapter_index=first_story_chapter_index+index-1,
-                                beat=beat)
-                            narrative_lane_decisions.append(lane)
-                            if lane["required_context"]:
-                                turn_addition+="\n"+lane["required_context"]
                         if draft_mode in ("emotion_rolling","foresight_rolling"):
                             turn_addition+=emotion_turn_instructions(
                                 tuple(accepted_turns))
@@ -886,7 +887,11 @@ class AutonomousWriting:
                                     frame=(trace_frame if
                                            current_external_story_checkpoint is not None
                                            else None),
-                                    previous_lamp_receipt=last_lamp_receipt))
+                                    previous_lamp_receipt=last_lamp_receipt,
+                                    narrative_graph=active_narrative_core))
+                            if delivery["unified_narrative_priority_dispatch"]:
+                                narrative_lane_decisions.append(
+                                    delivery["unified_narrative_priority_dispatch"])
                             lamp_decisions.append(lamps)
                             prompt_delivery_receipts.append(delivery)
                             last_lamp_receipt=lamps
