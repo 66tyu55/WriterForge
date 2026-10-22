@@ -1,10 +1,7 @@
 name: WF Unified Core One-Time Discovery and DeepSeek Compaction Probe
 on:
-  push:
-    branches: [refactor-unified-narrative-core]
-    paths:
-      - .github/workflows/unified-core-model-compaction-probe.yml
-      - experiments/unified_core_live_compaction_probe_once.py
+  # Never spend granted tokens on an automatic push. Explicit opt-in only.
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
@@ -24,6 +21,7 @@ jobs:
       - name: Single bounded pair of synthetic compaction proposals
         run: python -m experiments.unified_core_live_compaction_probe_once
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: WF-Core-Synthetic-Compaction-Two-Call-Receipt
           path: wf_unified_model_compaction_probe/MODEL_STATUS.json
