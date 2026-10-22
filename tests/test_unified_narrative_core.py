@@ -17,6 +17,7 @@ from writerforge.narrative_core import (
     schedule,knows,audit_candidate,propose_source_interactions,
     validate,read_core_from_resume,record_chapter_memory,
     recall_original,buffered_memory_context,character_collision_context,
+    relevant_history_context,
 )
 from writerforge.v114_external_story_state import external_temporal_step
 from writerforge.v117_continuity_trace import make_resume,read_resume
@@ -610,6 +611,90 @@ class GraphWithPriorityAndKnowledge(unittest.TestCase):
                                 chapter_index=1)
             self.assertEqual(graph["memory"]["warm"][0][
                 "summary_kind"],"EXTRACTIVE_SOURCE_EXCERPT_ONLY")
+
+    def test_chapter_one_hook_is_recalled_from_cold_after_26_chapters(self):
+        from writerforge.writing_assist import _save_unified_cold_capsule
+        with tempfile.TemporaryDirectory() as td:
+            graph=None
+            paths=[]
+            for chapter in range(1,27):
+                if chapter==1:
+                    prose=ORIGIN
+                    graph=intro()
+                else:
+                    prose=f"第{chapter}章，叶青梧沿河岸行走，山雾渐起。"
+                    graph=advance_graph(
+                        graph,project_id=P,scene_id=S,
+                        chapter_index=chapter,prose=prose)
+                path=Path(td)/f"chapter-{chapter}.md"
+                path.write_text(prose,encoding="utf8")
+                paths.append(path)
+                graph=record_chapter_memory(
+                    graph,project_id=P,scene_id=S,
+                    chapter_index=chapter,source_path=str(path),
+                    prose=prose,
+                    summary_proposal=({
+                        "source_sha256":hashlib.sha256(
+                            ORIGIN.encode()).hexdigest(),
+                        "summary":"唐蜃已经坦白旧案，沈砚已忘记复仇。"
+                                  "这是模型凭空创造的结案。",
+                        "quote_anchors":[FACT],
+                    } if chapter==4 else None),
+                    archive_writer=lambda page:_save_unified_cold_capsule(
+                        Path(td),page))
+            self.assertGreater(graph["memory"]["cold_count"],0)
+            history=relevant_history_context(
+                graph,project_id=P,scene_id=S,
+                scene_goal="沈砚在天牢重遇唐蜃，寻找密令藏在井底的线索",
+                max_chars=650)
+            self.assertIn("原文第1章",history)
+            self.assertIn("沈砚",history)
+            self.assertIn("密令",history)
+            self.assertNotIn("已经坦白",history)
+            self.assertNotIn("已忘记复仇",history)
+            self.assertLessEqual(len(history),650)
+            self.assertEqual(relevant_history_context(
+                graph,project_id=P,scene_id=S,
+                scene_goal="叶青梧在竹林静静听雨"),"")
+            # The actual novel source, not the compressed proposed text,
+            # remains the sole basis for rehydrated evidence.
+            paths[0].write_text("唐蜃的秘密被悄悄替换了。",encoding="utf8")
+            with self.assertRaisesRegex(
+                    NarrativeCoreError,"ORIGINAL_MANUSCRIPT_HASH_CHANGED"):
+                relevant_history_context(
+                    graph,project_id=P,scene_id=S,
+                    scene_goal="沈砚在天牢重遇唐蜃，寻找密令藏在井底的线索")
+            with self.assertRaisesRegex(
+                    NarrativeCoreError,"COLD_HISTORY_SCAN_LIMIT"):
+                relevant_history_context(
+                    graph,project_id=P,scene_id=S,
+                    scene_goal="沈砚重遇唐蜃，查密令藏在井底的往事",
+                    max_pages=2)
+
+    def test_chapter_warm_hook_recalled_without_fetching_cold(self):
+        with tempfile.TemporaryDirectory() as td:
+            graph=intro()
+            p=Path(td)/"origin.md"
+            p.write_text(ORIGIN,encoding="utf8")
+            graph=record_chapter_memory(
+                graph,project_id=P,scene_id=S,
+                chapter_index=1,source_path=str(p),prose=ORIGIN)
+            for chapter in (2,3,4):
+                text=f"第{chapter}章，叶青梧沿小径步行。"
+                path=Path(td)/f"ch{chapter}.md"
+                path.write_text(text,encoding="utf8")
+                graph=advance_graph(graph,project_id=P,scene_id=S,
+                                    chapter_index=chapter,prose=text)
+                graph=record_chapter_memory(
+                    graph,project_id=P,scene_id=S,
+                    chapter_index=chapter,source_path=str(path),prose=text)
+            self.assertEqual(len(graph["memory"]["warm"]),1)
+            self.assertEqual(graph["memory"]["cold_count"],0)
+            note=relevant_history_context(
+                graph,project_id=P,scene_id=S,
+                scene_goal="沈砚追问唐蜃，密令藏在井底到底是谁藏的")
+            self.assertIn("原文第1章",note)
+            self.assertNotIn("第2章",note)
 
     def test_compaction_fails_closed_when_archive_unavailable(self):
         with tempfile.TemporaryDirectory() as td:
