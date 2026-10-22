@@ -132,11 +132,13 @@ def validate(graph,*,project_id,scene_id):
     memory=graph.get("memory")
     if memory is not None:
         _need(type(memory) is dict and
-              set(memory) in (
-                  {"hot","warm","cold_head","cold_count",
-                   "last_recorded_chapter"},
-                  {"hot","warm","cold_head","cold_count",
-                   "last_recorded_chapter","cold_node_heads"}) and
+              {"hot","warm","cold_head","cold_count",
+               "last_recorded_chapter"}.issubset(set(memory)) and
+              set(memory).issubset({
+                  "hot","warm","cold_head","cold_count",
+                  "last_recorded_chapter","cold_node_heads",
+                  "cold_index_complete"}) and
+              type(memory.get("cold_index_complete",False)) is bool and
               type(memory["hot"]) is list and
               len(memory["hot"])<=HOT_CHAPTERS and
               type(memory["warm"]) is list and
@@ -199,7 +201,8 @@ def new_graph(*,project_id,scene_id,chapter_index=0):
         "last_delta_flags":{},"last_event_count":0,
         "memory":{"hot":[],"warm":[],"cold_head":None,
                   "cold_count":0,"last_recorded_chapter":None,
-                  "cold_node_heads":{}},
+                  "cold_node_heads":{},
+                  "cold_index_complete":True},
         "author_annotation_required":True,
         "model_calls":0,"canon_writes":0,
     })
@@ -906,7 +909,15 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
     memory=json.loads(json.dumps(graph.get("memory",{
         "hot":[],"warm":[],"cold_head":None,"cold_count":0,
         "last_recorded_chapter":None,
-        "cold_node_heads":{} }),ensure_ascii=False))
+        "cold_node_heads":{},
+        "cold_index_complete":True }),ensure_ascii=False))
+    if "cold_node_heads" not in memory:
+        # Old snapshots have an unindexed cold chain. Keep fallback scanning
+        # instead of treating an absent index as proof that no hook existed.
+        memory["cold_node_heads"]={}
+        memory["cold_index_complete"]=(memory["cold_count"]==0)
+    if "cold_index_complete" not in memory:
+        memory["cold_index_complete"]=(memory["cold_count"]==0)
     old=memory["last_recorded_chapter"]
     _need(old is None or chapter_index==old+1,
           "WFCORE_BUFFER_REPLAY_OR_CHAPTER_GAP")
@@ -1176,20 +1187,62 @@ def relevant_history_context(graph,*,project_id,scene_id,
     if not any(score>=9 for score in relevant.values()):
         return ""
     records=list(graph_memory.get("warm",[]))
-    head=graph_memory.get("cold_head")
+    page_cache={}
+    seen_pages=set()
     pages=0
-    while head is not None and pages<max_pages:
-        page=_verify_cold_archive(
-            head,archive_reader=archive_reader)
-        _need(page.get("project_id")==project_id
-              and page.get("scene_id")==scene_id
-              and type(page.get("capsule")) is dict,
-              "WFCORE_OLD_CAPSULE_WRONG_PROJECT_OR_SCHEMA")
-        records.append(page["capsule"])
-        head=page.get("previous")
-        pages+=1
-    _need(head is None,
-          "WFCORE_COLD_HISTORY_SCAN_LIMIT_REFUSE_FALSE_COMPLETENESS")
+    def get_archive(ref):
+        nonlocal pages
+        _need(type(ref) is dict and
+              type(ref.get("sha256")) is str,
+              "WFCORE_R2_INDEX_REF_INVALID")
+        sha=ref["sha256"]
+        if sha not in page_cache:
+            _need(pages<max_pages,
+                  "WFCORE_COLD_HISTORY_SCAN_LIMIT_REFUSE_FALSE_COMPLETENESS")
+            page=_verify_cold_archive(
+                ref,archive_reader=archive_reader)
+            _need(page.get("project_id")==project_id
+                  and page.get("scene_id")==scene_id and
+                  type(page.get("capsule")) is dict,
+                  "WFCORE_OLD_CAPSULE_WRONG_PROJECT_OR_SCHEMA")
+            page_cache[sha]=page
+            pages+=1
+        return page_cache[sha]
+
+    indexed=graph_memory.get("cold_node_heads")
+    if type(indexed) is dict:
+        for node_key in sorted(
+                k for k,v in relevant.items() if v>=9 and k in indexed):
+            head=indexed[node_key]
+            visited=set()
+            while head is not None:
+                sha=head["sha256"]
+                _need(sha not in visited,
+                      "WFCORE_COLD_NODE_LINK_CYCLE")
+                visited.add(sha)
+                page=get_archive(head)
+                _need(node_key in page["capsule"].get(
+                    "connected_protected_nodes",[]),
+                    "WFCORE_COLD_NODE_INDEX_FALSE_MATCH")
+                if sha not in seen_pages:
+                    seen_pages.add(sha)
+                    records.append(page["capsule"])
+                next_map=page.get("node_previous")
+                _need(type(next_map) is dict,
+                      "WFCORE_COLD_NODE_INDEX_NEXT_MISSING")
+                head=next_map.get(node_key)
+    # Legacy historical resumes predate per-node indices. A partial index
+    # must fall back to its old chain: no silent forgotten old chapters.
+    if indexed is None or graph_memory.get(
+            "cold_index_complete") is not True:
+        head=graph_memory.get("cold_head")
+        while head is not None:
+            page=get_archive(head)
+            sha=head["sha256"]
+            if sha not in seen_pages:
+                seen_pages.add(sha)
+                records.append(page["capsule"])
+            head=page.get("previous")
     weighted=[]
     for item in records:
         ids=item.get("connected_protected_nodes")
