@@ -219,6 +219,67 @@ class MultiActorItemSourceAudit(unittest.TestCase):
         self.assertIn("WF122_CLAUSE_BUDGET_EXCEEDED",
                       report["review_findings"])
 
+    def test_real_novel_studio_reducer_carries_two_handoffs_to_next_chapter(self):
+        from writerforge.v114_external_story_state import external_temporal_step
+        from writerforge.v117_continuity_trace import audit_continuity
+        first=external_temporal_step(
+            "沈砚把火髓果往齿间一咬。"
+            "沈砚把果子从齿间吐到左手心。",
+            cast=CAST)
+        old=first["reducer_result"]["candidate_state"]
+        self.assertEqual(
+            next(v for k,v in old.items()
+                 if '"item"' in k and '"火髓果"' in k and
+                    '"holder"' in k),
+            "沈砚左手心")
+        two=external_temporal_step(
+            "沈砚把火髓果从左手心递给唐蜃。"
+            "唐蜃把火髓果从手中递给叶青梧。",
+            cast=CAST,prior=first)
+        self.assertEqual(two["v122_extra_reducer_events_count"],1)
+        self.assertEqual(two["reducer_result"]["error_code"],None)
+        self.assertEqual(
+            next(v for k,v in two["reducer_result"]["candidate_state"].items()
+                 if '"item"' in k and '"火髓果"' in k and
+                    '"holder"' in k),
+            "叶青梧手中")
+        self.assertEqual(two["canon_writes"],0)
+        self.assertFalse(two["semantic_truth_verified"])
+        frame=audit_continuity(two,project_id="novel-z",chapter_index=1)
+        props=[x for x in frame["prop_verdicts"] if x["entity"]=="火髓果"]
+        self.assertEqual(len(props),1)
+        self.assertTrue(props[0]["ok"])
+        self.assertEqual(props[0]["latest_state"],"叶青梧手中")
+        next_chapter=external_temporal_step(
+            "叶青梧沿石壁疾奔，唐蜃在后方紧追。",
+            cast=CAST,prior=two)
+        self.assertEqual(
+            next(v for k,v in next_chapter["reducer_result"][
+                 "candidate_state"].items()
+                 if '"item"' in k and '"火髓果"' in k and
+                    '"holder"' in k),
+            "叶青梧手中")
+        false_return=preflight_next_prose(
+            "沈砚握着火髓果。",cast=CAST,
+            previous_candidate_state=next_chapter[
+                "reducer_result"]["candidate_state"])
+        self.assertTrue(false_return["blocked"])
+        self.assertIn("WF116_FRUIT_TELEPORT_TO_OTHER_ACTOR",
+                      false_return["findings"])
+
+    def test_reducer_dedup_keeps_single_transfer_not_double_event(self):
+        from writerforge.v114_external_story_state import external_temporal_step
+        first=external_temporal_step(
+            "沈砚把火髓果往齿间一咬。"
+            "沈砚把果子从齿间吐到左手心.",
+            cast=CAST)
+        second=external_temporal_step(
+            "沈砚把火髓果从左手心递给唐蜃。",
+            cast=CAST,prior=first)
+        self.assertEqual(second["v122_extra_reducer_events_count"],0)
+        self.assertEqual(second["reducer_result"]["verified_events"],1)
+        self.assertEqual(second["canon_writes"],0)
+
     def test_invalid_cast_and_prose_fail_closed(self):
         with self.assertRaises(ItemProvenanceError):
             audit_item_provenance(
