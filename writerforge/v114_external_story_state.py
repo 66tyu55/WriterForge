@@ -162,10 +162,20 @@ def external_temporal_step(prose,*,cast=(),prior=None):
     report,events=actual_item_events(prose,cast=cast,prior_state=old)
     named_candidates=discover_candidates(prose)
     dynamic_delta=extract_state_events(prose,cast=cast,prior_state=old)
-    # One PINNED reducer, one candidate state. Native static observations and
-    # dynamic source actions share expected-old-value semantics and time order.
-    events=sorted(events+dynamic_delta["source_anchored_events"],
-                  key=lambda e:e["evidence"]["start"])
+    # V122 audits all known item cells rather than the first fruit and
+    # source-verifies any additional actor-bound transfer *before* allowing
+    # the unchanged pinned MIT reducer to apply expected-old-value ops.
+    from .v122_item_provenance import (
+        audit_item_provenance,supplemental_reducer_events)
+    multi_item=audit_item_provenance(
+        prose=prose,previous_candidate_state=old,cast=cast)
+    supplemental=supplemental_reducer_events(
+        prose=prose,audit=multi_item,
+        earlier_events=events+dynamic_delta["source_anchored_events"])
+    # One PINNED reducer, one candidate state. Existing V116 events win
+    # duplicates; V122 fills only gaps in explicit time-ordered transfers.
+    events=sorted(events+dynamic_delta["source_anchored_events"]+
+                  supplemental,key=lambda e:e["evidence"]["start"])
     need(len(events)<=30,"WF116_EXTERNAL_EVENT_LIST_UNBOUNDED")
     packet={
         "format":"wf.fallback.novel-studio.input.v114",
@@ -209,6 +219,10 @@ def external_temporal_step(prose,*,cast=(),prior=None):
         "original_native_candidate_report":report,
         "dynamic_source_entity_candidates":named_candidates,
         "v116_anchored_state_delta":dynamic_delta,
+        "v122_item_provenance_audit":multi_item,
+        "v122_extra_reducer_source_events":supplemental,
+        "v122_extra_reducer_events_count":len(supplemental),
+        "v122_model_guess_not_source_evidence":True,
         "dynamic_entity_mentions_are_not_events":True,
         "source_anchored_events_count":len(events),
         "reducer_result":result,
