@@ -1,0 +1,77 @@
+name: V123 twenty-chapter long-arc revenge source-only validation
+on:
+  push:
+    branches: [v123-twenty-chapter-revenge-continuity]
+    paths:
+      - .github/workflows/v123-twenty-chapter-revenge.yml
+      - writerforge/v114_external_story_state.py
+      - writerforge/v116_state_delta.py
+      - writerforge/v122_item_provenance.py
+      - writerforge/v117_continuity_trace.py
+      - writerforge/v123_long_arc.py
+      - writerforge/v118_lamp_scheduler.py
+      - writerforge/v119_revision_transaction.py
+      - writerforge/v120_plan_prose_gate.py
+      - writerforge/writing_assist.py
+      - tests/test_v118_lamp_scheduler.py
+      - tests/test_v119_revision_transaction.py
+      - tests/test_v121_actor_and_budget.py
+      - tests/test_v122_item_provenance.py
+      - tests/test_v123_twenty_chapter_revenge.py
+      - experiments/v123_twenty_chapter_sealed_audit.py
+
+permissions:
+  contents: read
+concurrency:
+  group: wf120-prose-reality-gate
+  cancel-in-progress: false
+
+jobs:
+  zero-secret-whole-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 23
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Do not expose model credentials to the test
+        run: |
+          python -c 'import os; assert not any(os.getenv(k) for k in ("DEEPSEEK_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY"))'
+      - run: python -m pip install -e '.[r2]'
+      - name: Run entire existing WF regression plus new V120 tests
+        run: python -m unittest discover -s tests -q
+
+  unchanged-private-v113-v114b:
+    if: github.repository == '66tyu55/WriterForge'
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check literary model keys are absent
+        run: |
+          python -c 'import os; assert not any(os.getenv(k) for k in ("DEEPSEEK_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY"))'
+      - run: python -m pip install -e '.[r2]'
+      - name: Read frozen source and verify 20 chapter V117 resume/checkpoint carrying revenge goal
+        run: python -m experiments.v122_readonly_multi_item_cold_audit
+      - uses: actions/upload-artifact@v4
+        with:
+          name: V123-original-951-964-plus-20-reducer-resumes-no-model
+          path: wf123_source_and_20_chapters/STATUS.json
+          retention-days: 30
+          if-no-files-found: error
