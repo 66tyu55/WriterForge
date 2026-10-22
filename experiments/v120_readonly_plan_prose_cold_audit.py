@@ -53,6 +53,8 @@ def main():
          "WF120_FALSE_FRUIT_CONSUMPTION_COMPLETION")
     need(wrong_actor["status"] != "OBSERVED_SOURCE_SUPPORTED",
          "WF120_OTHER_ACTOR_STOLE_FRUIT_EVENT")
+    need(injury["status"] == "OBSERVED_SOURCE_SUPPORTED",
+         "WF120_ACTUAL_RIGHT_ARM_EXPLICIT_NARRATIVE_UNRECOGNIZED")
     need(false_injury["status"] != "OBSERVED_SOURCE_SUPPORTED",
          "WF120_OTHER_ACTOR_INHERITED_ARM_LIMIT")
     need(tassel["status"] == "UNPROVEN",
