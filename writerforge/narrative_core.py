@@ -26,8 +26,17 @@ MAX_GRAPH_BYTES=68000
 MAX_ID=72
 MAX_LABEL=130
 MAX_PROMPT=1300
+HOT_CHAPTERS=3
+WARM_CAPSULES=8
+HOT_EXCERPT_CHARS=1600
+CAPSULE_MAX_CHARS=640
+MAX_MEMORY_BYTES=24000
+CHARACTER_LENS_FIELDS=frozenset((
+    "desire","fear","value","temperament","habit","emotion","relationship_stance",
+    "immediate_intention",
+))
 KINDS=frozenset(("FACT","THREAD_OPEN","THREAD_REVISE","THREAD_RESOLVE",
-                 "CONTACT","UNKNOWN","WITNESS","SHARE","BELIEF"))
+                 "CONTACT","UNKNOWN","WITNESS","SHARE","BELIEF","CHARACTER_REFLECT"))
 THREAD_KINDS=frozenset(("GOAL","FORESHADOW","PROMISE","REVEAL",
                         "MYSTERY","MISUNDERSTANDING","RELATIONSHIP","OTHER"))
 SHA=re.compile(r"[a-f0-9]{64}\Z")
@@ -50,8 +59,9 @@ class Patch(IntFlag):
 PRIORITY={
     "HARD_STATE":0,
     "NPC_KNOWLEDGE":1,
-    "LONG_THREAD":2,
-    "CRAFT":3,
+    "CHARACTER_INTENT":2,
+    "LONG_THREAD":3,
+    "CRAFT":4,
 }
 
 
@@ -119,6 +129,36 @@ def validate(graph,*,project_id,scene_id):
           (type(graph["parent_sha256"]) is str
            and SHA.fullmatch(graph["parent_sha256"])),
           "WFCORE_PARENT_INVALID")
+    memory=graph.get("memory")
+    if memory is not None:
+        _need(type(memory) is dict and
+              set(memory)=={"hot","warm","cold_head","cold_count",
+                             "last_recorded_chapter"} and
+              type(memory["hot"]) is list and
+              len(memory["hot"])<=HOT_CHAPTERS and
+              type(memory["warm"]) is list and
+              len(memory["warm"])<=WARM_CAPSULES and
+              type(memory["cold_count"]) is int and
+              0<=memory["cold_count"]<=1000000 and
+              (memory["cold_head"] is None or
+               (type(memory["cold_head"]) is dict and
+                set(memory["cold_head"])=={"path","sha256"} and
+                _text(memory["cold_head"]["path"],4096) and
+                SHA.fullmatch(memory["cold_head"]["sha256"]))) and
+              (memory["last_recorded_chapter"] is None or
+               (type(memory["last_recorded_chapter"]) is int and
+                memory["last_recorded_chapter"]<=graph["chapter_index"])) and
+              len(_bytes(memory))<=MAX_MEMORY_BYTES,
+              "WFCORE_MEMORY_STRUCTURE_OR_BUDGET_INVALID")
+        for entry in memory["hot"]+memory["warm"]:
+            _need(type(entry) is dict and
+                  type(entry.get("chapter")) is int and
+                  0<=entry["chapter"]<=graph["chapter_index"] and
+                  type(entry.get("source_sha256")) is str and
+                  SHA.fullmatch(entry["source_sha256"]) and
+                  type(entry.get("source_path")) is str and
+                  1<=len(entry["source_path"])<=4096,
+                  "WFCORE_MEMORY_ORIGINAL_SOURCE_REF_INVALID")
     for k,v in graph["nodes"].items():
         _need(_text(k) and type(v) is dict and v.get("id")==k and
               v.get("kind") in ("CHARACTER","FACT","THREAD") and
@@ -143,6 +183,8 @@ def new_graph(*,project_id,scene_id,chapter_index=0):
         "chapter_index":chapter_index,
         "parent_sha256":None,"nodes":{},"edges":{},
         "last_delta_flags":{},"last_event_count":0,
+        "memory":{"hot":[],"warm":[],"cold_head":None,
+                  "cold_count":0,"last_recorded_chapter":None},
         "author_annotation_required":True,
         "model_calls":0,"canon_writes":0,
     })
@@ -289,6 +331,26 @@ def advance_graph(graph,*,project_id,scene_id,chapter_index,prose,events=()):
                 props["status"]="RESOLVED_AUTHOR_CONFIRMED"
                 touch(key,Patch.STATUS|Patch.THREAD)
             props["last_evidence_sha256"]=evidence["quote_sha256"]
+        elif kind=="CHARACTER_REFLECT":
+            actor=event.get("actor")
+            dimension=event.get("dimension")
+            content=event.get("value")
+            stance=event.get("evidence_scope")
+            _need(_text(actor,70) and actor in event["quote"] and
+                  dimension in CHARACTER_LENS_FIELDS and
+                  _text(content,110) and content in event["quote"] and
+                  stance in ("NARRATED_INNER","OBSERVED_BEHAVIOR"),
+                  "WFCORE_CHARACTER_REFLECTION_NOT_SOURCE_GROUNDED")
+            actor_key=char(actor)
+            lens=dict(nodes[actor_key]["props"].get("lens",{}))
+            lens[dimension]={
+                "value":content,
+                "evidence_scope":stance,
+                "last_chapter":chapter_index,
+                "source_quote_sha256":evidence["quote_sha256"],
+            }
+            nodes[actor_key]["props"]["lens"]=lens
+            touch(actor_key,Patch.CONTENT)
         elif kind=="CONTACT":
             a,b=event.get("actor"),event.get("other")
             _need(_text(a,70) and _text(b,70) and a!=b and
@@ -338,6 +400,10 @@ def advance_graph(graph,*,project_id,scene_id,chapter_index,prose,events=()):
         "parent_sha256":graph["receipt_sha256"],
         "nodes":nodes,"edges":edges,
         "last_delta_flags":flags,"last_event_count":len(events),
+        "memory":json.loads(json.dumps(graph.get("memory",{
+            "hot":[],"warm":[],"cold_head":None,"cold_count":0,
+            "last_recorded_chapter":None,
+        }),ensure_ascii=False)),
         "author_annotation_required":True,
         "model_calls":0,"canon_writes":0,
     })
@@ -428,6 +494,29 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
         ident=(PRIORITY[lane],key)
         tasks[ident]={"lane":lane,"key":key,"priority":PRIORITY[lane],
                       "text":msg,"mandatory":mandatory}
+    # A character has its own desire, fear, habits and values. These are
+    # constraints/creative tensions, not a fixed next action or reader vote.
+    actor_key=_node_key("character",actor)
+    character_node=graph["nodes"].get(actor_key)
+    if character_node is not None and beat["kind"] not in ("quiet","transition"):
+        lens=character_node["props"].get("lens",{})
+        if type(lens) is dict and lens:
+            parts=[]
+            for dimension in ("desire","fear","value","temperament",
+                              "habit","emotion","relationship_stance",
+                              "immediate_intention"):
+                row=lens.get(dimension)
+                if type(row) is dict and _text(row.get("value"),110):
+                    name=("原文表现线索" if row.get("evidence_scope")==
+                          "OBSERVED_BEHAVIOR" else "已写内心倾向")
+                    parts.append(dimension+"("+name+")："+row["value"])
+                if len(parts)>=3:
+                    break
+            if parts:
+                queue("CHARACTER_INTENT",actor_key,
+                      "【人物自主行动张力】"+"；".join(parts)+"。"
+                      "让人物按自身认知、欲望、代价和眼前阻力作选择；"
+                      "可以不按原大纲行动，不把读者偏好当人物的想法。")
     # Explicit fact is relevant only if the current beat discusses it.
     # Do not expose a SECRET's value to an uninformed POV.
     for nid,row in sorted(graph["nodes"].items()):
@@ -517,7 +606,7 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
             k for k in deferred if k.startswith("thread:")]),
         "prompt_chars":len(content),
         "priority_order":["HARD_STATE","NPC_KNOWLEDGE",
-                          "LONG_THREAD","CRAFT"],
+                          "CHARACTER_INTENT","LONG_THREAD","CRAFT"],
         "model_calls":0,"canon_writes":0,
         "knowledge_is_character_scoped":True,
     }
