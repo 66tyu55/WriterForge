@@ -777,12 +777,20 @@ def audit_candidate(graph,*,project_id,scene_id,prose,cast=()):
     }
 
 
-def _verify_source_file(path,expected_sha):
-    """Original manuscript remains the backing store; summaries are never it."""
+def _verify_source_file(path,expected_sha,*,source_reader=None):
+    """Only exact local bytes or an explicitly scoped private R2 reader."""
     from pathlib import Path
     _need(type(path) is str and 1<=len(path)<=4096 and
           type(expected_sha) is str and SHA.fullmatch(expected_sha),
           "WFCORE_SOURCE_LOCATOR_INVALID")
+    if path.startswith("r2://"):
+        _need(callable(source_reader),
+              "WFCORE_R2_SOURCE_READER_REQUIRED")
+        value=source_reader(path,expected_sha)
+        _need(type(value) is str and
+              0<len(value)<=MAX_CHARS and _hash(value)==expected_sha,
+              "WFCORE_R2_SOURCE_WRONG_BYTES")
+        return value
     source=Path(path)
     _need(source.is_file() and source.stat().st_size<=MAX_CHARS*4,
           "WFCORE_ORIGINAL_MANUSCRIPT_NOT_ARCHIVED")
@@ -800,7 +808,8 @@ def _source_excerpt(prose):
     return prose[:370]+"\n【中段仍在原文归档，未被删除】\n"+prose[-1190:],False
 
 
-def _condense_source(hot, *, proposal=None,graph_nodes=None):
+def _condense_source(hot, *, proposal=None,graph_nodes=None,
+                     source_reader=None):
     """A capsule is a lossy recall index, NEVER replacement for source facts.
 
     Model-made prose is allowed only as a clearly UNVERIFIED literary
@@ -808,7 +817,8 @@ def _condense_source(hot, *, proposal=None,graph_nodes=None):
     open obligations, NPC beliefs and timelines remain in structured records.
     """
     original=_verify_source_file(
-        hot["source_path"],hot["source_sha256"])
+        hot["source_path"],hot["source_sha256"],
+        source_reader=source_reader)
     names=[]
     for nid,row in sorted((graph_nodes or {}).items()):
         props=row["props"]
@@ -849,7 +859,8 @@ def _condense_source(hot, *, proposal=None,graph_nodes=None):
 
 def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
                           source_path,prose,summary_proposal=None,
-                          archive_writer=None):
+                          archive_writer=None,source_writer=None,
+                          source_reader=None,archive_reader=None):
     """Delayed compaction: 3 hot chapters -> 8 warm capsules -> cold CAS.
 
     Must be called AFTER original candidate.md has been durably saved. The
@@ -865,6 +876,18 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
     source_sha=_hash(prose)
     _need(_verify_source_file(source_path,source_sha)==prose,
           "WFCORE_SAVED_SOURCE_DIFFERENT_FROM_CANDIDATE")
+    stored_source_path=source_path
+    if source_writer is not None:
+        _need(callable(source_writer) and callable(source_reader)
+              and callable(archive_reader) and
+              callable(archive_writer),
+              "WFCORE_R2_FULL_BACKEND_REQUIRED")
+        stored_source_path=source_writer(source_path,source_sha)
+        _need(type(stored_source_path) is str and
+              stored_source_path.startswith("r2://") and
+              _verify_source_file(stored_source_path,source_sha,
+                                  source_reader=source_reader)==prose,
+              "WFCORE_R2_CHAPTER_UPLOAD_NOT_DURABLE")
     memory=json.loads(json.dumps(graph.get("memory",{
         "hot":[],"warm":[],"cold_head":None,"cold_count":0,
         "last_recorded_chapter":None}),ensure_ascii=False))
@@ -875,7 +898,7 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
     memory["hot"].append({
         "chapter":chapter_index,
         "source_sha256":source_sha,
-        "source_path":source_path,
+        "source_path":stored_source_path,
         "buffered_excerpt":excerpt,
         "entire_source_in_buffer":complete,
         "original_source_persists":True,
@@ -887,7 +910,8 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
         # preserved source and protected graph determine all hard constraints.
         capsule=_condense_source(
             oldest,proposal=summary_proposal,
-            graph_nodes=graph["nodes"])
+            graph_nodes=graph["nodes"],
+            source_reader=source_reader)
         memory["warm"].append(capsule)
         memory["hot"].pop(0)
     if len(memory["warm"])>WARM_CAPSULES:
@@ -909,7 +933,8 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
               type(archive["sha256"]) is str and
               SHA.fullmatch(archive["sha256"]),
               "WFCORE_COLD_ARCHIVE_RECEIPT_INVALID")
-        stored=_verify_cold_archive(archive)
+        stored=_verify_cold_archive(
+            archive,archive_reader=archive_reader)
         _need(stored==packet,
               "WFCORE_COLD_ARCHIVE_PROOF_DOES_NOT_MATCH_PAYLOAD")
         memory["cold_head"]=archive
@@ -924,8 +949,22 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
     return validate(_signed(result),project_id=project_id,scene_id=scene_id)
 
 
-def _verify_cold_archive(ref):
+def _verify_cold_archive(ref,*,archive_reader=None):
     from pathlib import Path
+    _need(type(ref) is dict and
+          set(ref)=={"path","sha256"} and
+          type(ref["path"]) is str and
+          type(ref["sha256"]) is str and
+          SHA.fullmatch(ref["sha256"]),
+          "WFCORE_COLD_ARCHIVE_REF_INVALID")
+    if ref["path"].startswith("r2://"):
+        _need(callable(archive_reader),
+              "WFCORE_R2_CAPSULE_READER_REQUIRED")
+        data=archive_reader(ref)
+        _need(type(data) is dict and _hash(data)==ref["sha256"] and
+              data.get("format")=="wf.narrative.cold-capsule-page.v1",
+              "WFCORE_R2_COLD_ARCHIVE_SHA_OR_FORMAT_INVALID")
+        return data
     path=Path(ref["path"])
     _need(path.is_file() and path.stat().st_size<=12000,
           "WFCORE_COLD_ARCHIVE_MISSING")
@@ -942,7 +981,7 @@ def _verify_cold_archive(ref):
 
 
 def recall_original(graph,*,project_id,scene_id,chapter_index,
-                    max_pages=1000):
+                    max_pages=1000,source_reader=None,archive_reader=None):
     """Explicit provenance lookup, never silently use a dubious summary.
 
     Original book text is returned only when the private backing candidate
@@ -956,18 +995,21 @@ def recall_original(graph,*,project_id,scene_id,chapter_index,
     for entry in memory.get("hot",[])+memory.get("warm",[]):
         if entry["chapter"]==chapter_index:
             return _verify_source_file(
-                entry["source_path"],entry["source_sha256"])
+                entry["source_path"],entry["source_sha256"],
+                source_reader=source_reader)
     head=memory.get("cold_head")
     pages=0
     while head is not None and pages<max_pages:
-        data=_verify_cold_archive(head)
+        data=_verify_cold_archive(
+            head,archive_reader=archive_reader)
         _need(data["project_id"]==project_id and
               data["scene_id"]==scene_id,
               "WFCORE_RECALL_CROSS_PROJECT_ARCHIVE")
         capsule=data["capsule"]
         if capsule["chapter"]==chapter_index:
             return _verify_source_file(
-                capsule["source_path"],capsule["source_sha256"])
+                capsule["source_path"],capsule["source_sha256"],
+                source_reader=source_reader)
         head=data["previous"]
         pages+=1
     _need(not (head is not None and pages>=max_pages),
@@ -1059,7 +1101,8 @@ def buffered_memory_context(graph,*,project_id,scene_id,
 
 
 def relevant_history_context(graph,*,project_id,scene_id,
-                             scene_goal,max_chars=700,max_pages=1000):
+                             scene_goal,max_chars=700,max_pages=1000,
+                             source_reader=None,archive_reader=None):
     """Retrieve precise ORIGINAL text for a reopened hook from warm/cold CAS.
 
     Compressed chapter summaries are INDEX CANDIDATES only. Nothing written
@@ -1110,7 +1153,8 @@ def relevant_history_context(graph,*,project_id,scene_id,
     head=graph_memory.get("cold_head")
     pages=0
     while head is not None and pages<max_pages:
-        page=_verify_cold_archive(head)
+        page=_verify_cold_archive(
+            head,archive_reader=archive_reader)
         _need(page.get("project_id")==project_id
               and page.get("scene_id")==scene_id
               and type(page.get("capsule")) is dict,
@@ -1139,7 +1183,8 @@ def relevant_history_context(graph,*,project_id,scene_id,
         # Cold source is independently SHA-checked before ANY old prose
         # enters the model input. Do not send unverifiable summaries.
         original=_verify_source_file(
-            item["source_path"],item["source_sha256"])
+            item["source_path"],item["source_sha256"],
+            source_reader=source_reader)
         terms=[]
         for key in ids:
             terms.extend(x for x in keywords.get(key,())
