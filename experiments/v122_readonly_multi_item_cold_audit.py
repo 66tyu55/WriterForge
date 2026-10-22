@@ -46,6 +46,21 @@ def main():
                                 cast=cast)
     events=audit_item_provenance(
         prose=valid,previous_candidate_state=state114,cast=cast)
+    # Real pinned upstream MIT state application, using the ORIGINAL 964
+    # source as prior candidate state. These two later turns are synthetic
+    # zero-model test strings, not a newly generated literary scene.
+    carried=external_temporal_step(valid,cast=cast,prior=prior114)
+    later=external_temporal_step(
+        "叶青梧沿石壁疾行，唐蜃远远追在后面。",
+        cast=cast,prior=carried)
+    key=next((k for k in state114
+              if json.loads(k)[:3]==["item","火髓果","holder"]),None)
+    need(key is not None and
+         carried["reducer_result"]["candidate_state"][key]=="叶青梧手中" and
+         later["reducer_result"]["candidate_state"][key]=="叶青梧手中" and
+         carried["reducer_result"]["error_code"] is None and
+         carried["v122_extra_reducer_events_count"]>=1,
+         "WF122_PINNED_REDUCER_DID_NOT_PERSIST_THREE_PERSON_TRANSFER")
     need(not good["blocked"] and
          events["remaining_holders_candidate_only"].get("火髓果")=="叶青梧手中"
          and len(events["candidate_source_events"])==2,
@@ -68,6 +83,8 @@ def main():
         "original_tassel_state_unchanged":bool(item_state),
         "valid_three_person_handoff_preflight_passed":True,
         "two_source_anchored_handoffs_not_canon":True,
+        "pinned_novel_studio_checkpoint_survived_next_chapter":True,
+        "one_new_supplemental_source_event_atomic":True,
         "third_person_item_teleport_blocked":True,
         "unresolved_he_she_reference_review_only":True,
         "old_second_story_scene_not_generated":True,
