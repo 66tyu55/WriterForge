@@ -523,7 +523,8 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
     }
 
 
-def propose_source_interactions(graph,*,project_id,scene_id,prose):
+def propose_source_interactions(graph,*,project_id,scene_id,prose,
+                                cast=()):
     """Detect only narrowly narrated contacts/explicit disclosures.
 
     This is *proposal extraction*, not author confirmation or a knowledge
@@ -532,10 +533,15 @@ def propose_source_interactions(graph,*,project_id,scene_id,prose):
     validate(graph,project_id=project_id,scene_id=scene_id)
     _need(type(prose) is str and 1<=len(prose)<=MAX_CHARS,
           "WFCORE_PROPOSAL_TEXT_BOUNDS")
+    _need(type(cast) in (tuple,list) and len(cast)<=10 and
+          len(set(cast))==len(cast) and
+          all(_text(p,70) for p in cast),
+          "WFCORE_PROPOSAL_SCENE_CAST_INVALID")
     from .v116_state_delta import _segments
-    people=sorted([
+    people=sorted(set(cast)|set(
         row["props"]["name"] for row in graph["nodes"].values()
-        if row["kind"]=="CHARACTER"],key=lambda n:(-len(n),n))
+        if row["kind"]=="CHARACTER"),
+        key=lambda n:(-len(n),n))
     facts=[
         (k.split(":",1)[1],v["props"]["name"])
         for k,v in graph["nodes"].items() if v["kind"]=="FACT"]
@@ -614,7 +620,7 @@ def propose_source_interactions(graph,*,project_id,scene_id,prose):
     }
 
 
-def audit_candidate(graph,*,project_id,scene_id,prose):
+def audit_candidate(graph,*,project_id,scene_id,prose,cast=()):
     """Review explicit NPC-knowledge claims; never let prose mutate edges.
 
     Only a direct prior author-pinned UNKNOWN paired with "早已知道"
@@ -665,7 +671,8 @@ def audit_candidate(graph,*,project_id,scene_id,prose):
                 elif "WFCORE_UNPROVEN_CHARACTER_KNOWLEDGE" not in reviews:
                     reviews.append("WFCORE_UNPROVEN_CHARACTER_KNOWLEDGE")
     proposals=propose_source_interactions(
-        graph,project_id=project_id,scene_id=scene_id,prose=prose)
+        graph,project_id=project_id,scene_id=scene_id,prose=prose,
+        cast=cast)
     return {
         "format":"wf.narrative.source-preflight.v1",
         "source_interaction_proposals":proposals,
