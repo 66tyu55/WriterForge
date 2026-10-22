@@ -37,6 +37,6 @@
 
 新增后续 per-node 冷索引、Legacy fallback 及 28 章独立私有 R2 模拟客户端回归。完整脱敏离线校验：
 https://github.com/66tyu55/WriterForge/actions/runs/39793854484
-（`full-regression-offline` job 1,385 tests run、4 skipped、0 failures）。对 17 页无关冷页、1 页真正相关的合成场景，用节点链约束旧线索回查 R2 GET 次数不超过 4；旧快照缺少节点索引时依然走有界历史链，不把索引缺失判为故事事实消失。
+（`full-regression-offline` job 1,385 tests run、4 skipped、0 failures；`isolated-live-private-r2-synthetic` job 同样已完成 success，三类合成 CAS 对象均完成远端 readback）。对 17 页无关冷页、1 页真正相关的合成场景，用节点链约束旧线索回查 R2 GET 次数不超过 4；旧快照缺少节点索引时依然走有界历史链，不把索引缺失判为故事事实消失。
 
-此运行的 live R2 smoke 在检查时仍处于排队状态；不要借上述离线结果宣称该 live job 已完成。远端原文/冷页/resume 真正三类 CAS 的已观测成功记录仍是本交接上面的 #39792584714。生产 main 与 Railway 均未修改。
+上述最后一轮 live R2 smoke 已实际成功，报告所有三类合成 CAS 都通过远端读取验证；早期 #39792584714 也已通过。两个 GitHub CI jobs 均为 success；生产 main 与 Railway 均未修改。
