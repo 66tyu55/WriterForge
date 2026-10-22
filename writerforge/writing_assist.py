@@ -301,6 +301,84 @@ def _chapter_plan(raw:str,chapter_goal:str) -> dict:
             "literary_quality_verified":False}
 
 
+def _prepare_guarded_turn_packet(
+        body_base:GroundedDraftPacket,*,plan:dict,
+        hard_turn_addition:str,facets:tuple[dict,...],
+        dependency_hint:str,project_id:str,chapter_index:int,
+        turn_index:int,beat:dict,frame:dict|None,
+        previous_lamp_receipt:dict|None):
+    """V121: source/causal constraints have priority over optional cues.
+
+    A speculative chapter plan may be dropped if it crowds out actual prior
+    state. The V120 direct dependency hint and V118 lamps are optional.
+    Never trim source constraints, silently claim a cue was sent, or move a
+    dropped craft cue into the next turn's cooldown history.
+    """
+    hard="\n【本章当前事件】"+hard_turn_addition
+    # If even the source/causal constraints cannot fit, fail BEFORE
+    # any LLM call; never quietly shorten their contents.
+    hard_packet=_enrich(body_base,hard,facets)
+    plan_part="\n【原创章计划】"+json.dumps(plan,ensure_ascii=False)
+    with_plan=plan_part+hard
+    plan_delivered=False
+    if len(plan_part)<=MAX_PROMPT_CHARS-len(hard_packet.prompt):
+        # Plan is only proposed intent. It is lower-priority than hard state.
+        core_packet=_enrich(body_base,with_plan,facets)
+        core_addition=with_plan
+        plan_delivered=True
+    else:
+        core_packet=hard_packet
+        core_addition=hard
+    space=MAX_PROMPT_CHARS-len(core_packet.prompt)
+    dep_delivered=False
+    used_debt=""
+    if dependency_hint and len(dependency_hint)<=space:
+        used_debt=dependency_hint
+        space-=len(used_debt)
+        dep_delivered=True
+    # Lamp text carries an added newline when present. Leave one character
+    # for that newline; zero available characters yields a zero-lamp receipt.
+    lamp_budget=min(460,max(0,space-1))
+    lamps=plan_scene_lamps(
+        project_id=project_id,chapter_index=chapter_index,
+        turn_index=turn_index,beat=beat,frame=frame,
+        previous=previous_lamp_receipt,max_prompt_chars=lamp_budget)
+    lamp_suffix=("\n"+lamps["prompt"]) if lamps["prompt"] else ""
+    delivered_addition=core_addition+used_debt+lamp_suffix
+    final=_enrich(body_base,delivered_addition,facets)
+    if not (len(final.prompt)<=MAX_PROMPT_CHARS and
+            hard_turn_addition in final.prompt):
+        raise WritingExecutionError(
+            "WF121_REQUIRED_CONTINUITY_CONTEXT_WAS_DROPPED")
+    receipt={
+        "format":"wf.writing.v121.prompt-delivery",
+        "project_id":project_id,
+        "chapter_index":chapter_index,
+        "turn_index":turn_index,
+        "hard_context_sha256":sha256(
+            hard_turn_addition.encode("utf8")).hexdigest(),
+        "minimum_prompt_sha256":hard_packet.prompt_sha256,
+        "delivered_prompt_sha256":final.prompt_sha256,
+        "hard_context_preserved":True,
+        "hard_characters":len(hard_packet.prompt),
+        "delivered_characters":len(final.prompt),
+        "prompt_cap":MAX_PROMPT_CHARS,
+        "provisional_plan_included":plan_delivered,
+        "provisional_plan_dropped_due_to_budget":not plan_delivered,
+        "unproven_dependency_hint_eligible":bool(dependency_hint),
+        "unproven_dependency_hint_delivered":dep_delivered,
+        "lamp_prompt_delivered":bool(lamps["prompt"]),
+        "lamp_prompt_characters":lamps["prompt_chars"],
+        "lamp_dropped_risks":lamps["budget_suppressed_risks"],
+        "lamp_dropped_craft":lamps["budget_suppressed_craft"],
+        "no_model_call_for_prompt_scheduling":True,
+        "no_canon_promotion":True,
+    }
+    receipt["receipt_sha256"]=sha256(
+        causal_canonical(receipt)).hexdigest()
+    return final,lamps,receipt
+
+
 class AutonomousWriting:
     """Bounded outline -> narrative decisions -> actual model chapters on disk."""
 
@@ -592,6 +670,7 @@ class AutonomousWriting:
                 trace_checks=[]
                 last_lamp_receipt=None
                 lamp_decisions=[]
+                prompt_delivery_receipts=[]
                 plan_execution_checks=[]
                 rolling_receipts=[]
                 rolling_goals=[]
@@ -672,25 +751,6 @@ class AutonomousWriting:
                                     chapter_index=first_story_chapter_index+index-1,
                                     reference=continuity_reference)
                                 turn_addition+=("\n"+compact_context(trace_frame))
-                        if draft_mode=="continuity_guard":
-                            lamps=plan_scene_lamps(
-                                project_id=self.assist.project_id,
-                                chapter_index=first_story_chapter_index+index-1,
-                                turn_index=turn_index,beat=beat,
-                                frame=(trace_frame if
-                                       current_external_story_checkpoint is not None
-                                       else None),
-                                previous=last_lamp_receipt)
-                            last_lamp_receipt=lamps
-                            lamp_decisions.append(lamps)
-                            if lamps["prompt"]:
-                                turn_addition+="\n"+lamps["prompt"]
-                        if draft_mode=="continuity_guard":
-                            # Only a direct causal child of an unproven typed
-                            # previous intention receives this optional lamp.
-                            # No extra inference, do not enforce the old plan.
-                            turn_addition+=pending_dependency_hint(
-                                beat,plan_execution_checks)
                         if draft_mode in ("emotion_rolling","foresight_rolling"):
                             turn_addition+=emotion_turn_instructions(
                                 tuple(accepted_turns))
@@ -706,13 +766,35 @@ class AutonomousWriting:
                                     turn_addition+=(
                                         "\n【以前章节尚未偿付的代价】"+
                                         continuing_pressure)
-                        turn_packet=_enrich(
-                            body_base,
-                            "\n【原创章计划】"+json.dumps(
-                                plan,ensure_ascii=False)+
-                            "\n【本章当前事件】"+turn_addition,
-                            facets,
-                        )
+                        if draft_mode=="continuity_guard":
+                            # The V120 direct causal debt is optional advice,
+                            # not a reason to evict source-grounded memory.
+                            dependency_hint=pending_dependency_hint(
+                                beat,plan_execution_checks)
+                            turn_packet,lamps,delivery=(
+                                _prepare_guarded_turn_packet(
+                                    body_base,plan=plan,
+                                    hard_turn_addition=turn_addition,
+                                    facets=facets,
+                                    dependency_hint=dependency_hint,
+                                    project_id=self.assist.project_id,
+                                    chapter_index=first_story_chapter_index+index-1,
+                                    turn_index=turn_index,beat=beat,
+                                    frame=(trace_frame if
+                                           current_external_story_checkpoint is not None
+                                           else None),
+                                    previous_lamp_receipt=last_lamp_receipt))
+                            lamp_decisions.append(lamps)
+                            prompt_delivery_receipts.append(delivery)
+                            last_lamp_receipt=lamps
+                        else:
+                            turn_packet=_enrich(
+                                body_base,
+                                "\n【原创章计划】"+json.dumps(
+                                    plan,ensure_ascii=False)+
+                                "\n【本章当前事件】"+turn_addition,
+                                facets,
+                            )
                         prompt_shas.append(turn_packet.prompt_sha256)
                         last_turn_response=local_chat_completion(
                             turn_packet,model=self.assist.model,
@@ -764,7 +846,8 @@ class AutonomousWriting:
                                 current_external_story_checkpoint,
                                 project_id=self.assist.project_id,
                                 chapter_index=first_story_chapter_index+index-1,
-                                reference=continuity_reference)
+                                reference=continuity_reference,
+                                cast=cast)
                             trace_checks.append(preflight)
                             if preflight["blocked"]:
                                 raise ContinuityTraceError(
@@ -804,6 +887,9 @@ class AutonomousWriting:
                         turn_evidence["v118_event_lamp_decisions"]=lamp_decisions
                         turn_evidence["v118_lamp_extra_model_calls"]=0
                         turn_evidence["v118_no_mandatory_literary_template"]=True
+                        turn_evidence["v121_prompt_delivery_receipts"]=(
+                            prompt_delivery_receipts)
+                        turn_evidence["v121_hard_context_priority"]=True
                         turn_evidence["v120_plan_prose_source_receipts"]=(
                             plan_execution_checks)
                         turn_evidence["v120_typed_intent_not_whole_plan"]=True
