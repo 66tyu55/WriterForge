@@ -1,0 +1,68 @@
+name: V121 actor attribution and optional prompt budget audit
+on:
+  push:
+    branches: [v121-actor-bound-continuity-prompt-budget]
+    paths:
+      - .github/workflows/v121-actor-budget.yml
+      - writerforge/v116_state_delta.py
+      - writerforge/v117_continuity_trace.py
+      - writerforge/v118_lamp_scheduler.py
+      - writerforge/writing_assist.py
+      - tests/test_v121_actor_and_budget.py
+      - experiments/v121_readonly_actor_budget_cold_audit.py
+
+permissions:
+  contents: read
+concurrency:
+  group: wf120-prose-reality-gate
+  cancel-in-progress: false
+
+jobs:
+  zero-secret-whole-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 23
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Do not expose model credentials to the test
+        run: |
+          python -c 'import os; assert not any(os.getenv(k) for k in ("DEEPSEEK_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY"))'
+      - run: python -m pip install -e '.[r2]'
+      - name: Run entire existing WF regression plus new V120 tests
+        run: python -m unittest discover -s tests -q
+
+  unchanged-private-v113-v114b:
+    if: github.repository == '66tyu55/WriterForge'
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check literary model keys are absent
+        run: |
+          python -c 'import os; assert not any(os.getenv(k) for k in ("DEEPSEEK_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY"))'
+      - run: python -m pip install -e '.[r2]'
+      - name: Read frozen source and verify actor-scoped arm preflight without inference
+        run: python -m experiments.v121_readonly_actor_budget_cold_audit
+      - uses: actions/upload-artifact@v4
+        with:
+          name: V121-immutable-V113-V114B-actor-scoped-no-model
+          path: wf121_readonly_source/SOURCE_ONLY_STATUS.json
+          retention-days: 30
+          if-no-files-found: error
