@@ -1,0 +1,62 @@
+name: Unified WriterForge Core Durable R2 Memory and Restart Verification
+on:
+  push:
+    branches: [unified-core-r2-durable-memory]
+    paths:
+      - .github/workflows/unified-core-r2-memory.yml
+      - writerforge/r2_storage.py
+      - writerforge/narrative_core.py
+      - writerforge/writing_assist.py
+      - tests/test_unified_r2_memory.py
+      - experiments/unified_core_r2_live_smoke.py
+permissions:
+  contents: read
+concurrency:
+  group: wf-unified-r2-memory
+  cancel-in-progress: false
+jobs:
+  full-regression-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 23
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Never grant remote model access to regressions
+        run: python -c 'import os; assert not any(os.getenv(n) for n in ("DEEPSEEK_API_KEY", "OPENAI_API_KEY", "DISCOVERY_API_KEY", "OPENROUTER_API_KEY"))'
+      - name: Install offline test requirements
+        run: python -m pip install -e '.[r2]'
+      - name: Full WF regression including cross-machine fake R2 tests
+        run: python -m unittest discover -s tests -q
+  isolated-live-private-r2-synthetic:
+    if: github.repository == '66tyu55/WriterForge'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -e '.[r2]'
+      - name: Single isolated R2 CAS smoke (three synthetic immutable records)
+        run: python -m experiments.unified_core_r2_live_smoke
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Unified-Memory-Private-R2-Synthetic-Remote-Restart-Status
+          path: wf_private_r2_synthetic_results/STATUS.json
+          retention-days: 14
+          if-no-files-found: ignore
