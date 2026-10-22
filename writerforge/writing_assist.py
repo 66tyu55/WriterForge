@@ -68,6 +68,14 @@ from .v123_long_arc import (
     verify_long_arc,read_long_arc_from_resume,relevant_revenge_hint,
     audit_revenge_prose,advance_open_revenge,LongArcError,
 )
+from .narrative_core import (
+    validate as verify_narrative_core,
+    read_core_from_resume,
+    schedule as schedule_narrative,
+    audit_candidate as audit_narrative_candidate,
+    advance_graph as advance_narrative_graph,
+    NarrativeCoreError,
+)
 
 MAX_LIVE_CONTEXT = 1400
 MAX_OUTLINE_CHARS = 6000
@@ -419,7 +427,8 @@ class AutonomousWriting:
             resume_candidate_checkpoint:dict|None=None,
             resume_story_checkpoint:dict|None=None,
             continuity_reference:dict|None=None,
-            long_arc_checkpoint:dict|None=None) -> dict:
+            long_arc_checkpoint:dict|None=None,
+            narrative_core_checkpoint:dict|None=None) -> dict:
         # 'single' remains byte-for-byte compatible with legacy output
         # behavior. split_only vs causal_guard share the SAME JSON turn
         # planning/response interface so B/C can be fairly compared.
@@ -443,13 +452,15 @@ class AutonomousWriting:
         if draft_mode!="continuity_guard" and (
             resume_story_checkpoint is not None or
             continuity_reference is not None or
-            long_arc_checkpoint is not None):
+            long_arc_checkpoint is not None or
+            narrative_core_checkpoint is not None):
             raise WritingExecutionError(
                 "WF117_TEXT_CONTINUITY_ONLY_PARAMETERS_REFUSED")
         # Source-checkpoint resume is explicit, signed, project-scoped, and
         # NEVER silently imports a previous unaccepted draft as canon.
         earlier_external=None
         active_long_arc=None
+        active_narrative_core=None
         first_story_chapter_index=0
         if resume_story_checkpoint is not None:
             try:
@@ -463,7 +474,11 @@ class AutonomousWriting:
                     resume_story_checkpoint,
                     project_id=self.assist.project_id,
                     scene_id=self.assist.scene_id)
-            except (ContinuityTraceError,LongArcError) as exc:
+                active_narrative_core=read_core_from_resume(
+                    resume_story_checkpoint,
+                    project_id=self.assist.project_id,
+                    scene_id=self.assist.scene_id)
+            except (ContinuityTraceError,LongArcError,NarrativeCoreError) as exc:
                 raise WritingExecutionError(str(exc)) from None
         if long_arc_checkpoint is not None:
             try:
@@ -484,6 +499,28 @@ class AutonomousWriting:
                 active_long_arc=verified
             except LongArcError as exc:
                 raise WritingExecutionError(str(exc)) from None
+        if narrative_core_checkpoint is not None:
+            try:
+                core=verify_narrative_core(
+                    narrative_core_checkpoint,
+                    project_id=self.assist.project_id,
+                    scene_id=self.assist.scene_id)
+                if resume_story_checkpoint is None or (
+                        core["chapter_index"]!=
+                        resume_story_checkpoint["chapter_index"]):
+                    raise NarrativeCoreError(
+                        "WFCORE_EXPLICIT_STATE_REQUIRES_MATCHED_STORY_RESUME")
+                if active_narrative_core is not None and (
+                        core["receipt_sha256"]!=
+                        active_narrative_core["receipt_sha256"]):
+                    raise NarrativeCoreError(
+                        "WFCORE_EXPLICIT_STATE_CONFLICTS_WITH_RESUME")
+                active_narrative_core=core
+            except NarrativeCoreError as exc:
+                raise WritingExecutionError(str(exc)) from None
+        if active_narrative_core is not None and active_long_arc is not None:
+            raise WritingExecutionError(
+                "WFCORE_DUPLICATE_LONG_ARC_OWNERS_NOT_ALLOWED")
         if draft_mode!="single" and len(chapter_goals)>MAX_SEGMENTED_CHAPTERS_PER_JOB:
             raise WritingExecutionError(
                 "WF96_SEGMENTED_CHAPTER_REQUEST_BUDGET_EXCEEDED")
@@ -710,6 +747,8 @@ class AutonomousWriting:
                 last_lamp_receipt=None
                 lamp_decisions=[]
                 long_arc_checks=[]
+                narrative_lane_decisions=[]
+                narrative_source_reviews=[]
                 prompt_delivery_receipts=[]
                 plan_execution_checks=[]
                 rolling_receipts=[]
@@ -802,6 +841,19 @@ class AutonomousWriting:
                                 # author-registered open goal is a durable
                                 # constraint and cannot be silently dropped.
                                 turn_addition+="\n"+active_arc_hint
+                        if (draft_mode=="continuity_guard" and
+                            active_narrative_core is not None):
+                            # One scheduler for long threads and NPC knowledge;
+                            # physical reducer hard checks remain authoritative.
+                            lane=schedule_narrative(
+                                active_narrative_core,
+                                project_id=self.assist.project_id,
+                                scene_id=self.assist.scene_id,
+                                chapter_index=first_story_chapter_index+index-1,
+                                beat=beat)
+                            narrative_lane_decisions.append(lane)
+                            if lane["required_context"]:
+                                turn_addition+="\n"+lane["required_context"]
                         if draft_mode in ("emotion_rolling","foresight_rolling"):
                             turn_addition+=emotion_turn_instructions(
                                 tuple(accepted_turns))
@@ -895,6 +947,18 @@ class AutonomousWriting:
                                 scene_id=self.assist.scene_id,
                                 prose=evidence["prose"]))
                         if (draft_mode=="continuity_guard" and
+                            active_narrative_core is not None):
+                            review=audit_narrative_candidate(
+                                active_narrative_core,
+                                project_id=self.assist.project_id,
+                                scene_id=self.assist.scene_id,
+                                prose=evidence["prose"])
+                            narrative_source_reviews.append(review)
+                            if review["blocked"]:
+                                raise NarrativeCoreError(
+                                    "WFCORE_NPC_KNOWLEDGE_CONTRADICTION:"+
+                                    ",".join(review["hard_findings"]))
+                        if (draft_mode=="continuity_guard" and
                             current_external_story_checkpoint is not None):
                             # Same model response, same original prose. Audit
                             # source state + chapter time + POV knowledge.
@@ -953,6 +1017,13 @@ class AutonomousWriting:
                         turn_evidence["v120_typed_intent_not_whole_plan"]=True
                         turn_evidence["v120_extra_model_calls"]=0
                         turn_evidence["v120_auto_rewrites"]=0
+                        if active_narrative_core is not None:
+                            turn_evidence["unified_narrative_scheduler"]=(
+                                narrative_lane_decisions)
+                            turn_evidence["unified_narrative_source_preflight"]=(
+                                narrative_source_reviews)
+                            turn_evidence["unified_narrative_extra_model_calls"]=0
+                            turn_evidence["unified_narrative_author_gate"]=True
                         if active_long_arc is not None:
                             turn_evidence["v123_long_arc_prose_reviews"]=(
                                 long_arc_checks)
@@ -1006,7 +1077,8 @@ class AutonomousWriting:
                         V105FutureCausalityError,
                         V114ContinuityError,V114ExternalMemoryError,
                         ContinuityTraceError,LampDecisionError,
-                        PlanExecutionError,LongArcError) as error:
+                        PlanExecutionError,LongArcError,
+                        NarrativeCoreError) as error:
                     # Keep the red record, not the private failed novel.
                     # No partial draft becomes accepted or FactJournal KNOWN.
                     issue={
@@ -1128,14 +1200,25 @@ class AutonomousWriting:
                 })
             if draft_mode=="continuity_guard":
                 if active_long_arc is not None:
-                    # One step per real completed candidate chapter, never
-                    # per model plan. Claiming victory does not close the arc.
+                    # Backward-compatible V123 owner only when no unified
+                    # graph exists. Never maintain both memories.
                     active_long_arc=advance_open_revenge(
                         active_long_arc,
                         project_id=self.assist.project_id,
                         scene_id=self.assist.scene_id,
                         chapter_index=first_story_chapter_index+index-1,
                         prose=body)
+                if active_narrative_core is not None:
+                    # Prose itself is NOT an author-confirmed event. Keep
+                    # long threads and NPC knowledge unchanged unless
+                    # source-anchored author annotations were provided by an
+                    # explicit separate review path.
+                    active_narrative_core=advance_narrative_graph(
+                        active_narrative_core,
+                        project_id=self.assist.project_id,
+                        scene_id=self.assist.scene_id,
+                        chapter_index=first_story_chapter_index+index-1,
+                        prose=body,events=())
                 state_file=folder/"v114_candidate_item_memory.json"
                 state_file.write_text(
                     json.dumps(current_continuity_checkpoint,
@@ -1160,7 +1243,8 @@ class AutonomousWriting:
                     scene_id=self.assist.scene_id,
                     chapter_index=first_story_chapter_index+index-1,
                     checkpoint=current_external_story_checkpoint,
-                    long_arc_checkpoint=active_long_arc)
+                    long_arc_checkpoint=active_long_arc,
+                    unified_narrative_core=active_narrative_core)
                 resume_file=folder/"v117_unreviewed_text_trace_resume.json"
                 resume_file.write_text(json.dumps(
                     resume,ensure_ascii=False,indent=2),encoding="utf8")
@@ -1169,6 +1253,13 @@ class AutonomousWriting:
                     "v117_source_only_preflight_count":len(trace_checks),
                     "v117_new_model_calls_for_tracking":0,
                     "v117_source_state_still_not_canon":True,
+                    **({"unified_narrative_core_sha256":
+                            active_narrative_core["receipt_sha256"],
+                        "unified_narrative_core_chapter":
+                            active_narrative_core["chapter_index"],
+                        "unified_narrative_model_calls":0,
+                        "unified_narrative_canon_writes":0}
+                       if active_narrative_core is not None else {}),
                     **({"v123_long_arc_checkpoint_sha256":
                             active_long_arc["receipt_sha256"],
                         "v123_revenge_status":active_long_arc["status"],
