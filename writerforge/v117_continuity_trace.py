@@ -280,8 +280,15 @@ def preflight_continuation(next_prose,checkpoint,*,project_id,chapter_index,
       "canon_writes":0,
     }
 
-def make_resume(*,project_id,scene_id,chapter_index,checkpoint):
+def make_resume(*,project_id,scene_id,chapter_index,checkpoint,
+                long_arc_checkpoint=None):
     _checkpoint(checkpoint)
+    if long_arc_checkpoint is not None:
+        from .v123_long_arc import verify_long_arc
+        verify_long_arc(long_arc_checkpoint,project_id=project_id,
+                        scene_id=scene_id)
+        need(long_arc_checkpoint["last_chapter"]==chapter_index,
+             "WF123_ARC_RESUME_CHAPTER_MISMATCH")
     need(type(project_id) is str and 0<len(project_id)<=128 and
          type(scene_id) is str and 0<len(scene_id)<=128 and
          type(chapter_index) is int and 0<=chapter_index<=1000000,
@@ -296,6 +303,10 @@ def make_resume(*,project_id,scene_id,chapter_index,checkpoint):
         "literary_truth_verified":False,
         "canon_writes":0,"model_calls":0,
     }
+    if long_arc_checkpoint is not None:
+        # Bounded author-reviewed goal travels inside the EXISTING signed
+        # resume envelope. No second database, no unapproved canon writes.
+        p["v123_open_character_arc"]=long_arc_checkpoint
     need(len(packed(p))<=MAX_BYTES,"WF117_RESUME_TOO_BIG")
     p["receipt_sha256"]=hashb(packed(p))
     return p
@@ -320,4 +331,10 @@ def read_resume(value,*,project_id,scene_id):
     need(old["receipt_sha256"]==value.get("source_checkpoint_sha256") and
          old["source_sha256"]==value.get("source_prose_sha256"),
          "WF117_RESUME_EVENT_SOURCE_MISMATCH")
+    if "v123_open_character_arc" in value:
+        from .v123_long_arc import verify_long_arc
+        arc=verify_long_arc(value["v123_open_character_arc"],
+                            project_id=project_id,scene_id=scene_id)
+        need(arc["last_chapter"]==value["chapter_index"],
+             "WF123_RESUME_ARC_CHAPTER_OR_SCOPE_MISMATCH")
     return old
