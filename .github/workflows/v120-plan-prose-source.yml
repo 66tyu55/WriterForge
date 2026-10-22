@@ -1,0 +1,66 @@
+name: V120 plan-vs-prose cold source and whole-suite audit
+on:
+  push:
+    branches: [v120-plan-prose-source-verification]
+    paths:
+      - .github/workflows/v120-plan-prose-source.yml
+      - writerforge/v120_plan_prose_gate.py
+      - writerforge/writing_assist.py
+      - tests/test_v120_plan_prose_gate.py
+      - experiments/v120_readonly_plan_prose_cold_audit.py
+
+permissions:
+  contents: read
+concurrency:
+  group: wf120-prose-reality-gate
+  cancel-in-progress: false
+
+jobs:
+  zero-secret-whole-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 23
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Do not expose model credentials to the test
+        run: |
+          python -c 'import os; assert not any(os.getenv(k) for k in ("DEEPSEEK_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY"))'
+      - run: python -m pip install -e '.[r2]'
+      - name: Run entire existing WF regression plus new V120 tests
+        run: python -m unittest discover -s tests -q
+
+  unchanged-private-v113-v114b:
+    if: github.repository == '66tyu55/WriterForge'
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check literary model keys are absent
+        run: |
+          python -c 'import os; assert not any(os.getenv(k) for k in ("DEEPSEEK_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY"))'
+      - run: python -m pip install -e '.[r2]'
+      - name: Read old sealed source only and compare original prose against goals
+        run: python -m experiments.v120_readonly_plan_prose_cold_audit
+      - uses: actions/upload-artifact@v4
+        with:
+          name: V120-immutable-V113-V114B-source-only-no-model
+          path: wf120_readonly_cold_audit/SOURCE_ONLY_STATUS.json
+          retention-days: 30
+          if-no-files-found: error
