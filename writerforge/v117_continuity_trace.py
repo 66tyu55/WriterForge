@@ -237,7 +237,7 @@ def compact_context(frame):
     return "\n".join(lines)[:MAX_PROMPT_CHARS]
 
 def preflight_continuation(next_prose,checkpoint,*,project_id,chapter_index,
-                           reference=None):
+                           reference=None,cast=()):
     old=_checkpoint(checkpoint)
     old_debts=[{"kind":r["kind"],"item":r["item_key"]} for r in
                checkpoint.get("v117_open_continuity_debts",[])]
@@ -245,7 +245,7 @@ def preflight_continuation(next_prose,checkpoint,*,project_id,chapter_index,
         previous_candidate_state=old["candidate_state"],
         previous_risks=old.get("risks",[])+
         checkpoint.get("original_native_candidate_report",{}).get("risks",[])+
-        old_debts)
+        old_debts,cast=cast)
     frame=audit_continuity(checkpoint,project_id=project_id,
          chapter_index=chapter_index,boundary="before",
          reference=reference,next_prose=next_prose)
@@ -256,10 +256,12 @@ def preflight_continuation(next_prose,checkpoint,*,project_id,chapter_index,
       "next_prose_sha256":digest(next_prose),
       "hard_source_state_conflict":fast["blocked"],
       "state_findings":fast["findings"],
+      "state_review_findings":fast["review_findings"],
       "temporal_order_conflicts":frame["chronology"]["order_conflicts"],
       "knowledge_needs_review":frame["knowledge_warnings"],
       "prop_chain_findings":[x for x in frame["prop_verdicts"] if not x["ok"]],
-      "needs_review":bool(frame["chronology"]["order_conflicts"] or
+      "needs_review":bool(fast["needs_review"] or
+                          frame["chronology"]["order_conflicts"] or
                           frame["knowledge_warnings"] or
                           any(not x["ok"] for x in frame["prop_verdicts"])),
       "blocked":fast["blocked"],
