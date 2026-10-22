@@ -656,20 +656,21 @@ class GraphWithPriorityAndKnowledge(unittest.TestCase):
             self.assertEqual(relevant_history_context(
                 graph,project_id=P,scene_id=S,
                 scene_goal="叶青梧在竹林静静听雨"),"")
-            # The actual novel source, not the compressed proposed text,
-            # remains the sole basis for rehydrated evidence.
+            # The keyed per-hook cold index requires a small number of
+            # relevant archive fetches, not all 15 unrelated cold pages.
+            limited=relevant_history_context(
+                graph,project_id=P,scene_id=S,
+                scene_goal="沈砚重遇唐蜃，查密令藏在井底的往事",
+                max_pages=2)
+            self.assertIn("原文第1章",limited)
+            # The actual novel source, not a compressed model-generated
+            # explanation, remains the sole basis for provenance.
             paths[0].write_text("唐蜃的秘密被悄悄替换了。",encoding="utf8")
             with self.assertRaisesRegex(
                     NarrativeCoreError,"ORIGINAL_MANUSCRIPT_HASH_CHANGED"):
                 relevant_history_context(
                     graph,project_id=P,scene_id=S,
                     scene_goal="沈砚在天牢重遇唐蜃，寻找密令藏在井底的线索")
-            with self.assertRaisesRegex(
-                    NarrativeCoreError,"COLD_HISTORY_SCAN_LIMIT"):
-                relevant_history_context(
-                    graph,project_id=P,scene_id=S,
-                    scene_goal="沈砚重遇唐蜃，查密令藏在井底的往事",
-                    max_pages=2)
 
     def test_chapter_warm_hook_recalled_without_fetching_cold(self):
         with tempfile.TemporaryDirectory() as td:
