@@ -11,7 +11,8 @@ import unittest
 
 from writerforge.narrative_core import (
     NarrativeCoreError,Patch,new_graph,advance_graph,keyed_diff,
-    schedule,knows,audit_candidate,validate,read_core_from_resume,
+    schedule,knows,audit_candidate,propose_source_interactions,
+    validate,read_core_from_resume,
 )
 from writerforge.v114_external_story_state import external_temporal_step
 from writerforge.v117_continuity_trace import make_resume,read_resume
@@ -102,6 +103,72 @@ class GraphWithPriorityAndKnowledge(unittest.TestCase):
         self.assertTrue(issue["blocked"])
         self.assertIn("WFCORE_AUTHOR_UNKNOWN_RETCON_CONFLICT",
                       issue["hard_findings"])
+
+    def test_source_encounter_proposed_not_knowledge_automatically(self):
+        graph=intro()
+        text="叶青梧尚不知道密令藏在井底。"
+        graph=update(graph,text,[annotation(
+            text,text,"UNKNOWN",actor="叶青梧",
+            fact_id="secret-letter")])
+        story="叶青梧在石桥遇见沈砚，两人只是擦肩。"
+        proposals=propose_source_interactions(
+            graph,project_id=P,scene_id=S,prose=story)
+        self.assertEqual(len(proposals["source_contact_proposals"]),1)
+        self.assertEqual(
+            proposals["source_contact_proposals"][0]["actors"],
+            ["叶青梧","沈砚"] if "叶青梧"<"沈砚" else
+            ["沈砚","叶青梧"])
+        self.assertEqual(proposals["automatic_contact_commits"],0)
+        self.assertEqual(proposals["automatic_knowledge_commits"],0)
+        self.assertFalse(proposals["source_contact_proposals"][0]["author_confirmed"])
+        self.assertEqual(knows(graph,character="叶青梧",
+                               fact_id="secret-letter"),
+                         "AUTHOR_ASSERTED_UNKNOWN")
+        receipt=audit_candidate(graph,project_id=P,scene_id=S,prose=story)
+        self.assertEqual(receipt["blocked"],False)
+        self.assertEqual(
+            len(receipt["source_interaction_proposals"][
+                "source_contact_proposals"]),1)
+
+    def test_explicit_message_only_proposed_after_knowable_speaker(self):
+        graph=intro()
+        msg="沈砚告诉叶青梧密令藏在井底。"
+        self.assertEqual(propose_source_interactions(
+            graph,project_id=P,scene_id=S,prose=msg)[
+                "source_disclosure_proposals"],[])
+        source="沈砚亲眼看见密令藏在井底。"
+        graph=update(graph,source,[annotation(
+            source,source,"WITNESS",
+            actor="沈砚",fact_id="secret-letter")])
+        proposals=propose_source_interactions(
+            graph,project_id=P,scene_id=S,prose=msg)
+        self.assertEqual(len(proposals["source_disclosure_proposals"]),1)
+        self.assertEqual(
+            proposals["source_disclosure_proposals"][0]["speaker"],
+            "沈砚")
+        self.assertFalse(
+            proposals["source_disclosure_proposals"][0]["author_confirmed"])
+        self.assertEqual(
+            knows(graph,character="叶青梧",fact_id="secret-letter"),
+            "NOT_ESTABLISHED")
+        approved=update(graph,msg,[annotation(
+            msg,msg,"SHARE",actor="沈砚",receiver="叶青梧",
+            fact_id="secret-letter")])
+        self.assertEqual(
+            knows(approved,character="叶青梧",fact_id="secret-letter"),
+            "KNOWN")
+
+    def test_rumors_and_dreams_do_not_propose_actual_meeting(self):
+        graph=intro()
+        for text in (
+            "据说沈砚遇见唐蜃，两人便散去。",
+            "沈砚梦见他遇见唐蜃，惊醒后冷汗直流。",
+            "如果沈砚遇见唐蜃，旧仇便会复燃。"):
+            with self.subTest(text=text):
+                probe=propose_source_interactions(
+                    graph,project_id=P,scene_id=S,prose=text)
+                self.assertEqual(probe["source_contact_proposals"],[])
+                self.assertEqual(probe["source_disclosure_proposals"],[])
 
     def test_fact_can_be_learned_only_through_named_witness(self):
         graph=intro()
