@@ -975,6 +975,66 @@ def recall_original(graph,*,project_id,scene_id,chapter_index,
     return None
 
 
+def character_collision_context(graph,*,project_id,scene_id,
+                                scene_goal,max_chars=1050):
+    """Writer-side *planning* view: distinct personal motives/beliefs.
+
+    These are separate character lenses, not directions to force an ending,
+    and NO participant receives another participant's hidden knowledge.
+    A planner may see separate character states to form a conflict, but
+    the prose generator must still enforce current-POV knowledge boundaries.
+    """
+    validate(graph,project_id=project_id,scene_id=scene_id)
+    _need(type(scene_goal) is str and 1<=len(scene_goal)<=600 and
+          type(max_chars) is int and 0<=max_chars<=1300,
+          "WFCORE_COLLISION_CONTEXT_INVALID")
+    if max_chars<75:return ""
+    actors=[
+        node for node in graph["nodes"].values()
+        if node["kind"]=="CHARACTER" and
+        node["props"]["name"] in scene_goal]
+    if not actors:return ""
+    lines=["【人物各自的选择空间：作家规划视角，不是人物互知】"]
+    for character in actors[:3]:
+        who=character["props"]["name"]
+        details=[]
+        lens=character["props"].get("lens",{})
+        for tag in ("desire","fear","value","habit","emotion","temperament"):
+            record=lens.get(tag)
+            if type(record) is dict:
+                status=("外显表现，非已证内心" if
+                        record["evidence_scope"]=="OBSERVED_BEHAVIOR"
+                        else "原文已写的人物想法")
+                details.append(tag+"="+record["value"]+"("+status+")")
+        known=[]
+        beliefs=[]
+        for fid,fact in graph["nodes"].items():
+            if fact["kind"]!="FACT":
+                continue
+            result=knows(graph,character=who,
+                         fact_id=fid.split(":",1)[1])
+            if result=="KNOWN":
+                known.append(fid)
+            elif result=="BELIEVED_NOT_PROVEN":
+                beliefs.append(fid)
+        row=(who+"："+
+             ("；".join(details[:3]) if details else
+              "当下欲望与恐惧尚待正文观察")+
+             ("；自己确知ID="+",".join(known[:3]) if known else "")+
+             ("；仅信念ID="+",".join(beliefs[:3]) if beliefs else "")+
+             "；其他人物的秘密不自动属于此人。")
+        if sum(len(x)+1 for x in lines)+len(row)>max_chars:
+            break
+        lines.append(row)
+    if len(lines)==1:return ""
+    footer=("让各人根据自己的认知、代价、欲望和阻力提出行动。"
+            "允许互相误判、冲突或临时改变计划；章节目标仅是候选，"
+            "不要求按预设结局结案，也不以读者投票替代人物动机。")
+    if sum(len(x)+1 for x in lines)+len(footer)<=max_chars:
+        lines.append(footer)
+    return "\n".join(lines)
+
+
 def buffered_memory_context(graph,*,project_id,scene_id,
                             max_chars=850):
     """Short *creative* recall, never overwrite protected state/knowledge.
