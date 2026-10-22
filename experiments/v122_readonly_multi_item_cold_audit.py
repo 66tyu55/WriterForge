@@ -58,7 +58,7 @@ def main():
     need(key is not None and
          carried["reducer_result"]["candidate_state"][key]=="叶青梧手中" and
          later["reducer_result"]["candidate_state"][key]=="叶青梧手中" and
-         carried["reducer_result"]["error_code"] is None and
+         carried["reducer_result"].get("error_code") is None and
          carried["v122_extra_reducer_events_count"]>=1,
          "WF122_PINNED_REDUCER_DID_NOT_PERSIST_THREE_PERSON_TRANSFER")
     need(not good["blocked"] and
