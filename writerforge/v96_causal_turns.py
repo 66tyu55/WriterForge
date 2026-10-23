@@ -22,6 +22,8 @@ MAX_PLAN_JSON_BYTES=14000
 MAX_TURN_JSON_BYTES=15000
 MIN_PROSE_CHARS=80
 MAX_PROSE_CHARS=950
+# V96 legacy remains strict; opt-in unified writer accepts only small overage.
+CONTINUITY_MAX_PROSE_CHARS=1024
 MIN_QUOTE_CHARS=6
 MAX_QUOTE_CHARS=96
 MAX_CONTEXT_CHARS=3500
@@ -165,7 +167,8 @@ def _approved_exclusions(phrases):
 
 
 def check_turn(raw,beat, *, mode, accepted=(),
-               author_confirmed_forbidden_phrases=()):
+               author_confirmed_forbidden_phrases=(),
+               max_prose_chars=MAX_PROSE_CHARS):
     """Return a provisional prose and metadata-only receipt.
 
     B (split_only): segmentation without evidence gate; C (causal_guard):
@@ -176,10 +179,13 @@ def check_turn(raw,beat, *, mode, accepted=(),
          "WF96_UNKNOWN_EXPERIMENTAL_DRAFT_MODE")
     need(type(beat) is dict and set(beat)==BEAT_FIELDS,
          "WF96_TURN_BEAT_NOT_FROZEN")
+    need(type(max_prose_chars) is int and max_prose_chars in
+         (MAX_PROSE_CHARS,CONTINUITY_MAX_PROSE_CHARS),
+         "WF96_UNTRUSTED_TURN_PROSE_LIMIT")
     guards=_approved_exclusions(author_confirmed_forbidden_phrases)
     doc=_strict_json(raw,MAX_TURN_JSON_BYTES)
     need(set(doc)==TURN_FIELDS and
-         _text(doc["prose"],MIN_PROSE_CHARS,MAX_PROSE_CHARS) and
+         _text(doc["prose"],MIN_PROSE_CHARS,max_prose_chars) and
          type(doc["trace"]) is dict and
          set(doc["trace"])==TRACE_FIELDS,
          "WF96_TURN_PROSE_OR_TRACE_SCHEMA_INVALID")
@@ -191,6 +197,9 @@ def check_turn(raw,beat, *, mode, accepted=(),
         "turn_id":beat["id"],
         "prose_sha256":digest(prose.encode("utf8")),
         "prose_chars":len(prose),
+        "source_turn_exceeds_legacy_v96_chars":len(prose)>MAX_PROSE_CHARS,
+        "source_turn_requires_length_review":len(prose)>MAX_PROSE_CHARS,
+        "prose_not_silently_truncated":True,
         "kind":beat["kind"],
         "parent_turn_id":beat["causal_parent"],
         "causal_check":"SPLIT_ONLY_UNVERIFIED",
@@ -388,8 +397,27 @@ def normalize_model_source_citations(raw,beat,accepted=()):
     }
 
 
+TRACE_ONLY_REVIEW_ERRORS=frozenset((
+    "WF96_ACTION_NOT_UNIQUE_IN_ACTUAL_PROSE",
+    "WF96_EFFECT_NOT_UNIQUE_IN_ACTUAL_PROSE",
+    "WF96_ACTION_EFFECT_OVERLAP_OR_REVERSED",
+    "WF96_PARENT_CAUSE_NOT_ANCHORED_IN_PREVIOUS_PROSE",
+    "WF96_ACTION_NEEDS_ACTUAL_ACTION_AND_EFFECT",
+    "WF96_PARTIAL_ACTION_EFFECT_NOT_ALLOWED",
+    "WF96_POLARITY_UNCERTAIN_NEEDS_REVIEW",
+    "WF96_ACTION_QUOTE_NOT_BOUNDED",
+    "WF96_EFFECT_QUOTE_NOT_BOUNDED",
+))
+
+
+def trace_failure_reviewable(failure_code):
+    """Only wrong self-citation is reviewable; never malformed real prose."""
+    return failure_code in TRACE_ONLY_REVIEW_ERRORS
+
+
 def review_only_model_turn(raw,beat,*,failure_code,accepted=(),
-                           author_confirmed_forbidden_phrases=()):
+                           author_confirmed_forbidden_phrases=(),
+                           max_prose_chars=MAX_PROSE_CHARS):
     """Salvage a source-valid literary DRAFT, not a proven causal turn.
 
     Optional model trace mistakes (overlapping/self-contradictory citations,
@@ -398,23 +426,15 @@ def review_only_model_turn(raw,beat,*,failure_code,accepted=(),
     malformed prose, author exclusions and declared parent IDs remain hard.
     Nothing from this draft is eligible for canon/knowledge promotion.
     """
-    review_errors=frozenset((
-        "WF96_ACTION_NOT_UNIQUE_IN_ACTUAL_PROSE",
-        "WF96_EFFECT_NOT_UNIQUE_IN_ACTUAL_PROSE",
-        "WF96_ACTION_EFFECT_OVERLAP_OR_REVERSED",
-        "WF96_PARENT_CAUSE_NOT_ANCHORED_IN_PREVIOUS_PROSE",
-        "WF96_ACTION_NEEDS_ACTUAL_ACTION_AND_EFFECT",
-        "WF96_PARTIAL_ACTION_EFFECT_NOT_ALLOWED",
-        "WF96_POLARITY_UNCERTAIN_NEEDS_REVIEW",
-        "WF96_ACTION_QUOTE_NOT_BOUNDED",
-        "WF96_EFFECT_QUOTE_NOT_BOUNDED",
-    ))
-    need(failure_code in review_errors,
+    need(trace_failure_reviewable(failure_code),
          "WF96_TRACE_RECOVERY_NOT_AN_OPTIONAL_CITATION_FAILURE")
+    need(type(max_prose_chars) is int and max_prose_chars in
+         (MAX_PROSE_CHARS,CONTINUITY_MAX_PROSE_CHARS),
+         "WF96_UNTRUSTED_TURN_PROSE_LIMIT")
     doc=_strict_json(raw,MAX_TURN_JSON_BYTES)
     need(type(beat) is dict and set(beat)==BEAT_FIELDS and
          set(doc)==TURN_FIELDS and
-         _text(doc.get("prose"),MIN_PROSE_CHARS,MAX_PROSE_CHARS) and
+         _text(doc.get("prose"),MIN_PROSE_CHARS,max_prose_chars) and
          type(doc.get("trace")) is dict and
          set(doc["trace"])==TRACE_FIELDS,
          "WF96_TRACE_RECOVERY_UNSAFE_PROSE_OR_SCHEMA")
@@ -433,6 +453,9 @@ def review_only_model_turn(raw,beat,*,failure_code,accepted=(),
         "turn_id":beat["id"],
         "prose_sha256":digest(prose.encode("utf8")),
         "prose_chars":len(prose),
+        "source_turn_exceeds_legacy_v96_chars":len(prose)>MAX_PROSE_CHARS,
+        "source_turn_requires_length_review":len(prose)>MAX_PROSE_CHARS,
+        "prose_not_silently_truncated":True,
         "kind":beat["kind"],
         "parent_turn_id":parent,
         "causal_check":"TRACE_REJECTED_SOURCE_PROSE_REVIEW_ONLY",
