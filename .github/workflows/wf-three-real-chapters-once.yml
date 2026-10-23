@@ -1,11 +1,7 @@
 name: WF Three Consecutive Real Novel Chapters - Source First
 on:
-  push:
-    branches: [refactor-unified-scene-delivery-audit]
-    paths:
-      - .github/workflows/wf-three-real-chapters-once.yml
-      - experiments/wf_three_chapter_real_continuity_pilot.py
-      - tests/test_wf_three_chapter_real_preflight.py
+  # Genuine 3-chapter run completed; future model use requires explicit opt-in.
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
