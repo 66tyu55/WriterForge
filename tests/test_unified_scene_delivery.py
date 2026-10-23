@@ -233,5 +233,277 @@ class SourcePayoffAudit(unittest.TestCase):
         self.assertEqual(r["canon_writes"],0)
 
 
+
+class CrossChapterDeliveryDebt(unittest.TestCase):
+    """Synthetic candidate fixtures only; original seven-genre Atria sealed."""
+    PROJECT="scene-debt-probe"
+    STREAM="novel-stream"
+    GOAL="沈砚面对唐蜃的误解，决定是否改变查案计划"
+    QUESTION="沈砚是否会违背查案大纲，自主选择如何面对唐蜃的误解"
+    CONTRACT={
+        "id":"inner-choice-arc","function":"CHOICE","due":"THIS_SCENE",
+        "author_confirmed":True,"story_question":QUESTION,
+    }
+    PROSE=(
+        "沈砚第一次没有回信，而是决定再查一夜旧账。"
+        "窗外灯火还亮着，他知道自己要承担被唐蜃误解的代价。"
+    )
+    ACTION="沈砚第一次没有回信，而是决定再查一夜旧账。"
+    OUTCOME="窗外灯火还亮着，他知道自己要承担被唐蜃误解的代价。"
+
+    def previous_graph(self):
+        from writerforge.narrative_core import new_graph
+        return new_graph(project_id=self.PROJECT,scene_id=self.STREAM)
+
+    def candidate_graph(self,root,prose=None,prev=None):
+        from writerforge.narrative_core import (
+            advance_graph,record_chapter_memory,
+        )
+        if prose is None:prose=self.PROSE
+        if prev is None:prev=self.previous_graph()
+        chapter=prev["chapter_index"]+1
+        graph=advance_graph(
+            prev,project_id=self.PROJECT,scene_id=self.STREAM,
+            chapter_index=chapter,prose=prose,events=())
+        file=Path(root)/("candidate-"+str(chapter)+".md")
+        file.write_text(prose,encoding="utf8")
+        graph=record_chapter_memory(
+            graph,project_id=self.PROJECT,scene_id=self.STREAM,
+            chapter_index=chapter,source_path=str(file),prose=prose)
+        return graph
+
+    def receipt(self,prose=None,contract=None):
+        return audit_scene_delivery(
+            prose=prose or self.PROSE,scene_goal=self.GOAL,
+            scene_kind="chapter",
+            author_delivery_contract=contract or self.CONTRACT)
+
+    def review(self,decision="CARRY_FORWARD",**changes):
+        row={
+            "decision":decision,"author_confirmed":True,
+            "candidate_read":True,"owner":"沈砚","target":"唐蜃",
+            "reason":"亲自读过正文，按人物选择保留或结清场景问题",
+            "action_quote":None,"outcome_quote":None,
+        }
+        if decision=="SETTLE_WITH_SOURCE":
+            row.update(action_quote=self.ACTION,outcome_quote=self.OUTCOME)
+        row.update(changes)
+        return row
+
+    def apply(self,graph,review,prose=None,contract=None,receipt=None):
+        from writerforge.narrative_core import review_scene_delivery_on_graph
+        return review_scene_delivery_on_graph(
+            graph,project_id=self.PROJECT,scene_id=self.STREAM,
+            prose=prose or self.PROSE,scene_goal=self.GOAL,
+            scene_kind="chapter",
+            author_delivery_contract=contract or self.CONTRACT,
+            author_review=review,
+            delivery_receipt=receipt or self.receipt(
+                prose=prose,contract=contract))
+
+    def test_contract_is_proposal_only_no_automatic_graph_thread(self):
+        from writerforge.narrative_core import propose_scene_delivery_debt
+        prior=self.previous_graph()
+        proposal=propose_scene_delivery_debt(
+            prior,project_id=self.PROJECT,scene_id=self.STREAM,
+            chapter_index=1,prose=self.PROSE,
+            scene_goal=self.GOAL,scene_kind="chapter",
+            author_delivery_contract=self.CONTRACT,
+            delivery_receipt=self.receipt())
+        self.assertEqual(proposal["status"],"NOT_REGISTERED")
+        self.assertEqual(proposal["auto_thread_writes"],0)
+        self.assertEqual(proposal["canon_writes"],0)
+        self.assertNotIn(proposal["thread_key"],prior["nodes"])
+        self.assertEqual(proposal["candidate_prose_sha256"],
+                         hashlib.sha256(self.PROSE.encode()).hexdigest())
+
+    def test_reviewed_unpaid_promise_survives_resume_and_next_chapter(self):
+        from writerforge.narrative_core import (
+            schedule,advance_graph,
+        )
+        from writerforge.v117_continuity_trace import make_resume,read_resume
+        from writerforge.v114_external_story_state import external_temporal_step
+        from writerforge.narrative_core import review_scene_delivery_resume
+        with tempfile.TemporaryDirectory() as folder:
+            graph=self.candidate_graph(folder)
+            unchanged_sha=graph["receipt_sha256"]
+            carried=self.apply(graph,self.review())
+            self.assertEqual(graph["receipt_sha256"],unchanged_sha)
+            self.assertEqual(len(graph["nodes"]),0)
+            node=next(n for n in carried["nodes"].values()
+                      if n["kind"]=="THREAD")
+            self.assertEqual(node["props"]["status"],"OPEN")
+            self.assertEqual(node["props"]["truth_scope"],"AUTHOR_INTENT")
+            self.assertTrue(node["props"]["past_original_due"])
+            self.assertEqual(carried["canon_writes"],0)
+            self.assertEqual(
+                carried["memory"]["hot"][-1]["source_sha256"],
+                hashlib.sha256(self.PROSE.encode()).hexdigest())
+            packet=make_resume(
+                project_id=self.PROJECT,scene_id=self.STREAM,
+                chapter_index=1,
+                checkpoint=external_temporal_step(
+                    self.PROSE,cast=("沈砚","唐蜃")),
+                unified_narrative_core=graph)
+            reviewed_resume=review_scene_delivery_resume(
+                packet,project_id=self.PROJECT,scene_id=self.STREAM,
+                prose=self.PROSE,scene_goal=self.GOAL,
+                scene_kind="chapter",
+                author_delivery_contract=self.CONTRACT,
+                author_review=self.review())
+            read_resume(reviewed_resume,project_id=self.PROJECT,
+                        scene_id=self.STREAM)
+            self.assertEqual(reviewed_resume["unified_narrative_core"],
+                             carried)
+            self.assertFalse(reviewed_resume["author_accepted"])
+            self.assertNotIn("v123_open_character_arc",reviewed_resume)
+            lanes=schedule(
+                carried,project_id=self.PROJECT,scene_id=self.STREAM,
+                chapter_index=2,
+                beat={"kind":"decision","actor":"沈砚",
+                      "goal":"沈砚不愿按计划向唐蜃道歉"})
+            self.assertIn("作者审阅的未偿写作意图",
+                          lanes["required_context"])
+            self.assertIn(self.QUESTION,lanes["required_context"])
+            other=schedule(
+                carried,project_id=self.PROJECT,scene_id=self.STREAM,
+                chapter_index=2,
+                beat={"kind":"decision","actor":"叶青梧",
+                      "goal":"叶青梧在沈砚与唐蜃面前独自判断局势"})
+            self.assertNotIn(self.QUESTION,other["required_context"])
+            still=advance_graph(
+                carried,project_id=self.PROJECT,scene_id=self.STREAM,
+                chapter_index=2,
+                prose="沈砚收起旧信，尚未对唐蜃解释自己的计划。")
+            self.assertEqual(node["props"]["status"],"OPEN")
+            self.assertEqual(
+                next(n for n in still["nodes"].values()
+                     if n["kind"]=="THREAD")["props"]["status"],"OPEN")
+            self.assertEqual(still["canon_writes"],0)
+
+    def test_source_anchored_mental_choice_can_be_settled_by_author(self):
+        from writerforge.narrative_core import schedule
+        with tempfile.TemporaryDirectory() as folder:
+            graph=self.candidate_graph(folder)
+            done=self.apply(graph,self.review("SETTLE_WITH_SOURCE"))
+            thread=next(n["props"] for n in done["nodes"].values()
+                        if n["kind"]=="THREAD")
+            self.assertEqual(thread["status"],"SETTLED_AUTHOR_REVIEW_ONLY")
+            self.assertFalse(thread["independent_literary_payoff_verified"])
+            self.assertTrue(thread["candidate_only_not_story_canon"])
+            self.assertEqual(done["canon_writes"],0)
+            self.assertEqual(schedule(
+                done,project_id=self.PROJECT,scene_id=self.STREAM,
+                chapter_index=2,
+                beat={"kind":"decision","actor":"沈砚",
+                      "goal":"沈砚与唐蜃讨论旧案"})["required_context"],"")
+
+    def test_unreviewed_model_effect_quote_cannot_settle_or_open(self):
+        with tempfile.TemporaryDirectory() as folder:
+            graph=self.candidate_graph(folder)
+            fake=self.review("SETTLE_WITH_SOURCE",author_confirmed=False)
+            with self.assertRaisesRegex(
+                NarrativeCoreError,"SEPARATE_AUTHOR_REVIEW_REQUIRED"):
+                self.apply(graph,fake)
+            fake=self.review("SETTLE_WITH_SOURCE",candidate_read=False)
+            with self.assertRaisesRegex(
+                NarrativeCoreError,"SEPARATE_AUTHOR_REVIEW_REQUIRED"):
+                self.apply(graph,fake)
+            self.assertEqual(len(graph["nodes"]),0)
+
+    def test_source_and_contract_tamper_refused(self):
+        from writerforge.narrative_core import propose_scene_delivery_debt
+        before=self.previous_graph()
+        old=self.receipt()
+        forged=dict(old,prose_sha256="0"*64)
+        with self.assertRaisesRegex(
+                NarrativeCoreError,"RECEIPT_SOURCE_OR_CONTRACT_MISMATCH"):
+            propose_scene_delivery_debt(
+                before,project_id=self.PROJECT,scene_id=self.STREAM,
+                chapter_index=1,prose=self.PROSE,scene_goal=self.GOAL,
+                scene_kind="chapter",
+                author_delivery_contract=self.CONTRACT,
+                delivery_receipt=forged)
+        with tempfile.TemporaryDirectory() as folder:
+            graph=self.candidate_graph(folder)
+            with self.assertRaisesRegex(
+                    NarrativeCoreError,"RECEIPT_SOURCE_OR_CONTRACT_MISMATCH"):
+                self.apply(graph,self.review(),receipt=forged)
+            with self.assertRaisesRegex(
+                    NarrativeCoreError,"SAVED_EXACT_CANDIDATE"):
+                self.apply(graph,self.review(),
+                           prose=self.PROSE+"被添加的额外一句。")
+
+    def test_duplicate_anchor_and_hypothetical_cannot_settle(self):
+        with tempfile.TemporaryDirectory() as folder:
+            graph=self.candidate_graph(folder)
+            bad=self.review("SETTLE_WITH_SOURCE",
+                            action_quote="沈砚绝没有做出的行动。",
+                            outcome_quote=self.OUTCOME)
+            with self.assertRaisesRegex(
+                    NarrativeCoreError,"UNIQUE_ORDERED_SOURCE"):
+                self.apply(graph,bad)
+            reverse=self.review("SETTLE_WITH_SOURCE",
+                                action_quote=self.OUTCOME,
+                                outcome_quote=self.ACTION)
+            with self.assertRaisesRegex(
+                    NarrativeCoreError,"UNIQUE_ORDERED_SOURCE"):
+                self.apply(graph,reverse)
+            with self.assertRaisesRegex(
+                    NarrativeCoreError,"DEFER_OR_ABANDON_CANNOT_FAKE_PAYOFF"):
+                self.apply(graph,self.review(
+                    "CARRY_FORWARD",action_quote=self.ACTION))
+
+    def test_deferred_question_is_open_not_automatic_payoff(self):
+        contract=dict(self.CONTRACT,due="DEFERRED",
+                      id="non-immediate-question")
+        with tempfile.TemporaryDirectory() as folder:
+            graph=self.candidate_graph(folder)
+            r=self.receipt(contract=contract)
+            self.assertFalse(r["needs_review"])
+            carried=self.apply(graph,self.review(),contract=contract)
+            node=next(n["props"] for n in carried["nodes"].values()
+                      if n["kind"]=="THREAD")
+            self.assertEqual(node["status"],"OPEN")
+            self.assertFalse(node["past_original_due"])
+
+    def test_author_abandon_is_not_false_payoff_and_review_cannot_replay(self):
+        with tempfile.TemporaryDirectory() as folder:
+            graph=self.candidate_graph(folder)
+            rejected=self.apply(graph,self.review("ABANDON_BY_AUTHOR"))
+            node=next(n["props"] for n in rejected["nodes"].values()
+                      if n["kind"]=="THREAD")
+            self.assertEqual(node["status"],"ABANDONED_AUTHOR_REVIEW_ONLY")
+            self.assertTrue(node["not_a_payoff"])
+            with self.assertRaisesRegex(
+                    NarrativeCoreError,"ALREADY_CLOSED_REPLAY"):
+                self.apply(rejected,self.review())
+
+    def test_changed_contract_identity_fails_no_second_owner(self):
+        from writerforge.narrative_core import propose_scene_delivery_debt
+        with tempfile.TemporaryDirectory() as folder:
+            opened=self.apply(self.candidate_graph(folder),self.review())
+            changed=dict(self.CONTRACT,story_question="作者改写了问题但沿用同一ID")
+            with self.assertRaisesRegex(
+                    NarrativeCoreError,"CHANGED_CONTRACT"):
+                propose_scene_delivery_debt(
+                    opened,project_id=self.PROJECT,scene_id=self.STREAM,
+                    chapter_index=2,
+                    prose=self.PROSE,scene_goal=self.GOAL,
+                    scene_kind="chapter",
+                    author_delivery_contract=changed,
+                    delivery_receipt=self.receipt(contract=changed))
+
+    def test_writing_host_surfaces_debt_but_never_commits_it(self):
+        source=inspect.getsource(AutonomousWriting.run)
+        self.assertIn("whole_debt_proposal=(",source)
+        self.assertIn("propose_scene_delivery_debt(",source)
+        self.assertIn('"unified_scene_debt_review_proposal"',source)
+        self.assertIn('"unified_scene_cross_chapter_debt_status"',source)
+        self.assertIn('"unified_scene_debt_auto_commits":0',source)
+        self.assertNotIn("review_scene_delivery_on_graph(",source)
+
+
+
 if __name__=="__main__":
     unittest.main()
