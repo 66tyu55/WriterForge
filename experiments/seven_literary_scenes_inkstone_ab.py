@@ -8,7 +8,7 @@ NOT full production WF novel generation/training or a blind human literary test.
 No user/private novels, no R2, no secrets printed. No automatic retry.
 Only explicitly whitelisted models advertised as free on official 2026-10-23
 InkStone pricing page; the live /models list must confirm availability.
-Max 2 tiny model probes + 14 category generations. Fail closed on 429/401/403.
+Max 3 short model probes + 14 category generations. Fail closed on 429/401/403.
 """
 from __future__ import annotations
 
@@ -33,9 +33,10 @@ from writerforge.v116_state_delta import preflight_next_prose
 
 BASE_URL="https://discovery-api.intern-ai.org.cn/v1"
 MAX_COMPLETIONS=14
-MAX_PROBES=2
+MAX_PROBES=3
 MAX_RESERVED_OUTPUT=2700
-MAX_TOTAL_RESERVED=MAX_COMPLETIONS*MAX_RESERVED_OUTPUT+MAX_PROBES*100
+MAX_PROBE_TOKENS=900
+MAX_TOTAL_RESERVED=MAX_COMPLETIONS*MAX_RESERVED_OUTPUT+MAX_PROBES*MAX_PROBE_TOKENS
 MIN_CN=680
 MAX_CN=1250
 TARGET="写出约900个汉字的连续原创小说正文（目标800—1100汉字）"
@@ -277,6 +278,13 @@ def chat(key,model,prompt,max_tokens,*,probe=False):
     chosen=variants[0] if variants and type(variants[0]) is dict else {}
     msg=chosen.get("message") or {}
     answer=msg.get("content") if type(msg) is dict else None
+    if type(answer) is list:
+        # Some compatible chat endpoints return text parts rather than one
+        # string. Only actual text is allowed; never treat hidden reasoning
+        # or tool-call payloads as a completed literary answer.
+        answer="".join(part.get("text","") for part in answer
+                       if type(part) is dict and
+                       type(part.get("text")) is str)
     usage=doc.get("usage") or {}
     clean_usage={
         k:v for k,v in (usage.items() if type(usage) is dict else [])
@@ -287,6 +295,14 @@ def chat(key,model,prompt,max_tokens,*,probe=False):
         "usage":clean_usage,
         "finish_reason":chosen.get("finish_reason"),
         "response_model":str(doc.get("model",model))[:100],
+        "message_content_type":type(msg.get("content")).__name__
+            if type(msg) is dict else "missing",
+        "choice_count":len(variants),
+        "reasoning_tokens":(
+            (usage.get("completion_tokens_details") or {}).get(
+                "reasoning_tokens")
+            if type(usage) is dict and type(
+                usage.get("completion_tokens_details")) is dict else None),
     }
 
 
@@ -389,13 +405,24 @@ def main():
         if name not in available or probe_used>=MAX_PROBES:
             continue
         probe_used+=1
-        trial=chat(key,name,"只回答一个汉字：好",100,probe=True)
+        trial=chat(key,name,
+                   "请简短回答：小说人物会根据什么决定下一步行动？"
+                   "用30个汉字以内给一个清晰句子。不能只给推理。"
+                   "必须输出最终文字。",
+                   MAX_PROBE_TOKENS,probe=True)
         report["calls_attempted"]+=1
         info={"model":name,"success":bool(
             trial.get("ok") and trial.get("text","").strip())}
         if not info["success"]:
-            info["http_status"]=trial.get("http_status")
-            info["error_kind"]=trial.get("kind")
+            info.update({
+                "http_status":trial.get("http_status"),
+                "error_kind":trial.get("kind"),
+                "finish_reason":trial.get("finish_reason"),
+                "choice_count":trial.get("choice_count"),
+                "content_type":trial.get("message_content_type"),
+                "reported_usage":trial.get("usage",{}),
+                "reasoning_tokens":trial.get("reasoning_tokens"),
+            })
         report.setdefault("probes",[]).append(info)
         save_now(report,generated)
         if info["success"]:
