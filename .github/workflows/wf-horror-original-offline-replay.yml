@@ -1,0 +1,49 @@
+name: WF Horror Existing Prose Offline Replay (Zero Model Calls)
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-horror-original-offline-replay.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wf-horror-original-only-offline-replay
+  cancel-in-progress: false
+jobs:
+  replay-same-provider-originals:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Refuse private model keys; this is SOURCE-ONLY REPLAY
+        run: python -c 'import os; assert not any(os.getenv(k) for k in ("DEEPSEEK_API_KEY","DISCOVERY_API_KEY","OPENAI_API_KEY"))'
+      - name: Install existing WF
+        run: python -m pip install -e '.[r2]'
+      - name: Check unchanged V96 950 and guarded 1024 source limit
+        run: python -m unittest tests.test_wf_horror_turn_length_recovery tests.test_wf_scene_format_recovery -q
+      - name: Fetch original frozen written drafts from failed horror run
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 39968891775
+          name: WF-New-World-horror-Literary-Blind-Originals
+          github-token: ${{ github.token }}
+          path: wf_horror_originals
+      - name: Re-evaluate literal original model texts, NEVER regenerate
+        run: python -m experiments.wf_horror_saved_response_offline_replay
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WF-Horror-Prose-Live-Failure-Offline-Readback-Status
+          path: wf_horror_offline_replay_results/horror/
+          retention-days: 30
+          if-no-files-found: warn
