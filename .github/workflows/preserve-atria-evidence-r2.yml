@@ -1,0 +1,49 @@
+name: WF One-time Atria Sealed Evidence to Private R2
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/preserve-atria-evidence-r2.yml
+      - scripts/preserve_atria_artifacts_r2.py
+      - tests/test_atria_private_evidence_preservation.py
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+concurrency:
+  group: wf-atria-seven-evidence-private-r2
+  cancel-in-progress: false
+jobs:
+  preserve-nine-immutable-artifacts:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - name: Checkout only this development branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install bounded preservation dependencies
+        run: python -m pip install -e '.[r2]' 'requests>=2.31,<3'
+      - name: Full offline regression before private archive
+        run: python -m unittest discover -s tests -q
+      - name: Preserve sealed original ZIPs with fresh private R2 readback
+        run: python -m scripts.preserve_atria_artifacts_r2
+      - name: Upload only summary (never original ZIP, prose, credentials or source)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WF-Atria-Sealed-Evidence-Private-R2-Status-Only
+          path: wf_atria_private_evidence_status/STATUS.json
+          retention-days: 14
+          if-no-files-found: ignore
