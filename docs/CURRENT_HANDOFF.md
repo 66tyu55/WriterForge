@@ -1,5 +1,18 @@
 # WriterForge 当前有效交接｜2026-10-23
 
+## 0.B 最新补充：安静场景人物自主调度＋原始证据防过期复验（2026-10-23）
+
+**此节更新于下面的 0.A 历史绿色状态之后；下次交接从此处读起。**
+
+- 工作分支仍为 refactor-unified-scene-delivery-audit。最新源码与测试提交 d9be9b265a0998d15aa9091e59087e33452cd0ae。全量 GitHub Actions [#39954588343](https://github.com/66tyu55/WriterForge/actions/runs/39954588343) 已真实完成：**1,429 tests run、4 skipped、0 failures**。这是由 1,407 的初始基线增长而来的合成工程验证；不证明文学质量改善。
+- **补上安静／心理场景断点**：统一 schedule 原先对 kind=quiet 直接跳过 CHARACTER_INTENT 与 LONG_THREAD。现在有经来源确认的角色内心 desire/fear/value lens 时，即使人物独处也提醒其自主心理张力，允许沉默、迟疑、暂缓行动，不要求肢体动作或强行兑付大纲。相关长期线在 quiet 里仅当目标同时明确提及 owner 与 target、或稳定 THREAD ID 时才恢复提示；主角无关听雨场景不激活所有旧债。NPC 视角仍禁止获取主角隐藏的意图正文。两项回归与全库测试均已通过。
+- **作者权限没有被伪装解决**：生成时只有债务提议；CARRY_FORWARD、SETTLE_WITH_SOURCE、ABANDON_BY_AUTHOR 必须在作者单独审阅、重新读取保存的原 candidate.md（或必须有实际 R2 source_reader GET）且校验正文 SHA 后方能更新同一 THREAD 的候选状态；布尔 author_confirmed 不是身份认证。文学效果是否真兑现仍需独立遮盲判断，不会因为工程测试绿灯而自动宣告。
+- **Atria 九份原始附件已复验**：新一轮 [#39953846247](https://github.com/66tyu55/WriterForge/actions/runs/39953846247) 先完整执行 **1,427 tests / 4 skipped / 0 failures**，再对九份已归档在私有 R2 的原始 ZIP fresh GET，全数 9/9 成功，manifest SHA256 仍为 14e0e957f2564af71ee0ee3b8f74bf743948f6e06fa59e750b58387a5b74650e。原始七类 Atria 14 篇及失败证据没有删改、未重跑模型、未公开原文。唯一保留的归档工作流为 .github/workflows/preserve-atria-evidence-r2.yml，现改为**只有手动触发**；重复旧 workflow 已删除，避免提交代码时反复上传。
+- 原生产 main 再核为 d6ca4b769faa2ef2b47da91fb623a417be49de17（未改），没有部署 Railway，没有新模型调用或 Canon 写入。今后重点仍是独立、源证据约束的文学盲评及真正作者身份审阅交互，不再重复 V96–V123 或新增记忆模块。
+
+---
+
+
 ## 0.A 本次已实际续接：源正文—场景承诺—跨章 THREAD—人物选择（2026-10-23）
 
 **此节比下面 0～0.3 更晚；保留原 0 节作为首轮基线，后续请先看这一节再往下读。**
@@ -10,7 +23,7 @@
 - 审阅三种结果：CARRY_FORWARD 以 AUTHOR_INTENT（仅写作意图，不是世界事实）登记开放的通用 THREAD；SETTLE_WITH_SOURCE 需明确作者复核 + 两条按顺序出现且唯一、真实叙述的行动/心理决定与后果锚点，标 SETTLED_AUTHOR_REVIEW_ONLY，**不宣称文学质量已证**；ABANDON_BY_AUTHOR 是放弃而非兑现。THIS_SCENE 当场未付可经作者决定跨章保留，DEFERRED 自然留白。不同人物的秘密认知仍隔离。普通安静情节不强求反转。
 - **完整的两章合成回归已完成**：第一章保存候选并且作者复核保留原问题 → 第二章仍处 OPEN，正文写到角色不同于大纲的选择与后果 → 作者另行确认后在同一图结案 → 第三章不再重复提醒旧债；已验证此合成回归内 R2 / Canon 写入数为 0，长段重播即使篡改回执并重算普通 SHA 也无法借此开/关债务，非法封闭 THREAD 结构不被签名校验单独放行。
 - Atria 原始七类的来源、预算不均、失败与编辑观察**一个也没有删**。原心理 WF 重播稿 SHA-256 为 272557d79b55f4b6790591afcc0817d61feedf2deb11f25fcbacf3dee4dedbac，14 篇真实原稿在原 Actions artifacts 里有可回查来源，本轮只使用新写的合成句测试叙事闭环，不把封存原稿复制成公开 fixture；其原始 ZIP 和两类补测原始 ZIP 已在本轮另行私有 R2 备份。
-- **新增实证来源保全成功**：初次七类+高潮心理补测共九份 GitHub Actions 原始 ZIP 附件发现 2026-11-06 过期风险，已执行私有 R2 原字节不可变上传、逐件 ZIP SHA 核验、fresh GET：[#39953107366](https://github.com/66tyu55/WriterForge/actions/runs/39953107366)，**9/9 保存并重新下载成功**。只增加 writerforge/v1/private-evidence/atria-seven-genres-20261023/ 下的证据对象与哈希清单，没有覆盖原小说记忆。manifest SHA256 14e0e957f2564af71ee0ee3b8f74bf743948f6e06fa59e750b58387a5b74650e；新增工具 scripts/preserve_atria_artifacts_r2.py、.github/workflows/atria-evidence-private-r2.yml。**此项不同于先前“本轮未 R2 写入”阶段性历史描述**，新证据只入私有存储；不构成训练或文学盲评。
+- **新增实证来源保全成功**：初次七类+高潮心理补测共九份 GitHub Actions 原始 ZIP 附件发现 2026-11-06 过期风险，已执行私有 R2 原字节不可变上传、逐件 ZIP SHA 核验、fresh GET：[#39953107366](https://github.com/66tyu55/WriterForge/actions/runs/39953107366)，**9/9 保存并重新下载成功**。只增加 writerforge/v1/private-evidence/atria-seven-genres-20261023/ 下的证据对象与哈希清单，没有覆盖原小说记忆。manifest SHA256 14e0e957f2564af71ee0ee3b8f74bf743948f6e06fa59e750b58387a5b74650e；新增工具 scripts/preserve_atria_artifacts_r2.py、.github/workflows/preserve-atria-evidence-r2.yml。**此项不同于先前“本轮未 R2 写入”阶段性历史描述**，新证据只入私有存储；不构成训练或文学盲评。
 - 下轮需要继续验证的是：作者确认接口尚缺真正的用户身份/审阅权限服务（布尔 author_confirmed 仅是程序调用门槛，不是不可伪造鉴权）；文学场景效果仍需独立遮盲、反事实对照与本人审稿；不应让其他模型自己调用作者审阅接口并自行传 True。无需重新配置 V96–V123，勿再新增独立记忆技能。为保证候选签名链，任何新审阅版 resume 必须当成**新版本**保存，不得覆盖旧 R2/原始候选。
 
 ---
