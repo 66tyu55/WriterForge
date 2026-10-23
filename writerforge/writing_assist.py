@@ -84,6 +84,7 @@ from .narrative_core import (
     character_collision_context,
     relevant_history_context,
     detect_long_prose_replay,
+    audit_scene_delivery,validate_scene_delivery_contract,
 )
 
 MAX_LIVE_CONTEXT = 1400
@@ -501,7 +502,8 @@ class AutonomousWriting:
             continuity_reference:dict|None=None,
             long_arc_checkpoint:dict|None=None,
             narrative_core_checkpoint:dict|None=None,
-            narrative_memory_backend:str="local") -> dict:
+            narrative_memory_backend:str="local",
+            scene_delivery_contracts:tuple[dict|None,...]|None=None) -> dict:
         # R2 remains explicit opt-in, never inferred from unrelated secrets.
         # The same unified memory graph owns both local and R2 references.
         if narrative_memory_backend not in ("local","r2"):
@@ -554,7 +556,8 @@ class AutonomousWriting:
             resume_story_checkpoint is not None or
             continuity_reference is not None or
             long_arc_checkpoint is not None or
-            narrative_core_checkpoint is not None):
+            narrative_core_checkpoint is not None or
+            scene_delivery_contracts is not None):
             raise WritingExecutionError(
                 "WF117_TEXT_CONTINUITY_ONLY_PARAMETERS_REFUSED")
         # Source-checkpoint resume is explicit, signed, project-scoped, and
@@ -645,6 +648,16 @@ class AutonomousWriting:
             or any(not isinstance(x,str) or not 8<=len(x.strip())<=450
                    for x in chapter_goals)):
             raise WritingExecutionError("provide 1..6 chapter goals of 8..450 characters each")
+        if scene_delivery_contracts is not None:
+            if (type(scene_delivery_contracts) is not tuple or
+                len(scene_delivery_contracts)!=len(chapter_goals)):
+                raise WritingExecutionError(
+                    "WFCORE_SCENE_CONTRACT_COUNT_INVALID")
+            try:
+                for c in scene_delivery_contracts:
+                    validate_scene_delivery_contract(c)
+            except NarrativeCoreError as error:
+                raise WritingExecutionError(str(error)) from None
         # Validate author-pinned world and optional immutable old candidate
         # checkpoint BEFORE creating a directory or reserving an LLM call.
         pinned_world={}
@@ -680,6 +693,9 @@ class AutonomousWriting:
         previous_continuity_checkpoint=None
         previous_external_story_checkpoint=earlier_external
         for index,goal in enumerate(chapter_goals,1):
+            chapter_contract=(
+                scene_delivery_contracts[index-1]
+                if scene_delivery_contracts is not None else None)
             last_chapter_pressure=(
                 pressure_context(previous_emotional_turns)
                 if draft_mode in ("emotion_rolling","foresight_rolling") and
@@ -898,6 +914,7 @@ class AutonomousWriting:
                 narrative_lane_decisions=[]
                 narrative_source_reviews=[]
                 unified_prose_replay_checks=[]
+                unified_scene_delivery_turn_checks=[]
                 prompt_delivery_receipts=[]
                 plan_execution_checks=[]
                 rolling_receipts=[]
@@ -1072,8 +1089,16 @@ class AutonomousWriting:
                                 author_confirmed_forbidden_phrases=(
                                     author_confirmed_forbidden_phrases))
                         if draft_mode=="continuity_guard":
-                            replay_check=detect_long_prose_replay(
-                                evidence["prose"])
+                            turn_delivery=audit_scene_delivery(
+                                prose=evidence["prose"],
+                                scene_goal=beat["goal"],
+                                scene_kind=beat["kind"],
+                                anchored_effect_quotes=(
+                                    (evidence["effect_quote"],)
+                                    if evidence.get("effect_quote") else ()))
+                            replay_check=turn_delivery["long_prose_replay"]
+                            unified_scene_delivery_turn_checks.append(
+                                turn_delivery)
                             unified_prose_replay_checks.append(replay_check)
                             if replay_check["blocked"]:
                                 raise NarrativeCoreError(
@@ -1143,12 +1168,16 @@ class AutonomousWriting:
                                 prior=current_external_story_checkpoint)
                     body=assemble_prose(accepted_turns)
                     if draft_mode=="continuity_guard":
-                        # Even if each generated segment is internally sound,
-                        # assembling segments can accidentally duplicate the
-                        # whole scene. Enforce BEFORE final chapter receipts
-                        # and BEFORE any candidate/remote memory persistence.
-                        complete_replay=detect_long_prose_replay(body)
-                        if complete_replay["blocked"]:
+                        # One evaluator for chapter repetition and source
+                        # delivery, replacing parallel unrelated checks.
+                        whole_delivery=audit_scene_delivery(
+                            prose=body,scene_goal=goal,scene_kind="chapter",
+                            anchored_effect_quotes=tuple(
+                                t["effect_quote"] for t in accepted_turns
+                                if t.get("effect_quote")),
+                            author_delivery_contract=chapter_contract)
+                        complete_replay=whole_delivery["long_prose_replay"]
+                        if whole_delivery["blocked"]:
                             raise NarrativeCoreError(
                                 "WFCORE_ENTIRE_LONG_PROSE_REPEATED")
                     turn_evidence=receipts_only(
@@ -1185,6 +1214,10 @@ class AutonomousWriting:
                             unified_prose_replay_checks)
                         turn_evidence["unified_completed_chapter_replay"]=(
                             complete_replay)
+                        turn_evidence["unified_scene_delivery_turn_checks"]=(
+                            unified_scene_delivery_turn_checks)
+                        turn_evidence["unified_scene_delivery_chapter"]=(
+                            whole_delivery)
                         if active_narrative_core is not None:
                             turn_evidence["unified_narrative_scheduler"]=(
                                 narrative_lane_decisions)
