@@ -43,6 +43,13 @@ SECRET_QUOTE=(
     "简洛捡到一张盖着模糊蓝印的运货单，上面只有“灰袋三十”，"
     "没有收货地点；他没告诉陶筠。"
 )
+# The old narrator's quoted inscription cannot itself be an event anchor:
+# do NOT bypass the strict spoken/hypothetical source guard. This explicit
+# synthetic author clarification adds no secret outcome, only a POV limit,
+# and is reported as a changed source (not byte-equal A/B).
+AUTHOR_SOURCE_CLARIFICATION=(
+    "陶筠从未见过简洛藏起的运货单，也不知道上面写着灰袋三十。"
+)
 
 
 def h(value):
@@ -63,15 +70,15 @@ def case_with_author_known_unknown():
         raise RuntimeError("WF_POV_EXACT_SECRET_SOURCE_MISSING")
     return {
         "genre":pilot.GENRE,
-        "seed":pilot.SOURCE,
+        "seed":pilot.SOURCE+AUTHOR_SOURCE_CLARIFICATION,
         "cast":pilot.CAST,
         "goal":pilot.CHAPTER_GOALS[0],
         "outline":pilot.OUTLINE,
         "event_quotes":list(pilot.EVENTS)+[
-            ("FACT",SECRET_QUOTE,
+            ("FACT",AUTHOR_SOURCE_CLARIFICATION,
              {"fact_id":"blue-shipping-note","name":"灰袋三十",
               "visibility":"SECRET"}),
-            ("UNKNOWN",SECRET_QUOTE,
+            ("UNKNOWN",AUTHOR_SOURCE_CLARIFICATION,
              {"actor":"陶筠","fact_id":"blue-shipping-note"}),
         ],
     }
@@ -105,8 +112,8 @@ def main():
     graph=new_graph(project_id=project,scene_id=scene)
     graph=advance_graph(
         graph,project_id=project,scene_id=scene,
-        chapter_index=1,prose=pilot.SOURCE,
-        events=[source_event(pilot.SOURCE,i,event)
+        chapter_index=1,prose=case["seed"],
+        events=[source_event(case["seed"],i,event)
                 for i,event in enumerate(case["event_quotes"],1)])
     reminder=schedule(graph,project_id=project,scene_id=scene,
                       chapter_index=2,beat=plan[0])
@@ -135,6 +142,10 @@ def main():
         CASE,mode="baseline",blind_id="NEW_SOURCE_GUARD",
         plans=pair,root=OUTPUT,client=model,calls=receipts)
     result["old_original_chapter_sha256"]=h(old_chapter)
+    result["original_source_seed_sha256"]=h(old_seed)
+    result["supplemented_source_seed_sha256"]=h(case["seed"])
+    result["one_explicit_author_clarification_added"]=True
+    result["not_byte_identical_story_seed_comparison"]=True
     result["old_original_leak_review_codes"]=old_review["review_findings"]
     result["proactive_unknown_guard_in_first_writer_beat"]=True
     result["new_paid_model_requests"]=budget.calls_reserved
