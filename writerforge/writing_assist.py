@@ -423,6 +423,27 @@ def _save_unified_cold_capsule(root:Path,packet:dict) -> dict:
     return {"path":str(path),"sha256":digest}
 
 
+def _source_progression_literary_cue(accepted_turns):
+    """Optional writer *craft* cue, not a source-state or canon instruction.
+
+    Triggered after real preceding prose exists. Avoid replaying the same
+    preparation beats; keep the character's right to stall, err or refuse.
+    Neither a genre-specific punchline template nor a compulsory twist.
+    """
+    if not accepted_turns:
+        return ""
+    return (
+        "\n【后续正文的创作推进（可选择，不是剧情硬命令）】"
+        "前一段已经发生的动作、误会和应对不需要原样重演。"
+        "站在此刻人物真实所知、所欲与必须付出的代价上，"
+        "让本段给上一段带来新的反馈：行动后果、对方的新反应、"
+        "关系变化，或一个有实际代价的克制与延迟。"
+        "同一计谋／道具若再次出现，须产生新的意义，不只重复解释用法。"
+        "人物对他人用意的推断只能是其判断，未见证的结果不要当旁白事实。"
+        "仍可安静、失败、改变原计划；不能为了制造反转而强行结案。"
+    )
+
+
 def _prepare_guarded_turn_packet(
         body_base:GroundedDraftPacket,*,plan:dict,
         hard_turn_addition:str,facets:tuple[dict,...],
@@ -570,7 +591,16 @@ class AutonomousWriting:
             long_arc_checkpoint:dict|None=None,
             narrative_core_checkpoint:dict|None=None,
             narrative_memory_backend:str="local",
-            scene_delivery_contracts:tuple[dict|None,...]|None=None) -> dict:
+            scene_delivery_contracts:tuple[dict|None,...]|None=None,
+            literary_progression_mode:str="baseline") -> dict:
+        if literary_progression_mode not in (
+                "baseline","source_progression"):
+            raise WritingExecutionError(
+                "WF_LITERARY_PROGRESSION_MODE_UNKNOWN")
+        if (literary_progression_mode!="baseline" and
+                draft_mode!="continuity_guard"):
+            raise WritingExecutionError(
+                "WF_LITERARY_PROGRESSION_REQUIRES_UNIFIED_SCENE")
         # R2 remains explicit opt-in, never inferred from unrelated secrets.
         # The same unified memory graph owns both local and R2 references.
         if narrative_memory_backend not in ("local","r2"):
@@ -1105,6 +1135,13 @@ class AutonomousWriting:
                             # not a reason to evict source-grounded memory.
                             dependency_hint=pending_dependency_hint(
                                 beat,plan_execution_checks)
+                            progression_cue=(
+                                _source_progression_literary_cue(
+                                    tuple(accepted_turns))
+                                if literary_progression_mode=="source_progression"
+                                else "")
+                            if progression_cue:
+                                dependency_hint+=progression_cue
                             turn_packet,lamps,delivery=(
                                 _prepare_guarded_turn_packet(
                                     body_base,plan=plan,
@@ -1130,6 +1167,10 @@ class AutonomousWriting:
                             if delivery["unified_narrative_priority_dispatch"]:
                                 narrative_lane_decisions.append(
                                     delivery["unified_narrative_priority_dispatch"])
+                            if progression_cue:
+                                delivery["creative_progression_cue_eligible"]=True
+                                delivery["creative_progression_cue_delivered"]=(
+                                    delivery["unproven_dependency_hint_delivered"])
                             lamp_decisions.append(lamps)
                             prompt_delivery_receipts.append(delivery)
                             last_lamp_receipt=lamps
@@ -1332,6 +1373,12 @@ class AutonomousWriting:
                         turn_evidence["v118_no_mandatory_literary_template"]=True
                         turn_evidence["v121_prompt_delivery_receipts"]=(
                             prompt_delivery_receipts)
+                        turn_evidence["literary_progression_mode"]=(
+                            literary_progression_mode)
+                        turn_evidence["source_progression_cue_delivery"]=(
+                            [bool(v.get("creative_progression_cue_delivered"))
+                             for v in prompt_delivery_receipts])
+                        turn_evidence["source_progression_is_optional_craft"]=True
                         turn_evidence["v121_hard_context_priority"]=True
                         turn_evidence["v120_plan_prose_source_receipts"]=(
                             plan_execution_checks)
