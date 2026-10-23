@@ -32,6 +32,8 @@ from .verified_flow import (
 from .v96_causal_turns import (
     V96CausalDraftError,parse_turn_outline,make_turn_instructions,
     check_turn,assemble_prose,receipts_only,canonical as causal_canonical,
+    CRAFT as _WF96_OPTIONAL_CRAFT,BEAT_FIELDS as _WF96_BEAT_FIELDS,
+    MAX_PLAN_JSON_BYTES as _WF96_PLAN_BUDGET,
 )
 from .v98_rolling_causal_planner import (
     V98RollingPlanError,MAX_ROLLING_REPLANS_PER_JOB,
@@ -307,6 +309,69 @@ VALID_NEEDS=frozenset({
     "dialogue","description","character","action","decision","scene",
     "world","pacing","relationship_pressure","reversal","interiority",
 })
+
+
+def _normalize_optional_model_craft_labels(raw:str):
+    """Remove ONLY unrecognized *optional* model craft tags, not story plan.
+
+    A live model may put chapter 'needs' such as 'decision' in a beat's
+    optional craft_focus. The original raw answer is retained separately.
+    Dropping an unsupported optional tag must not discard valid plot,
+    character, event order or causality; all other invalid schemas stay red.
+    Frozen/author-supplied turn outlines are never normalized.
+    """
+    if type(raw) is not str or len(raw.encode("utf8"))>_WF96_PLAN_BUDGET:
+        return raw,None
+    def no_duplicate(items):
+        out={}
+        for key,value in items:
+            if key in out:
+                raise ValueError("duplicate JSON field")
+            out[key]=value
+        return out
+    try:
+        doc=json.loads(raw,object_pairs_hook=no_duplicate,
+                       parse_constant=lambda _: (_ for _ in ()).throw(
+                           ValueError("nonfinite JSON")))
+    except (ValueError,TypeError,UnicodeError):
+        return raw,None
+    if (type(doc) is not dict or set(doc)!={"turns"} or
+        type(doc["turns"]) is not list or
+        not 2<=len(doc["turns"])<=12 or
+        any(type(row) is not dict or set(row)!=_WF96_BEAT_FIELDS or
+            type(row["craft_focus"]) is not list or
+            len(row["craft_focus"])>2 or
+            any(type(tag) is not str for tag in row["craft_focus"])
+            for row in doc["turns"])):
+        return raw,None
+    removed=[]
+    for row in doc["turns"]:
+        tags=row["craft_focus"]
+        cleaned=list(dict.fromkeys(
+            tag for tag in tags if tag in _WF96_OPTIONAL_CRAFT))
+        if cleaned!=tags:
+            removed.append({"turn_id":row["id"],
+                            "removed_optional_tags":[
+                                tag for tag in tags
+                                if tag not in _WF96_OPTIONAL_CRAFT]})
+            row["craft_focus"]=cleaned
+    if not removed:
+        return raw,None
+    normalized=json.dumps(doc,ensure_ascii=False,separators=(",",":"))
+    if len(normalized.encode("utf8"))>_WF96_PLAN_BUDGET:
+        return raw,None
+    receipt={
+        "format":"wf.writing.optional-model-craft-compatibility.v1",
+        "original_model_plan_sha256":sha256(raw.encode("utf8")).hexdigest(),
+        "normalized_plan_sha256":sha256(
+            normalized.encode("utf8")).hexdigest(),
+        "only_model_optional_craft_fields_adjusted":True,
+        "events_or_goals_unchanged":True,
+        "original_model_answer_must_be_preserved":True,
+        "removed":removed,"prose_not_rewritten":True,
+        "canon_writes":0,"model_calls":0,
+    }
+    return normalized,receipt
 
 
 def _chapter_plan(raw:str,chapter_goal:str) -> dict:
@@ -906,6 +971,15 @@ class AutonomousWriting:
                         api_base=self.assist.api_base,max_tokens=1450,
                     )
                 )
+                optional_craft_compatibility=None
+                if (draft_mode=="continuity_guard" and
+                    frozen_turn_outlines is None):
+                    raw_turn_outline=turn_outline
+                    turn_outline,optional_craft_compatibility=(
+                        _normalize_optional_model_craft_labels(turn_outline))
+                    if optional_craft_compatibility is not None:
+                        (job/f"chapter-{index:03d}-raw-model-turn-outline.json").write_text(
+                            raw_turn_outline,encoding="utf8")
                 accepted_turns=[]
                 accepted_beats=[]
                 trace_checks=[]
@@ -1227,6 +1301,8 @@ class AutonomousWriting:
                         turn_evidence["v120_typed_intent_not_whole_plan"]=True
                         turn_evidence["v120_extra_model_calls"]=0
                         turn_evidence["v120_auto_rewrites"]=0
+                        turn_evidence["unified_optional_craft_compatibility"]=(
+                            optional_craft_compatibility)
                         turn_evidence["unified_prose_replay_checks"]=(
                             unified_prose_replay_checks)
                         turn_evidence["unified_completed_chapter_replay"]=(
