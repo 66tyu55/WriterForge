@@ -28,7 +28,7 @@ jobs:
       - run: python -m pip install -e '.[r2]'
       - name: Validate 7 fixed synthetic prompts with WF source checks offline
         run: python -m unittest tests.test_seven_literary_scenes_inkstone_ab -q
-      - name: Run real budgeted InkStone A/B (2 probes + 14 generations maximum)
+      - name: Run real budgeted InkStone A/B (3 richer probes + 14 generations maximum)
         run: python -m experiments.seven_literary_scenes_inkstone_ab
       - name: Publish safe reproducibility receipt and original synthetic generations
         uses: actions/upload-artifact@v4
