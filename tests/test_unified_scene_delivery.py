@@ -91,9 +91,11 @@ class SourcePayoffAudit(unittest.TestCase):
         self.assertIsNotNone(result["independent_review_proposal"])
         self.assertEqual(result["independent_review_proposal"][
             "suggested_function_status"],"TRANSFORMED")
-        self.assertFalse(result["needs_review"])
-        self.assertNotIn("WFCORE_DUE_SCENE_PAYOFF_NOT_YET_VERIFIED",
-                         result["review_findings"])
+        self.assertTrue(result["needs_review"])
+        self.assertIn("WFCORE_DUE_SCENE_PAYOFF_NOT_YET_VERIFIED",
+                      result["review_findings"])
+        self.assertTrue(result["independent_review_proposal"][
+            "model_or_reviewer_cannot_settle_story_obligation"])
 
     def test_source_quote_not_just_model_judgment_is_required(self):
         text="沈砚坐在席间，眼看掌柜和唐蜃走进大门。"
