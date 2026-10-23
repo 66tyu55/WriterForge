@@ -1,5 +1,20 @@
 # WriterForge 当前有效交接｜2026-10-23
 
+## 0.A 本次已实际续接：源正文—场景承诺—跨章 THREAD—人物选择（2026-10-23）
+
+**此节比下面 0～0.3 更晚；保留原 0 节作为首轮基线，后续请先看这一节再往下读。**
+
+- 唯一工作位置仍为仓库 66tyu55/WriterForge 的 refactor-unified-scene-delivery-audit 分支。此轮最后**功能/测试**提交为 c8f432250c45b22cc87ede0c8c1e6020ee7cb77d，之后为文档补录，文档 HEAD SHA 会继续变化。生产 main 未修改，Railway 未部署；没有运行书生、DeepSeek 或上传/覆盖私有 R2、Canon、七类原始 Atria 合成稿。
+- **已核验的最新全量 GitHub Actions**：[WF Unified Scene Delivery #39952000380](https://github.com/66tyu55/WriterForge/actions/runs/39952000380)，结论 success，**1,420 tests run、4 skipped、0 failures**；新增 13 项合成回归（首轮 1,407 → 1,420），工程测试不等于真实文学质量改善。
+- 解决的真正断点：之前 author_delivery_contract 能检查当章未验证的兑现，但 AutonomousWriting.run 之后推进统一图时 events=()，并不会自动登记未偿合同。现在 writerforge/narrative_core.py 新增 propose_scene_delivery_debt（生成时只读提议）、review_scene_delivery_on_graph（保存原候选 + 作者另行确认后才可更改同一 THREAD）、review_scene_delivery_resume（生成不覆盖旧版本的新 V117 候选恢复封套）。writerforge/writing_assist.py 在已有 V96 evidence 及章结果直出 THREAD 待审状态，自动提交次数为零。完整源码及决策说明见 [UNIFIED_SOURCE_FIRST_SCENE_DELIVERY_AUDIT_20261023.md](UNIFIED_SOURCE_FIRST_SCENE_DELIVERY_AUDIT_20261023.md) 新增小节。
+- 审阅三种结果：CARRY_FORWARD 以 AUTHOR_INTENT（仅写作意图，不是世界事实）登记开放的通用 THREAD；SETTLE_WITH_SOURCE 需明确作者复核 + 两条按顺序出现且唯一、真实叙述的行动/心理决定与后果锚点，标 SETTLED_AUTHOR_REVIEW_ONLY，**不宣称文学质量已证**；ABANDON_BY_AUTHOR 是放弃而非兑现。THlS_SCENE 当场未付可经作者决定跨章保留，DEFERRED 自然留白。不同人物的秘密认知仍隔离。普通安静情节不强求反转。
+- **真实两章闭环合成回归已完成**：第一章保存候选并且作者复核保留原问题 → 第二章仍处 OPEN，正文写到角色不同于大纲的选择与后果 → 作者另行确认后在同一图结案 → 第三章不再重复提醒旧债；已验证 R2 / Canon 写入数为 0，长段重播即使篡改回执并重算普通 SHA 也无法借此开/关债务，非法封闭 THREAD 结构不被签名校验单独放行。
+- Atria 原始七类的来源、预算不均、失败与编辑观察**一个也没有删**。原心理 WF 重播稿 SHA-256 为 272557d79b55f4b6790591afcc0817d61feedf2deb11f25fcbacf3dee4dedbac，14 篇真实原稿仍留在原 GitHub Actions artifacts；本轮只使用新写的合成测试句，不将封存原稿复制为公开测试 fixture。
+- 下轮需要继续验证的是：作者确认接口尚缺真正的用户身份/审阅权限服务（布尔 author_confirmed 仅是程序调用门槛，不是不可伪造鉴权）；文学场景效果仍需独立遮盲、反事实对照与本人审稿；不应让其他模型自己调用作者审阅接口并自行传 True。无需重新配置 V96–V123，勿再新增独立记忆技能。为保证候选签名链，任何新审阅版 resume 必须当成**新版本**保存，不得覆盖旧 R2/原始候选。
+
+---
+
+
 > **新对话从这一节开始，旧版 2026-10-16～20 “最新 V66/V99” 字样仅是历史快照，不再代表 WF 最新进度。** 请先核验当前 GitHub 分支与 GitHub Actions，之后再读本文件历史记录；不可重建原书库、重复配置 API、覆盖封存真实输出或修改生产 main。
 
 ## 0. 当前权威工作位置及本轮验收
