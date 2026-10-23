@@ -381,6 +381,36 @@ class CrossChapterDeliveryDebt(unittest.TestCase):
                      if n["kind"]=="THREAD")["props"]["status"],"OPEN")
             self.assertEqual(still["canon_writes"],0)
 
+    def test_author_intent_debt_can_surface_in_relevant_quiet_scene_without_payoff(self):
+        from writerforge.narrative_core import schedule
+        with tempfile.TemporaryDirectory() as folder:
+            opened=self.apply(
+                self.candidate_graph(folder),self.review("CARRY_FORWARD"))
+            internal=schedule(
+                opened,project_id=self.PROJECT,scene_id=self.STREAM,
+                chapter_index=2,
+                beat={"kind":"quiet","actor":"沈砚",
+                      "goal":"沈砚独自回想唐蜃的误解，暂时不准备行动"})
+            self.assertIn(self.QUESTION,internal["required_context"])
+            self.assertIn("尚非正文事实",internal["required_context"])
+            self.assertIn("不强制剧情兑付",internal["required_context"])
+            unrelated=schedule(
+                opened,project_id=self.PROJECT,scene_id=self.STREAM,
+                chapter_index=2,
+                beat={"kind":"quiet","actor":"沈砚",
+                      "goal":"沈砚停下读书，窗外秋风渐冷"})
+            self.assertNotIn(self.QUESTION,unrelated["required_context"])
+            outsider=schedule(
+                opened,project_id=self.PROJECT,scene_id=self.STREAM,
+                chapter_index=2,
+                beat={"kind":"quiet","actor":"唐蜃",
+                      "goal":"唐蜃偶遇沈砚，静观对方如何收起信纸"})
+            self.assertIn("叙事视角边界",outsider["required_context"])
+            self.assertNotIn(self.QUESTION,outsider["required_context"])
+            self.assertEqual(
+                next(n["props"] for n in opened["nodes"].values()
+                     if n["kind"]=="THREAD")["status"],"OPEN")
+
     def test_source_anchored_mental_choice_can_be_settled_by_author(self):
         from writerforge.narrative_core import schedule
         with tempfile.TemporaryDirectory() as folder:
