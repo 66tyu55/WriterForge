@@ -1,0 +1,62 @@
+name: WF Unseen Plot Climax Horror Real Literary Holdout
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-three-new-genre-holdout.yml
+permissions:
+  contents: read
+concurrency:
+  group: wf-unseen-three-literary-genres-once
+  cancel-in-progress: false
+jobs:
+  three-new-genre-real-prose:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        genre: [plot, climax, horror]
+    env:
+      WF_HOLDOUT_GENRE: ${{ matrix.genre }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing WF runtime only
+        run: python -m pip install -e '.[r2]'
+      - name: Verify new stories, source anchors, trace contracts and no changed old behavior
+        run: python -m unittest tests.test_wf_new_holdout_original_scenes tests.test_wf_source_progression_literary tests.test_wf_scene_format_recovery -q
+      - name: Fail before model calls unless existing key is present
+        run: python -c 'import os; assert bool(os.getenv("DEEPSEEK_API_KEY")), "WF_HOLDOUT_MODEL_KEY_MISSING"'
+      - name: WF makes own two plans then both blinded original prose versions
+        run: python -m experiments.wf_holdout_three_fresh_literary_genres
+      - name: Ensure results report true complete paired manuscripts, not success-shaped failures
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os, json
+          from pathlib import Path
+          p=Path('wf_holdout_three_new_scenes')/os.environ['WF_HOLDOUT_GENRE']/'STATUS.json'
+          record=json.loads(p.read_text(encoding='utf8'))
+          assert record['status']=='PAIR_COMPLETED', record['status']
+          assert record['actual_provider_calls']==6
+          assert all(row['status']=='COMPLETE_UNACCEPTED_REAL_WF_CANDIDATE' for row in record['blind_results'].values())
+          print('WF_HOLDOUT_SOURCE_PROSE_COMPLETE, still NOT a literary quality verdict')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WF-New-World-${{ matrix.genre }}-Literary-Blind-Originals
+          path: wf_holdout_three_new_scenes/${{ matrix.genre }}/
+          retention-days: 30
+          if-no-files-found: warn
