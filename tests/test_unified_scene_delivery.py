@@ -546,6 +546,39 @@ class CrossChapterDeliveryDebt(unittest.TestCase):
                     author_delivery_contract=changed,
                     delivery_receipt=self.receipt(contract=changed))
 
+
+    def test_replayed_source_cannot_be_laundered_by_resigned_receipt(self):
+        source=long_original()+"\n\n"+long_original()
+        audit=self.receipt(prose=source)
+        self.assertTrue(audit["blocked"])
+        forged=dict(audit,blocked=False)
+        forged.pop("receipt_sha256")
+        forged["receipt_sha256"]=hashlib.sha256(json.dumps(
+            forged,sort_keys=True,ensure_ascii=False,
+            separators=(",",":")).encode()).hexdigest()
+        with tempfile.TemporaryDirectory() as folder:
+            graph=self.candidate_graph(folder,prose=source)
+            with self.assertRaisesRegex(
+                    NarrativeCoreError,"PROSE_REPLAY_BLOCKED"):
+                self.apply(graph,self.review(),prose=source,receipt=forged)
+
+    def test_resigned_invalid_delivery_node_is_still_rejected(self):
+        import copy
+        from writerforge.narrative_core import validate
+        with tempfile.TemporaryDirectory() as folder:
+            carried=self.apply(self.candidate_graph(folder),self.review())
+            forged=copy.deepcopy(carried)
+            thread=next(x for x in forged["nodes"].values()
+                        if x["kind"]=="THREAD")
+            thread["props"]["status"]="SETTLED_AUTHOR_REVIEW_ONLY"
+            forged.pop("receipt_sha256")
+            forged["receipt_sha256"]=hashlib.sha256(json.dumps(
+                forged,sort_keys=True,ensure_ascii=False,
+                separators=(",",":")).encode()).hexdigest()
+            with self.assertRaisesRegex(
+                    NarrativeCoreError,"DELIVERY_SETTLED_ONLY_BY_AUTHOR"):
+                validate(forged,project_id=self.PROJECT,scene_id=self.STREAM)
+
     def test_writing_host_surfaces_debt_but_never_commits_it(self):
         source=inspect.getsource(AutonomousWriting.run)
         self.assertIn("whole_debt_proposal=(",source)
