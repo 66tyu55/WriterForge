@@ -1,0 +1,39 @@
+{
+  "format": "wf.editorial.real-shared-first-turn-pre-unblind.v1",
+  "source_run": 39971705331,
+  "source_artifact_digests": {
+    "plot": "sha256:d7ecbd7e29e50b05cec8eecf548ce66d4b2b963c3f51822d3a77bebcac6d71e0",
+    "climax": "sha256:4dd1f5552b460b704ba50dd652f79177cf12308663790daccfe1a4f3c8e7277d",
+    "horror": "sha256:2baf832b738950e8439a47debef54f80ede1898edac82f927903a8ea104f0370"
+  },
+  "comparison_protocol": "Read BLIND_PAIR.md and W1/W2 decoded prose; first-turn identical; no mapping consulted before this file",
+  "not_human_blind_judge": true,
+  "selection": [
+    {
+      "genre": "plot",
+      "prefer": "W2",
+      "confidence": "modest",
+      "reason": "New source-backed supply-ledger gap and a traceable third-round receipt; W1 largely repeats measuring and extends time. W2's warehouse-to-bridge transitions remain somewhat abrupt and still delays delivery."
+    },
+    {
+      "genre": "climax",
+      "prefer": "W1",
+      "confidence": "modest",
+      "reason": "Immediate danger to Pei Qin grows as flooded footing gives way; urgent instruction to evacuate is a clearer consequence. W2 develops wheel mechanism and governance but contradictory demand to stop the half-hour count and oddly remembered whistle weaken stakes and temporal logic."
+    },
+    {
+      "genre": "horror",
+      "prefer": "W2",
+      "confidence": "modest",
+      "reason": "Yu Gang reveals concrete past transport/vent context and refuses further help; Qin Zhen chooses investigate outside at next tide, preserving uncertainty. W1 mostly rechecks marks and defers with less meaningful relational movement."
+    }
+  ],
+  "failure_findings": [
+    "Both variants can have literary defects; vote does not imply absolute quality",
+    "Source and continuity issues need independent review, especially character knowledge and temporal/location shifts",
+    "Only second turn differs, but model sampling remains stochastic and sample size is one pair per genre",
+    "Model trace labels were separately checked for spelling; they do not establish literary causality"
+  ],
+  "human_independent_review_done": false,
+  "before_unblinding_recorded": true
+}
