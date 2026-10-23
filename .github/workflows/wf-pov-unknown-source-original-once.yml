@@ -1,0 +1,63 @@
+name: WF Real Original Prose POV Unknown-Source Correction
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-pov-unknown-source-original-once.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wf-pov-source-real-original-one-capped-pair
+  cancel-in-progress: false
+jobs:
+  source-known-unknown-original-novel-probe:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -e '.[r2]'
+      - name: Confirm original source knowledge guards offline, zero model calls
+        run: python -m unittest tests.test_wf_real_pov_unknown_source_leak tests.test_wf_three_chapter_real_preflight tests.test_wf_scene_format_recovery -q
+      - name: Restore ONLY previously saved original source / models from genuine 3-chapter run
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 39976958906
+          name: WF-Three-Consecutive-Real-Chapters-Originals
+          github-token: ${{ github.token }}
+          path: wf_real_three_chapter_frozen_sources
+      - name: Verify connected DeepSeek key before any call
+        run: python -c 'import os; assert os.environ.get("DEEPSEEK_API_KEY"), "WF_POV_MODEL_KEY_UNAVAILABLE"'
+      - name: Rewrite ONLY one new 2-turn WF candidate using original plan and explicit UNKNOWN graph
+        run: python -m experiments.wf_pov_unknown_real_prose_probe
+      - name: Refuse false success when no actual candidate was saved
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('wf_pov_unknown_real_prose_results/PILOT_STATUS.json').read_text('utf8'))
+          assert r['new_paid_model_requests']==2, r.get('new_paid_model_requests')
+          assert r['proactive_unknown_guard_in_first_writer_beat']
+          assert r['status']=='COMPLETE_UNACCEPTED_REAL_WF_CANDIDATE',r['status']
+          assert 'WFCORE_UNREVIEWED_UNKNOWN_FACT_MENTION' in r['old_original_leak_review_codes']
+          print('REAL WF REWRITTEN CANDIDATE SAVED; POV LITERARY TRUTH STILL REQUIRES READING')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WF-POV-Unknown-Original-Source-Real-Prose
+          path: wf_pov_unknown_real_prose_results/
+          retention-days: 30
+          if-no-files-found: warn
