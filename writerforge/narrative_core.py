@@ -1674,7 +1674,7 @@ def propose_scene_delivery_debt(graph,*,project_id,scene_id,chapter_index,
 def review_scene_delivery_on_graph(graph,*,project_id,scene_id,
                                    prose,scene_goal,scene_kind,
                                    author_delivery_contract,author_review,
-                                   delivery_receipt=None):
+                                   delivery_receipt=None,source_reader=None):
     """Explicit post-draft author decision on the SAME unified THREAD graph.
 
     CARRY_FORWARD registers an *intent-only*, not a source-world fact, debt.
@@ -1704,6 +1704,12 @@ def review_scene_delivery_on_graph(graph,*,project_id,scene_id,
           hot[-1].get("chapter")==graph["chapter_index"] and
           hot[-1].get("source_sha256")==_hash(prose),
           "WFCORE_DELIVERY_REVIEW_REQUIRES_SAVED_EXACT_CANDIDATE")
+    # The source pointer is not proof of durability by itself. Require
+    # physical local bytes or a verified private R2 reader *at review time*.
+    _need(_verify_source_file(
+        hot[-1]["source_path"],hot[-1]["source_sha256"],
+        source_reader=source_reader)==prose,
+        "WFCORE_DELIVERY_REVIEW_SOURCE_NOT_RECONSTRUCTIBLE")
     _need(type(author_review) is dict and
           set(author_review)=={
               "decision","author_confirmed","candidate_read",
@@ -1803,7 +1809,7 @@ def review_scene_delivery_on_graph(graph,*,project_id,scene_id,
 def review_scene_delivery_resume(resume,*,project_id,scene_id,
                                  prose,scene_goal,scene_kind,
                                  author_delivery_contract,author_review,
-                                 delivery_receipt=None):
+                                 delivery_receipt=None,source_reader=None):
     """Build a NEW V117 candidate resume after review; do not overwrite R2.
 
     This is an opt-in review path. The story resume stays unreviewed/candidate
@@ -1816,7 +1822,8 @@ def review_scene_delivery_resume(resume,*,project_id,scene_id,
         graph,project_id=project_id,scene_id=scene_id,
         prose=prose,scene_goal=scene_goal,scene_kind=scene_kind,
         author_delivery_contract=author_delivery_contract,
-        author_review=author_review,delivery_receipt=delivery_receipt)
+        author_review=author_review,delivery_receipt=delivery_receipt,
+        source_reader=source_reader)
     from .v117_continuity_trace import make_resume
     return make_resume(
         project_id=project_id,scene_id=scene_id,
