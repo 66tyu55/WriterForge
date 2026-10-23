@@ -1395,6 +1395,18 @@ class AutonomousWriting:
                     "turn_outline":str(turn_outline_path),
                     "causal_logic_literary_verified":False,
                     "facts_not_committed":True,
+                    **({"unified_scene_function_review_needed":
+                            whole_delivery["needs_review"],
+                        "unified_scene_function_review_findings":
+                            whole_delivery["review_findings"],
+                        "unified_scene_function_receipt_sha256":
+                            whole_delivery["receipt_sha256"],
+                        "unified_scene_function_semantics_verified":False,
+                        "unified_scene_due_contract_id":(
+                            whole_delivery["registered_delivery_contract"]["id"]
+                            if whole_delivery["registered_delivery_contract"]
+                            else None)}
+                       if draft_mode=="continuity_guard" else {}),
                     **({"v98_rolling_plan":str(private_rolling),
                         "model_replan_calls":len(rolling_receipts)}
                        if draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling") else {}),
