@@ -1,0 +1,35 @@
+name: WF InkStone Streaming Long Prose Diagnostic — Single Request
+on:
+  push:
+    branches: [experiment-seven-literary-scenes-inkstone]
+    paths:
+      - .github/workflows/wf-inkstone-stream-diagnostic.yml
+permissions:
+  contents: read
+concurrency:
+  group: wf-inkstone-stream-once
+  cancel-in-progress: false
+jobs:
+  one-atria-stream-request:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -e '.[r2]'
+      - name: One long SSE test no provider retry
+        run: python -m experiments.inkstone_stream_diagnostic_once
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WF-InkStone-SSE-One-Original-And-Finish-Reason
+          path: wf_inkstone_stream_diagnostic/
+          retention-days: 7
+          if-no-files-found: ignore
