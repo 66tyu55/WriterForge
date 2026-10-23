@@ -1,9 +1,8 @@
 name: WF Literary Real-Source Progression Controlled Blind A/B
 on:
-  push:
-    branches: [refactor-unified-scene-delivery-audit]
-    paths:
-      - .github/workflows/wf-source-progression-blind-ab.yml
+  # Completed bounded experiment. Opt in explicitly for any new provider use:
+  # no automatic repeat on documentation or workflow commits.
+  workflow_dispatch:
 permissions:
   contents: read
   actions: read
