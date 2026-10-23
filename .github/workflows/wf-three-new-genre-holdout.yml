@@ -1,9 +1,8 @@
 name: WF Unseen Plot Climax Horror Real Literary Holdout
 on:
-  push:
-    branches: [refactor-unified-scene-delivery-audit]
-    paths:
-      - .github/workflows/wf-three-new-genre-holdout.yml
+  # Original real evidence is saved. Prevent unintended paid experiment replay.
+  # Re-run only after an explicit future user request.
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
