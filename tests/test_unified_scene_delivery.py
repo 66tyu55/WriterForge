@@ -579,6 +579,39 @@ class CrossChapterDeliveryDebt(unittest.TestCase):
                     NarrativeCoreError,"DELIVERY_SETTLED_ONLY_BY_AUTHOR"):
                 validate(forged,project_id=self.PROJECT,scene_id=self.STREAM)
 
+
+    def test_review_reloads_real_source_not_just_snapshot_hash(self):
+        with tempfile.TemporaryDirectory() as folder:
+            graph=self.candidate_graph(folder)
+            pointer=Path(graph["memory"]["hot"][-1]["source_path"])
+            pointer.write_text(self.PROSE+"未受批准的新一句。",encoding="utf8")
+            with self.assertRaisesRegex(
+                    NarrativeCoreError,"ORIGINAL_MANUSCRIPT_HASH_CHANGED"):
+                self.apply(graph,self.review())
+            self.assertEqual(len(graph["nodes"]),0)
+
+    def test_remote_review_requires_actual_private_reader(self):
+        from writerforge.narrative_core import _signed
+        with tempfile.TemporaryDirectory() as folder:
+            graph=self.candidate_graph(folder)
+            raw={k:v for k,v in graph.items() if k!="receipt_sha256"}
+            raw["memory"]["hot"][-1]["source_path"]=(
+                "r2://writerforge-private-library/verified-source")
+            graph=_signed(raw)
+            with self.assertRaisesRegex(
+                    NarrativeCoreError,"R2_SOURCE_READER_REQUIRED"):
+                self.apply(graph,self.review())
+            from writerforge.narrative_core import review_scene_delivery_on_graph
+            resolved=review_scene_delivery_on_graph(
+                graph,project_id=self.PROJECT,scene_id=self.STREAM,
+                prose=self.PROSE,scene_goal=self.GOAL,scene_kind="chapter",
+                author_delivery_contract=self.CONTRACT,
+                author_review=self.review(),
+                source_reader=lambda path,expected:self.PROSE)
+            self.assertEqual(next(v for v in resolved["nodes"].values()
+                                  if v["kind"]=="THREAD")["props"]["status"],
+                             "OPEN")
+
     def test_writing_host_surfaces_debt_but_never_commits_it(self):
         source=inspect.getsource(AutonomousWriting.run)
         self.assertIn("whole_debt_proposal=(",source)
