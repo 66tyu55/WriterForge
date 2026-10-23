@@ -468,6 +468,41 @@ class GraphWithPriorityAndKnowledge(unittest.TestCase):
             state["nodes"]["character:沈砚"]["props"]["lens"]["desire"][
                 "evidence_scope"],"NARRATED_INNER")
 
+    def test_quiet_psychological_scene_uses_own_lens_and_relevant_open_hook(self):
+        graph=intro()
+        thought="沈砚害怕唐蜃被误判，却没有决定是否揭开旧案。"
+        graph=update(graph,thought,[annotation(
+            thought,thought,"CHARACTER_REFLECT",id="fear-quieter",
+            actor="沈砚",dimension="fear",value="害怕唐蜃被误判",
+            evidence_scope="NARRATED_INNER")])
+        intimate=schedule(graph,project_id=P,scene_id=S,chapter_index=3,
+                         beat=beat("沈砚在唐蜃的府门外独自沉默",
+                                   actor="沈砚",kind="quiet"))
+        self.assertIn("人物自主内心张力",intimate["required_context"])
+        self.assertIn("害怕唐蜃被误判",intimate["required_context"])
+        self.assertIn("旧案血债",intimate["required_context"])
+        self.assertIn("不要为了兑现大纲而强造事件",
+                      intimate["required_context"])
+        self.assertIn("不强制剧情兑付",intimate["required_context"])
+        self.assertEqual(graph["nodes"]["thread:old-debt"]["props"]["status"],
+                         "OPEN")
+        weather=schedule(graph,project_id=P,scene_id=S,chapter_index=3,
+                         beat=beat("沈砚听雨，未提起旧事",
+                                   actor="沈砚",kind="quiet"))
+        self.assertIn("人物自主内心张力",weather["required_context"])
+        self.assertNotIn("旧案血债",weather["required_context"])
+        observer=schedule(graph,project_id=P,scene_id=S,chapter_index=3,
+                          beat=beat("唐蜃隔窗见沈砚独自沉默",
+                                    actor="唐蜃",kind="quiet"))
+        self.assertIn("叙事视角边界",observer["required_context"])
+        self.assertNotIn("旧案血债的幕后人尚未查明",
+                         observer["required_context"])
+        transit=schedule(graph,project_id=P,scene_id=S,chapter_index=3,
+                         beat=beat("沈砚经过唐蜃的府门转场",
+                                   actor="沈砚",kind="transition"))
+        self.assertNotIn("人物自主内心张力",transit["required_context"])
+        self.assertNotIn("旧案血债",transit["required_context"])
+
     def test_character_collisions_are_planned_from_separate_worldviews(self):
         initial=new_graph(project_id=P,scene_id=S)
         text=("沈砚想揭开密令的真相。"
