@@ -62,3 +62,28 @@
 ## 原始仓库与生产边界
 
 开发分支：[refactor-unified-scene-delivery-audit](https://github.com/66tyu55/WriterForge/tree/refactor-unified-scene-delivery-audit)；验证工作流 `.github/workflows/unified-scene-delivery-audit.yml`。未修改稳定生产 main，未部署 Railway，未消费新的书生赠送额度。本次没有假装训练了模型权重。
+
+
+## 2026-10-23 续接：统一 THREAD 的场景债务闭环（仍非文学质量证明）
+
+**七类 Atria 实测证据均原样保留**：14 篇原稿／7 组配对；心理 WF 原稿长段逐字重播；喜剧裸版误拿雨伞反转较清楚；打斗、计谋规则猜测和字数问题；高潮与心理曾因 3,100-token 推理预算失败、再以 6,000-token 补测成功。两种额度不能当作公平总胜率。本次未重新调用书生模型，也未覆盖、公开或更改真实原稿。
+
+### 从意图、候选正文到同一 THREAD 图
+
+1. audit_scene_delivery 仍仅对实际正文做 SHA 源锚审计。THIS_SCENE 当场兑付、DEFERRED 有意延期分离，但模型自评、真实效果引句或未经作者认可的评论均不能独立证明文学兑现。
+2. propose_scene_delivery_debt(graph,...) 在 AutonomousWriting.run(...,draft_mode="continuity_guard") 完成整章实文后提出只读建议，写入既有 v96_turn_evidence.json 的 unified_scene_debt_review_proposal；候选章返回 unified_scene_cross_chapter_debt_status、review receipt SHA，自动图写入次数为零。若未加载统一图，则显示 NO_UNIFIED_GRAPH_TO_REGISTER_DEBT，不能误报已经跨章追踪。
+3. review_scene_delivery_on_graph 是作者**单独阅读真实候选**后才可执行的审阅操作；必须显式 author_confirmed=True 和 candidate_read=True，绑定 owner / target / 审阅理由，并匹配该章已有热缓冲里真实保存的候选原文 SHA。作者先前确认过要写某场景，只是写作意图，并不代表已经看过模型正文。
+4. CARRY_FORWARD：在既有统一图写一条稳定 THREAD，truth_scope=AUTHOR_INTENT，保留作者故事问题、原始 due、开立章与逾期标志。这是**待审意图债务，不是故事事实/角色知识/正典**。THIS_SCENE 逾期不强制模型制造反转；DEFERRED 保持开放。
+5. SETTLE_WITH_SOURCE：两条唯一、先行动或心理选择、后可观察或内在后果的真实原句必须通过原有 _anchor() 的来源检测；梦境、引语、假设及模型自报不算。状态为 SETTLED_AUTHOR_REVIEW_ONLY，仅保存引句哈希，independent_literary_payoff_verified=False。心理选择可以没有物理行动。
+6. ABANDON_BY_AUTHOR：作者明确放弃原故事问题，状态为 ABANDONED_AUTHOR_REVIEW_ONLY，not_a_payoff=True，不把放弃、转向、未决误算成兑现。所有写入仍是统一图的同章新签名快照，无第二个状态所有者、额外数据库或 Canon 写入。
+7. 相关后续章节仍由统一 schedule() 的 LONG_THREAD 优先 lane 有界提醒，限最多三条相关线，压不进提示的债务保留。只有 owner 视角得到具体作者意图；其他视角不因交集就获悉秘密。人物可按独立认知、恐惧、欲望与代价改变既定方案。静场和无关章节不强制结案。
+
+### 审阅入口与边界
+
+对新生成章节保留作者合同、章节目标、原 candidate.md 的真实字节、同一 V117 resume，然后调用 narrative_core.review_scene_delivery_resume(resume,project_id=...,scene_id=...,prose=...,scene_goal=...,scene_kind="chapter",author_delivery_contract=...,author_review=...)。此函数**返回**新签名候选 resume，不会自行覆盖旧 R2 对象、部署服务、触碰 Canon 或消耗模型配额。
+
+author_review 精确包含八个键：decision（CARRY_FORWARD / SETTLE_WITH_SOURCE / ABANDON_BY_AUTHOR）、author_confirmed=True、candidate_read=True、owner、target、reason、action_quote、outcome_quote。只有 SETTLE_WITH_SOURCE 需要两条不为空的来源引句，其他决定必须用 None。已有稳定 ID 不得改写问题来替换前人承诺；源文哈希不匹配、复评重复、合同不一致都需明确失败。新签名恢复封套仍注明 author_accepted=False、canon_writes=0，不能把作者接受单条审阅意见冒充整篇正文已成为正典。
+
+### 工程验收与独立文学盲评边界
+
+tests/test_unified_scene_delivery.py 使用合成原创微场景覆盖只读提议、审稿权限、候选保存、完整的跨两章 carry→settle、人物自主心理选择、不同 POV 不泄密、延期和取消不冒充兑付。CI 执行全仓库原有回归，但不再重新训练或配置 V96–V123。此工程回归不是七类文本艺术效果改善的证据；独立盲评仍未完成。
