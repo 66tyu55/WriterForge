@@ -103,6 +103,7 @@ class SourceBasedReplayGateTests(unittest.TestCase):
         accepted=text.index("accepted_turns.append(evidence)")
         self.assertLess(position,accepted)
         self.assertIn('"unified_prose_replay_checks"',text)
+        self.assertIn('"unified_completed_chapter_replay"',text)
         self.assertIn("WFCORE_ENTIRE_LONG_PROSE_REPEATED",text)
 
     def test_complete_chapter_guard_precedes_save_candidate(self):
@@ -110,9 +111,12 @@ class SourceBasedReplayGateTests(unittest.TestCase):
         check=text.index("complete_replay=detect_long_prose_replay(body)")
         saved=text.index("saved=save_candidate(packet,body")
         self.assertLess(check,saved)
-        self.assertIn("chapter-{index:03d}-repeat-rejected.json",text)
+        # Existing V96 rejection record retains exact error reason and
+        # source hash while no candidate is promoted.
+        self.assertIn("chapter-{index:03d}-rejected.json",text)
         self.assertIn('"canonical_fact_writes":0',text)
         self.assertIn('"automatic_repair_attempts":0',text)
+        self.assertIn('"model_output_sha256":sha256(',text)
 
 
 if __name__=="__main__":
