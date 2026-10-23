@@ -33,6 +33,9 @@ from .v96_causal_turns import (
     V96CausalDraftError,parse_turn_outline,make_turn_instructions,
     check_turn,assemble_prose,receipts_only,canonical as causal_canonical,
     normalize_model_source_citations,review_only_model_turn,
+    trace_failure_reviewable,
+    MAX_PROSE_CHARS as _WF96_LEGACY_TURN_CHARS,
+    CONTINUITY_MAX_PROSE_CHARS as _WF96_GUARDED_TURN_CHARS,
     CRAFT as _WF96_OPTIONAL_CRAFT,BEAT_FIELDS as _WF96_BEAT_FIELDS,
     MAX_PLAN_JSON_BYTES as _WF96_PLAN_BUDGET,
 )
@@ -1048,6 +1051,7 @@ class AutonomousWriting:
                 unified_scene_delivery_turn_checks=[]
                 source_citation_normalizations=[]
                 model_trace_review_failures=[]
+                source_length_reviews=[]
                 prompt_delivery_receipts=[]
                 plan_execution_checks=[]
                 rolling_receipts=[]
@@ -1241,9 +1245,17 @@ class AutonomousWriting:
                                           else draft_mode),
                                     accepted=tuple(accepted_turns),
                                     author_confirmed_forbidden_phrases=(
-                                        author_confirmed_forbidden_phrases))
+                                        author_confirmed_forbidden_phrases),
+                                    max_prose_chars=(
+                                        _WF96_GUARDED_TURN_CHARS
+                                        if draft_mode=="continuity_guard"
+                                        else _WF96_LEGACY_TURN_CHARS))
                             except V96CausalDraftError as source_trace_error:
-                                if draft_mode!="continuity_guard":
+                                if (draft_mode!="continuity_guard" or
+                                    not trace_failure_reviewable(
+                                        str(source_trace_error))):
+                                    # Never disguise length/schema/source
+                                    # errors as a model self-citation review.
                                     raise
                                 # Keep genuine paragraphs; do not claim
                                 # model's incorrect quote proves causality.
@@ -1254,7 +1266,8 @@ class AutonomousWriting:
                                     failure_code=str(source_trace_error),
                                     accepted=tuple(accepted_turns),
                                     author_confirmed_forbidden_phrases=(
-                                        author_confirmed_forbidden_phrases))
+                                        author_confirmed_forbidden_phrases),
+                                    max_prose_chars=_WF96_GUARDED_TURN_CHARS)
                                 model_trace_review_failures.append({
                                     "turn_id":beat["id"],
                                     "code":str(source_trace_error),
@@ -1262,6 +1275,19 @@ class AutonomousWriting:
                                     "source_body_retained":True,
                                     "causal_truth_not_verified":True,
                                     "model_retries":0,
+                                })
+                            if evidence["receipt"].get(
+                                    "source_turn_requires_length_review"):
+                                source_length_reviews.append({
+                                    "turn_id":beat["id"],
+                                    "source_prose_sha256":
+                                        evidence["receipt"]["prose_sha256"],
+                                    "actual_codepoints":len(evidence["prose"]),
+                                    "historical_v96_limit":
+                                        _WF96_LEGACY_TURN_CHARS,
+                                    "unified_writer_bound":
+                                        _WF96_GUARDED_TURN_CHARS,
+                                    "extra_review_not_auto_literary_pass":True,
                                 })
                         if draft_mode=="continuity_guard":
                             turn_delivery=audit_scene_delivery(
@@ -1413,6 +1439,8 @@ class AutonomousWriting:
                             source_citation_normalizations)
                         turn_evidence["unified_model_trace_review_failures"]=(
                             model_trace_review_failures)
+                        turn_evidence["unified_source_length_reviews"]=(
+                            source_length_reviews)
                         turn_evidence["unified_source_prose_not_discarded_for_trace"]=True
                         turn_evidence["unified_prose_replay_checks"]=(
                             unified_prose_replay_checks)
@@ -1604,12 +1632,17 @@ class AutonomousWriting:
                     "facts_not_committed":True,
                     **({"unified_scene_function_review_needed":
                             bool(whole_delivery["needs_review"] or
-                                 model_trace_review_failures),
+                                 model_trace_review_failures or
+                                 source_length_reviews),
                         "unified_scene_function_review_findings":
                             list(dict.fromkeys(
                                 whole_delivery["review_findings"]+
                                 [r["code"] for r in
-                                 model_trace_review_failures])),
+                                 model_trace_review_failures]+
+                                (["WFCORE_OVERSIZED_TURN_SOURCE_REVIEW"]
+                                 if source_length_reviews else []))),
+                        "unified_source_length_review_count":
+                            len(source_length_reviews),
                         "unified_model_trace_review_count":
                             len(model_trace_review_failures),
                         "unified_model_trace_source_citation_repairs":
