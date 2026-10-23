@@ -626,6 +626,21 @@ def main():
                     "reported_usage":result.get("usage",{}),
                     "reasoning_characters":result.get("reasoning_characters",0),
                 })
+                partial=result.get("partial_text","")
+                if type(partial) is str and partial:
+                    # Preserve EXACT unfinished provider prose separately
+                    # instead of discarding it or calling it a completed
+                    # baseline. This path never invokes another model.
+                    generated.append({
+                        "genre":case["genre"],"id":case["id"],
+                        "variant":variant,"model":chosen,
+                        "sample_sha256":sha(partial),
+                        "prose":partial,"complete":False,
+                        "failure_reason":result.get("kind"),
+                        "seed":case["seed"],"scene_goal":case["goal"],
+                        "prompt_sha256":sha(prompt),
+                        "input_prompt":prompt,
+                    })
                 item["pair_status"]="INCOMPLETE_PROVIDER_FAILURE"
                 report["status"]="STOPPED_ON_PROVIDER_FAILURE_NO_RETRY"
                 save_now(report,generated)
