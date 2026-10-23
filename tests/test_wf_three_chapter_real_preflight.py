@@ -64,6 +64,34 @@ class RealMultiChapterSourceProtocol(unittest.TestCase):
                 chapter_index=1),pilot.SOURCE)
             self.assertEqual(packet["canon_writes"],0)
 
+    def test_resumed_writer_uses_actual_scene_chapter_not_local_001(self):
+        from writerforge.writing_assist import (
+            _writing_scene_scope,WritingExecutionError,
+        )
+        base="printshop"
+        self.assertEqual(
+            _writing_scene_scope(base,local_index=1),
+            "printshop.chapter-001")
+        self.assertEqual(
+            _writing_scene_scope(base,local_index=1,resume_source_chapter=1),
+            "printshop.chapter-002")
+        self.assertEqual(
+            _writing_scene_scope(base,local_index=1,resume_source_chapter=2),
+            "printshop.chapter-003")
+        self.assertEqual(
+            _writing_scene_scope(base,local_index=1,resume_source_chapter=3),
+            "printshop.chapter-004")
+        self.assertEqual(
+            _writing_scene_scope(base,local_index=2,resume_source_chapter=1),
+            "printshop.chapter-003")
+        with self.assertRaisesRegex(
+                WritingExecutionError,"SCENE_CHAPTER_SCOPE_INVALID"):
+            _writing_scene_scope(base,local_index=0)
+        with self.assertRaisesRegex(
+                WritingExecutionError,"SCENE_CHAPTER_OVERFLOW"):
+            _writing_scene_scope(base,local_index=1,
+                                 resume_source_chapter=1000000)
+
     def test_real_writer_runs_one_chapter_three_times_with_one_resume_chain(self):
         source=inspect.getsource(pilot.main)
         self.assertIn("for chapter_index,goal in enumerate(CHAPTER_GOALS,2)",source)
