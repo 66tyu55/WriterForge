@@ -1,0 +1,51 @@
+name: WF Real Self-Written Four-Scene Literary Diagnosis
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-real-self-scenes-once.yml
+permissions:
+  contents: read
+concurrency:
+  group: wf-real-self-scenes-four-bounded-once
+  cancel-in-progress: false
+jobs:
+  real-original-genre:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 23
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        genre: [fight, scheme, humor, psychology]
+    env:
+      WF_SELF_SCENE: ${{ matrix.genre }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+    steps:
+      - name: Read dev branch (not main or Railway)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing WF runtime without external model tools
+        run: python -m pip install -e '.[r2]'
+      - name: Verify prior WF scene and actual graph tests offline
+        run: python -m unittest tests.test_unified_scene_delivery tests.test_unified_narrative_core -q
+      - name: Fail before inference without already configured model secret
+        run: python -c 'import os; assert bool(os.environ.get("DEEPSEEK_API_KEY")), "WF_EXISTING_MODEL_SECRET_UNAVAILABLE"'
+      - name: Generate real WF prose with model self-planned two turns, at most 4 requests
+        run: python -m experiments.wf_real_self_scene_diagnostics
+      - name: Preserve all originals and even failed first attempts for literary review
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WF-Real-Self-Written-${{ matrix.genre }}-Originals
+          path: wf_self_scene_results/${{ matrix.genre }}/
+          retention-days: 14
+          if-no-files-found: warn
