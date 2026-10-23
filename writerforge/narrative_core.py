@@ -567,13 +567,16 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
                 nid.split(":",1)[1] in goal):
             continue
         truth=("人物看法尚未确证" if
-               t["truth_scope"]=="CHARACTER_BELIEF"
-               else "作者确认过的前提")
+               t["truth_scope"]=="CHARACTER_BELIEF" else
+               "作者审阅的未偿写作意图，尚非正文事实" if
+               t["truth_scope"]=="AUTHOR_INTENT" else
+               "作者确认过的前提")
         if actor==t["owner"]:
             context=(f"【长期叙事线索】{t['thread_kind']}："
                      f"{t['owner']}—{t['target']}；{t['premise']}。"
                      f"{truth}；这条线尚未由作者确认完结。"
-                     "允许转折、放弃或反转，但不得把计划与猜测自动当作结案。")
+                     "人物可按自己的认知和代价更改、拒绝或推迟计划；"
+                     "不强制剧情兑付，不得以模型自评结案。")
         else:
             # A thread can involve an NPC without that NPC knowing the
             # protagonist's private motive. Never leak hidden premise into
@@ -1544,6 +1547,230 @@ def audit_scene_delivery(*,prose,scene_goal,scene_kind,
     }
     receipt["receipt_sha256"]=_hash(receipt)
     return receipt
+
+
+
+def _delivery_thread_key(contract_id):
+    """A delivery obligation is a normal THREAD, not a second memory owner."""
+    _need(_id(contract_id),"WFCORE_DELIVERY_CONTRACT_ID_INVALID")
+    return _node_key("thread","delivery-"+_hash(contract_id)[:28])
+
+
+def _checked_delivery_evidence(*,prose,scene_goal,scene_kind,
+                               author_delivery_contract,delivery_receipt):
+    contract=validate_scene_delivery_contract(author_delivery_contract)
+    _need(contract is not None and type(delivery_receipt) is dict and
+          delivery_receipt.get("format")=="wf.narrative.scene-delivery.v1" and
+          type(delivery_receipt.get("receipt_sha256")) is str and
+          delivery_receipt["receipt_sha256"]==_hash({
+              k:v for k,v in delivery_receipt.items()
+              if k!="receipt_sha256"}) and
+          delivery_receipt.get("prose_sha256")==_hash(prose) and
+          delivery_receipt.get("scene_goal_sha256")==_hash(scene_goal) and
+          delivery_receipt.get("scene_kind")==scene_kind and
+          delivery_receipt.get("registered_delivery_contract")==contract and
+          delivery_receipt.get("blocked") is False and
+          delivery_receipt.get("scene_function_verified") is False and
+          delivery_receipt.get("canon_writes")==0,
+          "WFCORE_DELIVERY_RECEIPT_SOURCE_OR_CONTRACT_MISMATCH")
+    return contract
+
+
+def propose_scene_delivery_debt(graph,*,project_id,scene_id,chapter_index,
+                                prose,scene_goal,scene_kind,
+                                author_delivery_contract,delivery_receipt):
+    """Present a contract-to-THREAD review proposal without changing state.
+
+    Called on a generated *candidate* before chapter advancement. A scene
+    contract confirms writer intent, not that a payoff happened or that an
+    unverified draft has become a long-term story fact.
+    """
+    validate(graph,project_id=project_id,scene_id=scene_id)
+    _need(type(chapter_index) is int and
+          chapter_index==graph["chapter_index"]+1,
+          "WFCORE_DELIVERY_PREVIEW_CHAPTER_NOT_NEXT")
+    contract=_checked_delivery_evidence(
+        prose=prose,scene_goal=scene_goal,scene_kind=scene_kind,
+        author_delivery_contract=author_delivery_contract,
+        delivery_receipt=delivery_receipt)
+    key=_delivery_thread_key(contract["id"])
+    existing=graph["nodes"].get(key)
+    if existing is not None:
+        _need(existing["kind"]=="THREAD" and
+              existing["props"].get("delivery_contract")==contract,
+              "WFCORE_DELIVERY_THREAD_ID_COLLISION_OR_CHANGED_CONTRACT")
+    status=("NOT_REGISTERED" if existing is None else
+            "OPEN_UNPAID" if existing["props"]["status"]=="OPEN" else
+            "ALREADY_REVIEWED_CLOSED")
+    receipt={
+        "format":"wf.narrative.scene-debt-proposal.v1",
+        "graph_sha256":graph["receipt_sha256"],
+        "candidate_chapter":chapter_index,
+        "candidate_prose_sha256":delivery_receipt["prose_sha256"],
+        "scene_delivery_receipt_sha256":delivery_receipt["receipt_sha256"],
+        "thread_key":key,"contract_id":contract["id"],
+        "due":contract["due"],"status":status,
+        "author_separate_review_required":True,
+        "suggested_next_action":"REVIEW_ACTUAL_PROSE_THEN_DECIDE",
+        "auto_thread_writes":0,"canon_writes":0,"model_calls":0,
+        "literary_payoff_verified":False,
+    }
+    receipt["receipt_sha256"]=_hash(receipt)
+    return receipt
+
+
+def review_scene_delivery_on_graph(graph,*,project_id,scene_id,
+                                   prose,scene_goal,scene_kind,
+                                   author_delivery_contract,author_review,
+                                   delivery_receipt=None):
+    """Explicit post-draft author decision on the SAME unified THREAD graph.
+
+    CARRY_FORWARD registers an *intent-only*, not a source-world fact, debt.
+    SETTLE_WITH_SOURCE requires two unique, ordered, narrated source anchors,
+    yet remains author-accepted interpretation, not a mechanical literary
+    quality verdict. ABANDON_BY_AUTHOR closes as abandoned, never as payoff.
+    Character CHOICE need not contain a physical action: a narrated inner
+    decision and its consequence can be independently anchored.
+    """
+    validate(graph,project_id=project_id,scene_id=scene_id)
+    _need(type(prose) is str and 1<=len(prose)<=MAX_CHARS and
+          type(scene_goal) is str and _text(scene_goal,600) and
+          type(scene_kind) is str,
+          "WFCORE_DELIVERY_REVIEW_INPUT_INVALID")
+    if delivery_receipt is None:
+        delivery_receipt=audit_scene_delivery(
+            prose=prose,scene_goal=scene_goal,scene_kind=scene_kind,
+            author_delivery_contract=author_delivery_contract)
+    contract=_checked_delivery_evidence(
+        prose=prose,scene_goal=scene_goal,scene_kind=scene_kind,
+        author_delivery_contract=author_delivery_contract,
+        delivery_receipt=delivery_receipt)
+    mem=graph.get("memory") or {}
+    hot=mem.get("hot",[])
+    _need(mem.get("last_recorded_chapter")==graph["chapter_index"] and
+          type(hot) is list and len(hot)>0 and
+          hot[-1].get("chapter")==graph["chapter_index"] and
+          hot[-1].get("source_sha256")==_hash(prose),
+          "WFCORE_DELIVERY_REVIEW_REQUIRES_SAVED_EXACT_CANDIDATE")
+    _need(type(author_review) is dict and
+          set(author_review)=={
+              "decision","author_confirmed","candidate_read",
+              "owner","target","reason","action_quote","outcome_quote"} and
+          author_review["decision"] in (
+              "CARRY_FORWARD","SETTLE_WITH_SOURCE","ABANDON_BY_AUTHOR") and
+          author_review["author_confirmed"] is True and
+          author_review["candidate_read"] is True and
+          _text(author_review["owner"],70) and
+          _text(author_review["target"],70) and
+          author_review["owner"]!=author_review["target"] and
+          _text(author_review["reason"],130),
+          "WFCORE_DELIVERY_SEPARATE_AUTHOR_REVIEW_REQUIRED")
+    decision=author_review["decision"]
+    action,outcome=author_review["action_quote"],author_review["outcome_quote"]
+    anchored=None
+    if decision=="SETTLE_WITH_SOURCE":
+        _need(_text(action,150) and _text(outcome,150) and
+              len(action)>=6 and len(outcome)>=6 and
+              prose.count(action)==1 and prose.count(outcome)==1 and
+              prose.index(action)+len(action)<=prose.index(outcome),
+              "WFCORE_DELIVERY_SETTLEMENT_NEEDS_UNIQUE_ORDERED_SOURCE")
+        anchored=(
+            _anchor(prose,{"quote":action,"start":prose.index(action),
+                           "author_confirmed":True}),
+            _anchor(prose,{"quote":outcome,"start":prose.index(outcome),
+                           "author_confirmed":True}))
+    else:
+        _need(action is None and outcome is None,
+              "WFCORE_DELIVERY_DEFER_OR_ABANDON_CANNOT_FAKE_PAYOFF")
+    key=_delivery_thread_key(contract["id"])
+    nodes={k:{**v,"props":dict(v["props"])}
+           for k,v in graph["nodes"].items()}
+    entry=nodes.get(key)
+    if entry is not None:
+        old=entry["props"]
+        _need(entry["kind"]=="THREAD" and
+              old.get("delivery_contract")==contract and
+              old.get("truth_scope")=="AUTHOR_INTENT" and
+              old["status"]=="OPEN" and
+              old["owner"]==author_review["owner"] and
+              old["target"]==author_review["target"] and
+              old["last_reviewed_chapter"]<graph["chapter_index"],
+              "WFCORE_DELIVERY_ALREADY_CLOSED_REPLAY_OR_CHANGED_IDENTITY")
+        props=dict(old)
+    else:
+        _need(len(nodes)<MAX_NODES,"WFCORE_GRAPH_CAPACITY_REFUSE_SILENT_FORGET")
+        props={
+            "owner":author_review["owner"],
+            "target":author_review["target"],
+            "thread_kind":("MYSTERY" if contract["function"] in (
+                "QUESTION","REVEAL") else "PROMISE"),
+            "premise":author_delivery_contract["story_question"],
+            "truth_scope":"AUTHOR_INTENT",
+            "status":"OPEN",
+            "opened_chapter":graph["chapter_index"],
+            "origin_evidence_sha256":_hash(prose),
+            "delivery_contract":contract,
+            "candidate_only_not_story_canon":True,
+        }
+    props["last_reviewed_chapter"]=graph["chapter_index"]
+    props["last_evidence_sha256"]=_hash(prose)
+    props["author_review_reason_sha256"]=_hash(author_review["reason"])
+    if anchored is not None:
+        props["status"]="SETTLED_AUTHOR_REVIEW_ONLY"
+        props["source_action_sha256"]=anchored[0]["quote_sha256"]
+        props["source_outcome_sha256"]=anchored[1]["quote_sha256"]
+        props["independent_literary_payoff_verified"]=False
+    elif decision=="ABANDON_BY_AUTHOR":
+        props["status"]="ABANDONED_AUTHOR_REVIEW_ONLY"
+        props["not_a_payoff"]=True
+    else:
+        props["status"]="OPEN"
+        props["past_original_due"]=(
+            contract["due"]=="THIS_SCENE" and
+            graph["chapter_index"]>=props["opened_chapter"])
+        props["source_payoff_unverified"]=True
+    nodes[key]={"id":key,"kind":"THREAD","props":props}
+    next_state={k:v for k,v in graph.items() if k!="receipt_sha256"}
+    next_state.update({
+        "parent_sha256":graph["receipt_sha256"],
+        "nodes":nodes,
+        "last_delta_flags":{key:int(Patch.THREAD|Patch.STATUS)},
+        "last_event_count":0,
+        "last_delivery_review_sha256":_hash({
+            "chapter":graph["chapter_index"],
+            "contract":contract,
+            "decision":decision,
+            "reason_sha256":props["author_review_reason_sha256"],
+            "source_sha256":_hash(prose),
+        }),
+    })
+    return validate(_signed(next_state),project_id=project_id,
+                    scene_id=scene_id)
+
+
+def review_scene_delivery_resume(resume,*,project_id,scene_id,
+                                 prose,scene_goal,scene_kind,
+                                 author_delivery_contract,author_review,
+                                 delivery_receipt=None):
+    """Build a NEW V117 candidate resume after review; do not overwrite R2.
+
+    This is an opt-in review path. The story resume stays unreviewed/candidate
+    with canon_writes=0 even if the author has judged one scene obligation.
+    """
+    graph=read_core_from_resume(
+        resume,project_id=project_id,scene_id=scene_id)
+    _need(graph is not None,"WFCORE_DELIVERY_REVIEW_NEEDS_UNIFIED_GRAPH")
+    reviewed=review_scene_delivery_on_graph(
+        graph,project_id=project_id,scene_id=scene_id,
+        prose=prose,scene_goal=scene_goal,scene_kind=scene_kind,
+        author_delivery_contract=author_delivery_contract,
+        author_review=author_review,delivery_receipt=delivery_receipt)
+    from .v117_continuity_trace import make_resume
+    return make_resume(
+        project_id=project_id,scene_id=scene_id,
+        chapter_index=resume["chapter_index"],
+        checkpoint=resume["unreviewed_story_state_checkpoint"],
+        unified_narrative_core=reviewed)
 
 
 def read_core_from_resume(resume,*,project_id,scene_id):
