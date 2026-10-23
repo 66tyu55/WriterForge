@@ -4,7 +4,7 @@
 
 ## 0. 当前权威工作位置及本轮验收
 
-- 唯一当前开发分支：`refactor-unified-scene-delivery-audit`，仓库 `66tyu55/WriterForge`。已验证的最后功能提交：`c216a83426431a9261f4d211773ab1f4fe605802`，随后仅更新交接文档（无功能性代码改动）。交接时文档提交 HEAD：`98d535f5e2dc9cc3ee423964a8789a4d612ae701`。
+- 唯一当前开发分支：`refactor-unified-scene-delivery-audit`，仓库 `66tyu55/WriterForge`。已验证的最后功能提交：`c216a83426431a9261f4d211773ab1f4fe605802`，随后仅更新交接文档（无功能性代码改动）。最新文档 HEAD 请现场查询 GitHub（本文件自身更新会产生新提交），不可将文档提交误认成功能源码变动。
 - 最新全量回归：[GitHub Actions #39947647329](https://github.com/66tyu55/WriterForge/actions/runs/39947647329)，**1,407 tests run，4 skipped，0 failures**；测试确认的是软件机制，不是原创小说质量提升。
 - `main` 当时为 `d6ca4b769faa2ef2b47da91fb623a417be49de17`，未将开发分支合入；Railway 生产服务未部署本轮变化。
 - **技术交接与已核验行为详见：[UNIFIED_SOURCE_FIRST_SCENE_DELIVERY_AUDIT_20261023.md](UNIFIED_SOURCE_FIRST_SCENE_DELIVERY_AUDIT_20261023.md)**。这是新对话的首个详细源码证据入口。此前统一图/缓冲压缩/R2 请按需读 [UNIFIED_NARRATIVE_CORE_DIFF_PRIORITY_NPC_KNOWLEDGE_20261022.md](UNIFIED_NARRATIVE_CORE_DIFF_PRIORITY_NPC_KNOWLEDGE_20261022.md)、[UNIFIED_NARRATIVE_BUFFERED_MEMORY_AND_AUTHOR_AGENCY_20261022.md](UNIFIED_NARRATIVE_BUFFERED_MEMORY_AND_AUTHOR_AGENCY_20261022.md)、[UNIFIED_NARRATIVE_R2_DURABLE_CAS_20261022.md](UNIFIED_NARRATIVE_R2_DURABLE_CAS_20261022.md)。
