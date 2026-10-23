@@ -85,6 +85,7 @@ from .narrative_core import (
     relevant_history_context,
     detect_long_prose_replay,
     audit_scene_delivery,validate_scene_delivery_contract,
+    propose_scene_delivery_debt,
 )
 
 MAX_LIVE_CONTEXT = 1400
@@ -1180,6 +1181,22 @@ class AutonomousWriting:
                         if whole_delivery["blocked"]:
                             raise NarrativeCoreError(
                                 "WFCORE_ENTIRE_LONG_PROSE_REPEATED")
+                        # A contract is author intent, not an accomplished
+                        # scene or an automatic permanent story-world fact.
+                        # Preview against the SAME unified graph; only the
+                        # separate author-review path may open/settle THREAD.
+                        whole_debt_proposal=(
+                            propose_scene_delivery_debt(
+                                active_narrative_core,
+                                project_id=self.assist.project_id,
+                                scene_id=self.assist.scene_id,
+                                chapter_index=first_story_chapter_index+index-1,
+                                prose=body,scene_goal=goal,
+                                scene_kind="chapter",
+                                author_delivery_contract=chapter_contract,
+                                delivery_receipt=whole_delivery)
+                            if chapter_contract is not None and
+                               active_narrative_core is not None else None)
                     turn_evidence=receipts_only(
                         accepted_turns,mode=("causal_guard" if
                                              draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling","continuity_guard")
@@ -1218,6 +1235,9 @@ class AutonomousWriting:
                             unified_scene_delivery_turn_checks)
                         turn_evidence["unified_scene_delivery_chapter"]=(
                             whole_delivery)
+                        turn_evidence["unified_scene_debt_review_proposal"]=(
+                            whole_debt_proposal)
+                        turn_evidence["unified_scene_debt_auto_commits"]=0
                         if active_narrative_core is not None:
                             turn_evidence["unified_narrative_scheduler"]=(
                                 narrative_lane_decisions)
@@ -1405,7 +1425,18 @@ class AutonomousWriting:
                         "unified_scene_due_contract_id":(
                             whole_delivery["registered_delivery_contract"]["id"]
                             if whole_delivery["registered_delivery_contract"]
-                            else None)}
+                            else None),
+                        "unified_scene_cross_chapter_debt_status":(
+                            whole_debt_proposal["status"]
+                            if whole_debt_proposal is not None else
+                            "NO_UNIFIED_GRAPH_TO_REGISTER_DEBT"
+                            if chapter_contract is not None else None),
+                        "unified_scene_debt_review_receipt_sha256":(
+                            whole_debt_proposal["receipt_sha256"]
+                            if whole_debt_proposal is not None else None),
+                        "unified_scene_debt_auto_commits":0,
+                        "unified_scene_author_review_required_to_commit":(
+                            chapter_contract is not None)}
                        if draft_mode=="continuity_guard" else {}),
                     **({"v98_rolling_plan":str(private_rolling),
                         "model_replan_calls":len(rolling_receipts)}
