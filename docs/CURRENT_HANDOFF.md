@@ -4,7 +4,7 @@
 
 **此节比下面 0～0.3 更晚；保留原 0 节作为首轮基线，后续请先看这一节再往下读。**
 
-- 唯一工作位置仍为仓库 66tyu55/WriterForge 的 refactor-unified-scene-delivery-audit 分支。核心叙事**功能与测试最后提交** cb704a845ac2bc90c5609ab704b65ae28f915842；后续另加封存 Atria 原始证据的工作流功能提交 61714072b96d05bce06093d851da405b5c3c1b49（非叙事记忆模块），文档 HEAD SHA 会继续变化。生产 main 未修改，Railway 未部署；没有调用书生/DeepSeek、没有覆盖旧 R2/Canon/七类原稿；但本轮**确实新增私有 R2 只增不改的证据备份**（见下）。
+- 唯一工作位置仍为仓库 66tyu55/WriterForge 的 refactor-unified-scene-delivery-audit 分支。核心叙事**功能与测试最后提交** cb704a845ac2bc90c5609ab704b65ae28f915842；另有封存 Atria 原始证据的工作流功能提交 61714072b96d05bce06093d851da405b5c3c1b49（非叙事记忆模块），文档 HEAD SHA 会继续变化。生产 main 未修改，Railway 未部署；没有调用书生/DeepSeek、没有覆盖旧 R2/Canon/七类原稿；但本轮**确实新增私有 R2 只增不改的证据备份**（见下）。
 - **已核验的最新全量 GitHub Actions**：[WF Unified Scene Delivery #39953606339](https://github.com/66tyu55/WriterForge/actions/runs/39953606339)，结论 success，**1,422 tests run、4 skipped、0 failures**；新增 15 项合成回归（首轮 1,407 → 1,422），工程测试不等于真实文学质量改善。
 - 解决的真正断点：之前 author_delivery_contract 能检查当章未验证的兑现，但 AutonomousWriting.run 之后推进统一图时 events=()，并不会自动登记未偿合同。现在 writerforge/narrative_core.py 新增 propose_scene_delivery_debt（生成时只读提议）、review_scene_delivery_on_graph（保存原候选 + 作者另行确认后才可更改同一 THREAD）、review_scene_delivery_resume（生成不覆盖旧版本的新 V117 候选恢复封套）。writerforge/writing_assist.py 在已有 V96 evidence 及章结果直出 THREAD 待审状态，自动提交次数为零。作者审阅时还必须重新读取并核验真实保存的候选原文；R2 源必须有提供实际字节的私有 source_reader，不能仅凭旧 SHA 结案。完整源码及决策说明见 [UNIFIED_SOURCE_FIRST_SCENE_DELIVERY_AUDIT_20261023.md](UNIFIED_SOURCE_FIRST_SCENE_DELIVERY_AUDIT_20261023.md) 新增小节。
 - 审阅三种结果：CARRY_FORWARD 以 AUTHOR_INTENT（仅写作意图，不是世界事实）登记开放的通用 THREAD；SETTLE_WITH_SOURCE 需明确作者复核 + 两条按顺序出现且唯一、真实叙述的行动/心理决定与后果锚点，标 SETTLED_AUTHOR_REVIEW_ONLY，**不宣称文学质量已证**；ABANDON_BY_AUTHOR 是放弃而非兑现。THIS_SCENE 当场未付可经作者决定跨章保留，DEFERRED 自然留白。不同人物的秘密认知仍隔离。普通安静情节不强求反转。
