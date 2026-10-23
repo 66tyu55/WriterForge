@@ -590,17 +590,39 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
                        "不要为了兑现大纲而强造事件。" if quiet else
                        "让人物按自身认知、欲望、代价和眼前阻力作选择；"
                        "可以不按原大纲行动，不把读者偏好当人物的想法。"))
-    # Explicit fact is relevant only if the current beat discusses it.
-    # Do not expose a SECRET's value to an uninformed POV.
+    # A source-confirmed UNKNOWN still matters when the character's goal
+    # does not literally name the secret. The previous literal-only lookup
+    # allowed a POV character to quote a secret known only to the reader.
+    # Bound unprompted guards to two; these are *existing author-signed graph*
+    # edges, never automatically inferred facts or a second memory module.
+    proactive_unknown_eligible=0
+    proactive_unknown_delivered=0
     for nid,row in sorted(graph["nodes"].items()):
         if row["kind"]!="FACT":
             continue
         fact=row["props"]
-        if fact["name"] not in goal:
-            continue
         fid=nid.split(":",1)[1]
         relation=knows(graph,character=actor,fact_id=fid)
-        if relation in ("AUTHOR_ASSERTED_UNKNOWN","NOT_ESTABLISHED"):
+        named_in_goal=fact["name"] in goal
+        proactive=(not named_in_goal and
+                   relation=="AUTHOR_ASSERTED_UNKNOWN" and
+                   beat["kind"] not in ("quiet","transition"))
+        if proactive:
+            proactive_unknown_eligible+=1
+            if proactive_unknown_delivered>=2:
+                continue
+            proactive_unknown_delivered+=1
+        if not named_in_goal and not proactive:
+            continue
+        if proactive:
+            queue("NPC_KNOWLEDGE",nid,
+                  f"【人物尚未知情的来源底线】{actor}尚未实际获悉"
+                  f"“{fact['name'][:70]}”；"
+                  "这是作者前史中出现的内容，不等于人物知道。"
+                  "本段不得让此人凭空说出精确信息；"
+                  "若要得知，先写出亲见、查阅或被告知的经过，"
+                  "再由后续来源审阅，不预设必须揭密。")
+        elif relation in ("AUTHOR_ASSERTED_UNKNOWN","NOT_ESTABLISHED"):
             note=("明确登记为尚未获知" if
                   relation=="AUTHOR_ASSERTED_UNKNOWN" else
                   "缺少已获知的来源证据")
@@ -689,6 +711,10 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
         "deferred_tasks":deferred,
         "deferred_unresolved_thread_count":len([
             k for k in deferred if k.startswith("thread:")]),
+        "author_unknown_proactive_eligible":proactive_unknown_eligible,
+        "author_unknown_proactive_chosen":proactive_unknown_delivered,
+        "author_unknown_unprompted_not_selected":max(
+            0,proactive_unknown_eligible-proactive_unknown_delivered),
         "prompt_chars":len(content),
         "priority_order":["HARD_STATE","NPC_KNOWLEDGE",
                           "CHARACTER_INTENT","LONG_THREAD","CRAFT"],
@@ -808,6 +834,22 @@ def audit_candidate(graph,*,project_id,scene_id,prose,cast=()):
     from .v116_state_delta import _segments
     findings=[]
     reviews=[]
+    # A direct UNKNOWN must not be silently lost just because the model
+    # leaked an exact fact in dialogue rather than writing "X already knew".
+    # This is REVIEW ONLY: a legitimate newly narrated disclosure is possible,
+    # and no model prose may auto-certify that the knowledge edge changed.
+    for key,node in graph["nodes"].items():
+        if node["kind"]!="FACT" or node["props"]["name"] not in prose:
+            continue
+        fid=key.split(":",1)[1]
+        for ch in graph["nodes"].values():
+            if (ch["kind"]=="CHARACTER" and
+                ch["props"]["name"] in prose and
+                knows(graph,character=ch["props"]["name"],fact_id=fid)
+                    =="AUTHOR_ASSERTED_UNKNOWN"):
+                if "WFCORE_UNREVIEWED_UNKNOWN_FACT_MENTION" not in reviews:
+                    reviews.append("WFCORE_UNREVIEWED_UNKNOWN_FACT_MENTION")
+                break
     for _,__,clause,dialogue in _segments(prose):
         if dialogue:
             # Dialogue isn't a narrator assertion of knowledge.
