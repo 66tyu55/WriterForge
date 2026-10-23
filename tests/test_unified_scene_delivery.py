@@ -213,6 +213,8 @@ class SourcePayoffAudit(unittest.TestCase):
             "saved=save_candidate(packet,body")
         assert '"unified_scene_delivery_turn_checks"' in body
         assert '"unified_scene_delivery_chapter"' in body
+        assert '"unified_scene_function_review_needed"' in body
+        assert '"unified_scene_function_review_findings"' in body
         assert "author_delivery_contract=chapter_contract" in body
 
     def test_receipt_signature_and_novel_text_not_leaked(self):
