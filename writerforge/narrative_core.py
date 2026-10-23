@@ -1351,6 +1351,195 @@ def detect_long_prose_replay(prose):
     }
 
 
+def _long_repeated_passage_evidence(prose):
+    """Bounded lexical long-echo evidence, NOT semantic similarity.
+
+    Split into whole sentences in approximately 160-360-character windows.
+    Compare distant windows by 5-codepoint shingles. Intentional motifs,
+    short refrains and early/later narrative callbacks must be *reviewed*,
+    never hard blocked by similarity alone. This contains no NLP model call.
+    """
+    parts=re.findall(r"[^。！？；\n]+[。！？；]?|[^\n]+",prose)
+    spans=[]
+    window=""
+    for part in parts:
+        piece=part.strip()
+        if not piece:
+            continue
+        if len(window)+len(piece)>320 and len(window)>=140:
+            spans.append(window)
+            window=""
+        if len(piece)>430:
+            # One extra-long sentence: keep bounded only, without
+            # labelling it a repeated unit by fragmenting it arbitrarily.
+            if window:
+                spans.append(window)
+                window=""
+            continue
+        window+=piece
+    if len(window)>=140:
+        spans.append(window)
+    spans=spans[:48]
+    if len(spans)<3:
+        return []
+    fingerprints=[]
+    for span in spans:
+        flat=re.sub(r"\s+","",span)
+        fingerprints.append(set(flat[i:i+5] for i in range(
+            max(0,len(flat)-4))))
+    candidates=[]
+    for i in range(len(spans)):
+        for j in range(i+2,len(spans)):
+            a,b=fingerprints[i],fingerprints[j]
+            if min(len(a),len(b))<100:
+                continue
+            intersection=len(a & b)
+            union=len(a | b)
+            # Near lexical duplication needs many identical long phrases.
+            # It cannot prove the scenes have the same *meaning*.
+            if union and intersection*100>=union*78:
+                candidates.append({
+                    "earlier_window":i,
+                    "later_window":j,
+                    "earlier_sha256":_hash(spans[i]),
+                    "later_sha256":_hash(spans[j]),
+                    "lexical_jaccard_percent":intersection*100//union,
+                    "source_text_not_in_receipt":True,
+                })
+                if len(candidates)>=3:
+                    return candidates
+    return candidates
+
+
+def audit_scene_delivery(*,prose,scene_goal,scene_kind,
+                         anchored_effect_quotes=(),
+                         author_delivery_contract=None,
+                         reviewer_proposal=None):
+    """One source-first scene-function receipt inside the unified core.
+
+    A comedy punchline, moral turning point or believable inner change is
+    NOT derivable from simple text substrings. We therefore distinguish:
+      - deterministic long literal replay -> existing hard failure;
+      - high lexical scene echo -> review suggestion, never hard by itself;
+      - model/V96 cited effects -> *text exists*, NOT semantic fulfillment;
+      - author-pinned immediate payoff -> outstanding until explicit review;
+      - intentional deferred/open question -> never forced to close.
+    An optional independent-review proposal is allowed, but must point to
+    unique real source quotations. It cannot commit an event or certify
+    artistic quality. No new model call, no second state owner.
+    """
+    _need(type(prose) is str and 1<=len(prose)<=MAX_CHARS and
+          _text(scene_goal,600) and
+          type(scene_kind) is str and scene_kind in (
+              "action","decision","reversal","dialogue","quiet",
+              "aftermath","setup","transition","chapter"),
+          "WFCORE_SCENE_DELIVERY_INPUT_INVALID")
+    _need(type(anchored_effect_quotes) in (tuple,list) and
+          len(anchored_effect_quotes)<=12 and
+          all(type(q) is str and 6<=len(q)<=150
+              for q in anchored_effect_quotes),
+          "WFCORE_SCENE_EFFECT_QUOTE_INPUT_INVALID")
+    base=detect_long_prose_replay(prose)
+    evidence=[]
+    for quote in anchored_effect_quotes:
+        positions=[m.start() for m in re.finditer(re.escape(quote),prose)]
+        _need(len(positions)==1,
+              "WFCORE_SCENE_EFFECT_QUOTE_NOT_UNIQUE_IN_PROSE")
+        start=positions[0]
+        evidence.append({
+            "start":start,"end":start+len(quote),
+            "source_quote_sha256":_hash(quote),
+            "citation_from_model_trace_not_semantic_truth":True,
+        })
+    contract=None
+    if author_delivery_contract is not None:
+        _need(type(author_delivery_contract) is dict and
+              set(author_delivery_contract)=={
+                  "id","function","due","author_confirmed",
+                  "story_question"} and
+              _id(author_delivery_contract["id"]) and
+              author_delivery_contract["function"] in (
+                  "CHANGE","QUESTION","REVEAL","REVERSAL",
+                  "CHOICE","COMPLICATION","OTHER") and
+              author_delivery_contract["due"] in ("THIS_SCENE","DEFERRED") and
+              author_delivery_contract["author_confirmed"] is True and
+              _text(author_delivery_contract["story_question"],250),
+              "WFCORE_SCENE_CONTRACT_UNTRUSTED_OR_NOT_AUTHOR_CONFIRMED")
+        contract={
+            "id":author_delivery_contract["id"],
+            "function":author_delivery_contract["function"],
+            "due":author_delivery_contract["due"],
+            "question_sha256":_hash(author_delivery_contract["story_question"]),
+            "only_author_confirmed_intent_not_model_plan":True,
+        }
+    proposal=None
+    if reviewer_proposal is not None:
+        _need(type(reviewer_proposal) is dict and
+              set(reviewer_proposal)=={
+                  "judgment","action_quote","outcome_quote"} and
+              reviewer_proposal["judgment"] in (
+                  "CHANGED","TRANSFORMED","STILL_OPEN","UNCERTAIN") and
+              all(type(reviewer_proposal[k]) is str and
+                  6<=len(reviewer_proposal[k])<=150
+                  for k in ("action_quote","outcome_quote")),
+              "WFCORE_SCENE_REVIEW_PROPOSAL_SCHEMA_INVALID")
+        action=reviewer_proposal["action_quote"]
+        outcome=reviewer_proposal["outcome_quote"]
+        ai=[m.start() for m in re.finditer(re.escape(action),prose)]
+        oi=[m.start() for m in re.finditer(re.escape(outcome),prose)]
+        _need(len(ai)==1 and len(oi)==1 and
+              ai[0]+len(action)<=oi[0],
+              "WFCORE_SCENE_REVIEW_QUOTE_NOT_SOURCE_PROVEN")
+        proposal={
+            "suggested_function_status":reviewer_proposal["judgment"],
+            "source_action_sha256":_hash(action),
+            "source_outcome_sha256":_hash(outcome),
+            "action_position":ai[0],"outcome_position":oi[0],
+            "semantic_interpretation_still_unverified":True,
+            "model_or_reviewer_cannot_settle_story_obligation":True,
+        }
+    echoed=_long_repeated_passage_evidence(prose)
+    warnings=[]
+    if base["needs_review"] or echoed:
+        warnings.append("WFCORE_LONG_PROSE_ECHO_REVIEW")
+    if contract is not None and contract["due"]=="THIS_SCENE":
+        if proposal is None or proposal["suggested_function_status"] in (
+                "STILL_OPEN","UNCERTAIN"):
+            warnings.append("WFCORE_DUE_SCENE_PAYOFF_NOT_YET_VERIFIED")
+    if (scene_kind in ("decision","reversal","action")
+        and not evidence and proposal is None):
+        warnings.append("WFCORE_BEAT_EFFECT_NOT_INDEPENDENTLY_EVIDENCED")
+    if proposal is not None and contract is not None and (
+            contract["due"]=="DEFERRED" and
+            proposal["suggested_function_status"]=="STILL_OPEN"):
+        # Explicit postponement is a legitimate story choice, not failure.
+        warnings=[w for w in warnings if
+                  w!="WFCORE_DUE_SCENE_PAYOFF_NOT_YET_VERIFIED"]
+    receipt={
+        "format":"wf.narrative.scene-delivery.v1",
+        "prose_sha256":_hash(prose),
+        "scene_goal_sha256":_hash(scene_goal),
+        "scene_kind":scene_kind,
+        "source_effect_quote_anchors":evidence,
+        "registered_delivery_contract":contract,
+        "independent_review_proposal":proposal,
+        "long_echo_review_candidates":echoed,
+        "long_prose_replay":base,
+        "blocked":base["blocked"],
+        "needs_review":bool(warnings),
+        "review_findings":warnings,
+        "scene_function_verified":False,
+        "semantic_repetition_verified":False,
+        "open_story_questions_are_permitted":True,
+        "model_claim_not_promoted_to_fact":True,
+        "no_prose_auto_rewrite":True,
+        "model_calls":0,"canon_writes":0,
+        "source_prose_not_in_receipt":True,
+    }
+    receipt["receipt_sha256"]=_hash(receipt)
+    return receipt
+
+
 def read_core_from_resume(resume,*,project_id,scene_id):
     from .v117_continuity_trace import read_resume
     read_resume(resume,project_id=project_id,scene_id=scene_id)
