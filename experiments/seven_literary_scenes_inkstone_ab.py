@@ -350,14 +350,16 @@ def stream_chat(key,model,prompt,max_tokens,*,reasoning_effort=None):
     reason_chars=0
     start=time.monotonic()
     failure=None
+    hard_timeout=(440 if max_tokens>4000 else STREAM_TIMEOUT_SECONDS)
+    wall_limit=(465 if max_tokens>4000 else STREAM_WALL_SECONDS)
     try:
-        with opener.open(req,timeout=STREAM_TIMEOUT_SECONDS) as response:
+        with opener.open(req,timeout=hard_timeout) as response:
             for raw in response:
                 bytes_seen+=len(raw)
                 if bytes_seen>STREAM_MAX_BYTES:
                     failure="STREAM_TOTAL_BYTES_EXCEEDED"
                     break
-                if time.monotonic()-start>STREAM_WALL_SECONDS:
+                if time.monotonic()-start>wall_limit:
                     failure="STREAM_WALL_LIMIT_REACHED"
                     break
                 line=raw.decode("utf8","replace").strip()
@@ -490,6 +492,14 @@ def main():
         cases=[c for c in all_cases if c["id"]==selected]
     else:
         cases=all_cases
+    output_override=os.getenv("WF_STREAM_OUTPUT_TOKENS","")
+    if output_override:
+        if output_override!="6000" or selected not in (
+                "climax","psychology"):
+            raise ValueError("WF_UNVERIFIED_OUTPUT_OVERRIDE")
+        effective_output_limit=6000
+    else:
+        effective_output_limit=MAX_RESERVED_OUTPUT
     max_generate=len(cases)*2
     allowed_calls=max_generate+(0 if os.getenv(
         "WF_BATCH_CONFIRMED_STREAM_MODEL") else MAX_PROBES)
@@ -501,9 +511,9 @@ def main():
         "policy":"one_same-model_bare_vs_wf_guided_per_genre",
         "generation_call_ceiling":max_generate,
         "probe_call_ceiling":MAX_PROBES,
-        "per_generation_max_tokens":MAX_RESERVED_OUTPUT,
+        "per_generation_max_tokens":effective_output_limit,
         "total_reserved_output_token_ceiling":(
-            max_generate*MAX_RESERVED_OUTPUT+
+            max_generate*effective_output_limit+
             (0 if os.getenv("WF_BATCH_CONFIRMED_STREAM_MODEL")
              else MAX_PROBES*MAX_PROBE_TOKENS)),
         "synthetic_sources_only":True,
@@ -601,7 +611,7 @@ def main():
                 return 6
             report["calls_attempted"]+=1
             start=time.monotonic()
-            result=chat(key,chosen,prompt,MAX_RESERVED_OUTPUT)
+            result=chat(key,chosen,prompt,effective_output_limit)
             elapsed=round(time.monotonic()-start,1)
             if not result.get("ok") or not result.get("text","").strip():
                 item["samples"].append({
