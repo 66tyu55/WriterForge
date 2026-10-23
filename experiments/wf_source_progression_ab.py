@@ -149,7 +149,7 @@ def _runner(genre,*,mode,blind_id,plans,root,client,calls):
                 core,project_id=project,scene_id=scope,chapter_index=1,
                 source_path=str(source),prose=seed)
             old=external_temporal_step(
-                seed,cast=("沈砚","唐蜃","叶青梧"))
+                seed,cast=case.get("cast",("沈砚","唐蜃","叶青梧")))
             resume=make_resume(
                 project_id=project,scene_id=scope,chapter_index=1,
                 checkpoint=old,unified_narrative_core=core)
