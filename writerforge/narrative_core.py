@@ -181,6 +181,53 @@ def validate(graph,*,project_id,scene_id):
               type(v.get("props")) is dict and
               k.startswith(v["kind"].lower()+":"),
               "WFCORE_NODE_SCHEMA_INVALID")
+        if v["kind"]=="THREAD" and "delivery_contract" in v["props"]:
+            props=v["props"]
+            c=props["delivery_contract"]
+            _need(type(c) is dict and
+                  set(c)=={"id","function","due","question_sha256",
+                           "only_author_confirmed_intent_not_model_plan"} and
+                  _id(c["id"]) and
+                  c["function"] in ("CHANGE","QUESTION","REVEAL","REVERSAL",
+                                    "CHOICE","COMPLICATION","OTHER") and
+                  c["due"] in ("THIS_SCENE","DEFERRED") and
+                  c["only_author_confirmed_intent_not_model_plan"] is True and
+                  type(c["question_sha256"]) is str and
+                  SHA.fullmatch(c["question_sha256"]) and
+                  k==_delivery_thread_key(c["id"]) and
+                  _text(props.get("premise"),250) and
+                  _hash(props["premise"])==c["question_sha256"] and
+                  props.get("truth_scope")=="AUTHOR_INTENT" and
+                  props.get("candidate_only_not_story_canon") is True and
+                  props.get("status") in (
+                      "OPEN","SETTLED_AUTHOR_REVIEW_ONLY",
+                      "ABANDONED_AUTHOR_REVIEW_ONLY") and
+                  _text(props.get("owner"),70) and
+                  _text(props.get("target"),70) and
+                  props["owner"]!=props["target"] and
+                  type(props.get("opened_chapter")) is int and
+                  0<=props["opened_chapter"]<=graph["chapter_index"] and
+                  type(props.get("last_reviewed_chapter")) is int and
+                  props["opened_chapter"]<=props["last_reviewed_chapter"]<=
+                      graph["chapter_index"] and
+                  type(props.get("last_evidence_sha256")) is str and
+                  SHA.fullmatch(props["last_evidence_sha256"]) and
+                  type(props.get("author_review_reason_sha256")) is str and
+                  SHA.fullmatch(props["author_review_reason_sha256"]),
+                  "WFCORE_DELIVERY_THREAD_SCHEMA_OR_SOURCE_UNTRUSTED")
+            if props["status"]=="OPEN":
+                _need(props.get("source_payoff_unverified") is True,
+                      "WFCORE_DELIVERY_OPEN_MUST_STAY_UNVERIFIED")
+            elif props["status"]=="SETTLED_AUTHOR_REVIEW_ONLY":
+                _need(props.get("independent_literary_payoff_verified")
+                      is False and
+                      all(type(props.get(n)) is str and
+                          SHA.fullmatch(props[n]) for n in (
+                          "source_action_sha256","source_outcome_sha256")),
+                      "WFCORE_DELIVERY_SETTLED_ONLY_BY_AUTHOR")
+            else:
+                _need(props.get("not_a_payoff") is True,
+                      "WFCORE_DELIVERY_ABANDON_NOT_A_PAYOFF")
     for k,v in graph["edges"].items():
         _need(_text(k,220) and type(v) is dict and v.get("id")==k and
               v.get("kind") in ("CONTACT","KNOWS","UNKNOWN","BELIEVES")
@@ -1559,6 +1606,11 @@ def _delivery_thread_key(contract_id):
 def _checked_delivery_evidence(*,prose,scene_goal,scene_kind,
                                author_delivery_contract,delivery_receipt):
     contract=validate_scene_delivery_contract(author_delivery_contract)
+    # Unkeyed receipt hashes protect drift, not a malicious/replayed flag.
+    # Always check the actual source for the hard long-prose failure again.
+    _need(type(prose) is str and 1<=len(prose)<=MAX_CHARS and
+          detect_long_prose_replay(prose)["blocked"] is False,
+          "WFCORE_DELIVERY_REVIEW_PROSE_REPLAY_BLOCKED")
     _need(contract is not None and type(delivery_receipt) is dict and
           delivery_receipt.get("format")=="wf.narrative.scene-delivery.v1" and
           type(delivery_receipt.get("receipt_sha256")) is str and
