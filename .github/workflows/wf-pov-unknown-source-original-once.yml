@@ -1,10 +1,7 @@
 name: WF Real Original Prose POV Unknown-Source Correction
 on:
-  push:
-    branches: [refactor-unified-scene-delivery-audit]
-    paths:
-      - .github/workflows/wf-pov-unknown-source-original-once.yml
-      - experiments/wf_pov_unknown_real_prose_probe.py
+  # Saved 2-call original-writing POV probe; future inference only by explicit action.
+  workflow_dispatch:
 permissions:
   contents: read
   actions: read
