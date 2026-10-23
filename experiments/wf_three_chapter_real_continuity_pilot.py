@@ -105,7 +105,7 @@ def persist_json(path,value):
 
 def structural_preflight():
     assert len(CHAPTER_GOALS)==3 and len(CAST)==3
-    assert 12==MAX_CALLS and MAX_RESERVED==14700
+    assert 12==MAX_CALLS and MAX_RESERVED==15000
     assert len(SOURCE)<2200 and len(OUTLINE)<1800
     assert len(set(CAST))==3
     assert all(name in SOURCE for name in CAST)
@@ -124,10 +124,8 @@ def main():
     OUTPUT.mkdir(parents=True,exist_ok=False)
     source_path=OUTPUT/"CHAPTER_001_ORIGINAL_SEED.md"
     source_path.write_text(SOURCE,encoding="utf8")
-    db=WriterForgeDB(OUTPUT/"neutral-synthetic-only.sqlite")
-    # neutral unpublished resource is only to meet existing SOURCE workflow;
-    # it is NOT evidence of any deep learned book or the user's private corpus.
-    db.close()
+    # Neutral fixture meets the published SOURCE gate only;
+    # it is NOT evidence of actual learned literary methods.
     snapshot=fresh_neutral_published_snapshot(
         OUTPUT/"neutral-writer-bridge.sqlite")
     db=WriterForgeDB(OUTPUT/"neutral-writer-bridge.sqlite")
