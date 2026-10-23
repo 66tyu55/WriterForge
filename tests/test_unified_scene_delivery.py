@@ -479,6 +479,58 @@ class CrossChapterDeliveryDebt(unittest.TestCase):
                     NarrativeCoreError,"ALREADY_CLOSED_REPLAY"):
                 self.apply(rejected,self.review())
 
+
+    def test_real_two_chapter_carry_then_source_anchored_settlement(self):
+        from writerforge.narrative_core import (
+            advance_graph,record_chapter_memory,
+            propose_scene_delivery_debt,schedule,
+        )
+        with tempfile.TemporaryDirectory() as folder:
+            first=self.apply(
+                self.candidate_graph(folder),self.review("CARRY_FORWARD"))
+            second_prose=(
+                "沈砚把未寄出的信收起，决定当面告知唐蜃这笔旧债。"
+                "唐蜃听罢没有原谅他，却答应同去矿井查证。")
+            second=advance_graph(
+                first,project_id=self.PROJECT,scene_id=self.STREAM,
+                chapter_index=2,prose=second_prose,events=())
+            file=Path(folder)/"chapter-2.md"
+            file.write_text(second_prose,encoding="utf8")
+            second=record_chapter_memory(
+                second,project_id=self.PROJECT,scene_id=self.STREAM,
+                chapter_index=2,source_path=str(file),prose=second_prose)
+            report=self.receipt(prose=second_prose)
+            preview=propose_scene_delivery_debt(
+                first,project_id=self.PROJECT,scene_id=self.STREAM,
+                chapter_index=2,prose=second_prose,
+                scene_goal=self.GOAL,scene_kind="chapter",
+                author_delivery_contract=self.CONTRACT,
+                delivery_receipt=report)
+            self.assertEqual(preview["status"],"OPEN_UNPAID")
+            self.assertEqual(next(n for n in second["nodes"].values()
+                                  if n["kind"]=="THREAD")["props"]["status"],
+                             "OPEN")
+            closed=self.apply(
+                second,self.review(
+                    "SETTLE_WITH_SOURCE",
+                    action_quote="沈砚把未寄出的信收起，决定当面告知唐蜃这笔旧债。",
+                    outcome_quote="唐蜃听罢没有原谅他，却答应同去矿井查证。"),
+                prose=second_prose,receipt=report)
+            thread=next(n["props"] for n in closed["nodes"].values()
+                        if n["kind"]=="THREAD")
+            self.assertEqual(thread["last_reviewed_chapter"],2)
+            self.assertEqual(thread["opened_chapter"],1)
+            self.assertEqual(thread["status"],"SETTLED_AUTHOR_REVIEW_ONLY")
+            self.assertEqual(len(closed["nodes"]),len(first["nodes"]))
+            self.assertEqual(closed["parent_sha256"],second["receipt_sha256"])
+            self.assertEqual(closed["memory"]["last_recorded_chapter"],2)
+            self.assertEqual(schedule(
+                closed,project_id=self.PROJECT,scene_id=self.STREAM,
+                chapter_index=3,
+                beat={"kind":"decision","actor":"沈砚",
+                      "goal":"沈砚准备和唐蜃继续调查"})["required_context"],"")
+            self.assertEqual(closed["canon_writes"],0)
+
     def test_changed_contract_identity_fails_no_second_owner(self):
         from writerforge.narrative_core import propose_scene_delivery_debt
         with tempfile.TemporaryDirectory() as folder:
