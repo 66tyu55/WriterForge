@@ -190,7 +190,7 @@ def main():
         attempts[-1]["wire_saved_before_decoding"]=True
         attempts[-1]["stage"]="WIRE_SAVED_BEFORE_VALIDATION"
 
-    model=DeepSeekFlashModel(
+    model_client=DeepSeekFlashModel(
         budget=budget,timeout_seconds=120,
         on_response_wire=wire_sink)
     helper=InvisibleWritingAssist(
@@ -218,7 +218,7 @@ def main():
         attempts.append(item)
         system=(SYSTEMS["PROSE"] if slot in (2,3)
                 else SYSTEMS[stage])
-        original=model.ask_json(
+        original=model_client.ask_json(
             role="self_scene_writing",system=system,
             user=packet.prompt,max_tokens=max_tokens)
         payload=json.dumps(original,ensure_ascii=False,
@@ -230,7 +230,7 @@ def main():
         item.update({
             "model_reply":"DECODED_ORIGINAL_SAVED_BEFORE_WF_VALIDATION",
             "decoded_response_sha256":h(payload),
-            "exact_json_tail_recovery":model.last_response_format_recovery,
+            "exact_json_tail_recovery":model_client.last_response_format_recovery,
         })
         return payload
 
