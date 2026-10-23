@@ -563,7 +563,10 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
     # constraints/creative tensions, not a fixed next action or reader vote.
     actor_key=_node_key("character",actor)
     character_node=graph["nodes"].get(actor_key)
-    if character_node is not None and beat["kind"] not in ("quiet","transition"):
+    # Quiet psychological scenes still have character agency: silence,
+    # restraint and deferred choices are possible actions of the mind.
+    # Only pure transitions bypass the personal-lens prompt.
+    if character_node is not None and beat["kind"]!="transition":
         lens=character_node["props"].get("lens",{})
         if type(lens) is dict and lens:
             parts=[]
@@ -578,10 +581,15 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
                 if len(parts)>=3:
                     break
             if parts:
+                quiet=beat["kind"]=="quiet"
                 queue("CHARACTER_INTENT",actor_key,
-                      "【人物自主行动张力】"+"；".join(parts)+"。"
-                      "让人物按自身认知、欲望、代价和眼前阻力作选择；"
-                      "可以不按原大纲行动，不把读者偏好当人物的想法。")
+                      ("【人物自主内心张力】" if quiet else
+                       "【人物自主行动张力】")+"；".join(parts)+"。"+
+                      ("心理可以犹豫、克制、沉默、暂缓行动；"
+                       "让人物按自身认知、欲望和代价作真实选择，"
+                       "不要为了兑现大纲而强造事件。" if quiet else
+                       "让人物按自身认知、欲望、代价和眼前阻力作选择；"
+                       "可以不按原大纲行动，不把读者偏好当人物的想法。"))
     # Explicit fact is relevant only if the current beat discusses it.
     # Do not expose a SECRET's value to an uninformed POV.
     for nid,row in sorted(graph["nodes"].items()):
@@ -608,10 +616,19 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
         if row["kind"]!="THREAD":
             continue
         t=row["props"]
-        if t["status"]!="OPEN" or beat["kind"] in ("quiet","transition"):
+        if t["status"]!="OPEN" or beat["kind"]=="transition":
             continue
-        if not (t["owner"] in goal or t["target"] in goal or
-                nid.split(":",1)[1] in goal):
+        thread_id=nid.split(":",1)[1]
+        if beat["kind"]=="quiet":
+            # Do not ignite every debt merely because the protagonist
+            # appears in a quiet chapter. A quiet scene must explicitly
+            # name BOTH sides or the exact stable thread key.
+            related=(thread_id in goal or
+                     t["owner"] in goal and t["target"] in goal)
+        else:
+            related=(t["owner"] in goal or t["target"] in goal or
+                     thread_id in goal)
+        if not related:
             continue
         truth=("人物看法尚未确证" if
                t["truth_scope"]=="CHARACTER_BELIEF" else
