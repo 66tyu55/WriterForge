@@ -302,6 +302,157 @@ def make_turn_instructions(beat,*,mode,accepted=(),
     return output
 
 
+
+def normalize_model_source_citations(raw,beat,accepted=()):
+    """Fix *citation spelling* only; never alter original generated prose.
+
+    The model sometimes quotes '他把信...' when the actual text says
+    '沈砚把信...': the full predicate is an unambiguous literal substring.
+    It also quotes just the first source-backed sentence of a previous
+    effect. The strict citation checker continues to validate the
+    normalized references. All semantic errors and unclear matches remain.
+    """
+    if type(raw) is not str or type(beat) is not dict:
+        return raw,None
+    try:
+        doc=_strict_json(raw,MAX_TURN_JSON_BYTES)
+        need(set(doc)==TURN_FIELDS and
+             _text(doc.get("prose"),MIN_PROSE_CHARS,MAX_PROSE_CHARS) and
+             type(doc.get("trace")) is dict and
+             set(doc["trace"])==TRACE_FIELDS,
+             "WF96_RECOVERY_NOT_A_VALID_PROSE_ENVELOPE")
+    except V96CausalDraftError:
+        return raw,None
+    source=doc["prose"].strip()
+    trace=doc["trace"]
+    changed=[]
+    for label in ("action_quote","effect_quote"):
+        quote=trace[label]
+        if type(quote) is not str or len(quote)<18 or len(quote)>MAX_QUOTE_CHARS:
+            continue
+        if _occurrences(source,quote):
+            continue
+        possible=[]
+        # Only drop a SINGLE demonstrably mismatched personal pronoun.
+        # Never trim negation ("不", "没") or an event's substantive words.
+        if quote[0] in "他她它" and len(quote)>18:
+            possible.append(("STRIP_SOURCE_MISMATCHED_PRONOUN",quote[1:]))
+        # Omitting the very last punctuation is a citation normalization,
+        # not a new fictional event. No lexical/semantic guesswork.
+        if quote[-1] in "，；。！？" and len(quote)>19:
+            possible.append(("STRIP_CITATION_END_PUNCTUATION",quote[:-1]))
+        for operation,candidate in possible:
+            if (len(_occurrences(source,candidate))==1 and
+                MIN_QUOTE_CHARS<=len(candidate)<=MAX_QUOTE_CHARS):
+                try:
+                    _quote_anchor(source,candidate,label.upper().replace("_QUOTE",""))
+                except V96CausalDraftError:
+                    continue
+                trace[label]=candidate
+                changed.append({
+                    "field":label,"repair_kind":operation,
+                    "actual_quote_sha256":digest(candidate.encode("utf8")),
+                    "original_quote_sha256":digest(quote.encode("utf8")),
+                })
+                break
+    parent=beat.get("causal_parent")
+    prior={x["beat_id"]:x for x in accepted if type(x) is dict and
+           type(x.get("beat_id")) is str}
+    required=prior.get(parent,{}).get("effect_quote") if parent else None
+    supplied=trace["parent_effect_quote"]
+    if (type(required) is str and type(supplied) is str and
+        supplied!=required and len(supplied)>=16 and
+        required.startswith(supplied) and
+        len(_occurrences(prior[parent]["prose"],required))==1):
+        trace["parent_effect_quote"]=required
+        changed.append({
+            "field":"parent_effect_quote",
+            "repair_kind":"EXPAND_EXACT_PREVIOUS_EFFECT_PREFIX",
+            "actual_quote_sha256":digest(required.encode("utf8")),
+            "original_quote_sha256":digest(supplied.encode("utf8")),
+        })
+    if not changed:
+        return raw,None
+    result=json.dumps(doc,ensure_ascii=False,separators=(",",":"))
+    need(len(result.encode("utf8"))<=MAX_TURN_JSON_BYTES,
+         "WF96_SOURCE_CITATION_NORMALIZED_OUTPUT_TOO_LARGE")
+    return result,{
+        "format":"wf.writing.source-citation-spelling-only.v1",
+        "original_model_response_sha256":digest(raw.encode("utf8")),
+        "normalized_response_sha256":digest(result.encode("utf8")),
+        "prose_sha256":digest(source.encode("utf8")),
+        "model_prose_unchanged":True,
+        "no_causal_meaning_or_literary_quality_inferred":True,
+        "source_quote_replacements":changed,
+        "extra_model_calls":0,"canon_writes":0,
+    }
+
+
+def review_only_model_turn(raw,beat,*,failure_code,accepted=(),
+                           author_confirmed_forbidden_phrases=()):
+    """Salvage a source-valid literary DRAFT, not a proven causal turn.
+
+    Optional model trace mistakes (overlapping/self-contradictory citations,
+    omitted/incorrect earlier effect) must not destroy real prose. Strict
+    original validation has already run and refused that trace. Missing or
+    malformed prose, author exclusions and declared parent IDs remain hard.
+    Nothing from this draft is eligible for canon/knowledge promotion.
+    """
+    review_errors=frozenset((
+        "WF96_ACTION_NOT_UNIQUE_IN_ACTUAL_PROSE",
+        "WF96_EFFECT_NOT_UNIQUE_IN_ACTUAL_PROSE",
+        "WF96_ACTION_EFFECT_OVERLAP_OR_REVERSED",
+        "WF96_PARENT_CAUSE_NOT_ANCHORED_IN_PREVIOUS_PROSE",
+        "WF96_ACTION_NEEDS_ACTUAL_ACTION_AND_EFFECT",
+        "WF96_PARTIAL_ACTION_EFFECT_NOT_ALLOWED",
+        "WF96_POLARITY_UNCERTAIN_NEEDS_REVIEW",
+        "WF96_ACTION_QUOTE_NOT_BOUNDED",
+        "WF96_EFFECT_QUOTE_NOT_BOUNDED",
+    ))
+    need(failure_code in review_errors,
+         "WF96_TRACE_RECOVERY_NOT_AN_OPTIONAL_CITATION_FAILURE")
+    doc=_strict_json(raw,MAX_TURN_JSON_BYTES)
+    need(type(beat) is dict and set(beat)==BEAT_FIELDS and
+         set(doc)==TURN_FIELDS and
+         _text(doc.get("prose"),MIN_PROSE_CHARS,MAX_PROSE_CHARS) and
+         type(doc.get("trace")) is dict and
+         set(doc["trace"])==TRACE_FIELDS,
+         "WF96_TRACE_RECOVERY_UNSAFE_PROSE_OR_SCHEMA")
+    prose=doc["prose"].strip()
+    need(len(canonical(doc))<=MAX_TURN_JSON_BYTES,
+         "WF96_TRACE_RECOVERY_EXCEEDS_BOUNDS")
+    parent=beat.get("causal_parent")
+    need(parent is None or
+         parent in {row.get("beat_id") for row in accepted},
+         "WF96_TRACE_RECOVERY_PARENT_NOT_WRITTEN")
+    for excluded in _approved_exclusions(author_confirmed_forbidden_phrases):
+        need(excluded not in prose,
+             "WF96_AUTHOR_CONFIRMED_KNOWLEDGE_BOUNDARY_VIOLATION")
+    receipt={
+        "format":"wf.writing.candidate-turn.v96",
+        "turn_id":beat["id"],
+        "prose_sha256":digest(prose.encode("utf8")),
+        "prose_chars":len(prose),
+        "kind":beat["kind"],
+        "parent_turn_id":parent,
+        "causal_check":"TRACE_REJECTED_SOURCE_PROSE_REVIEW_ONLY",
+        "action_anchor":None,"effect_anchor":None,
+        "parent_effect_sha256":None,
+        "model_trace_failure_code":failure_code,
+        "model_trace_not_proof_of_causality":True,
+        "inherited_canon_facts_written":False,
+        "literary_causality_independently_verified":False,
+        "eligible_for_factjournal_KNOWN":False,
+        "eligible_for_experience_promotion":False,
+        "candidate_requires_author_acceptance":True,
+        "source_novel_text_in_receipt":False,
+        "model_calls_for_validation":0,
+    }
+    receipt["receipt_sha256"]=digest(canonical(receipt))
+    return {"beat_id":beat["id"],"prose":prose,
+            "effect_quote":None,"receipt":receipt}
+
+
 def assemble_prose(turns):
     need(type(turns) in (tuple,list) and
          MIN_TURNS<=len(turns)<=MAX_TURNS and
