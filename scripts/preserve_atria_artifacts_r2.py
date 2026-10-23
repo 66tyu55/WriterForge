@@ -16,7 +16,6 @@ import zipfile
 
 import boto3
 from botocore.exceptions import ClientError
-import requests
 
 from writerforge.r2_storage import R2Config, R2StorageError
 
@@ -36,8 +35,11 @@ def canonical(data) -> bytes:
                       separators=(",", ":"), allow_nan=False).encode("utf8")
 
 
-def artifact_bytes(item, token, *, session=requests):
+def artifact_bytes(item, token, *, session=None):
     """Read only the pre-registered GitHub artifact, fail on changed identity."""
+    if session is None:
+        import requests
+        session=requests
     source = f"https://api.github.com/repos/{REPO}/actions/artifacts/{item['artifact_id']}"
     header = {"Authorization": "Bearer "+token,
               "Accept": "application/vnd.github+json",
