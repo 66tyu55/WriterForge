@@ -4,6 +4,7 @@ on:
     branches: [refactor-unified-scene-delivery-audit]
     paths:
       - .github/workflows/wf-pov-unknown-source-original-once.yml
+      - experiments/wf_pov_unknown_real_prose_probe.py
 permissions:
   contents: read
   actions: read
