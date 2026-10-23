@@ -1,0 +1,63 @@
+name: WF Three Consecutive Real Novel Chapters - Source First
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-three-real-chapters-once.yml
+permissions:
+  contents: read
+concurrency:
+  group: writerforge-three-real-chapters-source-first-20261023
+  cancel-in-progress: false
+jobs:
+  three-real-chapters-one-novel:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 26
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing WriterForge runtime
+        run: python -m pip install -e '.[r2]'
+      - name: Verify real chapter chain and original source before paid inference
+        run: python -m unittest tests.test_wf_three_chapter_real_preflight tests.test_unified_narrative_core tests.test_wf_scene_format_recovery -q
+      - name: Confirm existing DeepSeek key rather than asking to reconfigure
+        run: python -c 'import os; assert bool(os.environ.get("DEEPSEEK_API_KEY")), "WF_THREE_CHAPTER_EXISTING_KEY_NOT_AVAILABLE"'
+      - name: Write exactly three sequential real WF chapter candidates, max 12 genuine model calls
+        run: python -m experiments.wf_three_chapter_real_continuity_pilot
+      - name: Verify actual original story and source resume continuity
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('wf_three_chapter_real_results/STATUS.json')
+          x=json.loads(p.read_text('utf8'))
+          assert x['status']=='THREE_CHAPTERS_ORIGINAL_CANDIDATES_SAVED', x['status']
+          assert x['chapter_count_completed']==3
+          assert x['actual_model_call_count']==12
+          assert x['accepted_prose_rows']==0
+          assert [c['chapter_index'] for c in x['real_written_chapters']]==[2,3,4]
+          assert all(c['source_reread_byte_equal'] for c in x['real_written_chapters'])
+          assert x['literary_progression_mode']=='baseline'
+          print('THREE REAL WF CHAPTERS SAVED (CANDIDATES ONLY); LITERARY QUALITY UNVERIFIED')
+          PY
+      - name: Preserve original manuscripts and wire receipts even if validation fails
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WF-Three-Consecutive-Real-Chapters-Originals
+          path: |
+            wf_three_chapter_real_results/STATUS.json
+            wf_three_chapter_real_results/CHAPTER_*
+          retention-days: 30
+          if-no-files-found: warn
