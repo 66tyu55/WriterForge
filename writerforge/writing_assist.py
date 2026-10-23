@@ -32,6 +32,7 @@ from .verified_flow import (
 from .v96_causal_turns import (
     V96CausalDraftError,parse_turn_outline,make_turn_instructions,
     check_turn,assemble_prose,receipts_only,canonical as causal_canonical,
+    normalize_model_source_citations,review_only_model_turn,
     CRAFT as _WF96_OPTIONAL_CRAFT,BEAT_FIELDS as _WF96_BEAT_FIELDS,
     MAX_PLAN_JSON_BYTES as _WF96_PLAN_BUDGET,
 )
@@ -990,6 +991,8 @@ class AutonomousWriting:
                 narrative_source_reviews=[]
                 unified_prose_replay_checks=[]
                 unified_scene_delivery_turn_checks=[]
+                source_citation_normalizations=[]
+                model_trace_review_failures=[]
                 prompt_delivery_receipts=[]
                 plan_execution_checks=[]
                 rolling_receipts=[]
@@ -1155,14 +1158,48 @@ class AutonomousWriting:
                                 author_confirmed_forbidden_phrases=(
                                     author_confirmed_forbidden_phrases))
                         else:
-                            evidence=check_turn(
-                                last_turn_response,beat,
-                                mode=("causal_guard" if
-                                      draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling","continuity_guard")
-                                      else draft_mode),
-                                accepted=tuple(accepted_turns),
-                                author_confirmed_forbidden_phrases=(
-                                    author_confirmed_forbidden_phrases))
+                            checked_response=last_turn_response
+                            if draft_mode=="continuity_guard":
+                                # Original unmodified response was persisted
+                                # above. Only exact-source citation spelling
+                                # can be normalized; model prose never changes.
+                                checked_response,source_citation_receipt=(
+                                    normalize_model_source_citations(
+                                        last_turn_response,beat,
+                                        accepted=tuple(accepted_turns)))
+                                if source_citation_receipt is not None:
+                                    source_citation_normalizations.append(
+                                        source_citation_receipt)
+                            try:
+                                evidence=check_turn(
+                                    checked_response,beat,
+                                    mode=("causal_guard" if
+                                          draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling","continuity_guard")
+                                          else draft_mode),
+                                    accepted=tuple(accepted_turns),
+                                    author_confirmed_forbidden_phrases=(
+                                        author_confirmed_forbidden_phrases))
+                            except V96CausalDraftError as source_trace_error:
+                                if draft_mode!="continuity_guard":
+                                    raise
+                                # Keep genuine paragraphs; do not claim
+                                # model's incorrect quote proves causality.
+                                # Wrong literary trace is a review debt;
+                                # source timeline/knowledge/replay still run.
+                                evidence=review_only_model_turn(
+                                    checked_response,beat,
+                                    failure_code=str(source_trace_error),
+                                    accepted=tuple(accepted_turns),
+                                    author_confirmed_forbidden_phrases=(
+                                        author_confirmed_forbidden_phrases))
+                                model_trace_review_failures.append({
+                                    "turn_id":beat["id"],
+                                    "code":str(source_trace_error),
+                                    "prose_sha256":evidence["receipt"]["prose_sha256"],
+                                    "source_body_retained":True,
+                                    "causal_truth_not_verified":True,
+                                    "model_retries":0,
+                                })
                         if draft_mode=="continuity_guard":
                             turn_delivery=audit_scene_delivery(
                                 prose=evidence["prose"],
@@ -1303,6 +1340,11 @@ class AutonomousWriting:
                         turn_evidence["v120_auto_rewrites"]=0
                         turn_evidence["unified_optional_craft_compatibility"]=(
                             optional_craft_compatibility)
+                        turn_evidence["unified_source_citation_normalizations"]=(
+                            source_citation_normalizations)
+                        turn_evidence["unified_model_trace_review_failures"]=(
+                            model_trace_review_failures)
+                        turn_evidence["unified_source_prose_not_discarded_for_trace"]=True
                         turn_evidence["unified_prose_replay_checks"]=(
                             unified_prose_replay_checks)
                         turn_evidence["unified_completed_chapter_replay"]=(
@@ -1492,9 +1534,17 @@ class AutonomousWriting:
                     "causal_logic_literary_verified":False,
                     "facts_not_committed":True,
                     **({"unified_scene_function_review_needed":
-                            whole_delivery["needs_review"],
+                            bool(whole_delivery["needs_review"] or
+                                 model_trace_review_failures),
                         "unified_scene_function_review_findings":
-                            whole_delivery["review_findings"],
+                            list(dict.fromkeys(
+                                whole_delivery["review_findings"]+
+                                [r["code"] for r in
+                                 model_trace_review_failures])),
+                        "unified_model_trace_review_count":
+                            len(model_trace_review_failures),
+                        "unified_model_trace_source_citation_repairs":
+                            len(source_citation_normalizations),
                         "unified_scene_function_receipt_sha256":
                             whole_delivery["receipt_sha256"],
                         "unified_scene_function_semantics_verified":False,
