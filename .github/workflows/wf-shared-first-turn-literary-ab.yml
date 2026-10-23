@@ -1,9 +1,8 @@
 name: WF Same-First-Paragraph Source-Only Literary A/B
 on:
-  push:
-    branches: [refactor-unified-scene-delivery-audit]
-    paths:
-      - .github/workflows/wf-shared-first-turn-literary-ab.yml
+  # Original real evidence is saved. Prevent unintended paid experiment replay.
+  # Re-run only after an explicit future user request.
+  workflow_dispatch:
 permissions:
   contents: read
   actions: read
