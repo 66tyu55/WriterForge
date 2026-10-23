@@ -100,6 +100,32 @@ class PovWithoutReaderOmniscience(unittest.TestCase):
         self.assertFalse(possible["blocked"])
         self.assertEqual(possible["canon_writes"],0)
 
+    def test_author_clarified_real_pilot_seed_is_source_anchorable(self):
+        # The previous real source has Chinese quotation marks around the
+        # inscription; strict source events cannot span those quoted zones.
+        # A clearly disclosed synthetic author clarification preserves the
+        # old source byte sequence as a prefix and creates real FACT+UNKNOWN.
+        from experiments import wf_pov_unknown_real_prose_probe as probe
+        from experiments.wf_real_self_scene_diagnostics import source_event
+        from writerforge.narrative_core import knows
+        case=probe.case_with_author_known_unknown()
+        self.assertTrue(case["seed"].startswith(probe.pilot.SOURCE))
+        self.assertNotEqual(case["seed"],probe.pilot.SOURCE)
+        core=new_graph(project_id=P,scene_id=S)
+        core=advance_graph(
+            core,project_id=P,scene_id=S,chapter_index=1,
+            prose=case["seed"],
+            events=[source_event(case["seed"],n,event)
+                    for n,event in enumerate(case["event_quotes"],1)])
+        self.assertEqual(
+            knows(core,character="陶筠",fact_id="blue-shipping-note"),
+            "AUTHOR_ASSERTED_UNKNOWN")
+        scene=schedule(core,project_id=P,scene_id=S,chapter_index=2,
+                       beat=beat("陶筠",
+                                 "陶筠清点活字并询问简洛当夜值班情况"))
+        self.assertIn("灰袋三十",scene["required_context"])
+        self.assertEqual(scene["author_unknown_proactive_chosen"],1)
+
     def test_no_author_unknown_does_not_invent_an_invisible_prohibition(self):
         source=new_graph(project_id=P,scene_id=S)
         result=schedule(
