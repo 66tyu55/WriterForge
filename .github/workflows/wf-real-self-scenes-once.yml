@@ -1,4 +1,4 @@
-name: WF Real Self-Written Four-Scene Literary Diagnosis
+name: WF Real Self-Written Four-Scene Literary Diagnosis (Corrected Source Fixture)
 on:
   push:
     branches: [refactor-unified-scene-delivery-audit]
@@ -35,6 +35,8 @@ jobs:
           node-version: '22'
       - name: Install existing WF runtime without external model tools
         run: python -m pip install -e '.[r2]'
+      - name: Verify source type and genre fixture repaired before inference
+        run: python -c 'from experiments import wf_real_self_scene_diagnostics as s; assert len(s.CASES)==4; assert s.MAX_CALLS==4'
       - name: Verify prior WF scene and actual graph tests offline
         run: python -m unittest tests.test_unified_scene_delivery tests.test_unified_narrative_core -q
       - name: Fail before inference without already configured model secret
