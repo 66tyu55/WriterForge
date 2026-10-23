@@ -1,9 +1,8 @@
 name: WF Real Self-Written Four-Scene Literary Diagnosis (Prose Format Recovery Verification 3)
 on:
-  push:
-    branches: [refactor-unified-scene-delivery-audit]
-    paths:
-      - .github/workflows/wf-real-self-scenes-once.yml
+  # One bounded four-genre live run completed. Prevent accidental replays
+  # when documentation or experimental workflow changes.
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
