@@ -4,6 +4,8 @@ on:
     branches: [refactor-unified-scene-delivery-audit]
     paths:
       - .github/workflows/wf-three-real-chapters-once.yml
+      - experiments/wf_three_chapter_real_continuity_pilot.py
+      - tests/test_wf_three_chapter_real_preflight.py
 permissions:
   contents: read
 concurrency:
