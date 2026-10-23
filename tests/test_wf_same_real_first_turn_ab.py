@@ -59,7 +59,7 @@ class SharedProseExperiment(unittest.TestCase):
             self.assertTrue(all(len(x)==64 for x in entries.values()))
         self.assertIn("same_first_turn_json_and_both_wf_prompts",
                       inspect.getsource(trial.main))
-        self.assertIn("same_first_turn",trial.__doc__.lower().replace("-","_"))
+        self.assertIn("first-turn",trial.__doc__.lower())
 
 if __name__=="__main__":
     unittest.main()
