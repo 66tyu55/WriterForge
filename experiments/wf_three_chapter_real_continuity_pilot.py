@@ -76,12 +76,12 @@ EVENTS=(
     ("CHARACTER_REFLECT",
      "陶筠担心工人领不到工资，也怕旧铅活字被当废料毁掉。",
      {"actor":"陶筠","dimension":"fear",
-      "value":"工人领不到工资也怕活字被毁",
+      "value":"旧铅活字被当废料毁掉",
       "evidence_scope":"NARRATED_INNER"}),
     ("CHARACTER_REFLECT",
      "闻遥坚持在报道前找到两份互相独立的证据。",
      {"actor":"闻遥","dimension":"value",
-      "value":"报道前找到两份独立证据",
+      "value":"报道前找到两份互相独立的证据",
       "evidence_scope":"NARRATED_INNER"}),
 )
 TOKENS=(650,1450,1450,1450)
