@@ -185,6 +185,12 @@ def diagnostic(scene):
             root=Path(folder)
             snapshot=fresh_neutral_published_snapshot(root/"neutral.sqlite")
             db=WriterForgeDB(root/"neutral.sqlite")
+            # Match the neutral bridge's sole fixture to this request's
+            # literary genre. It remains a NON-TEACHING software fixture.
+            db.conn.execute(
+                "UPDATE xuehai_entries SET genre=? WHERE work_id=?",
+                (case["genre"],"v111-neutral-fixture"))
+            db.conn.commit()
             rt=RuntimeEngine()
             rt.enter_write(snapshot)
             core=new_graph(project_id=project,scene_id=sid)
@@ -195,7 +201,8 @@ def diagnostic(scene):
                         for i,event in enumerate(case.get("event_quotes",()),1)])
             core=record_chapter_memory(
                 core,project_id=project,scene_id=sid,
-                chapter_index=1,source_path=output/"synthetic-chapter-one.md",
+                chapter_index=1,source_path=str(
+                    output/"synthetic-chapter-one.md"),
                 prose=seed)
             prior=external_temporal_step(
                 seed,cast=("沈砚","唐蜃","叶青梧"))
