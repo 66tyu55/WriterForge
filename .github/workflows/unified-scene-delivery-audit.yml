@@ -9,6 +9,7 @@ on:
       - writerforge/v96_causal_turns.py
       - writerforge/deepseek_flash_model.py
       - tests/test_wf_scene_format_recovery.py
+      - tests/test_wf_source_progression_literary.py
       - tests/test_unified_scene_delivery.py
       - tests/test_unified_prose_replay.py
 permissions:
