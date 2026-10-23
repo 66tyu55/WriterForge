@@ -1,11 +1,7 @@
 name: WF One-time Atria Sealed Evidence to Private R2
 on:
-  push:
-    branches: [refactor-unified-scene-delivery-audit]
-    paths:
-      - .github/workflows/preserve-atria-evidence-r2.yml
-      - scripts/preserve_atria_artifacts_r2.py
-      - tests/test_atria_private_evidence_preservation.py
+  # Originals are already preserved. Only explicitly invoked future
+  # readback/verification is permitted: no background repeat uploads.
   workflow_dispatch:
 permissions:
   actions: read
