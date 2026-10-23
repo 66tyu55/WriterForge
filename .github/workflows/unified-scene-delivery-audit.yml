@@ -1,0 +1,32 @@
+name: WF Unified Scene Delivery and Progression Audit
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/unified-scene-delivery-audit.yml
+      - writerforge/narrative_core.py
+      - writerforge/writing_assist.py
+      - tests/test_unified_scene_delivery.py
+      - tests/test_unified_prose_replay.py
+permissions:
+  contents: read
+concurrency:
+  group: wf-unified-scene-delivery
+  cancel-in-progress: true
+jobs:
+  no-model-complete-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Do not use model credentials
+        run: python -c 'import os; assert not any(os.getenv(n) for n in ("DISCOVERY_API_KEY","DEEPSEEK_API_KEY","OPENAI_API_KEY","OPENROUTER_API_KEY"))'
+      - run: python -m pip install -e '.[r2]'
+      - name: Full WriterForge suite including source-backed scene commitments
+        run: python -m unittest discover -s tests -q
