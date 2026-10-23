@@ -1298,6 +1298,59 @@ def relevant_history_context(graph,*,project_id,scene_id,
     return "\n".join(lines)
 
 
+def detect_long_prose_replay(prose):
+    """Zero-model, O(n) source-level replay detector for completed prose.
+
+    This protects against visible full-scene duplication, which event/prop/
+    character state reducers cannot detect. It does NOT score literature,
+    reword text, guess a missing continuation or discard failed manuscripts.
+    Whitespace layout is ignored ONLY for matching; original text untouched.
+    """
+    _need(type(prose) is str and 1<=len(prose)<=MAX_CHARS,
+          "WFCORE_PROSE_REPLAY_INPUT_BOUNDS")
+    normalized=re.sub(r"\s+","",prose)
+    n=len(normalized)
+    if not n:
+        raise NarrativeCoreError("WFCORE_PROSE_REPLAY_EMPTY")
+    pi=[0]*n
+    for i in range(1,n):
+        j=pi[i-1]
+        while j>0 and normalized[i]!=normalized[j]:
+            j=pi[j-1]
+        if normalized[i]==normalized[j]:
+            j+=1
+        pi[i]=j
+    smallest_period=n-pi[-1]
+    exact=(n>=650 and smallest_period>=280
+           and n%smallest_period==0 and
+           n//smallest_period>=2)
+    long_border=pi[-1]
+    # A first/last ~40% recurrence may be an intentional framing device.
+    # Mark review only; it is never a hard error without a full exact replay.
+    suspect=(not exact and n>=900 and long_border>=350
+             and long_border*5>=n*2)
+    if exact:
+        issue="WFCORE_ENTIRE_LONG_PROSE_REPEATED"
+    elif suspect:
+        issue="WFCORE_LONG_TEXT_ECHO_NEEDS_REVIEW"
+    else:
+        issue=None
+    return {
+        "format":"wf.narrative.prose-replay-source-audit.v1",
+        "source_prose_sha256":_hash(prose),
+        "non_whitespace_characters":n,
+        "blocked":exact,
+        "needs_review":suspect,
+        "finding":issue,
+        "minimal_repeated_span":smallest_period if exact else None,
+        "exact_repeat_count":n//smallest_period if exact else 0,
+        "long_overlap_chars":long_border if suspect else 0,
+        "original_prose_is_never_rewritten":True,
+        "model_calls":0,"canon_writes":0,
+        "literary_quality_verified":False,
+    }
+
+
 def read_core_from_resume(resume,*,project_id,scene_id):
     from .v117_continuity_trace import read_resume
     read_resume(resume,project_id=project_id,scene_id=scene_id)
