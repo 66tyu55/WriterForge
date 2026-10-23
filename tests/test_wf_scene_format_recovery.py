@@ -95,8 +95,8 @@ class OriginalProviderJsonRecovery(unittest.TestCase):
 
 class SourceOnlyTraceRepair(unittest.TestCase):
     def test_inexact_pronoun_quote_matches_unique_existing_action(self):
-        action="沈砚把旧信收回袖口，在灯下停了许久。"
-        mismatch="他把旧信收回袖口，在灯下停了许久。"
+        action="沈砚把旧信收回袖口，在灯下停了许久，最终连窗外的脚步声也没有理会。"
+        mismatch="他把旧信收回袖口，在灯下停了许久，最终连窗外的脚步声也没有理会。"
         effect="他终于决定明天先去查被救孩子的身份，暂时不找唐蜃。"
         prose=("深夜驿站的灯火逐渐熄灭，沈砚孤身坐在窗边，"
                "想着已经读过许多遍的父亲遗信。"
