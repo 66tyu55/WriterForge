@@ -79,7 +79,10 @@ class SharedRealFirstTurn:
 
     @property
     def last_response_format_recovery(self):
-        return self.model.last_response_format_recovery
+        # A reused original first turn must never inherit the previous
+        # arm's live provider decoding status.
+        return (None if self.called==1
+                else self.model.last_response_format_recovery)
 
     @property
     def _on_response_wire(self):
