@@ -613,14 +613,12 @@ class AutonomousWriting:
             narrative_core_checkpoint:dict|None=None,
             narrative_memory_backend:str="local",
             scene_delivery_contracts:tuple[dict|None,...]|None=None,
-            literary_progression_mode:str|None=None) -> dict:
-        # In the unified writer, a source-grounded second turn now gets one
-        # OPTIONAL scene progression suggestion by default. Old draft modes
-        # remain unchanged; explicit "baseline" is the A/B rollback switch.
-        if literary_progression_mode is None:
-            literary_progression_mode=(
-                "source_progression" if draft_mode=="continuity_guard"
-                else "baseline")
+            literary_progression_mode:str="baseline") -> dict:
+        # Reverted trial-only promotion after source-locked first-turn A/B:
+        # plot improved, but climax and horror did not (small editorial
+        # sample, not a statistical or human-quality verdict).
+        # New literary advice remains available by explicit opt-in only;
+        # existing source/character/causal writing is the default.
         if literary_progression_mode not in (
                 "baseline","source_progression"):
             raise WritingExecutionError(
