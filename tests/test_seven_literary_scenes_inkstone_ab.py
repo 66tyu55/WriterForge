@@ -16,7 +16,7 @@ class SevenScenarioBatchProtocolTests(unittest.TestCase):
         self.assertEqual(len(data),7)
         self.assertTrue(all(len(c["seed"])>=60 for c in data))
         self.assertEqual(MAX_COMPLETIONS,14)
-        self.assertEqual(MAX_PROBES,2)
+        self.assertEqual(MAX_PROBES,3)
         self.assertEqual(FREE_CANDIDATES[:2],
                          ("intern-s2","Atria-Dawn-Preview"))
 
