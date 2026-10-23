@@ -112,3 +112,10 @@ tests/test_unified_scene_delivery.py 使用合成原创微场景覆盖只读提�
 - **真实 GitHub Actions success：[#39953107366](https://github.com/66tyu55/WriterForge/actions/runs/39953107366)**。运行记录返回 preserved_original_github_artifacts=9，private_r2_fresh_get_success=9，new_model_calls=0，canon_writes=0，source_copies_logged_or_published=false。
 - 不可变私有清单 SHA256：14e0e957f2564af71ee0ee3b8f74bf743948f6e06fa59e750b58387a5b74650e；保存九份 ZIP 的来源记录、来源实验与补测预算分类，保留原有失败、没有重新生成或重打分。备份仅为原始附件封存，不是新作学习、不等于文学进步，也不触发生产 Railway。状态附件只有哈希/数量，没有原稿正文。
 - 与本文早先的“本轮没有 R2 写入”历史基线须区分：**统一叙事闭环代码和 1,420 项软件回归**没有对 R2 写入；**本次后续防过期归档**确实向私有 R2 写入了九个封存 ZIP 与一份不可变 manifest。未覆盖任何现有小说原稿、R2 学习库、Canon 或主分支。
+
+
+### 最后来源回查保护（最新源码回归）
+
+作者审阅不再只检查 HOT buffer 中的 source_sha256 与用户传入 prose 相同。review_scene_delivery_on_graph / review_scene_delivery_resume 在作出任一 CARRY_FORWARD / SETTLE_WITH_SOURCE / ABANDON_BY_AUTHOR 决定之前，还会调用现有 _verify_source_file 对保存的本地 candidate.md **重新读取原字节 SHA**；若是私有 r2:// 来源，必须显式传入现有私有 R2 source_reader 实际 GET，缺失读取器或对象字节变更就 fail closed。没有新增记忆模块和正文复制库。
+
+新增两个对抗回归：候选文件落盘后被篡改不能继续审结；R2 路径没有真实读取器不能审结，提供能回读且 SHA 匹配的 R2 reader 后才允许。**最新完整功能与测试提交 cb704a845ac2bc90c5609ab704b65ae28f915842；Actions [#39953606339](https://github.com/66tyu55/WriterForge/actions/runs/39953606339) success：1,422 tests run、4 skipped、0 failures。**之前 #39952000380 的 1,420 为历史绿色中间状态，非最终本轮测试数。另行做过的九件私有 R2 原稿归档只用于防原始附件过期，不是此文学语义测试的新模型调用。
