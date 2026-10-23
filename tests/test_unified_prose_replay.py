@@ -99,7 +99,7 @@ class SourceBasedReplayGateTests(unittest.TestCase):
 
     def test_actual_continuity_writer_checks_before_turn_acceptance(self):
         text=inspect.getsource(AutonomousWriting.run)
-        position=text.index("replay_check=detect_long_prose_replay")
+        position=text.index("turn_delivery=audit_scene_delivery(")
         accepted=text.index("accepted_turns.append(evidence)")
         self.assertLess(position,accepted)
         self.assertIn('"unified_prose_replay_checks"',text)
@@ -108,7 +108,7 @@ class SourceBasedReplayGateTests(unittest.TestCase):
 
     def test_complete_chapter_guard_precedes_save_candidate(self):
         text=inspect.getsource(AutonomousWriting.run)
-        check=text.index("complete_replay=detect_long_prose_replay(body)")
+        check=text.index("whole_delivery=audit_scene_delivery(")
         saved=text.index("saved=save_candidate(packet,body")
         self.assertLess(check,saved)
         # Existing V96 rejection record retains exact error reason and
