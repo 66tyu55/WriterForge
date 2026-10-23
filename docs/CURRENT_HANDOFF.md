@@ -1,3 +1,40 @@
+# WriterForge 当前有效交接｜2026-10-23
+
+> **新对话从这一节开始，旧版 2026-10-16～20 “最新 V66/V99” 字样仅是历史快照，不再代表 WF 最新进度。** 请先核验当前 GitHub 分支与 GitHub Actions，之后再读本文件历史记录；不可重建原书库、重复配置 API、覆盖封存真实输出或修改生产 main。
+
+## 0. 当前权威工作位置及本轮验收
+
+- 唯一当前开发分支：`refactor-unified-scene-delivery-audit`，仓库 `66tyu55/WriterForge`。已验证的最后功能提交：`c216a83426431a9261f4d211773ab1f4fe605802`，随后仅更新交接文档（无功能性代码改动）。交接时文档提交 HEAD：`98d535f5e2dc9cc3ee423964a8789a4d612ae701`。
+- 最新全量回归：[GitHub Actions #39947647329](https://github.com/66tyu55/WriterForge/actions/runs/39947647329)，**1,407 tests run，4 skipped，0 failures**；测试确认的是软件机制，不是原创小说质量提升。
+- `main` 当时为 `d6ca4b769faa2ef2b47da91fb623a417be49de17`，未将开发分支合入；Railway 生产服务未部署本轮变化。
+- **技术交接与已核验行为详见：[UNIFIED_SOURCE_FIRST_SCENE_DELIVERY_AUDIT_20261023.md](UNIFIED_SOURCE_FIRST_SCENE_DELIVERY_AUDIT_20261023.md)**。这是新对话的首个详细源码证据入口。此前统一图/缓冲压缩/R2 请按需读 [UNIFIED_NARRATIVE_CORE_DIFF_PRIORITY_NPC_KNOWLEDGE_20261022.md](UNIFIED_NARRATIVE_CORE_DIFF_PRIORITY_NPC_KNOWLEDGE_20261022.md)、[UNIFIED_NARRATIVE_BUFFERED_MEMORY_AND_AUTHOR_AGENCY_20261022.md](UNIFIED_NARRATIVE_BUFFERED_MEMORY_AND_AUTHOR_AGENCY_20261022.md)、[UNIFIED_NARRATIVE_R2_DURABLE_CAS_20261022.md](UNIFIED_NARRATIVE_R2_DURABLE_CAS_20261022.md)。
+
+## 0.1 这次绝不能混淆的两条事实
+
+**底层**：`writerforge/narrative_core.py` 统一管理人物知识（KNOWS/BELIEVES/UNKNOWN）、CONTACT、通用 THREAD、章节热/温/冷记忆、稳定键变更标志与调度；物件/人物动作依然交给现有 V114/V116/V117 Novel Studio 归约器。新增 `detect_long_prose_replay()` + `audit_scene_delivery()` 已接入 `writerforge/writing_assist.py` 的 `continuity_guard` 逐段及整章验收，重播直接拒绝并留原始凭证。作者确认的 `scene_delivery_contracts` 区分 THIS_SCENE 与 DEFERRED；对心理选择、喜剧笑点是否兑现只提示待审，**模型或评论者能引用真实效果句也不等于完成证明，不自动结案或改正典**。当前旧模块为兼容而保留，新图与 V123 长线复仇专用账本不可同时作为状态所有者。
+
+**真实模型**：书生 Discovery 网关 Base URL `https://discovery-api.intern-ai.org.cn/v1` 可用。`Atria-Dawn-Preview` SSE 实测 926 汉字、正常 stop；七类文学每类裸/WF 各一篇，现有共 **14 篇真实原稿 / 7 个配对**。首次 3,100 max_tokens 中五类成功；高潮及心理因推理 Token 耗尽分别失败，另一次 6,000 max_tokens 配对补测成功，因此跨类别预算不完全一致，不可合并成公平总体优胜率。心理 WF 版出现约 964 字符完整段落连写两遍（原稿 SHA-256 `272557d79b55f4b6790591afcc0817d61feedf2deb11f25fcbacf3dee4dedbac`），其余 13 篇不触发同种精确重播。搞笑一类裸模型的误拿雨伞笑点比 WF 版兑现更清楚；打斗、计谋 WF 较冗长且有规则推测。所有这些是原稿编辑观察，不是独立文学盲评、也不是能由词面算法完全判定的语义真相。
+
+七类源运行：[初次 7 类矩阵 #39937669584](https://github.com/66tyu55/WriterForge/actions/runs/39937669584)、[高潮和心理 6,000-token 补测 #39939718654](https://github.com/66tyu55/WriterForge/actions/runs/39939718654)。[原稿实测专项交接](https://github.com/66tyu55/WriterForge/blob/experiment-seven-literary-scenes-inkstone/docs/SEVEN_GENRES_FIRST_ACTUAL_PROSE_RESULTS_20261023.md)，[重复检查专文](UNIFIED_CORE_PROSE_REPLAY_SOURCE_GUARD_20261023.md)。
+
+## 0.2 下一轮唯一优先工作
+
+1. **先复核本节指定的 GitHub 提交和绿色 CI**，不要因文档最后提交与 CI 功能提交不同而误报未测；下一段继续同一 `refactor-unified-scene-delivery-audit` 分支，不重复开 V124/125 微型技能。
+2. **打通已注册当场兑现的场景合同与同一 unified THREAD 图的跨章节债务**：只保留一位状态所有者；有延期决定且能回查原文时允许自然留白，不要求每章出现强行笑点或情节反转。验证来源与模型判断分离，不能将审稿提议自动写成已发生事实。
+3. **对真实作品做独立盲评**：随机遮住裸/WF 标签，把高潮、打斗、计谋、恐怖、喜剧和心理分别按适合文体的标准看具体原稿；延续用户最重视的“人物自主逻辑、计划/正文分离、不会越改越乱”。任何自动文学分数都必须注明校准不足。
+4. 若需要继续使用已接入的 Discovery / DeepSeek，允许在用户已有授权和实际免费额度内做**有调用上限**的模型试验；不得推断账号剩余额度、无界重试超时/429，也不要重复要求配置已存在的凭证。R2 记忆的真实私有桶合成源/CAS/续写快照曾完整远端回读，但**开发分支未部署生产**。
+
+## 0.3 禁止误声明
+
+- 测试 1,407 成功 ≠ 文学水平提高/语义理解全面解决。
+- “有正文效果引句” ≠ 本场心理变化/喜剧包袱已经真正兑现。
+- “模型经过规划” ≠ 正文实际写到了该情节。
+- 新模块不应该增加第二套长期叙事记忆；不要因独立失败而随便覆盖已存原稿、Canon 或私有 R2 源。
+- 本轮功能**仅在开发分支**，不是 Railway 的已上线能力。
+- 旧版本全文保存在下面历史文档中，不能把 2026-10-16／18 的旧 `latest` 字样误当现在状态。
+
+---
+
 # WriterForge 当前交接记录 · 2026-10-16
 
 > **本文件是新对话的唯一首读交接入口。** 每次继续项目前，先检查本文件并复核有关 GitHub Actions 运行结果；不要重建已完成的原文归档，不要将用户的聊天结论冒充 R2 中的真实数据。本文报告的是截至 **2026-10-16 06:08 UTC** 核实的状态，而不是当前实时桶扫描结果。
