@@ -83,6 +83,7 @@ from .narrative_core import (
     buffered_memory_context,
     character_collision_context,
     relevant_history_context,
+    detect_long_prose_replay,
 )
 
 MAX_LIVE_CONTEXT = 1400
@@ -896,6 +897,7 @@ class AutonomousWriting:
                 long_arc_checks=[]
                 narrative_lane_decisions=[]
                 narrative_source_reviews=[]
+                unified_prose_replay_checks=[]
                 prompt_delivery_receipts=[]
                 plan_execution_checks=[]
                 rolling_receipts=[]
@@ -1070,6 +1072,13 @@ class AutonomousWriting:
                                 author_confirmed_forbidden_phrases=(
                                     author_confirmed_forbidden_phrases))
                         if draft_mode=="continuity_guard":
+                            replay_check=detect_long_prose_replay(
+                                evidence["prose"])
+                            unified_prose_replay_checks.append(replay_check)
+                            if replay_check["blocked"]:
+                                raise NarrativeCoreError(
+                                    "WFCORE_ENTIRE_LONG_PROSE_REPEATED")
+                        if draft_mode=="continuity_guard":
                             # Validate what actually reached the page. Beat
                             # goal and model's self-reported trace are NOT
                             # source evidence. Keep non-matching goals as
@@ -1168,6 +1177,8 @@ class AutonomousWriting:
                                 narrative_lane_decisions)
                             turn_evidence["unified_narrative_source_preflight"]=(
                                 narrative_source_reviews)
+                            turn_evidence["unified_prose_replay_checks"]=(
+                                unified_prose_replay_checks)
                             turn_evidence["unified_narrative_extra_model_calls"]=0
                             turn_evidence["unified_narrative_author_gate"]=True
                         if active_long_arc is not None:
@@ -1247,6 +1258,24 @@ class AutonomousWriting:
                         "WF96_SCENE_TURN_REJECTED_"+str(error)) from None
             if not isinstance(body,str) or not 100<=len(body.strip())<=MAX_PROSE_CHARS:
                 raise WritingExecutionError("model output too short, missing or too long")
+            if draft_mode=="continuity_guard":
+                complete_replay=detect_long_prose_replay(body)
+                if complete_replay["blocked"]:
+                    # Raw provider turns already exist under private job dir.
+                    # Do not silently trim the duplicate and pretend an
+                    # author's manuscript or a successful chapter exists.
+                    (job/f"chapter-{index:03d}-repeat-rejected.json").write_text(
+                        json.dumps({
+                            "format":"wf.writing.unified-prose-replay-rejected",
+                            "chapter":index,
+                            "prose_sha256":complete_replay[
+                                "source_prose_sha256"],
+                            "finding":complete_replay["finding"],
+                            "canonical_fact_writes":0,
+                            "automatic_repair_attempts":0,
+                        },ensure_ascii=False,indent=2),encoding="utf8")
+                    raise WritingExecutionError(
+                        "WFCORE_ENTIRE_LONG_PROSE_REPEATED")
             saved=save_candidate(packet,body,self.assist.model,job)
             folder=Path(saved["folder"])
             plan_file=folder/"chapter_plan.json"
