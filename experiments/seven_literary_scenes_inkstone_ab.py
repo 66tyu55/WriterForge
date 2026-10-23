@@ -34,7 +34,7 @@ from writerforge.v116_state_delta import preflight_next_prose
 BASE_URL="https://discovery-api.intern-ai.org.cn/v1"
 MAX_COMPLETIONS=14
 MAX_PROBES=3
-MAX_RESERVED_OUTPUT=2700
+MAX_RESERVED_OUTPUT=3100
 MAX_PROBE_TOKENS=900
 MAX_TOTAL_RESERVED=MAX_COMPLETIONS*MAX_RESERVED_OUTPUT+MAX_PROBES*MAX_PROBE_TOKENS
 MIN_CN=680
@@ -44,6 +44,10 @@ SCENE_DIR=Path("wf_inkstone_seven_scene_results")
 SYSTEM="你是原创中文小说作家。只输出连贯的小说正文，禁用标题、分镜、提纲、旁白解释及写作思路；不模仿或复制现有文学作品。"
 GENRES=("剧情","高潮","打斗","计谋","恐怖","搞笑","心理")
 FREE_CANDIDATES=("intern-s2","Atria-Dawn-Preview","Agents-A1")
+CONFIRMED_SSE_MODEL="Atria-Dawn-Preview"
+STREAM_MAX_BYTES=1_600_000
+STREAM_TIMEOUT_SECONDS=235
+STREAM_WALL_SECONDS=275
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -266,9 +270,11 @@ def chat(key,model,prompt,max_tokens,*,probe=False):
         "stream":False,
     }
     if model=="intern-s2":
-        # The official Intern-S2 docs support nonthinking mode; prevent
-        # reasoning tokens from exhausting the bounded prose allowance.
+        # Only for direct short-text probes. The gateway did not honor the
+        # intended nonthinking mode on 2026-10-23 (reasoning exhausted cap).
         params["thinking_mode"]=False
+    if not probe and model==CONFIRMED_SSE_MODEL:
+        return stream_chat(key,model,prompt,max_tokens)
     trial=request("/chat/completions",key,params,
                   timeout=85 if probe else 115)
     if not trial["ok"]:
@@ -304,6 +310,112 @@ def chat(key,model,prompt,max_tokens,*,probe=False):
             if type(usage) is dict and type(
                 usage.get("completion_tokens_details")) is dict else None),
     }
+
+
+def stream_chat(key,model,prompt,max_tokens):
+    """Real SSE parser verified by run 39936371137; no invisible retries.
+
+    HTTP200 with empty content, a truncated generation or an interrupted SSE
+    stream is NOT a successful story. Only visible content is manuscript.
+    """
+    params={
+        "model":model,
+        "messages":[{"role":"system","content":SYSTEM},
+                    {"role":"user","content":prompt}],
+        "temperature":0.7,"stream":True,
+        "max_tokens":max_tokens,
+        "stream_options":{"include_usage":True},
+    }
+    req=Request(BASE_URL+"/chat/completions",method="POST",
+                headers={"Authorization":"Bearer "+key,
+                         "Content-Type":"application/json",
+                         "Accept":"text/event-stream"},
+                data=json.dumps(params,ensure_ascii=False).encode("utf8"))
+    opener=build_opener(NoRedirect(),HTTPSHandler(
+        context=ssl.create_default_context()))
+    text_parts=[]
+    bytes_seen=0
+    sse_count=0
+    finish=None
+    usage={}
+    done=False
+    reason_chars=0
+    start=time.monotonic()
+    failure=None
+    try:
+        with opener.open(req,timeout=STREAM_TIMEOUT_SECONDS) as response:
+            for raw in response:
+                bytes_seen+=len(raw)
+                if bytes_seen>STREAM_MAX_BYTES:
+                    failure="STREAM_TOTAL_BYTES_EXCEEDED"
+                    break
+                if time.monotonic()-start>STREAM_WALL_SECONDS:
+                    failure="STREAM_WALL_LIMIT_REACHED"
+                    break
+                line=raw.decode("utf8","replace").strip()
+                if not line.startswith("data:"):
+                    continue
+                payload=line[5:].strip()
+                if payload=="[DONE]":
+                    done=True
+                    break
+                if not payload:
+                    continue
+                try:
+                    document=json.loads(payload)
+                except ValueError:
+                    failure="STREAM_BAD_SSE_JSON"
+                    break
+                sse_count+=1
+                if type(document.get("usage")) is dict:
+                    usage=document["usage"]
+                choices=document.get("choices") or []
+                if type(choices) is not list:
+                    failure="STREAM_BAD_CHOICE_SCHEMA"
+                    break
+                for choice in choices[:1]:
+                    if type(choice) is not dict:
+                        continue
+                    delta=choice.get("delta") or {}
+                    if type(delta) is not dict:
+                        continue
+                    fragment=delta.get("content")
+                    if type(fragment) is str:
+                        text_parts.append(fragment)
+                    elif type(fragment) is list:
+                        text_parts.extend(
+                            p["text"] for p in fragment
+                            if type(p) is dict and type(p.get("text")) is str)
+                    for field in ("reasoning","reasoning_content"):
+                        val=delta.get(field)
+                        if type(val) is str:
+                            reason_chars+=len(val)
+                    if choice.get("finish_reason") is not None:
+                        finish=choice["finish_reason"]
+    except HTTPError as exc:
+        return {"ok":False,"kind":"HTTP","http_status":exc.code,
+                "sse_events":sse_count,
+                "partial_text":"".join(text_parts)}
+    except (TimeoutError,URLError,OSError) as exc:
+        failure=type(exc).__name__
+    prose="".join(text_parts)
+    reported={k:usage[k] for k in (
+        "prompt_tokens","completion_tokens","total_tokens")
+        if type(usage.get(k)) is int}
+    ret={
+        "ok":bool(done and finish=="stop" and not failure and prose.strip()),
+        "kind":failure or ("STREAM_UNFINISHED" if not done else
+                          "FINISH_"+str(finish) if finish!="stop" else
+                          "EMPTY_VISIBLE_CONTENT"),
+        "text":prose if done and finish=="stop" and not failure else "",
+        "partial_text":prose if failure or finish!="stop" or not done else "",
+        "finish_reason":finish,"usage":reported,
+        "done_seen":done,"sse_events":sse_count,
+        "reasoning_characters":reason_chars,
+        "elapsed_seconds":round(time.monotonic()-start,1),
+        "response_model":model,
+    }
+    return ret
 
 
 def _han_count(body):
@@ -361,18 +473,31 @@ def main():
         raise RuntimeError("WF_EXPERIMENT_ALREADY_EXISTS_NO_AUTO_REPEAT")
     SCENE_DIR.mkdir()
     key=os.environ.get("DISCOVERY_API_KEY","")
-    cases=scenarios()
-    assert len(cases)==7 and len({x["id"] for x in cases})==7
+    all_cases=scenarios()
+    assert len(all_cases)==7 and len({x["id"] for x in all_cases})==7
+    selected=os.getenv("WF_SCENE_CATEGORY","")
+    if selected:
+        if selected not in {x["id"] for x in all_cases}:
+            raise ValueError("WF_UNKNOWN_LITERARY_SCENE_CATEGORY")
+        cases=[c for c in all_cases if c["id"]==selected]
+    else:
+        cases=all_cases
+    max_generate=len(cases)*2
+    allowed_calls=max_generate+(0 if os.getenv(
+        "WF_BATCH_CONFIRMED_STREAM_MODEL") else MAX_PROBES)
     report={
         "format":"wf.experiment.seven-literary-scenes.discovery.ab.v1",
         "started_utc":time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime()),
         "genres":list(GENRES),"provider":"Intern InkStone / Discovery",
         "same_model_across_categories":True,
         "policy":"one_same-model_bare_vs_wf_guided_per_genre",
-        "generation_call_ceiling":MAX_COMPLETIONS,
+        "generation_call_ceiling":max_generate,
         "probe_call_ceiling":MAX_PROBES,
         "per_generation_max_tokens":MAX_RESERVED_OUTPUT,
-        "total_reserved_output_token_ceiling":MAX_TOTAL_RESERVED,
+        "total_reserved_output_token_ceiling":(
+            max_generate*MAX_RESERVED_OUTPUT+
+            (0 if os.getenv("WF_BATCH_CONFIRMED_STREAM_MODEL")
+             else MAX_PROBES*MAX_PROBE_TOKENS)),
         "synthetic_sources_only":True,
         "original_user_novels_sent":False,
         "R2_writes":0,"canon_writes":0,"railway_deploys":0,
@@ -401,7 +526,16 @@ def main():
         if type(x) is dict and type(x.get("id")) is str]
     probe_used=0
     chosen=None
-    for name in FREE_CANDIDATES:
+    explicitly_confirmed=os.getenv("WF_BATCH_CONFIRMED_STREAM_MODEL","")
+    if explicitly_confirmed:
+        if explicitly_confirmed!=CONFIRMED_SSE_MODEL or (
+            explicitly_confirmed not in available):
+            report["status"]="CONFIRMED_SSE_MODEL_NOT_AVAILABLE"
+            save_now(report,generated)
+            return 5
+        chosen=explicitly_confirmed
+        report["verified_stream_reference_run"]=39936371137
+    for name in ([] if chosen else FREE_CANDIDATES):
         if name not in available or probe_used>=MAX_PROBES:
             continue
         probe_used+=1
@@ -438,6 +572,7 @@ def main():
         return 5
     report["model"]=chosen
     for index,case in enumerate(cases):
+        original_position=[c["id"] for c in all_cases].index(case["id"])
         bare_prompt,wf_prompt,temporal,graph,promptmeta=make_packet(case)
         item={
             "id":case["id"],"genre":case["genre"],
@@ -448,11 +583,11 @@ def main():
         report["cases"].append(item)
         save_now(report,generated)
         # Alternate order to limit systematic warm-server/order effects.
-        order=("bare","wf") if index%2==0 else ("wf","bare")
+        order=("bare","wf") if original_position%2==0 else ("wf","bare")
         for variant in order:
             prompt=bare_prompt if variant=="bare" else wf_prompt
             # Hard cap includes even requests that time out or return 429.
-            if report["calls_attempted"]>=MAX_COMPLETIONS+MAX_PROBES:
+            if report["calls_attempted"]>=allowed_calls:
                 report["status"]="TOTAL_CALL_LIMIT_REACHED"
                 save_now(report,generated)
                 return 6
@@ -465,7 +600,14 @@ def main():
                     "variant":variant,"success":False,
                     "http_status":result.get("http_status"),
                     "error_kind":result.get("kind","EMPTY_CONTENT"),
-                    "duration_seconds":elapsed})
+                    "duration_seconds":elapsed,
+                    "partial_visible_han":_han_count(
+                        result.get("partial_text","")),
+                    "finish_reason":result.get("finish_reason"),
+                    "sse_events":result.get("sse_events"),
+                    "reported_usage":result.get("usage",{}),
+                    "reasoning_characters":result.get("reasoning_characters",0),
+                })
                 item["pair_status"]="INCOMPLETE_PROVIDER_FAILURE"
                 report["status"]="STOPPED_ON_PROVIDER_FAILURE_NO_RETRY"
                 save_now(report,generated)
@@ -477,6 +619,10 @@ def main():
                 finish_reason=result["finish_reason"])
             observ["success"]=True
             observ["duration_seconds"]=elapsed
+            observ["sse_events"]=result.get("sse_events",0)
+            observ["provider_done_seen"]=result.get("done_seen",False)
+            observ["reasoning_characters"]=result.get(
+                "reasoning_characters",0)
             item["samples"].append(observ)
             generated.append({
                 "genre":case["genre"],"id":case["id"],
@@ -497,7 +643,9 @@ def main():
             item["pair_status"]="TWO_ORIGINAL_SAMPLES_SAVED"
             report["pairs_complete"]+=1
             save_now(report,generated)
-    report["status"]="SEVEN_PAIRS_SAVED_NO_BLIND_REVIEW_YET"
+    report["status"]=(
+        "SEVEN_PAIRS_SAVED_NO_BLIND_REVIEW_YET"
+        if not selected else "ONE_CATEGORY_PAIR_SAVED_NO_BLIND_REVIEW_YET")
     report["completed_utc"]=time.strftime(
         "%Y-%m-%dT%H:%M:%SZ",time.gmtime())
     save_now(report,generated)
