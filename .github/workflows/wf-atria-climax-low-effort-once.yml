@@ -1,0 +1,36 @@
+name: WF Atria Climax Reasoning Low — Single Compatibility Request
+on:
+  push:
+    branches: [experiment-seven-literary-scenes-inkstone]
+    paths:
+      - .github/workflows/wf-atria-climax-low-effort-once.yml
+permissions:
+  contents: read
+concurrency:
+  group: wf-atria-climax-low-once
+  cancel-in-progress: false
+jobs:
+  single-trial:
+    if: github.repository == '66tyu55/WriterForge'
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -e '.[r2]'
+      - name: One synthetic climax SSE request with reasoning_effort low
+        run: python -m experiments.atria_low_reasoning_climax_once
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WF-Atria-Climax-Low-Effort-Compatibility
+          path: wf_atria_low_reasoning_climax_probe/
+          retention-days: 7
+          if-no-files-found: warn
