@@ -163,7 +163,21 @@ def diagnostic(scene):
         max_reserved_output_tokens=MAX_OUTPUT,
         max_total_tokens=150000,
     )
-    model=DeepSeekFlashModel(budget=budget,timeout_seconds=120)
+    def save_provider_wire(raw):
+        # DeepSeek can reject a JSON response after spending the request.
+        # Keep the literal provider wire BEFORE decoding, even if invalid.
+        if type(raw) is not bytes or len(raw)>3*1024*1024:
+            raise RuntimeError("WF_REAL_SCENE_WIRE_SIZE_INVALID")
+        index=len(calls)
+        if not 1<=index<=MAX_CALLS:
+            raise RuntimeError("WF_REAL_SCENE_WIRE_NO_RESERVED_STAGE")
+        stage=calls[-1]["stage"]
+        (output/f"{index:02d}-{stage}-provider-wire.json").write_bytes(raw)
+        calls[-1]["wire_sha256"]=h(raw)
+        calls[-1]["model_response_status"]="WIRE_PRESERVED_PREDECODE"
+    model=DeepSeekFlashModel(
+        budget=budget,timeout_seconds=120,
+        on_response_wire=save_provider_wire)
     status={"scene":scene,"genre":case["genre"],
             "wf_actual_route":"AutonomousWriting.continuity_guard",
             "actual_writer_framework_invoked":False,
@@ -302,6 +316,19 @@ def diagnostic(scene):
         status.update({"status":"REAL_WF_ORIGINAL_REJECTED",
                        "failure":why})
     finally:
+        if status.get("status")!="REAL_WF_CANDIDATE_GENERATED":
+            # These are deliberately synthetic experimental stories; expose
+            # the failed prose to analysis instead of hiding it behind a red
+            # status. Never advertise such prose as accepted WF output.
+            for original in sorted(output.glob("*-PROSE_*-original.json")):
+                try:
+                    doc=json.loads(original.read_text(encoding="utf8"))
+                    prose=doc.get("prose","")
+                except (OSError,ValueError):
+                    prose=""
+                if type(prose) is str and prose.strip():
+                    print("WF_REJECTED_ORIGINAL_PROSE "+original.name+
+                          "\n"+prose+"\nEND_REJECTED_PROSE",flush=True)
         if db is not None:
             status["accepted_prose_rows"]=db.conn.execute(
                 "SELECT count(*) FROM accepted_prose").fetchone()[0]
