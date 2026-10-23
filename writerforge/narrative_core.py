@@ -1513,18 +1513,13 @@ def audit_scene_delivery(*,prose,scene_goal,scene_kind,
     if base["needs_review"] or echoed:
         warnings.append("WFCORE_LONG_PROSE_ECHO_REVIEW")
     if contract is not None and contract["due"]=="THIS_SCENE":
-        if proposal is None or proposal["suggested_function_status"] in (
-                "STILL_OPEN","UNCERTAIN"):
-            warnings.append("WFCORE_DUE_SCENE_PAYOFF_NOT_YET_VERIFIED")
+        # A model/reviewer proposal, even with exact source quotes, cannot
+        # waive an AUTHOR-PINNED deadline. The author must separately
+        # accept/revise the open obligation before it can be called settled.
+        warnings.append("WFCORE_DUE_SCENE_PAYOFF_NOT_YET_VERIFIED")
     if (scene_kind in ("decision","reversal","action")
-        and not evidence and proposal is None):
+        and not evidence):
         warnings.append("WFCORE_BEAT_EFFECT_NOT_INDEPENDENTLY_EVIDENCED")
-    if proposal is not None and contract is not None and (
-            contract["due"]=="DEFERRED" and
-            proposal["suggested_function_status"]=="STILL_OPEN"):
-        # Explicit postponement is a legitimate story choice, not failure.
-        warnings=[w for w in warnings if
-                  w!="WFCORE_DUE_SCENE_PAYOFF_NOT_YET_VERIFIED"]
     receipt={
         "format":"wf.narrative.scene-delivery.v1",
         "prose_sha256":_hash(prose),
