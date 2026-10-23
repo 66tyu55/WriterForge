@@ -1,4 +1,4 @@
-name: WF Real Self-Written Four-Scene Literary Diagnosis (Source-First Iteration 2)
+name: WF Real Self-Written Four-Scene Literary Diagnosis (Prose Format Recovery Verification 3)
 on:
   push:
     branches: [refactor-unified-scene-delivery-audit]
@@ -37,8 +37,8 @@ jobs:
         run: python -m pip install -e '.[r2]'
       - name: Verify source type and genre fixture repaired before inference
         run: python -c 'from experiments import wf_real_self_scene_diagnostics as s; assert len(s.CASES)==4; assert s.MAX_CALLS==4'
-      - name: Verify prior WF scene and actual graph tests offline
-        run: python -m unittest tests.test_unified_scene_delivery tests.test_unified_narrative_core tests.test_real_scene_optional_craft -q
+      - name: Verify source plus original model JSON recovery and actual graph tests offline
+        run: python -m unittest tests.test_wf_scene_format_recovery tests.test_unified_scene_delivery tests.test_unified_narrative_core tests.test_real_scene_optional_craft -q
       - name: Fail before inference without already configured model secret
         run: python -c 'import os; assert bool(os.environ.get("DEEPSEEK_API_KEY")), "WF_EXISTING_MODEL_SECRET_UNAVAILABLE"'
       - name: Generate real WF prose with model self-planned two turns, at most 4 requests
