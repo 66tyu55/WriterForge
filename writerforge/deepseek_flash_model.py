@@ -178,6 +178,8 @@ class DeepSeekFlashModel:
                 "WF_FLASH_WIRE_SINK_NOT_CALLABLE")
         self._transport = transport or self._real_transport
         self._on_response_wire = on_response_wire
+        # Last call only; never put original provider prose in this receipt.
+        self.last_response_format_recovery = None
 
     def _real_transport(self, request: Request) -> bytes:
         opener = build_opener(
@@ -213,6 +215,7 @@ class DeepSeekFlashModel:
         currently unlocked content and an explicitly specified JSON schema.
         """
         require(role in ROLES, "WF_FLASH_ROLE_UNSUPPORTED")
+        self.last_response_format_recovery = None
         require(
             isinstance(system, str) and 10 <= len(system) <= 32000 and
             isinstance(user, str) and 1 <= len(user) <= 180000 and
@@ -274,7 +277,44 @@ class DeepSeekFlashModel:
             content = choice["message"]["content"]
             require(isinstance(content, str) and 1 <= len(content) <= MAX_RESPONSE_BYTES,
                     "WF_FLASH_EMPTY_OR_OVERSIZED_CONTENT")
-            result = json.loads(content)
+            try:
+                result = json.loads(content)
+            except json.JSONDecodeError as error:
+                # Observed DeepSeek Flash literary PROSE_1 wires ended in
+                # a fully valid JSON object followed by the exact 2-char
+                # provider/model tail '"}'.  Never guess a missing bracket,
+                # repair manuscript characters, or accept arbitrary suffix.
+                if (role != "self_scene_writing" or
+                    error.msg != "Extra data"):
+                    raise
+                def unique_pairs(items):
+                    out = {}
+                    for key,value in items:
+                        if key in out:
+                            raise ValueError("WF_FLASH_DUPLICATE_RECOVERY_FIELD")
+                        out[key] = value
+                    return out
+                candidate,end = json.JSONDecoder(
+                    object_pairs_hook=unique_pairs).raw_decode(content)
+                if (content[end:] != '"}' or
+                    type(candidate) is not dict or
+                    set(candidate) != {"prose","trace"} or
+                    type(candidate["prose"]) is not str or
+                    type(candidate["trace"]) is not dict):
+                    raise
+                result = candidate
+                self.last_response_format_recovery = {
+                    "format":"wf.flash.exact-extra-tail-recovery.v1",
+                    "original_content_sha256":sha256(
+                        content.encode("utf8")).hexdigest(),
+                    "decoded_object_sha256":sha256(
+                        content[:end].encode("utf8")).hexdigest(),
+                    "extra_suffix_codepoints":2,
+                    "recovered_only_complete_existing_json_object":True,
+                    "original_prose_unchanged":True,
+                    "trace_still_requires_wf_source_validation":True,
+                    "no_provider_retry":True,
+                }
             require(isinstance(result,dict) and len(result) <= 32,
                     "WF_FLASH_RESULT_NOT_BOUNDED_JSON_OBJECT")
             self.budget.add_usage(data.get("usage",{}))
