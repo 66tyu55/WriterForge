@@ -34,8 +34,9 @@ class SourceProgressionCraft(unittest.TestCase):
 
     def test_writing_route_enabled_only_for_unified_guard_and_optional_lane(self):
         source=inspect.getsource(AutonomousWriting.run)
-        self.assertIn("literary_progression_mode:str|None=None",source)
-        self.assertIn('"source_progression" if draft_mode=="continuity_guard"',source)
+        self.assertIn('literary_progression_mode:str="baseline"',source)
+        self.assertNotIn('literary_progression_mode:str|None=None',source)
+        self.assertNotIn('"source_progression" if draft_mode=="continuity_guard"',source)
         self.assertIn('literary_progression_mode=="source_progression"',source)
         self.assertIn("WF_LITERARY_PROGRESSION_REQUIRES_UNIFIED_SCENE",source)
         self.assertIn("_source_progression_literary_cue(",source)
