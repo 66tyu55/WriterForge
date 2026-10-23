@@ -87,3 +87,18 @@ author_review 精确包含八个键：decision（CARRY_FORWARD / SETTLE_WITH_SOU
 ### 工程验收与独立文学盲评边界
 
 tests/test_unified_scene_delivery.py 使用合成原创微场景覆盖只读提议、审稿权限、候选保存、完整的跨两章 carry→settle、人物自主心理选择、不同 POV 不泄密、延期和取消不冒充兑付。CI 执行全仓库原有回归，但不再重新训练或配置 V96–V123。此工程回归不是七类文本艺术效果改善的证据；独立盲评仍未完成。
+
+
+### 七类原始失败证据索引（不覆写原稿、不当作文学生成评分）
+
+| 场景 | 源观察或首轮失败 | 对本闭环的警示 |
+|---|---|---|
+| 剧情 | 裸版较快推进线索，WF 版更细描写透露秘密的选择 | 场景长度增加不是实际进展 |
+| 高潮 | 首轮 WF 的 3,100 max_tokens 全消耗在推理，正文 0；6,000-token 另批补测成功 | 无可见正文时不能签效果结论；跨预算不混算 |
+| 打斗 | WF 比裸版冗长，新增“火髓果汁遇风即燃”的未立来源规则 | 不能把临时设定写成已有世界事实 |
+| 计谋 | WF 版较长，把“回答太快”作为战术怀疑 | 人物猜想与来源事实必须分离 |
+| 恐怖 | WF 增加未解异象，但台阶方位指示含混 | 氛围铺垫不能代替空间因果 |
+| 搞笑 | 裸版误拿唐蜃／巡察使雨伞形成明确反转，WF 版尴尬延长但不清楚兑现 | 被模型引句命中不等于包袱成立 |
+| 心理 | 首轮裸版 3,100-token 推理耗尽、正文 0；6,000-token 补测后 WF 原稿出现约 964 字符原段重播 | 精确长段硬拒与心理语义判断需分开 |
+
+证据源：[初始七类 Atria Run #39937669584](https://github.com/66tyu55/WriterForge/actions/runs/39937669584)、[高潮／心理 6,000-token 补测 #39939718654](https://github.com/66tyu55/WriterForge/actions/runs/39939718654)、[七类首轮原稿说明](https://github.com/66tyu55/WriterForge/blob/experiment-seven-literary-scenes-inkstone/docs/SEVEN_GENRES_FIRST_ACTUAL_PROSE_RESULTS_20261023.md)。心理 WF 重播原稿 SHA-256 为 272557d79b55f4b6790591afcc0817d61feedf2deb11f25fcbacf3dee4dedbac。以上仅记录既有运行中真实原稿的编辑观察；没有执行新的盲评或统计推论。
