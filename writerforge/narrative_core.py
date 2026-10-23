@@ -1411,6 +1411,29 @@ def _long_repeated_passage_evidence(prose):
     return candidates
 
 
+def validate_scene_delivery_contract(value):
+    """Author-registered scene purpose. Never silently trust model planning."""
+    if value is None:
+        return None
+    _need(type(value) is dict and
+          set(value)=={"id","function","due","author_confirmed",
+                      "story_question"} and
+          _id(value["id"]) and
+          value["function"] in ("CHANGE","QUESTION","REVEAL","REVERSAL",
+                                "CHOICE","COMPLICATION","OTHER") and
+          value["due"] in ("THIS_SCENE","DEFERRED") and
+          value["author_confirmed"] is True and
+          _text(value["story_question"],250),
+          "WFCORE_SCENE_CONTRACT_UNTRUSTED_OR_NOT_AUTHOR_CONFIRMED")
+    return {
+        "id":value["id"],
+        "function":value["function"],
+        "due":value["due"],
+        "question_sha256":_hash(value["story_question"]),
+        "only_author_confirmed_intent_not_model_plan":True,
+    }
+
+
 def audit_scene_delivery(*,prose,scene_goal,scene_kind,
                          anchored_effect_quotes=(),
                          author_delivery_contract=None,
@@ -1441,37 +1464,22 @@ def audit_scene_delivery(*,prose,scene_goal,scene_kind,
           "WFCORE_SCENE_EFFECT_QUOTE_INPUT_INVALID")
     base=detect_long_prose_replay(prose)
     evidence=[]
+    ambiguous_effects=[]
     for quote in anchored_effect_quotes:
         positions=[m.start() for m in re.finditer(re.escape(quote),prose)]
-        _need(len(positions)==1,
-              "WFCORE_SCENE_EFFECT_QUOTE_NOT_UNIQUE_IN_PROSE")
+        if len(positions)!=1:
+            # Each V96 source quote is guaranteed unique in its *own* turn.
+            # It may occur twice in the assembled chapter, so refuse to use
+            # that ambiguity as proof but do not reject literary recurrence.
+            ambiguous_effects.append(_hash(quote))
+            continue
         start=positions[0]
         evidence.append({
             "start":start,"end":start+len(quote),
             "source_quote_sha256":_hash(quote),
             "citation_from_model_trace_not_semantic_truth":True,
         })
-    contract=None
-    if author_delivery_contract is not None:
-        _need(type(author_delivery_contract) is dict and
-              set(author_delivery_contract)=={
-                  "id","function","due","author_confirmed",
-                  "story_question"} and
-              _id(author_delivery_contract["id"]) and
-              author_delivery_contract["function"] in (
-                  "CHANGE","QUESTION","REVEAL","REVERSAL",
-                  "CHOICE","COMPLICATION","OTHER") and
-              author_delivery_contract["due"] in ("THIS_SCENE","DEFERRED") and
-              author_delivery_contract["author_confirmed"] is True and
-              _text(author_delivery_contract["story_question"],250),
-              "WFCORE_SCENE_CONTRACT_UNTRUSTED_OR_NOT_AUTHOR_CONFIRMED")
-        contract={
-            "id":author_delivery_contract["id"],
-            "function":author_delivery_contract["function"],
-            "due":author_delivery_contract["due"],
-            "question_sha256":_hash(author_delivery_contract["story_question"]),
-            "only_author_confirmed_intent_not_model_plan":True,
-        }
+    contract=validate_scene_delivery_contract(author_delivery_contract)
     proposal=None
     if reviewer_proposal is not None:
         _need(type(reviewer_proposal) is dict and
@@ -1500,6 +1508,8 @@ def audit_scene_delivery(*,prose,scene_goal,scene_kind,
         }
     echoed=_long_repeated_passage_evidence(prose)
     warnings=[]
+    if ambiguous_effects:
+        warnings.append("WFCORE_SCENE_EFFECT_ANCHOR_NOT_UNIQUE")
     if base["needs_review"] or echoed:
         warnings.append("WFCORE_LONG_PROSE_ECHO_REVIEW")
     if contract is not None and contract["due"]=="THIS_SCENE":
@@ -1521,6 +1531,7 @@ def audit_scene_delivery(*,prose,scene_goal,scene_kind,
         "scene_goal_sha256":_hash(scene_goal),
         "scene_kind":scene_kind,
         "source_effect_quote_anchors":evidence,
+        "ambiguous_effect_quote_sha256s":ambiguous_effects,
         "registered_delivery_contract":contract,
         "independent_review_proposal":proposal,
         "long_echo_review_candidates":echoed,
