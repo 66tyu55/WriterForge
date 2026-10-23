@@ -1,0 +1,51 @@
+name: WF Literary Real-Source Progression Controlled Blind A/B
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-source-progression-blind-ab.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wf-source-progression-4genres-one-capped-ab
+  cancel-in-progress: false
+jobs:
+  same-wf-model-plan-two-prose-arms:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        genre: [fight, scheme, humor, psychology]
+    env:
+      WF_AB_GENRE: ${{ matrix.genre }}
+      GITHUB_TOKEN: ${{ github.token }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing WF runtime and artifact reader
+        run: python -m pip install -e '.[r2]' 'requests>=2.31,<3'
+      - name: Check actual writing source and craft-cue isolated regressions
+        run: python -m unittest tests.test_wf_source_progression_literary tests.test_wf_scene_format_recovery tests.test_unified_narrative_core -q
+      - name: Verify existing model and authenticated original plan source
+        run: python -c 'import os; assert os.environ.get("DEEPSEEK_API_KEY") and os.environ.get("GITHUB_TOKEN"), "WF_AB_EXISTING_KEYS_MISSING"'
+      - name: Real source-only WF blind A/B, 4 maximum paid prose calls per genre
+        run: python -m experiments.wf_source_progression_ab
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WF-Literary-Source-Progression-${{ matrix.genre }}-Blind-Pair
+          path: wf_literary_progression_ab_results/${{ matrix.genre }}/
+          retention-days: 14
+          if-no-files-found: warn
