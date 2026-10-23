@@ -312,7 +312,7 @@ def chat(key,model,prompt,max_tokens,*,probe=False):
     }
 
 
-def stream_chat(key,model,prompt,max_tokens):
+def stream_chat(key,model,prompt,max_tokens,*,reasoning_effort=None):
     """Real SSE parser verified by run 39936371137; no invisible retries.
 
     HTTP200 with empty content, a truncated generation or an interrupted SSE
@@ -326,6 +326,14 @@ def stream_chat(key,model,prompt,max_tokens):
         "max_tokens":max_tokens,
         "stream_options":{"include_usage":True},
     }
+    if reasoning_effort is not None:
+        # Must be independently checked on Discovery before use in a
+        # comparative experiment. All A/B calls within a pair should use
+        # identical provider parameters. 'low' is the upstream Atria effort
+        # setting, but gateway compatibility is not assumed.
+        if reasoning_effort!="low":
+            raise ValueError("WF_UNVERIFIED_ATRIA_REASONING_EFFORT")
+        params["reasoning_effort"]=reasoning_effort
     req=Request(BASE_URL+"/chat/completions",method="POST",
                 headers={"Authorization":"Bearer "+key,
                          "Content-Type":"application/json",
