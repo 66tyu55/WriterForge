@@ -1,0 +1,31 @@
+name: WF Unified Core Long Prose Replay Guard
+on:
+  push:
+    branches: [fix-unified-core-long-prose-replay]
+    paths:
+      - .github/workflows/wf-unified-prose-replay.yml
+      - writerforge/narrative_core.py
+      - writerforge/writing_assist.py
+      - tests/test_unified_prose_replay.py
+permissions:
+  contents: read
+concurrency:
+  group: wf-unified-prose-replay
+  cancel-in-progress: true
+jobs:
+  full-wf-zero-model-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: No model provider credentials available in this test
+        run: python -c 'import os; assert not any(os.getenv(k) for k in ("DISCOVERY_API_KEY", "DEEPSEEK_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY"))'
+      - run: python -m pip install -e '.[r2]'
+      - name: Regression against all WF modules, actor memory and textual replay
+        run: python -m unittest discover -s tests -q
