@@ -30,7 +30,7 @@ ROOT=Path("wf_real_three_chapter_frozen_sources")
 OUTPUT=Path("wf_pov_unknown_real_prose_results")
 HISTORICAL_RUN=39976958906
 ORIGINAL_SHA={
-    "CHAPTER_001_ORIGINAL_SEED.md":"bf52e48e2fdaed97cce1a97338dd01e1ec244f8bd2099738f6b4f1d67baa403e",
+    "CHAPTER_001_ORIGINAL_SEED.md":"b312f8530c9b10ccac816c5a13f4408a8269db8b3b19691cecd1711ec8f1d292",
     "CHAPTER_002/raw_provider/CHAPTER_PLAN-decoded-original.json":
         "0b7e109d1112836bf9730c628a96231c189be05ef1eedec2d2778acba053cf97",
     "CHAPTER_002/raw_provider/SELF_BEAT_PLAN-decoded-original.json":
