@@ -575,6 +575,28 @@ def _prepare_guarded_turn_packet(
     return final,lamps,receipt
 
 
+
+def _writing_scene_scope(base_scene,*,local_index,resume_source_chapter=None):
+    """Use the *actual* story chapter when a one-chapter run resumes.
+
+    Historical segmented runs labeled every resumed chapter as local 001
+    even while V117/unified graph correctly advanced 002/003/004. The
+    prompt's scene id thus repeated chapter-001 and could invite replay.
+    Fix this label only; never infer narrative facts or update Canon.
+    """
+    if (type(base_scene) is not str or not base_scene or
+        type(local_index) is not int or not 1<=local_index<=6 or
+        (resume_source_chapter is not None and
+         (type(resume_source_chapter) is not int or
+          not 0<=resume_source_chapter<=1000000))):
+        raise WritingExecutionError("WFCORE_SCENE_CHAPTER_SCOPE_INVALID")
+    absolute=(local_index if resume_source_chapter is None
+              else resume_source_chapter+local_index)
+    if absolute>1000000:
+        raise WritingExecutionError("WFCORE_SCENE_CHAPTER_OVERFLOW")
+    return f"{base_scene}.chapter-{absolute:03d}"
+
+
 class AutonomousWriting:
     """Bounded outline -> narrative decisions -> actual model chapters on disk."""
 
@@ -842,7 +864,12 @@ class AutonomousWriting:
                     active_long_arc,project_id=self.assist.project_id,
                     scene_id=self.assist.scene_id,goal=goal)
                 if active_long_arc is not None else "")
-            scene=f"{self.assist.scene_id}.chapter-{index:03}"
+            scene=_writing_scene_scope(
+                self.assist.scene_id,local_index=index,
+                resume_source_chapter=(
+                    resume_story_checkpoint["chapter_index"]
+                    if draft_mode=="continuity_guard" and
+                       resume_story_checkpoint is not None else None))
             base=self.assist.flow.prepare(
                 scene,goal,concerns=("scene","decision"),
                 genre=self.assist.source_genre,
