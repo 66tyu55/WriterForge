@@ -452,7 +452,8 @@ def _prepare_guarded_turn_packet(
         previous_lamp_receipt:dict|None,
         narrative_graph:dict|None=None,
         narrative_scene_id:str|None=None,
-        working_memory_context:str=""):
+        working_memory_context:str="",
+        creative_progression_cue:str=""):
     """V121: source/causal constraints have priority over optional cues.
 
     A speculative chapter plan may be dropped if it crowds out actual prior
@@ -475,6 +476,10 @@ def _prepare_guarded_turn_packet(
     if not isinstance(working_memory_context,str) or len(
             working_memory_context)>1800:
         raise WritingExecutionError("WFCORE_WORKING_MEMORY_CONTEXT_INVALID")
+    if (type(creative_progression_cue) is not str or
+            len(creative_progression_cue)>850):
+        raise WritingExecutionError(
+            "WF_LITERARY_OPTIONAL_PROGRESSION_CUE_INVALID")
     memory_suffix=("\n"+working_memory_context
                    if working_memory_context else "")
     memory_reserve=(len(memory_suffix)
@@ -505,6 +510,15 @@ def _prepare_guarded_turn_packet(
         used_debt=dependency_hint
         space-=len(used_debt)
         dep_delivered=True
+    # A new literary prompt must NEVER enlarge the old dependency string:
+    # otherwise its extra chars can evict the EXISTING causal hint.
+    used_progression=""
+    progression_delivered=False
+    if (creative_progression_cue and
+            len(creative_progression_cue)<=space):
+        used_progression=creative_progression_cue
+        space-=len(used_progression)
+        progression_delivered=True
     # Lamp text carries an added newline when present. Leave one character
     # for that newline; zero available characters yields a zero-lamp receipt.
     lamp_budget=min(MAX_LAMP_CHARS,max(0,space-1))
@@ -513,7 +527,8 @@ def _prepare_guarded_turn_packet(
         turn_index=turn_index,beat=beat,frame=frame,
         previous=previous_lamp_receipt,max_prompt_chars=lamp_budget)
     lamp_suffix=("\n"+lamps["prompt"]) if lamps["prompt"] else ""
-    delivered_addition=core_addition+used_memory+used_debt+lamp_suffix
+    delivered_addition=(core_addition+used_memory+used_debt+
+                        used_progression+lamp_suffix)
     final=_enrich(body_base,delivered_addition,facets)
     if not (len(final.prompt)<=MAX_PROMPT_CHARS and
             hard_turn_addition in final.prompt):
@@ -536,6 +551,9 @@ def _prepare_guarded_turn_packet(
         "provisional_plan_dropped_due_to_budget":not plan_delivered,
         "unproven_dependency_hint_eligible":bool(dependency_hint),
         "unproven_dependency_hint_delivered":dep_delivered,
+        "creative_progression_cue_eligible":bool(creative_progression_cue),
+        "creative_progression_cue_delivered":progression_delivered,
+        "creative_progression_cue_characters":len(used_progression),
         "working_memory_context_delivered":memory_delivered,
         "working_memory_context_chars":len(used_memory),
         "working_memory_not_canon":True,
@@ -1147,8 +1165,6 @@ class AutonomousWriting:
                                     tuple(accepted_turns))
                                 if literary_progression_mode=="source_progression"
                                 else "")
-                            if progression_cue:
-                                dependency_hint+=progression_cue
                             turn_packet,lamps,delivery=(
                                 _prepare_guarded_turn_packet(
                                     body_base,plan=plan,
@@ -1170,14 +1186,13 @@ class AutonomousWriting:
                                             project_id=self.assist.project_id,
                                             scene_id=self.assist.scene_id)
                                         if active_narrative_core is not None
-                                        else "")))
+                                        else ""),
+                                    creative_progression_cue=progression_cue))
                             if delivery["unified_narrative_priority_dispatch"]:
                                 narrative_lane_decisions.append(
                                     delivery["unified_narrative_priority_dispatch"])
-                            if progression_cue:
-                                delivery["creative_progression_cue_eligible"]=True
-                                delivery["creative_progression_cue_delivered"]=(
-                                    delivery["unproven_dependency_hint_delivered"])
+                            # _prepare signs the complete delivery receipt
+                            # after cue allocation. Never mutate it afterward.
                             lamp_decisions.append(lamps)
                             prompt_delivery_receipts.append(delivery)
                             last_lamp_receipt=lamps
