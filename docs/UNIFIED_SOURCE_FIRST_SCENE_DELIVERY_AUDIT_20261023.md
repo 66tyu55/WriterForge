@@ -102,3 +102,13 @@ tests/test_unified_scene_delivery.py 使用合成原创微场景覆盖只读提�
 | 心理 | 首轮裸版 3,100-token 推理耗尽、正文 0；6,000-token 补测后 WF 原稿出现约 964 字符原段重播 | 精确长段硬拒与心理语义判断需分开 |
 
 证据源：[初始七类 Atria Run #39937669584](https://github.com/66tyu55/WriterForge/actions/runs/39937669584)、[高潮／心理 6,000-token 补测 #39939718654](https://github.com/66tyu55/WriterForge/actions/runs/39939718654)、[七类首轮原稿说明](https://github.com/66tyu55/WriterForge/blob/experiment-seven-literary-scenes-inkstone/docs/SEVEN_GENRES_FIRST_ACTUAL_PROSE_RESULTS_20261023.md)。心理 WF 重播原稿 SHA-256 为 272557d79b55f4b6790591afcc0817d61feedf2deb11f25fcbacf3dee4dedbac。以上仅记录既有运行中真实原稿的编辑观察；没有执行新的盲评或统计推论。
+
+
+## 七类原稿防过期归档：真实私有 R2 上传及 fresh GET（本轮后续）
+
+在实现场景债务闭环后，现场检查了初次实验 Actions #39937669584 与补测 #39939718654。GitHub 仍保存九份原始附件，但返回 expires_at 为 **2026-11-06**。仅把 GitHub 链接写入手册不能长期保全来源，于是在同一开发分支加入**证据保全工具**（不属于小说长期叙事记忆模块）：
+
+- [scripts/preserve_atria_artifacts_r2.py](../scripts/preserve_atria_artifacts_r2.py) 和 [.github/workflows/atria-evidence-private-r2.yml](../.github/workflows/atria-evidence-private-r2.yml)。读取原始 GitHub API 附件元数据，逐项比对 run ID / artifact ID / 名称 / SHA256 / 未过期状态；下载 ZIP 受有界字节限制，核验 GitHub ZIP SHA256 与 CRC，然后仅向**现有私有** writerforge-private-library 桶中 writerforge/v1/private-evidence/atria-seven-genres-20261023/ 的 SHA 内容键写入，不允许覆写不一致数据，逐一重新 GET 比对完整字节。
+- **真实 GitHub Actions success：[#39953107366](https://github.com/66tyu55/WriterForge/actions/runs/39953107366)**。运行记录返回 preserved_original_github_artifacts=9，private_r2_fresh_get_success=9，new_model_calls=0，canon_writes=0，source_copies_logged_or_published=false。
+- 不可变私有清单 SHA256：14e0e957f2564af71ee0ee3b8f74bf743948f6e06fa59e750b58387a5b74650e；保存九份 ZIP 的来源记录、来源实验与补测预算分类，保留原有失败、没有重新生成或重打分。备份仅为原始附件封存，不是新作学习、不等于文学进步，也不触发生产 Railway。状态附件只有哈希/数量，没有原稿正文。
+- 与本文早先的“本轮没有 R2 写入”历史基线须区分：**统一叙事闭环代码和 1,420 项软件回归**没有对 R2 写入；**本次后续防过期归档**确实向私有 R2 写入了九个封存 ZIP 与一份不可变 manifest。未覆盖任何现有小说原稿、R2 学习库、Canon 或主分支。
