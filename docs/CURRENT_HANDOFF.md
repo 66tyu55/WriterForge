@@ -1,6 +1,23 @@
 # WriterForge 当前有效交接｜2026-10-23
 
 
+## 0.E 同源第一段文学 A/B：发现负迁移，撤回统一写作默认增强（本轮最新）
+
+**继续 WriterForge 时，优先读 [WF_SAME_FIRST_TURN_LITERARY_NEGATIVE_TRANSFER_20261023.md](WF_SAME_FIRST_TURN_LITERARY_NEGATIVE_TRANSFER_20261023.md)，不要以历史 0.D 的 4/4 主观判断认定 WF 已学会通用文学手法。**
+
+- 真正三种新世界的 W1/W2 原稿来自 [GitHub Actions #39971705331](https://github.com/66tyu55/WriterForge/actions/runs/39971705331)，全部 3 类 × 2 臂生成成功，每类两臂**同一第一段实际 DeepSeek 原文、同一 WF 原模型章计划/两段计划、同一来源状态**，只让第二段文学建议不同。全次仅 **6 次新供应商请求**，无重试。三组原稿、原始 wire、来源与 trace、匿名文件、独立映射都封存在三份 Actions artifacts。
+- 揭盲前实际编辑偏好文件是 docs/WF_SHARED_FIRST_TURN_BLIND_VOTES_20261023.json，GitHub 提交 1280497f40024fb88bc5a82741f10b8385b924ff；优选小镇剧情 W2、洪水高潮 W1、灯塔恐怖 W2。揭盲后：**剧情 W2 是新 source_progression，高潮 W1 和恐怖 W2 都是 baseline**。即本小样本仅 1/3 偏好新提示，仍无独立真人评审；模型采样与输入 token 不同，也不能下统计结论。
+- 具体负迁移：高潮新版为了“继续推进”加入停止原倒计时的不合理指令和显得突然的铜哨回想，尽管机械绞盘的部分新后果写得具体；恐怖新版（W1）多次复查湿痕、数时间，却较少推进人物互动。相比之下，剧情新版在库房单据、存根与退库凭证上有新可检验线索，但也存在地点转换偏快的问题。不能按体裁名字给 WF 写死文学模板。
+- **立即回退误推广的开发默认**：在原 writerforge/writing_assist.py，AutonomousWriting.run(...,draft_mode="continuity_guard") 默认恢复 literary_progression_mode="baseline"。只有明确指定 source_progression 才启用实验提示。旧真实句校验、V114 物件状态、统一人物认知、长段重复拦截、同一 THREAD 记忆均不变；不增加新记忆/Skill/额外模型调用。先前修复的“文学建议不能挤掉因果提示”的独立预算+签名仍保留。
+- **回退后全仓库 CI [#39973669036](https://github.com/66tyu55/WriterForge/actions/runs/39973669036)：1,457 tests run、4 skipped、0 failures**。该结果证明回退没有破坏工程功能，不证明某版文学质量最优。
+- 新剧情/高潮/恐怖首轮 #39968891775 的原稿红灯保留：恐怖 W2 第二段真实写出 975 字符，被旧 950 限制拒绝。现对统一写作模式限定 1,024 字符并明确长度待审，零模型调用旧原稿复验 #39970808206 两臂均保存原 SHA；旧 V96 模式仍 950。软件限制问题和文学质量问题分开记录。
+- 本轮所有已完成的实验性 GitHub Actions workflow 已设为**手动触发**，防止后续普通提交导致新的付费调用；不修改生产 main，不部署 Railway，不改用户私有原书稿、旧 Atria 七类原稿或 Canon。
+- 下轮优先做**新的跨章真实创作/状态接续**以及人物是否真实形成选择，而不是重复同一个测试题、追加职业权限/评分模块、或者因三个随机样本临时“发明文学理论”。保留所有原始失败与负面意见，不造格式通过=文学成功的幻觉。
+
+---
+
+
+
 ## 0.D 真实文学 A/B：第二段承接上段的创作改进（2026-10-23，本轮最新）
 
 **用户的最新目标是让 WF 自己写不同场景、审读具体正文、改进文学手法帮助 AI；不是加权限、造新记忆、追逐测试数。** 首先读本节及 [WF_SOURCE_PROGRESSION_LITERARY_AB_20261023.md](WF_SOURCE_PROGRESSION_LITERARY_AB_20261023.md)。
