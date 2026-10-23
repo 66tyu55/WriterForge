@@ -108,7 +108,7 @@ tests/test_unified_scene_delivery.py 使用合成原创微场景覆盖只读提�
 
 在实现场景债务闭环后，现场检查了初次实验 Actions #39937669584 与补测 #39939718654。GitHub 仍保存九份原始附件，但返回 expires_at 为 **2026-11-06**。仅把 GitHub 链接写入手册不能长期保全来源，于是在同一开发分支加入**证据保全工具**（不属于小说长期叙事记忆模块）：
 
-- [scripts/preserve_atria_artifacts_r2.py](../scripts/preserve_atria_artifacts_r2.py) 和 [.github/workflows/atria-evidence-private-r2.yml](../.github/workflows/atria-evidence-private-r2.yml)。读取原始 GitHub API 附件元数据，逐项比对 run ID / artifact ID / 名称 / SHA256 / 未过期状态；下载 ZIP 受有界字节限制，核验 GitHub ZIP SHA256 与 CRC，然后仅向**现有私有** writerforge-private-library 桶中 writerforge/v1/private-evidence/atria-seven-genres-20261023/ 的 SHA 内容键写入，不允许覆写不一致数据，逐一重新 GET 比对完整字节。
+- [scripts/preserve_atria_artifacts_r2.py](../scripts/preserve_atria_artifacts_r2.py) 和 [.github/workflows/preserve-atria-evidence-r2.yml](../.github/workflows/preserve-atria-evidence-r2.yml)。读取原始 GitHub API 附件元数据，逐项比对 run ID / artifact ID / 名称 / SHA256 / 未过期状态；下载 ZIP 受有界字节限制，核验 GitHub ZIP SHA256 与 CRC，然后仅向**现有私有** writerforge-private-library 桶中 writerforge/v1/private-evidence/atria-seven-genres-20261023/ 的 SHA 内容键写入，不允许覆写不一致数据，逐一重新 GET 比对完整字节。
 - **真实 GitHub Actions success：[#39953107366](https://github.com/66tyu55/WriterForge/actions/runs/39953107366)**。运行记录返回 preserved_original_github_artifacts=9，private_r2_fresh_get_success=9，new_model_calls=0，canon_writes=0，source_copies_logged_or_published=false。
 - 不可变私有清单 SHA256：14e0e957f2564af71ee0ee3b8f74bf743948f6e06fa59e750b58387a5b74650e；保存九份 ZIP 的来源记录、来源实验与补测预算分类，保留原有失败、没有重新生成或重打分。备份仅为原始附件封存，不是新作学习、不等于文学进步，也不触发生产 Railway。状态附件只有哈希/数量，没有原稿正文。
 - 与本文早先的“本轮没有 R2 写入”历史基线须区分：**统一叙事闭环代码和 1,420 项软件回归**没有对 R2 写入；**本次后续防过期归档**确实向私有 R2 写入了九个封存 ZIP 与一份不可变 manifest。未覆盖任何现有小说原稿、R2 学习库、Canon 或主分支。
@@ -119,3 +119,14 @@ tests/test_unified_scene_delivery.py 使用合成原创微场景覆盖只读提�
 作者审阅不再只检查 HOT buffer 中的 source_sha256 与用户传入 prose 相同。review_scene_delivery_on_graph / review_scene_delivery_resume 在作出任一 CARRY_FORWARD / SETTLE_WITH_SOURCE / ABANDON_BY_AUTHOR 决定之前，还会调用现有 _verify_source_file 对保存的本地 candidate.md **重新读取原字节 SHA**；若是私有 r2:// 来源，必须显式传入现有私有 R2 source_reader 实际 GET，缺失读取器或对象字节变更就 fail closed。没有新增记忆模块和正文复制库。
 
 新增两个对抗回归：候选文件落盘后被篡改不能继续审结；R2 路径没有真实读取器不能审结，提供能回读且 SHA 匹配的 R2 reader 后才允许。**最新完整功能与测试提交 cb704a845ac2bc90c5609ab704b65ae28f915842；Actions [#39953606339](https://github.com/66tyu55/WriterForge/actions/runs/39953606339) success：1,422 tests run、4 skipped、0 failures。**之前 #39952000380 的 1,420 为历史绿色中间状态，非最终本轮测试数。另行做过的九件私有 R2 原稿归档只用于防原始附件过期，不是此文学语义测试的新模型调用。
+
+
+## 安静心理场景与防过期归档最终复验（2026-10-23）
+
+- writerforge/narrative_core.py 的统一 schedule 对 quiet 场景恢复已由正文来源核实的 CHARACTER_INTENT 内心张力；保留沉默、克制、拖延和改变计划的选择空间，不强求物理动作。对普通独处静场不再因仅出现主角名字就唤醒所有 OPEN THREAD；仅同时出现该线 owner 与 target 或精确稳定 THREAD ID 时才提示。其他人物 POV 仍不可读出 owner 私下意图。
+- tests/test_unified_narrative_core.py 和 tests/test_unified_scene_delivery.py 用原创合成情境核查：安静场景能思考相关旧承诺，日常听雨场景不加载无关债务，其他 NPC 不获知秘密；本文先前保存的七类 Atria 真实原文与测试结构不受影响。
+- 最新叙事完整回归 [#39954588343](https://github.com/66tyu55/WriterForge/actions/runs/39954588343)：1,429 tests run，4 skipped，0 failures，功能/测试提交 d9be9b265a0998d15aa9091e59087e33452cd0ae。规则覆盖不能等价为创作质量已过真人盲评。
+- 已有的 9/9 私有 R2 GitHub Actions 原始 ZIP 封存又在 [#39953846247](https://github.com/66tyu55/WriterForge/actions/runs/39953846247) 完成全新回读；当次先执行 1,427 tests（4 skipped，0 failures）。manifest SHA256 仍为 14e0e957f2564af71ee0ee3b8f74bf743948f6e06fa59e750b58387a5b74650e。五项独立离线单元测试覆盖 ZIP 来源身份、SHA、下载上界、CAS 不覆盖及远端 fresh GET 故障。
+- 归档程序依然是 scripts/preserve_atria_artifacts_r2.py；**唯一保留的工作流**是 .github/workflows/preserve-atria-evidence-r2.yml，出于原稿已保全与避免 R2 重复写入的原则，改为只允许 workflow_dispatch 手动触发。原 .github/workflows/preserve-atria-evidence-r2.yml 因重复而已从开发分支删除；早期运行链接和原始 ZIP 哈希不变。这里归档属于文学实验原始证据，不属于叙事记忆或任何 production main 能力。
+
+**剩余真实风险**：author_confirmed=True / candidate_read=True 目前是代码门禁标志，不是绑定真人身份的鉴权凭证；没有本人确认的用户接口时任何模型评审只许输出独立建议，不能自行调用审结。Atria 的喜剧未兑现、心理重播、高潮预算、打斗、计谋、恐怖与剧情七类失败仍需独立盲审，当前不得据 1,429 绿灯声称文学改进成功。
