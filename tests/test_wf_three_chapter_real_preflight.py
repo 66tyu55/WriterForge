@@ -72,7 +72,7 @@ class RealMultiChapterSourceProtocol(unittest.TestCase):
         self.assertIn('literary_progression_mode="baseline"',source)
         self.assertIn('draft_mode="continuity_guard"',source)
         self.assertIn("source_reread_byte_equal",source)
-        self.assertIn("original_prose",source)
+        self.assertIn("ORIGINAL_WF_CANDIDATE.md",source)
         self.assertNotIn("retry_model(",source)
         self.assertNotIn("author_review=True",source)
         self.assertIn("provider_retries",source)
