@@ -252,10 +252,15 @@ def diagnostic(scene):
                                     separators=(",",":"))
                 (output/f"{index+1:02d}-{stage}-original.json").write_text(
                     response,encoding="utf8")
+                decoded_note=model_client.last_response_format_recovery
                 calls[-1].update({
-                    "model_response_status":"RECEIVED_UNMODIFIED",
+                    "model_response_status":(
+                        "COMPLETE_SOURCE_WITH_EXACT_WRAPPER_RECOVERY"
+                        if decoded_note else "RECEIVED_UNMODIFIED"),
                     "response_sha256":h(response),
                     "response_characters":len(response),
+                    "provider_wrapper_recovery_receipt":decoded_note,
+                    "original_provider_wire_preserved_before_decode":True,
                 })
                 return response
 
@@ -290,6 +295,12 @@ def diagnostic(scene):
                 "prompt_delivery_receipts":turns.get(
                     "v121_prompt_delivery_receipts",[]),
                 "turn_receipts":turns.get("turn_receipts",[]),
+                "model_trace_reviews":turns.get(
+                    "unified_model_trace_review_failures",[]),
+                "source_citation_normalizations":turns.get(
+                    "unified_source_citation_normalizations",[]),
+                "optional_plan_craft_label_correction":turns.get(
+                    "unified_optional_craft_compatibility"),
                 "writer_is_honest_about_quality":not result.get(
                     "literary_quality_verified",False),
             }
@@ -334,6 +345,9 @@ def diagnostic(scene):
                 "SELECT count(*) FROM accepted_prose").fetchone()[0]
             db.close()
         status["calls"]=calls
+        status["exact_json_wrapper_recoveries"]=sum(
+            1 for row in calls
+            if row.get("provider_wrapper_recovery_receipt") is not None)
         status["provider_budget"]=budget.public_receipt()
         status["elapsed_seconds"]=round(time.monotonic()-start,1)
         dump(output/"STATUS.json",status)
