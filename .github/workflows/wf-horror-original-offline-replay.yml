@@ -1,9 +1,8 @@
 name: WF Horror Existing Prose Offline Replay (Zero Model Calls)
 on:
-  push:
-    branches: [refactor-unified-scene-delivery-audit]
-    paths:
-      - .github/workflows/wf-horror-original-offline-replay.yml
+  # Original real evidence is saved. Prevent unintended paid experiment replay.
+  # Re-run only after an explicit future user request.
+  workflow_dispatch:
 permissions:
   contents: read
   actions: read
