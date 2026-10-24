@@ -1,0 +1,7 @@
+Run once a REAL-SOURCE but ZERO-NEW-MODEL replay of the DeepSeek author revision from #40108836214.
+Old true author original #40094106486 and the third DeepSeek provider wire #40108836214 must be present and SHA-verified.
+Prior source locked REVISE patch was rejected for WF_SELF_EDIT_SCHEMA_INVALID because of extra type=json_object wrapper.
+Host now strips ONLY exact known wrapper and locates model-specified expected_original ONLY if byte-exact UNIQUE in old SHA-locked text, even if model's Unicode offsets exceed source.
+No semantic parent_effect_quote reconstruction; original V96/V114/V119 source gates remain active. Expect that the model may still have caused a trace failure, which must be preserved, not repaired.
+No third party model, no GH model key, no model retry, no user R2/Canon/main/Railway edits.
+One sentinel only, no automatic recurrence.
