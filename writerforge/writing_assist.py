@@ -1211,6 +1211,21 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                 "no_canon_or_prose_acceptance":True,
             },
         }
+        parent=beat.get("causal_parent")
+        parent_effect=next((
+            x.get("effect_quote") for x in accepted
+            if x.get("beat_id")==parent),None)
+        parent_trace_instruction=(
+            "\n【实际前因来源字段（技术格式，不是文学评价）】"
+            "本段没有前一段来源依赖。"
+            "trace.parent_effect_quote 必须是 JSON null，"
+            "不得引用本段任何对话或同段动作冒充前段后果。"
+            if parent is None else
+            "\n【实际前因来源字段（技术格式，不是文学评价）】"
+            "本段确有上一段来源依赖。"
+            "trace.parent_effect_quote 必须逐字引用以下已经实际写出的"
+            "上一段后果，不要从对话或计划猜测前因："+
+            json.dumps(parent_effect,ensure_ascii=False))
         instruction=(
             "\n【WriterForge 写作过程中自主删改】"
             "你刚写完小说的一段，独自重新读自己的正文，像作家反复打磨草稿。"
@@ -1231,6 +1246,10 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
             "改动时 trace 为 action_quote/effect_quote/parent_effect_quote"
             "三个键的对象：必须逐字引用修改后真正出现的原句，"
             "没有才填 null。reason 用一句话指出真实缺陷，不能自评分。"
+            "如果对 Unicode 字符坐标数不准，必须提供逐字准确且唯一的"
+            "expected_original；工作台只能用原文唯一引句恢复坐标，"
+            "不会猜测应该修改什么。"
+            +parent_trace_instruction+
             "\n【本轮真实未完成草稿】"+
             json.dumps(details,ensure_ascii=False,separators=(",",":"))
         )
