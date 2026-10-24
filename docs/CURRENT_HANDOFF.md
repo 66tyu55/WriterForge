@@ -1,6 +1,20 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.M 写作 AI 自己在两章边界选择回头，Studio 版本选择和冷重启连通（2026-10-24，本轮最新）
+
+**跨窗口必读**：[WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md](WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md)；真实软件路径、负例和边界 [WF_AI_STUDIO_CHAPTER_SELF_REVIEW_BRANCH_20261024.md](WF_AI_STUDIO_CHAPTER_SELF_REVIEW_BRANCH_20261024.md)。本轮只动开发分支 refactor-unified-scene-delivery-audit，不改生产 main、Railway、用户 R2 原书、已接受 Canon，不重新训练15章、不引入第二个文学记忆主人。
+
+- **关键纠偏一直有效**：AI 小说作者负责人物心理、叙事意义、任何文字生成，自己决定什么时候不满意、为什么、哪句/哪章和如何重写；WF 只提供真实原稿、V96/V114/V117/唯一 graph 的可观察安全边界、V119 修改事务和私有版本管理。不能由 WF 根据关键词、美学分数或默认反转决定删除。V26 双候选 Ctrl+1/Ctrl+2、自动保存/忽略、作者停止丢弃、V98 正文滚动构思、统一叙事记忆与 A–F 保持原样。
+- **同一 AI 的章节自审真实调用已经接好**：writing_assist.py 的 _ai_decides_cross_chapter 在 G 双章实际完成后，将两章**完整未接受正文**及来源 SHA 提供给**同一已配置 model/api_base**，只有模型实际发出 MOVE_ON 或 source-unique 的 LOOK_BACK_NOW 才允许进入下一阶段。其他格式、错 SHA、重复引句、没放进完整原文的超长上下文都不能触发软件删除；任何结论没有文学质量已证明标记。原始回复及失败解析另存私有字节文件，每次 Studio job 最多一次 AI 章节审阅调用，无自动重复。
+- **本地 Studio 单次任务已连通**：StudioService.start_auto 增加默认关闭的 ai_chapter_review，必须是 G、接续既有签名前章、恰好两章、ai_decides 与 self_edit_rounds>0、无逐段人工等待。先由模型实际写双章；模型可 MOVE_ON 不删，或 LOOK_BACK_NOW 后沿 0.L 原签名分叉再跑**一次**双章模型正文；两章完成并通过 V96/V114/V117 以后才能认定新候选分支。失败/无效回答仍留原稿，不让宿主代写，也不静默额外重试。
+- **候选选择可以跨 Studio 重启**：原 Studio 页面有 ai-chapter-review 开关（默认关）和旧/新候选选择；新 /api/autodraft/branch/select 仍需本机令牌、正确 job ID、服务端来源校验。现有 StudioStore 本地项目目录记录 unaccepted_branch_selection.json，仅保存候选签名元数据而不是文学记忆；重启验证每章候选**真实字节**、V117 graph 的热缓冲源 SHA/路径、原/新 manifest 和 fork receipt。篡改或越权直接 fail-closed，续写从明确选择的新 V117 head 恢复，不能继承废弃的旧后续；作者手写稿、旧历史稿不删除。
+- **真实失败完整保留**：[最初开发回归 #40089790688](https://github.com/66tyu55/WriterForge/actions/runs/40089790688) 的四处新测试失败由目录签名函数返回已解析内容视图而不是 signed catalog 导致，后来只纠正返回契约并补正文原始字节冷核验，不放宽来源身份。[首轮 #40089940484](https://github.com/66tyu55/WriterForge/actions/runs/40089940484) 1,523 tests、4 skipped、0 failures；[最新最终全量 #40090238474](https://github.com/66tyu55/WriterForge/actions/runs/40090238474) **1,525 tests、4 skipped、0 failures**，另通过 Node 检查 Studio JavaScript，且有实际 local HTTP 分支选择令牌 403 / 假 job 400、重写后章失败旧稿不变、冷重启恢复测试。
+- **证据边界不能夸大**：本轮所有写作 AI 选择与正文都是**离线人工模拟的模型答复**，新付费模型请求为 0，不能说真实 DeepSeek 自己跨章删改成功或文学水平提高。旧真实运行 #40070821134 第一段 INVALID_SIGNAL、第二段原生 MOVE_ON，及 #40071088617 零付费回放依然是唯一真实模型时机证据。至今没有真实同模型的 LOOK_BACK_NOW→有效跨章重写与独立文学盲评。
+- **仍未具备**：仅在已有 V117 前缀的本地 G 两章完成边界回看第一章，不能任意前十章、初书无前史章节、逐字/半句自动擦掉、多轮无限回头、跨设备/R2 的完整事务或所有被作者其他客户端接受的 Canon 状态。已保存工作流本次是用户 opt-in 的单次任务；没有授权不能启动新的真实模型实验。下一步先对同一真实写作 AI 做极有限、原始 wire 可保全的自然选择探针，再独立分析原稿、删改后正文和负例，不让 WF 成为文学裁判。
+
+---
+
 ## 0.L 已保存两章的 AI 回头：新的 V117 签名分支，不继承弃稿的热暖冷状态（2026-10-24，本轮最新）
 
 **接续顺序**：[WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md](WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md) → [WF_AI_CROSS_CHAPTER_BRANCH_FORK_20261024.md](WF_AI_CROSS_CHAPTER_BRANCH_FORK_20261024.md) → 本节 0.L。真实写作 AI 的第一段格式失败和第二段 MOVE_ON 仍见 0.I，不要重新训练或覆盖原始答复。本阶段仅 `refactor-unified-scene-delivery-audit`，禁止动 main / Railway / R2 原库 / 既有 Canon。
