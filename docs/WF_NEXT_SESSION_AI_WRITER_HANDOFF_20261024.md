@@ -1,6 +1,16 @@
 # WF 跨窗口精简交接｜2026-10-24｜AI 自己决定何时及为何删稿
 
-**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.L**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.M**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+
+## 本轮最新 0.M：同一写作 AI 自主选择是否跨章回头，Studio 本地重启续写（2026-10-24）
+
+**详细新增工程证据**：[WF_AI_STUDIO_CHAPTER_SELF_REVIEW_BRANCH_20261024.md](WF_AI_STUDIO_CHAPTER_SELF_REVIEW_BRANCH_20261024.md)。[最新完整无模型 CI #40090238474](https://github.com/66tyu55/WriterForge/actions/runs/40090238474)：**1,525 tests run、4 skipped、0 failed**，内含 Studio JavaScript 语法校验。依然只改开发分支，不重训、不改 main、不给 Railway/R2 部署或写原书。
+
+- 已在原 writing_assist.py 实现一次 **同一模型真实请求的章节级 MOVE_ON/LOOK_BACK_NOW 选择点**：完整交付刚生成的两章原文、SHA 和作者目标，模型自己给出为什么保留或回看、唯一原句/缺失场景问题和预期读者感受；WF 不审文学、不会提供小说正文或要求必须删稿。只接受源锁定 JSON，任何非唯一原句、错 SHA、格式失败或完整原文超过 10k prompt 上限，均不强制重写、不中途假装已读。原始模型答复字节单独保留。
+- StudioService.start_auto 现在有**默认关闭**的 ai_chapter_review。仅 G continuity_guard、明确接续已有签名未接受前章、恰好写两章、事件段 AI 自主判断开通且无人工逐段停顿；**用户只发送一次任务**，AI 在章节完成后可选保留或对第一章回改，再由原写作模型在新私有 job 重写受影响的双章。最多一次判断和一次重写；失败保留原稿，丢弃坏分支，不无限重新付费。
+- 现有 Studio UI 提供选项、候选旧稿/新稿切换。原 Studio 本地项目目录新增非文学记忆的候选分支选择 SHA 元数据；选定新分支的后续 V117 恢复会拒绝旧分支下游。重启冷读原始 local manifest、每章候选**实际字节**、统一 graph 的源 SHA、V117 signed resume、fork 收据；来源改动或目录不合法就 fail-closed，不再只依赖进程内的一条路径。旧本地历史文件和人写原稿不动。
+- 原始红灯 [#40089790688](https://github.com/66tyu55/WriterForge/actions/runs/40089790688) 是目录构造器错误把已校验内容视图当作签名目录，导致 WF_STUDIO_BRANCH_CATALOG_TAMPERED；修正返回契约而非放宽安全校验。 [#40089940484](https://github.com/66tyu55/WriterForge/actions/runs/40089940484) 1,523 绿；最终 #40090238474 1,525 绿，含 HTTP 令牌/跨 job 拒绝与模型重写失败退回原分支。
+- **不能夸大**：这次供应商都是零付费 mock，原真实 DeepSeek 仍只有首段 INVALID_SIGNAL 和第二段 MOVE_ON（0.I）。**尚没有真实模型自己选跨章 LOOK_BACK_NOW 并成功提升作品**，没有独立文学盲评；适用范围还是有前缀签名的**两章**第一章回看，不是任意多章、逐字流式删改或 R2 跨设备全局事务。下一步才是有限同模型原始 wire 试验和文学盲测，需另外授权。
 
 ## 本轮最新 0.L：AI 回改整章后的新 V117 分支与热暖冷引用（2026-10-24）
 
@@ -59,4 +69,4 @@
 
 ## 下个对话可直接发
 
-「继续 WriterForge。读取开发分支 refactor-unified-scene-delivery-audit 的 docs/WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md 和 CURRENT_HANDOFF.md 最新 0.L。核心是 AI 自己决定什么时候不满意、为什么删，WF 绝不能替 AI 计算文学意义或生成，保持 V26/V98/V119/V117/统一图。先核验最新 1516 测试（含双章新分支、源父 SHA、热暖冷、旧支拒绝与失败完整保留）与历史真实 6 次调用、零模型回放，保留首段 INVALID_SIGNAL 和第二段 MOVE_ON 的负例，再针对真正自发 LOOK_BACK_NOW 与下游状态回退做最小验证；禁止重复训练、增加记忆、改 main 或部署 Railway。」
+「继续 WriterForge。读取开发分支 refactor-unified-scene-delivery-audit 的 docs/WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md 和 CURRENT_HANDOFF.md 最新 0.M。核心是 AI 自己决定什么时候不满意、为什么删，WF 绝不能替 AI 计算文学意义或生成，保持 V26/V98/V119/V117/统一图。先核验最新 1525 测试（含 Studio AI 自主章节选择、签名版本选择、冷重启、HTTP 防护）与历史真实 6 次调用、零模型回放，保留首段 INVALID_SIGNAL 和第二段 MOVE_ON 的负例，再针对真正自发 LOOK_BACK_NOW 与下游状态回退做最小验证；禁止重复训练、增加记忆、改 main 或部署 Railway。」
