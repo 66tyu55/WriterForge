@@ -60,8 +60,8 @@ class SourceDeletionDoesNotRecreateFacts(unittest.TestCase):
             previous_candidate_state=new["reducer_result"]["candidate_state"])[
                 "blocked"])
         self.assertTrue(preflight_next_prose(original_next,
-            previous_candidate_state=new["reducer_result"]["candidate_state"])[
-                "blocked"])
+            previous_candidate_state=new["reducer_result"]["candidate_state"],
+            cast=CAST)["blocked"])
         signed=make_resume(
             project_id="rewind-items",scene_id="sealed-chapter",
             chapter_index=1,checkpoint=new)
@@ -195,12 +195,16 @@ class ActualGPassesOnlyRevisedPhysicalState(unittest.TestCase):
             "唐蜃握着火髓果绕着雨棚走了一圈，想到白天听到的哭声。"
             "他以为沈砚会说出密令的事，但其实双方都没有确凿线索。"
             "两人站在旧屋门外听见脚步声，仍不知道是谁故意惊动他们。"
+            "唐蜃记得那天自己说过什么，但他不愿立刻承认那些话造成了误解。"
         )
         next_new=(
             "沈砚望着左手心的火髓果，一直没有松开手指。"
             "唐蜃在后门听见雨声渐渐变小，想到自己昨日说错的话。"
             "两人不急着决定去哪里，而是先把眼前的线索逐一核对。"
+            "沈砚想到他们还没有找到可靠证据，所以只让两人先避开旧井旁的危险。"
         )
+        self.assertGreaterEqual(len(next_old),80)
+        self.assertGreaterEqual(len(next_new),80)
         turns={"turns":[
             {"id":"t01","kind":"quiet","actor":"沈砚",
              "goal":"沈砚在不确定时守住火髓果","causal_parent":None,
