@@ -1249,6 +1249,8 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
         calls+=1
         (directory/f"round-{i+1:02d}-model-proposal.json").write_text(
             answer,encoding="utf8")
+        wrapper_only_removed=False
+        recovered_offset=False
         try:
             if type(answer) is not str or len(answer.encode("utf8"))>18000:
                 raise ValueError("WF_SELF_EDIT_REPLY_TOO_BIG")
@@ -1263,6 +1265,16 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
             expected_keys={
                 "decision","scope","source_sha256","start","end",
                 "expected_original","replacement","trace","reason"}
+            # Observed real DeepSeek V119 proposals may contain the literal
+            # transport marker "type":"json_object". This ONE precise
+            # wrapper is removable without changing model's prose, literary
+            # decision, source quote, metadata, or raw provider answer.
+            # Every other surplus field remains an error.
+            if (type(choice) is dict and
+                set(choice)==expected_keys|{"type"} and
+                choice.get("type")=="json_object"):
+                choice={k:v for k,v in choice.items() if k!="type"}
+                wrapper_only_removed=True
             if type(choice) is not dict or set(choice)!=expected_keys:
                 raise ValueError("WF_SELF_EDIT_SCHEMA_INVALID")
             decision=choice["decision"]
@@ -1287,7 +1299,10 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
             replacement=choice["replacement"]
             if (scope not in SELF_EDIT_SCOPES or
                 type(start) is not int or type(end) is not int or
-                not 0<=start<end<=len(previous) or
+                # Positions may be badly counted by the model. Recover
+                # ONLY when the literal original text uniquely occurs in
+                # this same SHA-locked source. Still cap integer bounds.
+                not 0<=start<end<=20000 or
                 type(original) is not str or not original or
                 len(original)>SELF_EDIT_SCOPES[scope] or
                 type(replacement) is not str or
@@ -1305,7 +1320,6 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
             # Recover only from verbatim source evidence, never fuzzy
             # matching, guessed referents, or replacing another occurrence.
             model_start,model_end=start,end
-            recovered_offset=False
             if previous[start:end]!=original:
                 if previous.count(original)!=1:
                     raise ValueError(
@@ -1379,6 +1393,7 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                 "candidate_sha256":sha256(changed.encode("utf8")).hexdigest(),
                 "patch_receipt_sha256":preview["receipt"]["receipt_sha256"],
                 "source_offset_recovered_exactly":recovered_offset,
+                "format_wrapper_only_removed":wrapper_only_removed,
                 "original_model_coordinates":[model_start,model_end],
                 "host_verified_coordinates":[start,end],
                 "literary_quality_not_proven":True})
@@ -1391,6 +1406,8 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
             rounds.append({
                 "round":i+1,"status":"REJECTED_AND_ROLLED_BACK",
                 "reason_code":error[:150],
+                "format_wrapper_only_removed":wrapper_only_removed,
+                "source_offset_recovered_exactly":recovered_offset,
                 "unmodified_candidate_sha256":previous_sha})
             break
     last=doc["prose"].strip()
