@@ -79,8 +79,22 @@ label{font-size:13px;font-weight:600;display:block;margin-top:13px}
        <option value="foresight_rolling">F · 选择前预演两条未来＋跨章未偿代价（试验）</option>
     </select>
     <p class="note">B/C/D/E/F为可选本地实验，最多两章、每次最多16个事件。D在每个后续事件前额外调用模型重拟目标，单任务最多14次额外重拟；E与D调用次数上限相同，但额外记录真实正文情感触发、行动代价、后果与下一幕压力。F不增加后续重规划次数，但章计划输出额度更大，并尝试多步未来的符号可行性检查与跨章未偿债务；没有作者已审核的世界初始事实时只能报告未知，不能保证文学逻辑正确。旧模式默认不变。真实文学因果、人物动机与代价仍需审阅。所有草稿不自动接受或写入人物事实。</p>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:normal">
+      <input id="pause-turns" type="checkbox" checked />
+      分段模式：每段写完先让我阅读，再决定继续
+    </label>
+    <p class="note">A 是明确选择的整章模式；B–F 可以分段输出并暂停。暂停确认仅允许写下一段，不等于正式采纳正文。停止后会丢弃本次生成的候选文件，原手工草稿不会删除。</p>
     <button class="primary" type="button" id="run-auto" style="margin-top:14px;width:100%">按大纲生成章节</button>
+    <button class="secondary" type="button" id="stop-auto" hidden style="margin-top:8px;width:100%">停止并丢弃本次未完成生成</button>
     <div id="auto-status" class="status">尚未开始。生成需要本地模型在运行。</div>
+    <div id="turn-review" hidden>
+      <div class="divider"></div>
+      <div class="smalltitle">当前分段候选 · 尚未正式接受</div>
+      <div id="turn-prose" style="white-space:pre-wrap;max-height:350px;overflow:auto;font:15px/1.9 Songti SC,SimSun,serif;background:#f9f8f2;padding:14px;border-radius:9px"></div>
+      <p class="note">选择继续，只允许模型生成下一段；不是接受为正文或同意人物事实。也可以在上方停止并丢弃。</p>
+      <button class="primary" id="continue-turn" type="button">继续生成下一段</button>
+    </div>
+    <button class="secondary" type="button" id="discard-auto" hidden style="margin:10px 0">丢弃本次生成的候选稿</button>
     <div id="auto-results"></div>
     <div id="preview-area" hidden>
       <div class="divider"></div>
@@ -215,7 +229,46 @@ function tab(mode){
 }
 $("tab-help").onclick=()=>tab("help");
 $("tab-auto").onclick=()=>tab("auto");
-let autoPolling=false;
+let autoPolling=false,currentJobId=null,currentTurnReview=null;
+async function stopAndDiscard(){
+  if(!currentJobId)return;
+  if(!confirm("停止后将删除本次任务已经生成的临时候选，原手工草稿和其他历史候选不变。确认停止？"))return;
+  $("stop-auto").disabled=true;
+  try{
+    await send("/api/autodraft/cancel",{job_id:currentJobId});
+    message("auto-status","已请求停止：当前模型请求返回后，不再继续生成，并仅清理本次候选。");
+    $("turn-review").hidden=true;
+  }catch(err){
+    message("auto-status",err.message,true);
+    $("stop-auto").disabled=false;
+  }
+}
+$("stop-auto").addEventListener("click",stopAndDiscard);
+$("continue-turn").addEventListener("click",async()=>{
+  if(!currentJobId||!currentTurnReview)return;
+  $("continue-turn").disabled=true;
+  try{
+    await send("/api/autodraft/continue",{
+      job_id:currentJobId,
+      chapter:currentTurnReview.chapter,turn:currentTurnReview.turn});
+    $("turn-review").hidden=true;
+    currentTurnReview=null;
+  }catch(err){
+    message("auto-status","无法继续："+err.message,true);
+    $("continue-turn").disabled=false;
+  }
+});
+$("discard-auto").addEventListener("click",async()=>{
+  if(!currentJobId||!confirm("永久删除本次生成的候选文件？已保存的手工手稿和其他任务不会删除。"))return;
+  try{
+    await send("/api/autodraft/discard",{job_id:currentJobId});
+    $("auto-results").replaceChildren();
+    $("preview-area").hidden=true;
+    $("discard-auto").hidden=true;
+    currentPreview="";
+    message("auto-status","仅本次生成候选已删除，原手工手稿仍保留。");
+  }catch(err){message("auto-status",err.message,true)}
+});
 async function startAuto(){
   const outline=$("outline").value.trim();
   const chapters=$("chapter-goals").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
@@ -227,8 +280,16 @@ async function startAuto(){
   $("run-auto").disabled=true;
   message("auto-status","正在创建分章计划…");
   try{
-    const job=await send("/api/autodraft",{outline,chapters,draft_mode});
-    message("auto-status","已开始按 "+draft_mode+" 规划与写作。");
+    const pause_between_turns=(draft_mode!=="single"&&$("pause-turns").checked);
+    const job=await send("/api/autodraft",{
+      outline,chapters,draft_mode,pause_between_turns});
+    currentJobId=job.job_id;
+    $("auto-results").replaceChildren();
+    $("preview-area").hidden=true;
+    $("discard-auto").hidden=true;
+    $("stop-auto").hidden=false;
+    $("stop-auto").disabled=false;
+    message("auto-status","已开始按 "+draft_mode+" 创作"+(pause_between_turns?"；每段完成会暂停等待你的选择。":"。"));
     await watchJob(job.job_id);
   }catch(err){
     message("auto-status",err.message,true);
@@ -245,17 +306,47 @@ async function watchJob(jobId){
       const job=await get("/api/job",true);
       if(job.id!==jobId)throw Error("当前作业已替换");
       if(job.status==="queued"||job.status==="running"){
+        $("turn-review").hidden=true;
         message("auto-status","正在处理第 "+job.chapter+"/"+job.total+" 章 · "+(job.stage||"等待模型"));
         continue;
       }
-      if(job.status==="failed")throw Error(job.error||"生成失败；已完成章节仍保存于本地");
-      if(job.status==="completed"){
+      if(job.status==="awaiting_review"){
+        const row=job.pending_turn;
+        if(row&&(currentTurnReview?.chapter!==row.chapter||currentTurnReview?.turn!==row.turn)){
+          currentTurnReview={chapter:row.chapter,turn:row.turn};
+          $("turn-prose").textContent=row.text;
+          $("continue-turn").disabled=false;
+        }
+        $("turn-review").hidden=false;
+        message("auto-status","第 "+row.chapter+" 章第 "+row.turn+" 段已写出；等待你选择继续或丢弃。");
+        continue;
+      }
+      if(job.status==="cancelling"){
+        $("turn-review").hidden=true;
+        message("auto-status","停止请求已收到；当前模型调用返回后清理本次未完成候选。");
+        continue;
+      }
+      $("stop-auto").hidden=true;
+      $("turn-review").hidden=true;
+      currentTurnReview=null;
+      if(job.status==="cancelled"||job.status==="discarded"){
+        $("auto-results").replaceChildren();
+        $("preview-area").hidden=true;
+        message("auto-status","本次生成已经停止并丢弃；原手工草稿和其他任务未修改。");
+      }else if(job.status==="cancel_cleanup_failed"){
+        message("auto-status",job.error||"停止成功但清理失败",true);
+        $("discard-auto").hidden=false;
+      }else if(job.status==="failed"){
+        $("discard-auto").hidden=false;
+        throw Error(job.error||"生成失败；如有未完成候选可手动丢弃");
+      }else if(job.status==="completed"){
         message("auto-status","已写完 "+job.result.chapter_count+" 章候选稿并保存计划和来源。尚未自动接受。");
         showChapters(job.result.chapters);
+        $("discard-auto").hidden=false;
       }
       break;
     }
-  }finally{autoPolling=false}
+  }finally{autoPolling=false;$("run-auto").disabled=false}
 }
 function showChapters(chapters){
   const box=$("auto-results");box.replaceChildren();
@@ -291,8 +382,17 @@ $("copy-preview").onclick=async()=>{
     message("indicator","本地模型："+bootstrap.model);
     message("save-state","已自动恢复" );
     message("help-status","开始写作；适当停笔时会有两种文字建议");
-    if(bootstrap.auto_job&&bootstrap.auto_job.status==="completed"&&bootstrap.auto_job.result){
-      showChapters(bootstrap.auto_job.result.chapters);
+    if(bootstrap.auto_job&&bootstrap.auto_job.id){
+      currentJobId=bootstrap.auto_job.id;
+      if(bootstrap.auto_job.status==="completed"&&bootstrap.auto_job.result){
+        showChapters(bootstrap.auto_job.result.chapters);
+        $("discard-auto").hidden=false;
+      }else if(["queued","running","awaiting_review","cancelling"].includes(bootstrap.auto_job.status)){
+        $("stop-auto").hidden=false;
+        void watchJob(currentJobId);
+      }else if(bootstrap.auto_job.status==="failed"||bootstrap.auto_job.status==="cancel_cleanup_failed"){
+        $("discard-auto").hidden=false;
+      }
     }
   }catch(err){message("indicator","连接失败："+err.message,true);manuscript.disabled=true}
 })();
