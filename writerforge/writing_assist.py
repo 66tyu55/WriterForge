@@ -1162,6 +1162,213 @@ class WriterDraftCancelled(WritingExecutionError):
     """A provisional draft was stopped by its author; never a Canon change."""
 
 
+def _fork_private_local_file(job, value, *, max_bytes=3_000_000):
+    """Read only a source-job artifact; reject escape paths and R2 URLs."""
+    if (type(value) is not str or not value or
+        value.startswith("r2://")):
+        raise WritingExecutionError("WF_CHAPTER_FORK_SOURCE_PATH_INVALID")
+    target=Path(value).resolve()
+    if (not target.is_relative_to(job) or not target.is_file() or
+        not 0<target.stat().st_size<=max_bytes):
+        raise WritingExecutionError("WF_CHAPTER_FORK_SOURCE_PATH_INVALID")
+    return target
+
+
+def _fork_strict_json(value, *, max_bytes):
+    if type(value) is not str or len(value.encode("utf8"))>max_bytes:
+        raise WritingExecutionError("WF_CHAPTER_FORK_JSON_BOUNDS")
+    def unique(pairs):
+        result={}
+        for k,v in pairs:
+            if k in result:
+                raise WritingExecutionError("WF_CHAPTER_FORK_DUPLICATE_KEY")
+            result[k]=v
+        return result
+    try:
+        parsed=json.loads(value,object_pairs_hook=unique)
+    except (ValueError,TypeError):
+        raise WritingExecutionError("WF_CHAPTER_FORK_BAD_JSON") from None
+    if type(parsed) is not dict:
+        raise WritingExecutionError("WF_CHAPTER_FORK_BAD_JSON")
+    return parsed
+
+
+def _prepare_unaccepted_chapter_fork(*,source_job_dir,writer_decision_reply,
+                                     expected_old_head_sha256,
+                                     retained_resume,project_id,scene_id,
+                                     outline_sha256,source_snapshot_id,
+                                     model_used,chapter_count):
+    """Check a complete *local unaccepted* V117/NarrativeCore candidate chain.
+
+    Writer supplied the literary decision; software never decides to rewrite
+    a chapter or manufactures a replacement. The previous signed chapter
+    (possibly containing earlier hot/warm/cold memory) is the only retained
+    story owner. All later chapter candidates must be newly drafted in a
+    DIFFERENT job, never copied as accepted events.
+    """
+    if (type(source_job_dir) not in (str,Path) or
+        type(expected_old_head_sha256) is not str or
+        len(expected_old_head_sha256)!=64 or
+        type(retained_resume) is not dict):
+        raise WritingExecutionError("WF_CHAPTER_FORK_INPUT_INVALID")
+    job=Path(source_job_dir).resolve()
+    if not job.is_dir() or not job.name.startswith("auto-"):
+        raise WritingExecutionError("WF_CHAPTER_FORK_NOT_SOURCE_JOB")
+    manifest_path=_fork_private_local_file(job,str(job/"job_manifest.json"))
+    manifest=_fork_strict_json(manifest_path.read_text("utf8"),
+                               max_bytes=3_000_000)
+    if (manifest.get("status")!="candidates_saved" or
+        manifest.get("draft_mode")!="continuity_guard" or
+        manifest.get("project_id")!=project_id or
+        manifest.get("outline_sha256")!=outline_sha256 or
+        manifest.get("source_snapshot_id")!=source_snapshot_id or
+        manifest.get("model_used")!=model_used or
+        type(manifest.get("chapters")) is not list or
+        not 2<=len(manifest["chapters"])<=2 or
+        len(manifest["chapters"])!=chapter_count or
+        manifest.get("chapter_count")!=chapter_count):
+        raise WritingExecutionError("WF_CHAPTER_FORK_ORIGINAL_JOB_MISMATCH")
+    try:
+        read_resume(retained_resume,project_id=project_id,
+                    scene_id=scene_id)
+        earlier_core=read_core_from_resume(
+            retained_resume,project_id=project_id,scene_id=scene_id)
+    except (ContinuityTraceError,NarrativeCoreError):
+        raise WritingExecutionError("WF_CHAPTER_FORK_PRIOR_RESUME_INVALID") from None
+    if earlier_core is None or "v123_open_character_arc" in retained_resume:
+        raise WritingExecutionError("WF_CHAPTER_FORK_REQUIRES_UNIFIED_GRAPH")
+    # Never claim unrelated R2 memory was checked by local-only fork logic.
+    old_memory=earlier_core["memory"]
+    if (any(x.get("source_path","").startswith("r2://")
+            for x in old_memory["hot"]+old_memory["warm"]) or
+        any((ref.get("path","").startswith("r2://")
+             if type(ref) is dict else False)
+            for ref in [old_memory.get("cold_head")] +
+                       list(old_memory.get("cold_node_heads",{}).values()))):
+        raise WritingExecutionError("WF_CHAPTER_FORK_REMOTE_ARCHIVE_NOT_VERIFIED")
+    decision=_fork_strict_json(writer_decision_reply,max_bytes=12000)
+    required={"decision","target_chapter_index","source_sha256",
+              "evidence_quote","why_now","what_goes_wrong_if_unchanged",
+              "intended_reader_effect"}
+    if (set(decision)!=required or
+        decision["decision"]!="LOOK_BACK_NOW" or
+        type(decision["target_chapter_index"]) is not int or
+        type(decision["source_sha256"]) is not str or
+        type(decision["why_now"]) is not str or
+        type(decision["what_goes_wrong_if_unchanged"]) is not str or
+        type(decision["intended_reader_effect"]) is not str or
+        not all(8<=len(decision[k])<=260 for k in (
+            "why_now","what_goes_wrong_if_unchanged",
+            "intended_reader_effect"))):
+        raise WritingExecutionError("WF_CHAPTER_FORK_WRITER_SIGNAL_INVALID")
+    first=retained_resume["chapter_index"]+1
+    if decision["target_chapter_index"]!=first:
+        raise WritingExecutionError("WF_CHAPTER_FORK_NOT_ADJACENT_TO_PREFIX")
+    upstream=earlier_core["receipt_sha256"]
+    affected=[]
+    for position,row in enumerate(manifest["chapters"]):
+        if (type(row) is not dict or row.get("accepted") is not False or
+            row.get("story_chapter_index")!=first+position or
+            row.get("draft_mode")!="continuity_guard"):
+            raise WritingExecutionError("WF_CHAPTER_FORK_ACCEPTED_OR_GAPPED")
+        candidate_path=_fork_private_local_file(job,row.get("candidate"),
+                                                 max_bytes=70_000)
+        original_bytes=candidate_path.read_bytes()
+        try:
+            original=original_bytes.decode("utf8","strict")
+        except UnicodeError:
+            raise WritingExecutionError("WF_CHAPTER_FORK_SOURCE_NOT_UTF8") from None
+        original_sha=sha256(original_bytes).hexdigest()
+        resume_file=_fork_private_local_file(
+            job,row.get("v117_unreviewed_text_trace_resume"))
+        snapshot=_fork_strict_json(resume_file.read_text("utf8"),
+                                   max_bytes=3_000_000)
+        try:
+            state=read_resume(snapshot,project_id=project_id,
+                              scene_id=scene_id)
+            graph=read_core_from_resume(
+                snapshot,project_id=project_id,scene_id=scene_id)
+        except (ContinuityTraceError,NarrativeCoreError):
+            raise WritingExecutionError("WF_CHAPTER_FORK_OLD_RESUME_INVALID") from None
+        if (graph is None or snapshot["chapter_index"]!=first+position or
+            graph["parent_sha256"]!=upstream or
+            graph["chapter_index"]!=first+position or
+            state["receipt_sha256"]!=snapshot["source_checkpoint_sha256"] or
+            state["source_sha256"]!=snapshot["source_prose_sha256"]):
+            raise WritingExecutionError("WF_CHAPTER_FORK_GRAPH_PARENT_OR_SOURCE")
+        hot=graph.get("memory",{}).get("hot",[])
+        latest=(hot[-1] if hot else None)
+        if (latest is None or latest["chapter"]!=first+position or
+            latest["source_sha256"]!=original_sha or
+            latest["source_path"].startswith("r2://") or
+            Path(latest["source_path"]).resolve()!=candidate_path):
+            raise WritingExecutionError("WF_CHAPTER_FORK_MANUSCRIPT_CHANGED")
+        affected.append({
+            "chapter_index":first+position,
+            "source_sha256":original_sha,
+            "old_v117_receipt_sha256":snapshot["receipt_sha256"],
+            "old_graph_receipt_sha256":graph["receipt_sha256"],
+        })
+        upstream=graph["receipt_sha256"]
+    if affected[-1]["old_v117_receipt_sha256"]!=expected_old_head_sha256:
+        raise WritingExecutionError("WF_CHAPTER_FORK_STALE_HEAD")
+    if affected[0]["source_sha256"]!=decision["source_sha256"]:
+        raise WritingExecutionError("WF_CHAPTER_FORK_STALE_WRITER_SOURCE")
+    quote=decision["evidence_quote"]
+    first_source=_fork_private_local_file(
+        job,manifest["chapters"][0]["candidate"],max_bytes=70_000
+    ).read_text("utf8")
+    if (quote is not None and
+        (type(quote) is not str or not 6<=len(quote)<=160 or
+         first_source.count(quote)!=1)):
+        raise WritingExecutionError("WF_CHAPTER_FORK_WRITER_QUOTE_NOT_UNIQUE")
+    return {
+        "format":"wf.candidate.chapter-rewind-intent.v1",
+        "project_id":project_id,"scene_id":scene_id,
+        "original_job_manifest_sha256":sha256(
+            manifest_path.read_bytes()).hexdigest(),
+        "parent_resume_sha256":retained_resume["receipt_sha256"],
+        "parent_graph_sha256":earlier_core["receipt_sha256"],
+        "target_chapter_index":first,
+        "old_head_resume_sha256":expected_old_head_sha256,
+        "obsolete_only_in_this_fork":affected,
+        "writer_reply_sha256":sha256(
+            writer_decision_reply.encode("utf8")).hexdigest(),
+        "model_choice_not_independently_proven":True,
+        "author_accepted":False,"canon_writes":0,
+        "old_artifacts_are_immutable":True,
+        "no_literary_quality_decision_by_host":True,
+    }
+
+
+def _validate_unaccepted_fork_resume(*,fork_receipt,candidate_resume,
+                                     project_id,scene_id):
+    """Reject a formerly valid OLD resume when caller selects a new fork."""
+    if (type(fork_receipt) is not dict or
+        fork_receipt.get("format")!="wf.candidate.chapter-fork-rebuilt.v1" or
+        fork_receipt.get("project_id")!=project_id or
+        fork_receipt.get("scene_id")!=scene_id or
+        fork_receipt.get("author_accepted") is not False or
+        fork_receipt.get("canon_writes")!=0 or
+        fork_receipt.get("receipt_sha256")!=sha256(
+            json.dumps({k:v for k,v in fork_receipt.items()
+                        if k!="receipt_sha256"},sort_keys=True,
+                       ensure_ascii=False,separators=(",",":")).encode(
+                           "utf8")).hexdigest()):
+        raise WritingExecutionError("WF_CHAPTER_FORK_RECEIPT_TAMPERED")
+    try:
+        read_resume(candidate_resume,project_id=project_id,
+                    scene_id=scene_id)
+    except (ContinuityTraceError,TypeError):
+        raise WritingExecutionError("WF_CHAPTER_FORK_RESUME_INVALID") from None
+    if (candidate_resume["receipt_sha256"]!=
+        fork_receipt["new_branch_head_resume_sha256"] or
+        candidate_resume["chapter_index"]!=
+        fork_receipt["new_branch_final_chapter_index"]):
+        raise WritingExecutionError("WF_CHAPTER_FORK_OLD_DESCENDANT_BLOCKED")
+    return candidate_resume
+
+
 class AutonomousWriting:
     """Bounded outline -> narrative decisions -> actual model chapters on disk."""
 
@@ -1204,7 +1411,9 @@ class AutonomousWriting:
             cancel_requested=None,review_turn=None,
             bootstrap_unified_core:bool=False,
             self_edit_rounds:int=0,
-            self_edit_timing:str="always_offer") -> dict:
+            self_edit_timing:str="always_offer",
+            cross_chapter_fork:dict|None=None,
+            selected_fork_receipt:dict|None=None) -> dict:
         if (self_edit_timing not in ("always_offer","ai_decides") or
             self_edit_timing=="ai_decides" and (
                 draft_mode!="continuity_guard" or self_edit_rounds==0)):
@@ -1311,6 +1520,18 @@ class AutonomousWriting:
             scene_delivery_contracts is not None):
             raise WritingExecutionError(
                 "WF117_TEXT_CONTINUITY_ONLY_PARAMETERS_REFUSED")
+        # A selected fork forbids continuing from an older, still-valid
+        # historical descendant in THIS new branch. Other old branches remain
+        # immutable archives; the selection must be supplied explicitly.
+        if selected_fork_receipt is not None:
+            if type(resume_story_checkpoint) is not dict:
+                raise WritingExecutionError(
+                    "WF_CHAPTER_FORK_SELECTED_RESUME_REQUIRED")
+            _validate_unaccepted_fork_resume(
+                fork_receipt=selected_fork_receipt,
+                candidate_resume=resume_story_checkpoint,
+                project_id=self.assist.project_id,
+                scene_id=self.assist.scene_id)
         # Source-checkpoint resume is explicit, signed, project-scoped, and
         # NEVER silently imports a previous unaccepted draft as canon.
         earlier_external=None
@@ -1432,6 +1653,33 @@ class AutonomousWriting:
                     checkpoint=resume_candidate_checkpoint
             except V105FutureCausalityError as exc:
                 raise WritingExecutionError(str(exc)) from None
+        # A cross-chapter fork is only an explicit AI-proposed candidate
+        # branch. Validate the old source and its complete signed graph chain
+        # BEFORE creating the next job or making model calls.
+        cross_chapter_plan=None
+        if cross_chapter_fork is not None:
+            if (draft_mode!="continuity_guard" or
+                bootstrap_unified_core or
+                narrative_memory_backend!="local" or
+                type(resume_story_checkpoint) is not dict or
+                type(cross_chapter_fork) is not dict or
+                set(cross_chapter_fork)!={
+                    "source_job_dir","writer_decision_reply",
+                    "expected_old_head_sha256"}):
+                raise WritingExecutionError(
+                    "WF_CHAPTER_FORK_EXPLICIT_LOCAL_G_ONLY")
+            cross_chapter_plan=_prepare_unaccepted_chapter_fork(
+                source_job_dir=cross_chapter_fork["source_job_dir"],
+                writer_decision_reply=cross_chapter_fork["writer_decision_reply"],
+                expected_old_head_sha256=cross_chapter_fork[
+                    "expected_old_head_sha256"],
+                retained_resume=resume_story_checkpoint,
+                project_id=self.assist.project_id,
+                scene_id=self.assist.scene_id,
+                outline_sha256=sha256(outline.encode("utf8")).hexdigest(),
+                source_snapshot_id=self.assist.rt.pinned_snapshot_id,
+                model_used=self.assist.model,
+                chapter_count=len(chapter_goals))
         root=Path(output_dir)
         root.mkdir(parents=True,exist_ok=True)
         # Reject instead of silently deleting an author's older drafts. This
@@ -1443,6 +1691,10 @@ class AutonomousWriting:
         stamp=datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         job=root/("auto-"+stamp)
         job.mkdir(exist_ok=False)
+        if cross_chapter_plan is not None:
+            (job/"cross-chapter-fork-intent.json").write_text(
+                json.dumps(cross_chapter_plan,ensure_ascii=False,
+                           indent=2),encoding="utf8")
         check_cancel()
         outline_hash=sha256(outline.encode("utf-8")).hexdigest()
         previous=""
@@ -2867,6 +3119,60 @@ class AutonomousWriting:
                                              if checkpoint else 0)
             receipt["forecast_was_not_future_truth"]=True
             receipt["extra_software_validation_model_calls"]=0
+        if cross_chapter_plan is not None:
+            if (len(chapters)!=len(cross_chapter_plan[
+                   "obsolete_only_in_this_fork"]) or
+                chapters[0]["story_chapter_index"]!=
+                    cross_chapter_plan["target_chapter_index"]):
+                raise WritingExecutionError(
+                    "WF_CHAPTER_FORK_REBUILT_CHAPTER_COUNT_MISMATCH")
+            first_new=Path(chapters[0]["candidate"]).read_bytes()
+            if (sha256(first_new).hexdigest()==
+                cross_chapter_plan["obsolete_only_in_this_fork"][0][
+                    "source_sha256"]):
+                raise WritingExecutionError(
+                    "WF_CHAPTER_FORK_NO_SOURCE_CHANGE")
+            new_final=json.loads(Path(
+                chapters[-1]["v117_unreviewed_text_trace_resume"]
+            ).read_text("utf8"))
+            _validate_rebuilt=read_resume(
+                new_final,project_id=self.assist.project_id,
+                scene_id=self.assist.scene_id)
+            new_core=read_core_from_resume(
+                new_final,project_id=self.assist.project_id,
+                scene_id=self.assist.scene_id)
+            if (new_core is None or
+                new_core["parent_sha256"] is None or
+                new_core["receipt_sha256"]==
+                    cross_chapter_plan["obsolete_only_in_this_fork"][-1][
+                        "old_graph_receipt_sha256"]):
+                raise WritingExecutionError(
+                    "WF_CHAPTER_FORK_NEW_GRAPH_NOT_REBUILT")
+            fork_receipt={
+                "format":"wf.candidate.chapter-fork-rebuilt.v1",
+                **cross_chapter_plan,
+                "old_source_job_not_mutated":True,
+                "new_branch_head_resume_sha256":new_final["receipt_sha256"],
+                "new_branch_final_chapter_index":new_final["chapter_index"],
+                "new_candidate_source_sha256s":[
+                    sha256(Path(row["candidate"]).read_bytes()).hexdigest()
+                    for row in chapters],
+                "author_accepted":False,"canon_writes":0,
+                "model_or_user_must_select_new_branch_for_resume":True,
+                "old_descendants_remain_archived_not_source_of_new_fork":True,
+                "literary_quality_verified":False,
+            }
+            fork_receipt["receipt_sha256"]=sha256(json.dumps(
+                fork_receipt,ensure_ascii=False,sort_keys=True,
+                separators=(",",":")).encode("utf8")).hexdigest()
+            (job/"cross-chapter-fork-rebuilt.json").write_text(
+                json.dumps(fork_receipt,ensure_ascii=False,indent=2),
+                encoding="utf8")
+            receipt["cross_chapter_fork_receipt"]=str(
+                job/"cross-chapter-fork-rebuilt.json")
+            receipt["cross_chapter_rebuilt_old_descendants_count"]=len(
+                cross_chapter_plan["obsolete_only_in_this_fork"])
+            receipt["cross_chapter_canon_writes"]=0
         (job/"job_manifest.json").write_text(
             json.dumps(receipt,ensure_ascii=False,indent=2),encoding="utf-8",
         )
