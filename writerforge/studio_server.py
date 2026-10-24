@@ -152,6 +152,8 @@ class StudioService:
         self._job_folder=None
         self._cancel_event=None
         self._continue_event=None
+        self._last_unreviewed_resume=None
+        self._last_unreviewed_job_id=None
         self._token=secrets.token_urlsafe(30)
         # Verify a REAL published snapshot on startup (not a fake mode flag).
         with self._writer() as assistant:
@@ -203,13 +205,17 @@ class StudioService:
 
     def start_auto(self,outline:str,chapters:list[str], *,
                    draft_mode:str="single",
-                   pause_between_turns:bool|None=None) -> dict:
+                   pause_between_turns:bool|None=None,
+                   continue_unreviewed:bool=False) -> dict:
         # Author chooses A (single) or segmented B-F. For segmented Studio
         # work, default to SHOW EACH TURN and wait for explicit continuation.
         if draft_mode not in ("single","split_only","causal_guard",
                               "rolling_causal","emotion_rolling",
-                              "foresight_rolling"):
+                              "foresight_rolling","continuity_guard"):
             raise StudioError("WF96_UNKNOWN_EXPERIMENTAL_DRAFT_MODE")
+        if type(continue_unreviewed) is not bool or (
+                continue_unreviewed and draft_mode!="continuity_guard"):
+            raise StudioError("WFCORE_CONTINUATION_REQUIRES_G_MODE")
         if pause_between_turns is not None and type(pause_between_turns) is not bool:
             raise StudioError("invalid staged-review option")
         pause=(draft_mode!="single" if pause_between_turns is None
@@ -237,6 +243,20 @@ class StudioService:
                 if self._job and self._job["status"] in (
                     "queued","running","awaiting_review","cancelling"):
                     raise StudioError("an autonomous writing run is already active")
+                resume_candidate=None
+                if continue_unreviewed:
+                    resume_path=self._last_unreviewed_resume
+                    if (resume_path is None or
+                        not resume_path.is_file() or
+                        not self._last_unreviewed_job_id or
+                        resume_path.is_symlink() or
+                        self._last_unreviewed_job_id not in resume_path.parts):
+                        raise StudioError(
+                            "WFCORE_NO_VERIFIED_PREVIOUS_CANDIDATE_TO_CONTINUE")
+                    # Stable byte snapshot; the downstream V117 reader will
+                    # verify project/scene, source SHA and the unified graph
+                    # BEFORE any model is charged.
+                    resume_candidate=json.loads(resume_path.read_text("utf8"))
                 jobroot.mkdir(parents=True,exist_ok=False)
                 self._job_folder=jobroot
                 self._cancel_event=cancel_event
@@ -246,6 +266,7 @@ class StudioService:
                     "total":len(chapters),"stage":"queued",
                     "result":None,"error":None,"draft_mode":draft_mode,
                     "pause_between_turns":pause,
+                    "continue_unreviewed":continue_unreviewed,
                     "pending_turn":None,
                     "cancel_requested":False,
                     "discarded":False,
@@ -295,10 +316,24 @@ class StudioService:
                         draft_mode=draft_mode,
                         cancel_requested=cancel_event.is_set,
                         review_turn=(turn_review if pause else None),
+                        bootstrap_unified_core=(
+                            draft_mode=="continuity_guard" and
+                            not continue_unreviewed),
+                        resume_story_checkpoint=resume_candidate,
                     )
                 if cancel_event.is_set():
                     raise WriterDraftCancelled("WF_STUDIO_DRAFT_CANCELLED")
                 with self._job_lock:
+                    if draft_mode=="continuity_guard":
+                        chapters_out=result.get("chapters") or []
+                        candidate_path=(chapters_out[-1].get(
+                            "v117_unreviewed_text_trace_resume")
+                            if chapters_out else None)
+                        if not candidate_path or not Path(candidate_path).is_file():
+                            raise StudioError(
+                                "WFCORE_STAGED_WRITER_MISSING_UNIFIED_RESUME")
+                        self._last_unreviewed_resume=Path(candidate_path)
+                        self._last_unreviewed_job_id=jobid
                     self._job.update(status="completed",result=result,
                                      pending_turn=None,stage="saved")
             except WriterDraftCancelled:
@@ -390,6 +425,9 @@ class StudioService:
                 self._job_folder,
                 self.output_dir/"autonomous",
                 job_id)
+            if self._last_unreviewed_job_id==job_id:
+                self._last_unreviewed_resume=None
+                self._last_unreviewed_job_id=None
             self._job.update(
                 status="discarded",result=None,error=None,
                 pending_turn=None,discarded=True,stage="discarded")
@@ -399,7 +437,11 @@ class StudioService:
 
     def job(self) -> dict:
         with self._job_lock:
-            return dict(self._job) if self._job else {"status":"idle"}
+            state=dict(self._job) if self._job else {"status":"idle"}
+            state["unreviewed_resume_available"]=bool(
+                self._last_unreviewed_resume is not None and
+                self._last_unreviewed_resume.is_file())
+            return state
 
     def bootstrap(self) -> dict:
         return {
@@ -407,6 +449,8 @@ class StudioService:
             "goal":self.goal,"model":self.model,
             "draft":self.store.load(),
             "auto_job":self.job(),
+            "unreviewed_resume_available":self.job()[
+                "unreviewed_resume_available"],
             "status":"studio_connected_to_published_xuehai",
             "external_litcritic_not_automatically_run":True,
             "unverified_facets_not_treated_as_verified":True,
@@ -550,6 +594,8 @@ class StudioHandler(BaseHTTPRequestHandler):
                     payload.get("outline"),payload.get("chapters"),
                     draft_mode=payload.get("draft_mode","single"),
                     pause_between_turns=payload.get("pause_between_turns"),
+                    continue_unreviewed=payload.get(
+                        "continue_unreviewed",False),
                 )
             elif self.path=="/api/autodraft/cancel":
                 result=svc.cancel_auto(payload.get("job_id"))
