@@ -460,7 +460,9 @@ class StudioService:
                     # Branch selection restores exactly the original saved
                     # run manifest, not a fabricated new model response.
                     new_result={**manifest,
-                        "job_dir":str(self._last_unreviewed_resume.parent)}
+                        "job_dir":str(self._branch_file(
+                            job_id,updated["branches"][branch][
+                                "manifest"]).parent)}
                     if type(current) is dict:
                         new_result["wf_chapter_ai_review_decision"]=current.get(
                             "wf_chapter_ai_review_decision")
