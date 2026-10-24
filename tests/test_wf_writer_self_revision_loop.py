@@ -180,6 +180,76 @@ class WriterSelfCritiqueAndDiscard(TestCase):
         self.assertEqual(json.loads(revised)["prose"],
                          self.source.replace(target,"雨下到桥头时，",1))
 
+    def test_real_provider_json_wrapper_and_out_of_bounds_unicode_offsets(self):
+        target="黄昏最后一点天光落到桥头时，"
+        correct=self.source.index(target)
+        patched=json.loads(advice(
+            self.source,decision="REVISE",scope="sentence",
+            start=correct,end=correct+len(target),
+            replacement="暮雨正落到桥头时，",
+            trace={"action_quote":ACTION1,"effect_quote":EFFECT1,
+                   "parent_effect_quote":None}))
+        # The actual 2026-10-24 DeepSeek V119 reply contained
+        # type=json_object and impossible character indexes, but DID quote
+        # a unique literal original source span. Recover COORDINATES only.
+        patched["type"]="json_object"
+        patched["start"]=len(self.source)+11
+        patched["end"]=patched["start"]+len(target)
+        raw=json.dumps(patched,ensure_ascii=False)
+        revised,receipt=self.execute(raw)
+        self.assertEqual(receipt["model_calls"],1)
+        self.assertEqual(receipt["rounds"][0]["status"],
+                         "PROVISIONALLY_REVISED")
+        self.assertTrue(receipt["rounds"][0]["format_wrapper_only_removed"])
+        self.assertTrue(receipt["rounds"][0]["source_offset_recovered_exactly"])
+        self.assertEqual(receipt["rounds"][0][
+            "host_verified_coordinates"],[correct,correct+len(target)])
+        self.assertEqual(json.loads(revised)["prose"],
+                         self.source.replace(target,"暮雨正落到桥头时，",1))
+        self.assertEqual(
+            (self.root/"scratch"/"round-01-model-proposal.json").read_text("utf8"),
+            raw)  # model did not rewrite its own source metadata to green
+
+    def test_only_observed_transport_wrapper_is_compatible(self):
+        original="黄昏最后一点天光落到桥头时，"
+        start=self.source.index(original)
+        wrong=json.loads(advice(
+            self.source,decision="REVISE",scope="sentence",
+            start=start,end=start+len(original),
+            replacement="黄昏下雨时，",
+            trace={"action_quote":ACTION1,"effect_quote":EFFECT1,
+                   "parent_effect_quote":None}))
+        wrong["type"]="nonstandard-author-intent"
+        result,receipt=self.execute(
+            json.dumps(wrong,ensure_ascii=False))
+        self.assertEqual(result,self.raw)
+        self.assertEqual(receipt["rounds"][0]["reason_code"],
+                         "WF_SELF_EDIT_SCHEMA_INVALID")
+
+    def test_wrong_source_quote_or_parent_cause_still_rolls_back(self):
+        selected="黄昏最后一点天光落到桥头时，"
+        start=self.source.index(selected)
+        proposal=json.loads(advice(
+            self.source,decision="REVISE",scope="sentence",
+            start=start,end=start+len(selected),
+            replacement="黄昏下雨时，",
+            trace={"action_quote":ACTION1,"effect_quote":EFFECT1,
+                   "parent_effect_quote":"这个先前事件并不存在于源文字"}))
+        proposal["type"]="json_object"
+        proposal["start"]=len(self.source)+5
+        proposal["end"]=proposal["start"]+len(selected)
+        final,receipt=self.execute(
+            json.dumps(proposal,ensure_ascii=False))
+        self.assertEqual(final,self.raw)
+        self.assertEqual(receipt["model_calls"],1)
+        record=receipt["rounds"][0]
+        self.assertEqual(record["status"],"REJECTED_AND_ROLLED_BACK")
+        self.assertEqual(record["reason_code"],
+                         "WF96_UNDECLARED_PREVIOUS_CAUSE")
+        self.assertTrue(record["source_offset_recovered_exactly"])
+        self.assertTrue(record["format_wrapper_only_removed"])
+        self.assertFalse(list((self.root/"scratch").glob("*selected-draft*")))
+
     def test_wrong_offset_with_nonunique_original_does_not_guess_target(self):
         self.assertGreater(self.source.count("他"),1)
         wrong_start=self.source.index("黄昏")
