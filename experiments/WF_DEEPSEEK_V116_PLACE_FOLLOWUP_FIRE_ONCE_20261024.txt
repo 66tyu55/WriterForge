@@ -1,0 +1,9 @@
+USER-AUTHORIZED CONCLUDING DIAGNOSTIC ON SAME DEEPSEEK OWN PRIOR REAL PROSE, 2026-10-24.
+This completes the user's request to test whether WF SOURCE-BACKED character place records help the novelist catch its previous undiscovered scene transition.
+Original genuine run #40094106486, old author selected MOVE_ON.
+Subsequent real blind + lossless literal index run #40104976936, both true MOVE_ON.
+Verify BOTH artifact chains and all source/model wire SHA receipts prior to any new inference.
+V116 source-only extractor lists all explicit actor + location/movement phrases in chronology WITHOUT diagnosing contradictions, rejecting quotes/rumors/negated fragments.
+The SAME official deepseek-flash author chooses MOVE_ON or LOOK_BACK_NOW. Existing V119 gets one requested revision only if model validly chooses LOOK_BACK_NOW.
+One source-aware reread call; optional one model-generated edit call. Maximum 2 new paid/credited requests. No retry, no forced edit, no new model training or memory, no main/Railway/R2/Canon writes.
+One unique sentinel commit. Do not re-trigger this workflow.
