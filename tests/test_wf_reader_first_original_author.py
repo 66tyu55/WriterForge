@@ -33,12 +33,12 @@ def packet(prompt):
         prompt_sha256=sha(prompt))
 
 
-def source_reader_reply(prose,*,invent=False):
+def source_reader_reply(prose,*,invent=False,with_earlier=False):
     beginning=prose[:min(len(prose),17)]
     ending=prose[-min(len(prose),23):]
     if len(beginning)<6 or len(ending)<6 or prose.count(beginning)!=1:
         raise AssertionError("test requires unique genuine source slices")
-    return json.dumps({
+    result={
         "observed":[{
             "quote":beginning,"actor":"沈砚",
             "visible_action":"读者看见原文确实描写的表层行动",
@@ -49,7 +49,10 @@ def source_reader_reply(prose,*,invent=False):
             "reader_imagined_step":"读者可能自行想象中间发生一次没有写明的转场",
         }],
         "reader_uncertainty":"这是读者推测，不是作者实际写下的事实。",
-    },ensure_ascii=False)
+    }
+    if with_earlier:
+        result["cross_source_links"]=[]
+    return json.dumps(result,ensure_ascii=False)
 
 
 class SourceSeparation(TestCase):
@@ -156,6 +159,109 @@ class SourceSeparation(TestCase):
             self.assertTrue(outcome["receipt"]["reader_did_not_preselect_literary_decision"])
 
 
+class TwoActuallyWrittenSources(TestCase):
+    def test_existing_reader_exactly_verifies_older_source_and_new_source_quotes(self):
+        previous=(
+            "江遥站在戏楼的柱后，把一张赎身票据藏进袖里。"
+            "宋易站在后门边握着钥匙，尚不知道票据藏在哪里。"
+        )
+        current=(
+            "江遥忽然想起后台旧箱子，里面压着那张赎身票据。"
+            "她并没有在这里明说什么时候把票据存进去。"
+            "宋易继续听鼓声，却不知道楼上究竟是谁。"
+        )*2
+        prev_quote="江遥站在戏楼的柱后，把一张赎身票据藏进袖里。"
+        curr_quote="江遥忽然想起后台旧箱子，里面压着那张赎身票据。"
+        self.assertEqual(previous.count(prev_quote),1)
+        self.assertEqual(current.count(curr_quote),2)
+        curr_quote="里面压着那张赎身票据。"  # repeated, so choose once only
+        current=current[:len(current)//2]
+        # Source-only reporter always creates a hypothesis, never a verdict.
+        reply=json.dumps({
+            "observed":[],"inferred_links":[],
+            "cross_source_links":[{
+                "previous_quote":prev_quote,
+                "current_quote":"江遥忽然想起后台旧箱子，里面压着那张赎身票据。",
+                "reader_imagined_step":"这张票据或许曾被人从她袖中移到箱底，原文尚未明写转移。"
+            }],
+            "reader_uncertainty":"这里只能推测，不知道有没有省略操作。",
+        },ensure_ascii=False)
+        original=json.dumps({
+            "prose":current,"trace":{"action_quote":None,
+                                     "effect_quote":None,
+                                     "parent_effect_quote":None}
+        },ensure_ascii=False)
+        with TemporaryDirectory() as td:
+            root=Path(td)
+            prompts=[]
+            def same_model(packet,*,model,api_base,max_tokens):
+                prompts.append(packet.prompt)
+                self.assertEqual(max_tokens,1000)
+                return reply
+            received=_reader_separates_written_and_inferred(
+                raw=original,turn_packet=packet("OLD_AUTHOR_PLAN"),
+                ask_model=same_model,directory=root/"two",
+                earlier_source=previous,earlier_source_sha256=sha(previous))
+            self.assertEqual(received["status"],
+                             "SOURCE_ANCHORED_READER_HYPOTHESES")
+            self.assertEqual(received["receipt"]["cross_source_inference_count"],1)
+            self.assertEqual(received["receipt"]["earlier_original_sha256"],
+                             sha(previous))
+            self.assertIn(previous,prompts[0])
+            self.assertIn(current,prompts[0])
+            self.assertNotIn("OLD_AUTHOR_PLAN",prompts[0])
+            report=received["report"]
+            self.assertTrue(report["cross_source_links"][0][
+                "inference_not_an_accepted_change"])
+            self.assertEqual(report["cross_source_links"][0][
+                "earlier_original_source_offset"],0)
+            self.assertEqual(report["cross_source_links"][0][
+                "current_source_offset"],0)
+            self.assertIn("reader_cross_source_links",
+                          _reader_report_for_author(report,sha(current)))
+            self.assertTrue(received["receipt"]["no_auto_edit_if_reader_guesses_a_gap"])
+
+    def test_previous_text_hash_wrong_or_fake_quote_rejected_without_guessing(self):
+        old="江遥把票据藏在袖里，宋易握着后门钥匙。"
+        current=(
+            "江遥在后台听鼓声，旧戏箱就在屋里。"
+            "她脚踝隐隐发疼，只能靠着栏杆站着。"
+            "宋易在楼梯口叫了一声，仍不能确认是谁。"
+        )
+        original=json.dumps({"prose":current,"trace":{
+            "action_quote":None,"effect_quote":None,
+            "parent_effect_quote":None}},ensure_ascii=False)
+        with TemporaryDirectory() as td,patch(
+            "writerforge.writing_assist.local_chat_completion") as model:
+            with self.assertRaisesRegex(
+                WritingExecutionError,"EARLIER_SOURCE_HASH_OR_BOUNDS"):
+                _reader_separates_written_and_inferred(
+                    raw=original,turn_packet=packet("x"),
+                    ask_model=model,directory=Path(td)/"bad",
+                    earlier_source=old,earlier_source_sha256="0"*64)
+            model.assert_not_called()
+        bad=json.dumps({
+            "observed":[],"inferred_links":[],
+            "cross_source_links":[{
+                "previous_quote":"不存在的票据交付动作",
+                "current_quote":"江遥在后台听鼓声",
+                "reader_imagined_step":"这不是原文所述的物件动作。",
+            }],
+            "reader_uncertainty":"无法验证这个引用。",
+        },ensure_ascii=False)
+        with TemporaryDirectory() as td:
+            response=_reader_separates_written_and_inferred(
+                raw=original,turn_packet=packet("x"),
+                ask_model=lambda *a,**kw:bad,directory=Path(td)/"wrong",
+                earlier_source=old,earlier_source_sha256=sha(old))
+            self.assertEqual(response["status"],"INVALID_READER_SOURCE")
+            self.assertEqual(response["receipt"]["reason_code"],
+                             "WF_READER_CROSS_SOURCE_QUOTE_NOT_EXACT")
+            self.assertIsNone(response["report"])
+            self.assertTrue((Path(td)/"wrong"/
+                             "original-reader-reply.json").is_file())
+
+
 class RealModelProbeBoundariesOffline(TestCase):
     def test_real_probe_model_adapter_is_same_provider_three_stages_max(self):
         import os
@@ -222,7 +328,7 @@ class RealGOptinOffline(TestCase):
             actual=visible_prose(1,n)
             raw.extend([
                 prose_response(1,n),
-                source_reader_reply(actual),
+                source_reader_reply(actual,with_earlier=n>1),
                 moment("MOVE_ON",actual),
             ])
         answers=[PLAN,json.dumps(PLAN_TURNS,ensure_ascii=False),*raw]
@@ -268,7 +374,7 @@ class RealGOptinOffline(TestCase):
                  prose_response(1,1),"{}",
                  moment("MOVE_ON",visible_prose(1,1)),
                  prose_response(1,2),
-                 source_reader_reply(visible_prose(1,2)),
+                 source_reader_reply(visible_prose(1,2),with_earlier=True),
                  moment("MOVE_ON",visible_prose(1,2))]
         with patch("writerforge.writing_assist.local_chat_completion",
                    side_effect=replies) as model:
