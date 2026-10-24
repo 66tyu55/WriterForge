@@ -68,7 +68,8 @@ class StudioAuthorControlledTurns(unittest.TestCase):
         self.assertIn('id="discard-auto"',html)
         self.assertIn('value="single"',html)
         for mode in ("split_only","causal_guard","rolling_causal",
-                     "emotion_rolling","foresight_rolling"):
+                     "emotion_rolling","foresight_rolling",
+                     "continuity_guard"):
             self.assertIn('value="'+mode+'"',html)
         self.assertIn("WF96_UNKNOWN_EXPERIMENTAL_DRAFT_MODE",
                       inspect.getsource(StudioService.start_auto))
@@ -213,6 +214,104 @@ class StudioAuthorControlledTurns(unittest.TestCase):
                 manuscript,self.service.store.path,
                 "1111111111111111")
         self.assertTrue(manuscript.exists())
+
+    def test_unified_G_new_and_author_opted_resume_are_separate_choices(self):
+        from writerforge.narrative_core import new_graph
+        from writerforge.v114_external_story_state import external_temporal_step
+        from writerforge.v117_continuity_trace import make_resume
+        from test_v96_autonomous_modes import OUTLINE,GOALS
+        status_calls=[]
+        original_resume=make_resume(
+            project_id=self.service.project,scene_id=self.service.scene,
+            chapter_index=1,
+            checkpoint=external_temporal_step(
+                "门外落下一阵雨，少女收起纸伞。",cast=("少女",)),
+            unified_narrative_core=new_graph(
+                project_id=self.service.project,scene_id=self.service.scene,
+                chapter_index=1))
+        def produce(_writer,**kwargs):
+            status_calls.append({
+                "bootstrap":kwargs["bootstrap_unified_core"],
+                "resumed":kwargs["resume_story_checkpoint"] is not None})
+            folder=Path(kwargs["output_dir"])/"auto-G"
+            folder.mkdir(parents=True)
+            resume_file=folder/"v117_unreviewed_text_trace_resume.json"
+            resume_file.write_text(
+                json.dumps(original_resume,ensure_ascii=False),encoding="utf8")
+            return {"chapter_count":1,"chapters":[{
+                "chapter":1,
+                "v117_unreviewed_text_trace_resume":str(resume_file)}],
+                "all_generated_prose_requires_author_review":True}
+        with patch("writerforge.studio_server.AutonomousWriting.run",
+                   autospec=True,side_effect=produce):
+            a=self.service.start_auto(
+                OUTLINE,GOALS,draft_mode="continuity_guard",
+                pause_between_turns=False)
+            self.assertEqual(wait_status(
+                self.service,{"completed"})["status"],"completed")
+            self.assertTrue(self.service.job()[
+                "unreviewed_resume_available"])
+            self.assertEqual(status_calls[0],{
+                "bootstrap":True,"resumed":False})
+            b=self.service.start_auto(
+                OUTLINE,GOALS,draft_mode="continuity_guard",
+                pause_between_turns=False,continue_unreviewed=True)
+            wait_status(self.service,{"completed"})
+            self.assertEqual(status_calls[1],{
+                "bootstrap":False,"resumed":True})
+            self.service.discard_auto(b["job_id"])
+            self.assertFalse(self.service.job()["unreviewed_resume_available"])
+            with self.assertRaisesRegex(
+                    StudioError,"NO_VERIFIED_PREVIOUS_CANDIDATE"):
+                self.service.start_auto(
+                    OUTLINE,GOALS,draft_mode="continuity_guard",
+                    pause_between_turns=False,continue_unreviewed=True)
+
+    def test_real_unified_G_bootstraps_graph_from_model_generated_prose(self):
+        from test_v96_autonomous_modes import (
+            OUTLINE,GOALS,PLAN,PLAN_TURNS,
+        )
+        from test_v96_causal_turns import (
+            prose1,prose2,response,ACTION1,EFFECT1,ACTION2,EFFECT2,
+        )
+        from writerforge import WriterForgeDB,RuntimeEngine
+        from writerforge.writing_assist import InvisibleWritingAssist
+        from writerforge.narrative_core import read_core_from_resume
+        db=WriterForgeDB(self.dbpath)
+        try:
+            row=db.conn.execute(
+                "SELECT id FROM snapshots WHERE status='published' ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            rt=RuntimeEngine()
+            rt.enter_write(row["id"])
+            writer=InvisibleWritingAssist(
+                db,rt,self.service.project,self.service.scene,
+                "角色在河边作出真实决定",model="local-fixture",
+                api_base="http://127.0.0.1:1234/v1")
+            response1=response(prose1(),ACTION1,EFFECT1)
+            response2=response(prose2(),ACTION2,EFFECT2,EFFECT1)
+            with patch("writerforge.writing_assist.local_chat_completion",
+                       side_effect=[PLAN,response1,response2]) as host:
+                result=AutonomousWriting(writer).run(
+                    outline=OUTLINE,chapter_goals=GOALS,
+                    output_dir=self.root/"g-unified-candidate",
+                    draft_mode="continuity_guard",
+                    frozen_turn_outlines=(PLAN_TURNS,),
+                    bootstrap_unified_core=True)
+            self.assertEqual(host.call_count,3)
+            chapter=result["chapters"][0]
+            resume=json.loads(Path(
+                chapter["v117_unreviewed_text_trace_resume"]).read_text("utf8"))
+            graph=read_core_from_resume(
+                resume,project_id=self.service.project,
+                scene_id=self.service.scene)
+            self.assertEqual(graph["chapter_index"],1)
+            self.assertEqual(graph["memory"]["last_recorded_chapter"],1)
+            self.assertEqual(chapter["story_chapter_index"],1)
+            self.assertEqual(graph["canon_writes"],0)
+            self.assertFalse(chapter["accepted"])
+        finally:
+            db.close()
 
     def test_callback_refuses_generation_before_any_provider(self):
         from writerforge import WriterForgeDB,RuntimeEngine
