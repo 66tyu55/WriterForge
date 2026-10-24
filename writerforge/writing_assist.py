@@ -739,6 +739,194 @@ def _source_only_writer_replay_index(prose:str,*,cast:tuple[str,...]) -> dict:
 
 
 
+
+SELF_EDIT_READER_MAX_TOKENS=1000
+SELF_EDIT_READER_MAX_SOURCE_CHARS=5000
+
+
+def _reader_separates_written_and_inferred(*,raw,turn_packet,ask_model,
+                                           directory,cancel_check=None):
+    """Separate AI-as-unbiased-reader from AI-as-novelist on real prose.
+
+    The SAME author model is asked once, in a NEW context with manuscript
+    ONLY. No chapter outline, earlier model approval, previous editor's
+    verdict, or automatic 'plot-hole' list appears in this request.
+
+    The reader supplies source-anchored observations and hypotheses about
+    UNWRITTEN transitions. Only literal quotes are verified by host code;
+    the literary/semantic interpretation is always unproven. The original
+    reply remains immutable in the private job before parsing.
+    """
+    if (type(raw) is not str or not callable(ask_model) or
+        not isinstance(directory,Path)):
+        raise WritingExecutionError("WF_READER_SOURCE_BOUNDARY_INVALID")
+    try:
+        doc=_decode_json(raw)
+        if (set(doc)!={"prose","trace"} or
+            type(doc["prose"]) is not str or
+            not 80<=len(doc["prose"].strip())<=
+                SELF_EDIT_READER_MAX_SOURCE_CHARS):
+            raise ValueError("WF_READER_NOT_COMPLETE_PROSE")
+        prose=doc["prose"].strip()
+    except (WritingExecutionError,ValueError,KeyError,TypeError):
+        return {"model_calls":0,"status":"NO_COMPLETE_SOURCE",
+                "report":None,"receipt":{
+                    "status":"NO_COMPLETE_SOURCE","model_calls":0,
+                    "literary_quality_verified":False,
+                    "canon_writes":0}}
+    source_sha=sha256(prose.encode("utf8")).hexdigest()
+    # This request purposefully does NOT include turn_packet.prompt, plan,
+    # system-made craft or last writer's justification. Source-only view.
+    prompt=(
+        "【独立读者视角·仅依据已经写出来的小说】"
+        "你现在作为第一次读到这段小说的读者阅读。"
+        "不要假装记得任何作者构思或过去自己对作品的肯定。"
+        "不要润色、续写、下文学分数或替作者决定删稿。"
+        "先写出最多八处你确实从原文字面读到的动作，"
+        "每一处附上唯一真实原文引句；"
+        "如你为了理解人物行动或位置必须自行补充文字没有明写"
+        "的转换，请最多列出三处可能的推测，并用前后两条"
+        "真实原句解释依据。没有就返回空数组。"
+        "省略动作可能是合理的小说技法，你不负责判断作品好坏。"
+        "严格区分“原句确实写出来”与“我作为读者补出的推测”。"
+        "只返回严格 JSON 对象，恰好三个键："
+        "observed、inferred_links、reader_uncertainty。"
+        "observed 是列表（可空，最多8个），每项恰好含"
+        "quote、actor、visible_action 三项。"
+        "quote 是字面唯一出现的6至160字原文连续子串，"
+        "actor 是原文人物或叙述主体（1至40字），"
+        "visible_action 是4至160字的读者描述，并不是证实事件。"
+        "inferred_links 是列表（可空，最多3个），每项恰好含"
+        "before_quote、after_quote、reader_imagined_step 三项。"
+        "before_quote 与 after_quote 必须分别来自前后不同位置，"
+        "都是原文唯一出现的6至160字子串；"
+        "reader_imagined_step 是6至180字的推测，不可冒充已写事实。"
+        "reader_uncertainty 是一句不超过260字的未证读者感受"
+        "（没有问题时也可填“没有明显未写连接”）。"
+        "\n【唯一实际原文，无大纲也无作者自评】"+prose
+    )
+    if len(prompt)>MAX_PROMPT_CHARS:
+        return {"model_calls":0,"status":"SOURCE_EXCEEDS_READER_BUDGET",
+                "report":None,"receipt":{
+                    "status":"SOURCE_EXCEEDS_READER_BUDGET","model_calls":0,
+                    "literary_quality_verified":False,"canon_writes":0}}
+    packet=replace(turn_packet,prompt=prompt,
+                   prompt_sha256=sha256(prompt.encode("utf8")).hexdigest())
+    if cancel_check is not None:
+        cancel_check()
+    response=ask_model(packet,model=None,api_base=None,
+                       max_tokens=SELF_EDIT_READER_MAX_TOKENS)
+    directory.mkdir(parents=True,exist_ok=False)
+    (directory/"original-reader-reply.json").write_text(
+        response,encoding="utf8")
+    if cancel_check is not None:
+        cancel_check()
+    status="INVALID_READER_SOURCE"
+    report=None
+    code=None
+    try:
+        reply=_fork_strict_json(response,max_bytes=19000)
+        keys={"observed","inferred_links","reader_uncertainty"}
+        if set(reply)==keys|{"type"} and reply["type"]=="json_object":
+            reply={key:val for key,val in reply.items() if key!="type"}
+        if (set(reply)!=keys or type(reply["observed"]) is not list or
+            type(reply["inferred_links"]) is not list or
+            len(reply["observed"])>8 or
+            len(reply["inferred_links"])>3 or
+            type(reply["reader_uncertainty"]) is not str or
+            len(reply["reader_uncertainty"])>260):
+            raise WritingExecutionError("WF_READER_SCHEMA_INVALID")
+        anchored=[]
+        for item in reply["observed"]:
+            if (type(item) is not dict or
+                set(item)!={"quote","actor","visible_action"} or
+                type(item["actor"]) is not str or
+                not 1<=len(item["actor"])<=40 or
+                type(item["visible_action"]) is not str or
+                not 4<=len(item["visible_action"])<=160):
+                raise WritingExecutionError("WF_READER_OBSERVATION_SCHEMA")
+            quote=item["quote"]
+            if type(quote) is not str or not 6<=len(quote)<=160 or (
+                prose.count(quote)!=1):
+                raise WritingExecutionError("WF_READER_OBSERVATION_QUOTE")
+            anchored.append({
+                **item,"literal_source_offset":prose.index(quote),
+                "visible_action_is_model_interpretation":True})
+        gaps=[]
+        for item in reply["inferred_links"]:
+            if (type(item) is not dict or
+                set(item)!={"before_quote","after_quote",
+                             "reader_imagined_step"} or
+                type(item["reader_imagined_step"]) is not str or
+                not 6<=len(item["reader_imagined_step"])<=180):
+                raise WritingExecutionError("WF_READER_GAP_SCHEMA")
+            before,after=item["before_quote"],item["after_quote"]
+            if (any(type(q) is not str or not 6<=len(q)<=160
+                    or prose.count(q)!=1 for q in (before,after)) or
+                prose.index(before)+len(before)>prose.index(after)):
+                raise WritingExecutionError("WF_READER_GAP_SOURCE_ORDER")
+            gaps.append({
+                **item,
+                "first_source_offset":prose.index(before),
+                "second_source_offset":prose.index(after),
+                "imagined_step_is_not_story_fact":True})
+        report={
+            "source_sha256":source_sha,
+            "observed":anchored,"inferred_links":gaps,
+            "reader_uncertainty":reply["reader_uncertainty"],
+            "all_semantics_are_model_generated_not_verified":True,
+            "no_host_literary_error_decision":True,
+        }
+        status="SOURCE_ANCHORED_READER_HYPOTHESES"
+    except (WritingExecutionError,ValueError,TypeError,KeyError) as error:
+        code=str(error)[:160]
+    receipt={
+        "format":"wf.writer.reader-source-before-self-judgment.v1",
+        "status":status,"source_sha256":source_sha,
+        "raw_reader_reply_sha256":sha256(response.encode("utf8")).hexdigest(),
+        "model_calls":1,"observed_count":(
+            len(report["observed"]) if report is not None else 0),
+        "hypothesized_gap_count":(
+            len(report["inferred_links"]) if report is not None else 0),
+        "reason_code":code if code and code.startswith("WF_") else None,
+        "source_verification_not_semantic_judgment":True,
+        "no_auto_edit_if_reader_guesses_a_gap":True,
+        "no_author_canon_writes":True,"literary_quality_verified":False,
+        "canon_writes":0,
+    }
+    (directory/"reader-source-receipt.json").write_text(
+        json.dumps(receipt,ensure_ascii=False,sort_keys=True,indent=2),
+        encoding="utf8")
+    return {"model_calls":1,"status":status,"report":report,
+            "receipt":receipt}
+
+
+def _reader_report_for_author(report,source_sha):
+    """Read-only reader perspective, never a host direction to fix fiction."""
+    if (report is None or type(report) is not dict or
+        report.get("source_sha256")!=source_sha or
+        report.get("all_semantics_are_model_generated_not_verified") is not True or
+        report.get("no_host_literary_error_decision") is not True):
+        return ""
+    payload=json.dumps({
+        "observed":report["observed"],
+        "reader_inferred_links":report["inferred_links"],
+        "reader_uncertainty":report["reader_uncertainty"],
+        "all_reader_inferences_unverified":True,
+        "author_can_choose_to_leave_story_as_is":True,
+    },ensure_ascii=False,separators=(",",":"))
+    if len(payload)>4000:
+        return ""
+    return (
+        "\n【由同一写作模型在独立读者视角提出的未证实阅读意见】"
+        "下列报告不是正文事实，不是 WF 找出的错误，更不是强制修改要求。"
+        "逐字来源位置仅证明原句真实出现；对动作遗漏的推测仍待你取舍。"
+        "请你作为原作者自行决定 MOVE_ON 或 LOOK_BACK_NOW，"
+        "可以认为文学省略有意义而保留；"
+        "但请分清哪些过渡已明写、哪些只是读者自己想象补足。"
+        +payload)
+
+
 def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
                                 ask_model,directory,cancel_check=None):
     """Ask the ACTUAL author model whether THIS visible draft needs revision.
