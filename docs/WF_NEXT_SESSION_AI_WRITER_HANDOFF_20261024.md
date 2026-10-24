@@ -1,6 +1,17 @@
 # WF 跨窗口精简交接｜2026-10-24｜AI 自己决定何时及为何删稿
 
-**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.M**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.N**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+
+## 本轮最新 0.N：三个现有真实模型试验（2026-10-24，最新）
+
+**真实原件及正反例总览**：[WF_REAL_THREE_EXISTING_WRITER_MODELS_20261024.md](WF_REAL_THREE_EXISTING_WRITER_MODELS_20261024.md)。用户已明确授权从现有模型选几个做真实试验；开发分支单独触发两轮总计 **8 次真正供应商请求**。第一轮 [#40094106486](https://github.com/66tyu55/WriterForge/actions/runs/40094106486)，第二轮仅对超限者做推理参数/输出预算补测 [#40094721282](https://github.com/66tyu55/WriterForge/actions/runs/40094721282)；原始 wire、完整模型原创小说与同模型自己的决定分别保留在这两轮的 GitHub Actions 附件（30 天期限）。
+
+- **三现有模型与相同新题**：DeepSeek 官方 `deepseek-flash`；现有 Discovery `glm-5.3` 与 `kimi-k2.6`。统一新原创“顾翎/程九、受伤左手、带血旧税簿、将断的渡索和对岸未知求救者”，由模型自己写小说；同一个写作模型自己选择 `MOVE_ON` 或 `LOOK_BACK_NOW` 并说出理由，只有有效 LOOK_BACK_NOW 才会进入原 V119 的精确修改。WF 没有替 AI 做文学判断、生成替代剧情或强迫它删稿。每模型一次成功链最多 3 次请求、网络错误不重试。
+- **首次付费输出不可擦掉**：DeepSeek 完成真实小说 **451 字符**、V96/V114 源检查通过、自选 **MOVE_ON**；GLM/Kimi 初次各消耗 1,450 completion tokens，`finish_reason=length`，保留完整的截断 provider wire，不能算写作失败。仅为使真实返回完整而分开补测 GLM（`reasoning_effort=low` / 更大输出预算）和 Kimi（`thinking.type=disabled` / 更大预算）；不能把不同推理参数称为严格同计算公平对照。
+- **最终结果**：GLM 真实原文 **360 字符**、V96/V114 PASS；模型原始文学决定为 `MOVE_ON`，却把真实 64 位 source SHA 复制成 **62 位**，WF 正确记 `INVALID_SIGNAL`，不能自动修成绿灯；Kimi 真实原文 **772 字符**、V96/V114 PASS，自选 `MOVE_ON`，但超过本次建议 **260–520 字符**长度。三者**没有一个**产生有效的自行 `LOOK_BACK_NOW`，V119 真实自动删改成功证据 **0**；原始结果不支持宣称已会人类式作家自我否定。
+- **核心文学负例**：DeepSeek 原文写过“程九已经坐进船里”，最后又出现“程九仍蹲在桩边”，缺少下船过渡，自己却称两人的选择与代价已落地并决定 `MOVE_ON`。这证明来源格式 PASS 与模型自评满意都不能独立证明小说位置和因果一致性。今后应研究“AI 自己发现实际正文哪里错误并真的有效改好”，不能 WF 通过关键词、分数或强制删稿充当文学裁判。
+- **安全验收**：[离线全量 #40094532271](https://github.com/66tyu55/WriterForge/actions/runs/40094532271) **1,531 tests run、4 skipped、0 failures**，验证真实实验白名单/次数/源锁/自主选择和两供应商参数。此前 0.M Studio 内同一 AI 的**章节边界 opt-in、候选版本分叉与冷重启**工程功能仍在，**本轮真实试验是单场景**，不是完整双章 Studio 真实验收。
+- **后续范围**：先让人独立匿名阅读三份真实正文并定位错误，再以严格同篇幅/预算多类型新题试验模型何时会自然回头，尤其核查修改后人物空间/认知/物件真的改善。机械 source SHA 可考虑由已有工作台做来源确定性绑定，但不能改模型原始回答、抹掉失败或替 AI 判断文学。**本轮 8 次调用全部结束，未经用户再次授权不要自动启动其他付费推理。** main/Railway/R2 原著/Canon/已有 V26、V98、V119、V117/唯一图未改，不重复文学训练。
 
 ## 本轮最新 0.M：同一写作 AI 自主选择是否跨章回头，Studio 本地重启续写（2026-10-24）
 
@@ -69,4 +80,4 @@
 
 ## 下个对话可直接发
 
-「继续 WriterForge。读取开发分支 refactor-unified-scene-delivery-audit 的 docs/WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md 和 CURRENT_HANDOFF.md 最新 0.M。核心是 AI 自己决定什么时候不满意、为什么删，WF 绝不能替 AI 计算文学意义或生成，保持 V26/V98/V119/V117/统一图。先核验最新 1525 测试（含 Studio AI 自主章节选择、签名版本选择、冷重启、HTTP 防护）与历史真实 6 次调用、零模型回放，保留首段 INVALID_SIGNAL 和第二段 MOVE_ON 的负例，再针对真正自发 LOOK_BACK_NOW 与下游状态回退做最小验证；禁止重复训练、增加记忆、改 main 或部署 Railway。」
+「继续 WriterForge。读取开发分支 refactor-unified-scene-delivery-audit 的 docs/WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md 和 CURRENT_HANDOFF.md 最新 0.N。核心是 AI 自己决定什么时候不满意、为什么删，WF 绝不能替 AI 计算文学意义或生成，保持 V26/V98/V119/V117/统一图。先核验最新 1525 测试（含 Studio AI 自主章节选择、签名版本选择、冷重启、HTTP 防护）与历史真实 6 次调用、零模型回放，保留首段 INVALID_SIGNAL 和第二段 MOVE_ON 的负例，再针对真正自发 LOOK_BACK_NOW 与下游状态回退做最小验证；禁止重复训练、增加记忆、改 main 或部署 Railway。」
