@@ -702,17 +702,19 @@ def _source_only_writer_replay_index(prose:str,*,cast:tuple[str,...]) -> dict:
         if ch!="\n" and end<len(prose) and prose[end] in "”’":
             end+=1
         chunk=prose[start:end]
-        if chunk.strip():
+        if chunk:
             chunks.append({
                 "start":start,"end":end,"source_quote":chunk,
                 "explicit_names":[name for name in cast if name in chunk],
             })
         start=end
-    if start<len(prose) and prose[start:].strip():
+    if start<len(prose):
         chunks.append({
             "start":start,"end":len(prose),"source_quote":prose[start:],
             "explicit_names":[name for name in cast if name in prose[start:]],
         })
+    if "".join(row["source_quote"] for row in chunks)!=prose:
+        raise WritingExecutionError("WF_WRITER_SOURCE_INDEX_NOT_LOSSLESS")
     raw=json.dumps(chunks,ensure_ascii=False,sort_keys=True,
                    separators=(",",":"))
     if len(chunks)>120 or len(raw)>21000:
