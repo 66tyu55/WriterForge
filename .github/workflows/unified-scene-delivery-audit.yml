@@ -45,3 +45,16 @@ jobs:
       - run: python -m pip install -e '.[r2]'
       - name: Full WriterForge suite including source-backed scene commitments
         run: python -m unittest discover -s tests -q
+      - name: Validate packaged Studio JavaScript without a browser or model
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          html=Path("writerforge/ui/studio.html").read_text(encoding="utf8")
+          assert html.count("<script>")==1 and html.count("</script>")==1
+          body=html.split("<script>",1)[1].split("</script>",1)[0]
+          assert 'id="ai-chapter-review"' in html
+          assert 'id="candidate-branch"' in html
+          assert '"/api/autodraft/branch/select"' in body
+          Path("/tmp/wf_studio_offline_verify.js").write_text(body,encoding="utf8")
+          PY
+          node --check /tmp/wf_studio_offline_verify.js
