@@ -3,6 +3,8 @@
 
 ## 0.I AI 自己决定何时回头以及为什么：作家负责思考，WF 只负责工作台（2026-10-24，本轮最新）
 
+**跨窗口精简交接（先读）**：[WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md](WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md)。这一份涵盖最新代码与验收状态、未实现能力、真实负例和下窗口原样复制的继续指令，避免从约 20 万字历史交接重新开始。
+
 **用户纠偏：前版还不是完整人类式作家自审——WF 不许通过规则、关键词、分数替 AI 判断文学、生成文字；真正缺的就是“AI 在什么时刻觉得自己不满意、为什么决定删”这一层。先读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 全文和实际验证，不要只盯 CI 数。**
 
 - **职责分离**：AI 承担人物动机、因果、叙事意图、语言与情绪的判断和全部小说生成；WF 只安排现实模型可观察的写作暂停边界、把真实前文/角色认知/物件状态提供给 AI、记录 AI 真正的意见，并由旧 V119 只执行来源可核查的编辑及 V96/Novel Studio/统一 graph 安全验证。严禁 WF 根据句子长短/关键词自行选择 DELETE/REVISE 或制造自评文学分数。
