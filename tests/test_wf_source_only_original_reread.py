@@ -62,6 +62,49 @@ class WriterSourceReplayUnit(TestCase):
                 "suggested_edit","error_score"))
                 for x in evidence["units"]))
 
+    def test_v116_existing_source_layer_emits_places_without_any_error_verdict(self):
+        from writerforge.v116_state_delta import source_only_character_place_mentions
+        text=(
+            "程九蹲在船头，手指摸到松开的绳扣。"
+            "顾翎跨上船，回头望见雾里的人影。"
+            "程九已经坐进船里，手里拿着竹篙。"
+            "程九仍蹲在桩边，指尖还在摸绳子的毛刺。"
+        )
+        report=source_only_character_place_mentions(
+            text,cast=("顾翎","程九"))
+        self.assertEqual(report["source_sha256"],real.digest(text))
+        self.assertFalse(report["literary_error_detected_by_software"])
+        self.assertFalse(report["automatically_request_revision"])
+        self.assertTrue(report["spatial_consistency_judged_by_model_not_host"])
+        self.assertTrue(report["source_mentions_are_not_reducer_state"])
+        self.assertEqual(
+            [r["literal_place_phrase"] for r in report["entries"]],
+            ["船头","船","船里","桩边"])
+        self.assertEqual(
+            [r["actor"] for r in report["entries"]],
+            ["程九","顾翎","程九","程九"])
+        for r in report["entries"]:
+            self.assertEqual(text[r["start"]:r["end"]],
+                             r["source_quote"])
+            self.assertEqual(r["source_assertion_status"],
+                             "LITERAL_MENTION_NOT_VERIFIED_FACT")
+        self.assertEqual(report["model_calls"],0)
+        self.assertEqual(report["canon_writes"],0)
+
+    def test_v116_spoken_or_negated_place_claim_not_host_inferred_as_fact(self):
+        from writerforge.v116_state_delta import source_only_character_place_mentions
+        source=(
+            "“程九站在岸边。”顾翎这样猜测。"
+            "听说程九跑到渡口，众人都不敢相信。"
+            "程九没有站在岸边，只是看着渡口。"
+            "程九蹲在船头，握着破裂的船篙。"
+        )
+        record=source_only_character_place_mentions(
+            source,cast=("顾翎","程九"))
+        self.assertEqual([e["literal_place_phrase"] for e in
+                          record["entries"]],["船头"])
+        self.assertFalse(record["automatically_request_revision"])
+
     def test_source_index_fails_closed_outside_bounded_source(self):
         for prose,cast in [
             ("",CAST),("a"*20000,CAST),(PROSE,()),
