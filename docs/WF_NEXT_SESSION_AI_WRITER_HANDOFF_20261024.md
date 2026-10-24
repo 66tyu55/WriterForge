@@ -6,7 +6,7 @@
 
 - **新入口/证据**：[上一段事务说明](WF_AI_WRITER_PREVIOUS_TURN_TRANSACTION_20261024.md)。开发分支 `writerforge/writing_assist.py` 新增有界 `_rewind_unaccepted_turn_suffix`，同一原创 AI 在 G 的 opt-in `ai_decides` 决定 `target_turn="previous"` 后，才会以旧 V119 源锁和旧 model 原完整 `prose+trace` 回复修订上一段。
 - 修订成功时，先私有保存被抛弃的下一段，再整体撤销 V96/场景/人物/计划/审修临时候选回执，恢复 V114 物件时态和上一事件段前的状态，让模型依据新原文重新生成下游；统一 graph 和上章签名、原先已确认 Canon **不会被自动改写**。单次 job 最多一次回上一段，8 次额外模型请求总上限不变，默认旧 V26/V98/A–F 关闭此功能。
-- **原始失败不抹除**：[首次加完整线的红灯 #40074029791](https://github.com/66tyu55/WriterForge/actions/runs/40074029791) 检出 V96 摘要无完整 trace，已改用每次任务的 `selected_turn_raws` 保存经过普通校验的真实完整模型答复；[复归绿色 #40074160492](https://github.com/66tyu55/WriterForge/actions/runs/40074160492) **1,501 执行、4 跳过、0 失败**；[进一步校验 V114 必须使用修改后的原文重归约 #40074298398](https://github.com/66tyu55/WriterForge/actions/runs/40074298398) 同样全绿。以上全为**人工构造回复的无付费模型工程测试**。
+- **原始失败不抹除**：[首次加完整线的红灯 #40074029791](https://github.com/66tyu55/WriterForge/actions/runs/40074029791) 检出 V96 摘要无完整 trace，已改用每次任务的 `selected_turn_raws` 保存经过普通校验的真实完整模型答复；[复归绿色 #40074160492](https://github.com/66tyu55/WriterForge/actions/runs/40074160492) **1,501 执行、4 跳过、0 失败**；[进一步校验 V114 必须使用修改后的原文重归约 #40074298398](https://github.com/66tyu55/WriterForge/actions/runs/40074298398) 同样全绿；[在现有统一叙事 graph 上执行 AI 回改与下游状态重新归约 #40074549545](https://github.com/66tyu55/WriterForge/actions/runs/40074549545) **1,501 执行、4 跳过、0 失败**，且旧统一叙事图仍是唯一记忆主人。以上全为**人工构造回复的无付费模型工程测试**。
 - 原有真正 DeepSeek 证据不变：第一段 INVALID_SIGNAL、第二段经零模型回放后真正 MOVE_ON。**没有真正模型的 LOOK_BACK_NOW → 上一段改稿 → 重新下游成功原件**。也未支持跨前两段、跨章、逐字删写、通用状态依赖树撤销、部分后续校验失败时回到先前完整任务。不可称有文学质量进步证明。
 - **继续顺序**：检验更强的“删除得物/知情/伤势”后 V114/V117/统一叙事所有下游失效及冷重启，做好失败时整段复位，再审议是否授权有限的真实同模型探针；不重新训练、不改 main 或 Railway，不新设记忆/文学裁判。
 
