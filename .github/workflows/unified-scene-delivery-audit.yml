@@ -8,6 +8,9 @@ on:
       - tests/test_wf_real_pov_unknown_source_leak.py
       - tests/test_wf_three_chapter_real_preflight.py
       - writerforge/writing_assist.py
+      - writerforge/studio_server.py
+      - writerforge/ui/studio.html
+      - tests/test_studio_author_stage_cancel_discard.py
       - writerforge/v96_causal_turns.py
       - writerforge/deepseek_flash_model.py
       - tests/test_wf_scene_format_recovery.py
