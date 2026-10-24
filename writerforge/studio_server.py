@@ -22,7 +22,12 @@ from urllib.parse import urlsplit
 
 from .db import WriterForgeDB
 from .runtime import RuntimeEngine
-from .writing_assist import InvisibleWritingAssist, AutonomousWriting, WriterDraftCancelled
+from .writing_assist import (
+    InvisibleWritingAssist, AutonomousWriting, WriterDraftCancelled,
+    _ai_decides_cross_chapter, _validate_unaccepted_fork_resume,
+)
+from .v117_continuity_trace import read_resume, ContinuityTraceError
+from .narrative_core import read_core_from_resume, NarrativeCoreError
 from .verified_flow import WritingExecutionError
 
 MAX_REQUEST_BYTES = 30_000
@@ -154,10 +159,23 @@ class StudioService:
         self._continue_event=None
         self._last_unreviewed_resume=None
         self._last_unreviewed_job_id=None
+        self._selected_fork_receipt=None
+        self._branch_catalog=None
+        self._selection_restore_warning=None
         self._token=secrets.token_urlsafe(30)
         # Verify a REAL published snapshot on startup (not a fake mode flag).
         with self._writer() as assistant:
             _=assistant.flow.begin_draft(scene)
+        # Unaccepted branch selection is existing Studio metadata, never a
+        # second story memory. All V117 and graph receipts are revalidated.
+        try:
+            self._restore_branch_catalog()
+        except (StudioError,WritingExecutionError,OSError,ValueError) as error:
+            self._selection_restore_warning=str(error)[:180]
+            self._last_unreviewed_resume=None
+            self._last_unreviewed_job_id=None
+            self._selected_fork_receipt=None
+            self._branch_catalog=None
 
     class _Context:
         def __init__(self,parent):self.parent=parent
@@ -186,6 +204,257 @@ class StudioService:
 
     def _writer(self):
         return StudioService._Context(self)
+
+    def _branch_file(self,job_id:str,path:str,*,max_bytes=4_000_000):
+        if (type(job_id) is not str or
+            re.fullmatch(r"[a-f0-9]{16}",job_id) is None or
+            type(path) is not str or not path or
+            Path(path).is_absolute() or ".." in Path(path).parts):
+            raise StudioError("WF_STUDIO_BRANCH_PATH_INVALID")
+        root=self.output_dir/"autonomous"/job_id
+        relative=Path(path)
+        if relative.parts[:2]!=("autonomous",job_id):
+            raise StudioError("WF_STUDIO_BRANCH_NOT_CURRENT_PROJECT")
+        target=self.output_dir/relative
+        if (not target.resolve().is_relative_to(root.resolve()) or
+            not target.is_file() or
+            not 0<target.stat().st_size<=max_bytes or
+            root.is_symlink() or self.output_dir.is_symlink()):
+            raise StudioError("WF_STUDIO_BRANCH_FILE_INVALID")
+        # Prevent a symlink within the path from escaping/redirecting source.
+        node=self.output_dir
+        for part in relative.parts:
+            node=node/part
+            if node.is_symlink():
+                raise StudioError("WF_STUDIO_BRANCH_SYMLINK_BLOCKED")
+        return target
+
+    def _branch_relative(self,job_id,path):
+        if type(path) is not str:
+            raise StudioError("WF_STUDIO_BRANCH_RELATIVE_NOT_STRING")
+        full=Path(path)
+        root=self.output_dir/"autonomous"/job_id
+        if (not full.resolve().is_relative_to(root.resolve()) or
+            not full.is_file()):
+            raise StudioError("WF_STUDIO_BRANCH_FOREIGN_FILE")
+        relative=str(full.resolve().relative_to(self.output_dir))
+        self._branch_file(job_id,relative)
+        return relative
+
+    @staticmethod
+    def _selection_hash(doc):
+        return sha256(json.dumps(doc,ensure_ascii=False,sort_keys=True,
+                                  separators=(",",":")).encode("utf8")).hexdigest()
+
+    def _build_branch_catalog(self,*,job_id,branch_results,selected):
+        if (type(branch_results) is not dict or
+            set(branch_results) not in ({"original"},
+                                        {"original","revised"}) or
+            selected not in branch_results):
+            raise StudioError("WF_STUDIO_BRANCH_OPTIONS_INVALID")
+        branches={}
+        for name,result in branch_results.items():
+            if type(result) is not dict or type(result.get("job_dir")) is not str:
+                raise StudioError("WF_STUDIO_BRANCH_JOB_RESULT_INVALID")
+            job_dir=Path(result["job_dir"])
+            manifest=self._branch_relative(job_id,str(job_dir/"job_manifest.json"))
+            manifest_path=self._branch_file(job_id,manifest)
+            info=json.loads(manifest_path.read_text("utf8"))
+            if (type(info) is not dict or
+                info.get("project_id")!=self.project or
+                info.get("model_used")!=self.model or
+                info.get("status")!="candidates_saved" or
+                type(info.get("chapters")) is not list or
+                not info["chapters"]):
+                raise StudioError("WF_STUDIO_BRANCH_MANIFEST_INVALID")
+            final_resume=self._branch_relative(
+                job_id,info["chapters"][-1]["v117_unreviewed_text_trace_resume"])
+            resume_path=self._branch_file(job_id,final_resume)
+            resume=json.loads(resume_path.read_text("utf8"))
+            try:
+                read_resume(resume,project_id=self.project,scene_id=self.scene)
+                core=read_core_from_resume(
+                    resume,project_id=self.project,scene_id=self.scene)
+                if core is None:
+                    raise StudioError("WF_STUDIO_BRANCH_UNIFIED_CORE_MISSING")
+            except (ContinuityTraceError,NarrativeCoreError) as error:
+                raise StudioError(
+                    "WF_STUDIO_BRANCH_RESUME_INVALID:"+str(error)) from None
+            row={
+                "manifest":manifest,
+                "manifest_sha256":sha256(manifest_path.read_bytes()).hexdigest(),
+                "resume":final_resume,
+                "resume_sha256":resume["receipt_sha256"],
+            }
+            if name=="revised":
+                fork_path=self._branch_relative(
+                    job_id,result["cross_chapter_fork_receipt"])
+                row["fork_receipt"]=fork_path
+                row["fork_receipt_file_sha256"]=sha256(
+                    self._branch_file(job_id,fork_path).read_bytes()).hexdigest()
+            branches[name]=row
+        doc={
+            "format":"wf.studio.unaccepted-branch-selection.v1",
+            "project_id":self.project,"scene_id":self.scene,
+            "model":self.model,"job_id":job_id,
+            "branches":branches,"selected":selected,
+            "author_accepted":False,"canon_writes":0,
+        }
+        doc["receipt_sha256"]=self._selection_hash(doc)
+        return self._validate_branch_catalog(doc)
+
+    def _validate_branch_catalog(self,doc):
+        if (type(doc) is not dict or
+            set(doc)!={"format","project_id","scene_id","model","job_id",
+                       "branches","selected","author_accepted","canon_writes",
+                       "receipt_sha256"} or
+            doc["format"]!="wf.studio.unaccepted-branch-selection.v1" or
+            doc["project_id"]!=self.project or doc["scene_id"]!=self.scene or
+            doc["model"]!=self.model or
+            doc["author_accepted"] is not False or
+            doc["canon_writes"]!=0 or
+            doc["receipt_sha256"]!=self._selection_hash({
+                k:v for k,v in doc.items() if k!="receipt_sha256"})):
+            raise StudioError("WF_STUDIO_BRANCH_CATALOG_TAMPERED")
+        job_id=doc["job_id"]
+        branches=doc["branches"]
+        if (type(branches) is not dict or
+            set(branches) not in ({"original"},{"original","revised"}) or
+            doc["selected"] not in branches):
+            raise StudioError("WF_STUDIO_BRANCH_CATALOG_OPTIONS")
+        loaded={}
+        for name,row in branches.items():
+            allowed={"manifest","manifest_sha256",
+                     "resume","resume_sha256"}
+            if name=="revised":
+                allowed|={"fork_receipt","fork_receipt_file_sha256"}
+            if type(row) is not dict or set(row)!=allowed:
+                raise StudioError("WF_STUDIO_BRANCH_ROW_SCHEMA")
+            mf=self._branch_file(job_id,row["manifest"])
+            if sha256(mf.read_bytes()).hexdigest()!=row["manifest_sha256"]:
+                raise StudioError("WF_STUDIO_BRANCH_MANIFEST_STALE")
+            item=json.loads(mf.read_text("utf8"))
+            if (item.get("status")!="candidates_saved" or
+                item.get("project_id")!=self.project or
+                item.get("model_used")!=self.model or
+                type(item.get("chapters")) is not list or
+                len(item["chapters"])<1 or
+                type(item.get("chapter_count")) is not int or
+                len(item["chapters"])!=item["chapter_count"]):
+                raise StudioError("WF_STUDIO_BRANCH_MANIFEST_SCHEMA")
+            actual=self._branch_relative(
+                job_id,item["chapters"][-1]["v117_unreviewed_text_trace_resume"])
+            if actual!=row["resume"]:
+                raise StudioError("WF_STUDIO_BRANCH_RESUME_NOT_IN_MANIFEST")
+            rp=self._branch_file(job_id,row["resume"])
+            resume=json.loads(rp.read_text("utf8"))
+            try:
+                read_resume(resume,project_id=self.project,scene_id=self.scene)
+                core=read_core_from_resume(
+                    resume,project_id=self.project,scene_id=self.scene)
+                if core is None:
+                    raise StudioError("WF_STUDIO_BRANCH_CORE_MISSING")
+            except (ContinuityTraceError,NarrativeCoreError):
+                raise StudioError("WF_STUDIO_BRANCH_V117_TAMPERED") from None
+            if resume["receipt_sha256"]!=row["resume_sha256"]:
+                raise StudioError("WF_STUDIO_BRANCH_HEAD_CHANGED")
+            loaded[name]={"manifest":item,"resume":resume,
+                          "resume_path":rp}
+            if name=="revised":
+                fpath=self._branch_file(job_id,row["fork_receipt"])
+                if (sha256(fpath.read_bytes()).hexdigest()!=
+                    row["fork_receipt_file_sha256"]):
+                    raise StudioError("WF_STUDIO_FORK_SOURCE_CHANGED")
+                receipt=json.loads(fpath.read_text("utf8"))
+                _validate_unaccepted_fork_resume(
+                    fork_receipt=receipt,candidate_resume=resume,
+                    project_id=self.project,scene_id=self.scene)
+                loaded[name]["fork_receipt"]=receipt
+        if "revised" in loaded:
+            receipt=loaded["revised"]["fork_receipt"]
+            if receipt["old_head_resume_sha256"]!=loaded["original"][
+                    "resume"]["receipt_sha256"]:
+                raise StudioError("WF_STUDIO_FORK_WRONG_OLD_BRANCH")
+        return loaded
+
+    def _set_branch_catalog(self,catalog,*,persist=True):
+        validated=self._validate_branch_catalog(catalog)
+        name=catalog["selected"]
+        source=validated[name]
+        if persist:
+            self.store._atomic(
+                self.store.path/"unaccepted_branch_selection.json",
+                json.dumps(catalog,ensure_ascii=False,indent=2))
+        self._branch_catalog=catalog
+        self._selected_fork_receipt=source.get("fork_receipt")
+        self._last_unreviewed_resume=source["resume_path"]
+        self._last_unreviewed_job_id=catalog["job_id"]
+        self._selection_restore_warning=None
+        return source["manifest"]
+
+    def _restore_branch_catalog(self):
+        path=self.store.path/"unaccepted_branch_selection.json"
+        if not path.exists():
+            return
+        data=json.loads(path.read_text("utf8"))
+        manifest=self._set_branch_catalog(data,persist=False)
+        jobid=data["job_id"]
+        result={**manifest,
+                "job_dir":str(self._branch_file(
+                    jobid,data["branches"][data["selected"]]["manifest"]).parent)}
+        self._job_folder=self.output_dir/"autonomous"/jobid
+        self._job={"id":jobid,"status":"completed","stage":"restored_candidate",
+                   "result":result,"error":None,
+                   "draft_mode":"continuity_guard",
+                   "pending_turn":None,"cancel_requested":False,
+                   "restored_from_signed_local_candidate":True}
+
+    def select_branch(self,job_id:str,branch:str) -> dict:
+        """Select historical or revised private candidate, never story Canon."""
+        if not self._model_busy.acquire(blocking=False):
+            raise StudioError("WF_STUDIO_WRITER_BUSY_CANNOT_SELECT_BRANCH")
+        try:
+            with self._job_lock:
+                catalog=self._branch_catalog
+                if (catalog is None or
+                    catalog["job_id"]!=job_id or
+                    branch not in catalog["branches"] or
+                    (self._job and self._job.get("status") in (
+                        "queued","running","awaiting_review","cancelling"))):
+                    raise StudioError("WF_STUDIO_BRANCH_SELECTION_UNAVAILABLE")
+                updated={**catalog,"selected":branch}
+                updated["receipt_sha256"]=self._selection_hash({
+                    k:v for k,v in updated.items() if k!="receipt_sha256"})
+                manifest=self._set_branch_catalog(updated)
+                if self._job and self._job.get("id")==job_id:
+                    current=self._job.get("result")
+                    # Branch selection restores exactly the original saved
+                    # run manifest, not a fabricated new model response.
+                    new_result={**manifest,
+                        "job_dir":str(self._last_unreviewed_resume.parent)}
+                    if type(current) is dict:
+                        new_result["wf_chapter_ai_review_decision"]=current.get(
+                            "wf_chapter_ai_review_decision")
+                    self._job["result"]=new_result
+                return {"job_id":job_id,"selected_branch":branch,
+                        "available_branches":list(updated["branches"]),
+                        "author_accepted":False,"canon_writes":0,
+                        "resume_sha256":updated["branches"][branch]["resume_sha256"]}
+        finally:
+            self._model_busy.release()
+
+    def branch_summary(self):
+        catalog=self._branch_catalog
+        if catalog is None:
+            return {"available":[],"selected":None,
+                    "restore_warning":self._selection_restore_warning}
+        return {"job_id":catalog["job_id"],
+                "available":list(catalog["branches"]),
+                "selected":catalog["selected"],
+                "restore_warning":self._selection_restore_warning,
+                "author_accepted":False,
+                "selected_resume_sha256":catalog["branches"][
+                    catalog["selected"]]["resume_sha256"]}
 
     def suggest(self,text:str) -> dict:
         if not self._model_busy.acquire(blocking=False):
