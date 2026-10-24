@@ -87,6 +87,12 @@ label{font-size:13px;font-weight:600;display:block;margin-top:13px}
       <option value="2">2 轮 · 再阅读已修改草稿，最多 8 次额外模型调用/作业</option>
     </select>
     <p class="note">这是原 WF 写作模型的自主内部试写与废稿循环，不需要再次发送作者指令。失败修改会回滚，废稿仅保存在本次私有候选目录，不能代表已学会文学技巧。按原样继续写、选择删一句／改一小段／推翻重写一场，由 WF 自己决定。</p>
+    <label for="self-edit-timing">G · 何时回头审稿，由谁决定</label>
+    <select class="detail" id="self-edit-timing" style="width:100%;padding:10px;border:1px solid #dedfd6;border-radius:8px;background:#fffdf8">
+      <option value="always_offer">兼容旧方式：每写完一段都提供一次修改机会</option>
+      <option value="ai_decides">AI 自己决定：继续写，或先回头指出为什么不满意</option>
+    </select>
+    <p class="note">新模式在写完一个可观察的事件段后，请同一个模型选择继续或回读。它必须说明修改的原文依据、保留不改的风险和想实现的阅读效果，WF 只负责执行和复查。当前并不是观察模型私有思考或生成一半 token 时删除，仍属于实验功能。</p>
     <label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:normal">
       <input id="continue-unreviewed" type="checkbox" />
       G 模式：接续上一批未接受候选的下一章（仅本次本机服务会话有效）
@@ -296,11 +302,13 @@ async function startAuto(){
   try{
     const self_edit_rounds=(draft_mode==="continuity_guard"
       ? Number($("self-edit-rounds").value) : 0);
+    const self_edit_timing=(self_edit_rounds>0
+      ? $("self-edit-timing").value : "always_offer");
     const pause_between_turns=(draft_mode!=="single"&&$("pause-turns").checked);
     const continue_unreviewed=(draft_mode==="continuity_guard"&&$("continue-unreviewed").checked);
     const job=await send("/api/autodraft",{
       outline,chapters,draft_mode,pause_between_turns,continue_unreviewed,
-      self_edit_rounds});
+      self_edit_rounds,self_edit_timing});
     currentJobId=job.job_id;
     $("auto-results").replaceChildren();
     $("preview-area").hidden=true;
@@ -308,7 +316,9 @@ async function startAuto(){
     $("stop-auto").hidden=false;
     $("stop-auto").disabled=false;
     message("auto-status","已开始按 "+draft_mode+" 创作"+
-      (self_edit_rounds?"；WF 将自动阅读并尝试删改，每段最多 "+self_edit_rounds+" 轮。":"")+
+      (self_edit_rounds?"；WF 将"+(self_edit_timing==="ai_decides"
+        ?"自主决定什么时候回头看、为什么改":"按原有方式逐段审稿")+
+        "，每段最多 "+self_edit_rounds+" 轮。":"")+
       (pause_between_turns?"；每段完成会暂停等待你的选择。":"；无需重复发送创作指令。"));
     await watchJob(job.job_id);
   }catch(err){
