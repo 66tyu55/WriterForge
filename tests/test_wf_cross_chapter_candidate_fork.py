@@ -202,6 +202,40 @@ class CrossChapterUnacceptedSourceFork(TestCase):
                          new_head["source_checkpoint_sha256"])
         self.assertFalse(new_head["author_accepted"])
 
+    def test_failed_new_branch_does_not_replace_old_immutable_history(self):
+        old,old_head,original=self.old_branch()
+        original_paths={
+            row["candidate"]:Path(row["candidate"]).read_bytes()
+            for row in old["chapters"]}
+        originals={
+            row["v117_unreviewed_text_trace_resume"]:
+                Path(row["v117_unreviewed_text_trace_resume"]).read_bytes()
+            for row in old["chapters"]}
+        bad_answers=replies(1,alternate=True)
+        bad_answers[6]="invalid second chapter model prose response"
+        dest=self.root/"aborted-fork"
+        with patch("writerforge.writing_assist.local_chat_completion",
+                   side_effect=bad_answers) as provider:
+            with self.assertRaises(WritingExecutionError):
+                AutonomousWriting(self.assist).run(
+                    outline=self.outline,chapter_goals=self.goals,
+                    draft_mode="continuity_guard",
+                    resume_story_checkpoint=self.parent,
+                    cross_chapter_fork=self.request(old,old_head,original),
+                    output_dir=dest)
+        self.assertEqual(provider.call_count,7)
+        self.assertTrue(all(Path(p).read_bytes()==raw for p,raw in
+                            {**original_paths,**originals}.items()))
+        self.assertEqual(
+            read_resume(old_head,project_id=self.project,
+                        scene_id=self.scene)["receipt_sha256"],
+            old_head["source_checkpoint_sha256"])
+        aborted=list(dest.glob("auto-*"))
+        self.assertEqual(len(aborted),1)
+        self.assertTrue((aborted[0]/"cross-chapter-fork-intent.json").is_file())
+        self.assertFalse((aborted[0]/"cross-chapter-fork-rebuilt.json").exists())
+        self.assertFalse((aborted[0]/"job_manifest.json").exists())
+
     def test_fork_requires_exact_old_head_source_and_original_snapshot(self):
         old,head,prose=self.old_branch()
         request=self.request(old,head,prose)
