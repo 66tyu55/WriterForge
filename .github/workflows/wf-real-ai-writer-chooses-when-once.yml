@@ -1,0 +1,57 @@
+name: WF Real Same-Model Writer Decides When and Why to Rewrite
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-real-ai-writer-chooses-when-once.yml
+permissions:
+  contents: read
+concurrency:
+  group: wf-one-live-ai-owned-literary-timing-probe
+  cancel-in-progress: false
+jobs:
+  actual-writer-literary-intent-and-draft:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 21
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -e '.[r2]'
+      - name: Prove AI moment/source quote/old V119 boundaries before model cost
+        run: PYTHONPATH=tests python -m unittest tests.test_wf_ai_writer_chooses_when_and_why tests.test_wf_writer_self_revision_loop tests.test_studio_author_stage_cancel_discard -q
+      - name: Use only already connected paid writer secret
+        run: python -c 'import os; assert os.environ.get("DEEPSEEK_API_KEY"), "WF_WRITER_OLD_MODEL_SECRET_UNAVAILABLE"'
+      - name: DeepSeek writes prose then independently chooses look back NOW or continue
+        run: python -m experiments.wf_real_ai_writer_chooses_when_once
+      - name: Require genuine writer choice calls, with failures preserved and no fake scoring
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path('wf_real_writer_chooses_when/STATUS.json').read_text('utf8'))
+          assert x['status']=='WF_REAL_SELF_EDIT_CANDIDATE_SAVED',x.get('status')
+          assert 4<=x['actual_provider_calls']<=8
+          assert x['actual_provider_calls']==4+x['self_edit_model_calls']
+          assert x['ai_moment_model_calls']>=1, 'AI moment not reached, no model timing proof'
+          assert x['accepted_prose_rows']==0
+          assert not x['trained_literary_weights_updated']
+          print('Real same writer was asked to decide when: not independent literary excellence proof')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WF-Real-AI-Writer-Decides-When-Original-Prose-and-Rejections
+          path: wf_real_writer_chooses_when/
+          retention-days: 30
+          if-no-files-found: warn
