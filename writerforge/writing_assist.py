@@ -597,6 +597,10 @@ def _writing_scene_scope(base_scene,*,local_index,resume_source_chapter=None):
     return f"{base_scene}.chapter-{absolute:03d}"
 
 
+class WriterDraftCancelled(WritingExecutionError):
+    """A provisional draft was stopped by its author; never a Canon change."""
+
+
 class AutonomousWriting:
     """Bounded outline -> narrative decisions -> actual model chapters on disk."""
 
@@ -635,7 +639,27 @@ class AutonomousWriting:
             narrative_core_checkpoint:dict|None=None,
             narrative_memory_backend:str="local",
             scene_delivery_contracts:tuple[dict|None,...]|None=None,
-            literary_progression_mode:str="baseline") -> dict:
+            literary_progression_mode:str="baseline",
+            cancel_requested=None,review_turn=None) -> dict:
+        # Both optional callbacks are only used by the local staged Studio.
+        # No waiting, cancellation or model call added to existing SDK runs.
+        if (cancel_requested is not None and not callable(cancel_requested) or
+            review_turn is not None and not callable(review_turn)):
+            raise WritingExecutionError("WF_STUDIO_DRAFT_CONTROL_INVALID")
+        def check_cancel():
+            if cancel_requested is not None and cancel_requested():
+                raise WriterDraftCancelled("WF_STUDIO_DRAFT_CANCELLED")
+
+        def ask_model(packet,*,model,api_base,max_tokens):
+            check_cancel()
+            answer=local_chat_completion(
+                packet,model=model,api_base=api_base,max_tokens=max_tokens)
+            # Current synchronous request cannot be forcibly killed. Stop
+            # immediately after it returns; do not start the next step.
+            check_cancel()
+            return answer
+
+        check_cancel()
         # Reverted trial-only promotion after source-locked first-turn A/B:
         # plot improved, but climax and horror did not (small editorial
         # sample, not a statistical or human-quality verdict).
@@ -829,6 +853,7 @@ class AutonomousWriting:
         stamp=datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         job=root/("auto-"+stamp)
         job.mkdir(exist_ok=False)
+        check_cancel()
         outline_hash=sha256(outline.encode("utf-8")).hexdigest()
         previous=""
         chapters=[]
@@ -931,7 +956,7 @@ class AutonomousWriting:
                 if plan_tail:
                     plan_prompt=_enrich(
                         base,plan_addition+plan_tail,prose_task=False)
-            plan_raw=local_chat_completion(
+            plan_raw=ask_model(
                 plan_prompt,model=self.assist.model,
                 api_base=self.assist.api_base,
                 max_tokens=(2400 if draft_mode=="foresight_rolling"
@@ -1024,7 +1049,7 @@ class AutonomousWriting:
             turn_evidence=None
             turn_outline=None
             if draft_mode=="single":
-                body=local_chat_completion(
+                body=ask_model(
                     packet,model=self.assist.model,
                     api_base=self.assist.api_base,max_tokens=2600,
                 )
@@ -1050,7 +1075,7 @@ class AutonomousWriting:
                 turn_outline=(
                     frozen_turn_outlines[index-1]
                     if frozen_turn_outlines is not None else
-                    local_chat_completion(
+                    ask_model(
                         extra_outline,model=self.assist.model,
                         api_base=self.assist.api_base,max_tokens=1450,
                     )
@@ -1119,7 +1144,7 @@ class AutonomousWriting:
                             rolling_prompt_shas.append(
                                 rolling_packet.prompt_sha256)
                             rolling_replan_calls+=1
-                            last_turn_response=local_chat_completion(
+                            last_turn_response=ask_model(
                                 rolling_packet,model=self.assist.model,
                                 api_base=self.assist.api_base,max_tokens=650,
                             )
@@ -1234,7 +1259,7 @@ class AutonomousWriting:
                                 facets,
                             )
                         prompt_shas.append(turn_packet.prompt_sha256)
-                        last_turn_response=local_chat_completion(
+                        last_turn_response=ask_model(
                             turn_packet,model=self.assist.model,
                             api_base=self.assist.api_base,max_tokens=1450,
                         )
@@ -1381,6 +1406,17 @@ class AutonomousWriting:
                                 raise ContinuityTraceError(
                                     "WF117_NEXT_TURN_STATE_PRECONDITION_REJECTED:"+
                                     ",".join(preflight["state_findings"]))
+                        check_cancel()
+                        if review_turn is not None:
+                            # A stop/discard here has not accepted this turn.
+                            # A "continue" is only permission to draft more,
+                            # NOT author approval of literary truth or Canon.
+                            proceed=review_turn(
+                                index,turn_index+1,evidence["prose"])
+                            if proceed is not True:
+                                raise WriterDraftCancelled(
+                                    "WF_STUDIO_DRAFT_DISCARDED_AT_TURN")
+                            check_cancel()
                         accepted_turns.append(evidence)
                         accepted_beats.append(beat)
                         if draft_mode=="continuity_guard":
@@ -1562,6 +1598,7 @@ class AutonomousWriting:
                         "WF96_SCENE_TURN_REJECTED_"+str(error)) from None
             if not isinstance(body,str) or not 100<=len(body.strip())<=MAX_PROSE_CHARS:
                 raise WritingExecutionError("model output too short, missing or too long")
+            check_cancel()
             saved=save_candidate(packet,body,self.assist.model,job)
             folder=Path(saved["folder"])
             plan_file=folder/"chapter_plan.json"
@@ -1800,6 +1837,7 @@ class AutonomousWriting:
                 })
                 previous_continuity_checkpoint=current_continuity_checkpoint
                 previous_external_story_checkpoint=current_external_story_checkpoint
+            check_cancel()
             chapters.append(chapter_data)
             if draft_mode in ("emotion_rolling","foresight_rolling"):
                 # Immutable metadata+real prose of this unaccepted chapter
@@ -1808,6 +1846,7 @@ class AutonomousWriting:
             previous=body[-750:]  # Bound retained cross-chapter context memory.
             if progress:
                 progress(index,len(chapter_goals),"saved")
+        check_cancel()
         receipt={
             "mode":"autonomous","status":"candidates_saved",
             "project_id":self.assist.project_id,
