@@ -1,6 +1,20 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.P 真正让同一写作 AI 先像独立读者寻找“原文 vs 推测”，再作为作家自主取舍：真实 LOOK_BACK_NOW，但严格 V119/V96 最终仍拒稿（2026-10-24，本轮最新）
+
+**正确下一阶段入口**：[WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md](WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md) → [WF_READER_FIRST_SAME_AI_LITERARY_REAL_PILOT_20261024.md](WF_READER_FIRST_SAME_AI_LITERARY_REAL_PILOT_20261024.md)。旧 0.O 三次对**同一篇真实 DeepSeek 451 字候选**读回都选 `MOVE_ON`，所有原始供应商回包与这次新结果一起存档，不能覆盖老反例或冒称模型训练。仅开发分支 `refactor-unified-scene-delivery-audit`，不改 main / Railway / R2 原著 / Canon，不重新训练已做 15 章，不另建文学记忆或审稿 AI。
+
+- **用户真正要的作者自主回头**：作文模型 DeepSeek Flash 必须自己想、自己写、自己选什么时候回头及改哪处。WF 只提供实际原文、读者意见来源 SHA/唯一引句与旧 V96/V114/V117/V119/单一 NarrativeCore 事务；软件不能凭“文字不自然”关键词做文学裁判、不能强迫模型回改或代替生成任何故事。V26 Ctrl+1/Ctrl+2 可选文字、旧自动保存、V98 真正文滚动构思、用户停止/删本次废稿、A–F 保持原职责。
+- **新增真实机制，不是强制审稿规则**：写作模型先在完全不同的**独立读者请求**中只读真实候选正文（不提供先前大纲、模型旧自夸结论、WF 出的文学错误清单），输出精确原文引句观察和**只属读者推测**的缺失过渡；程序验证引句真实唯一及先后源位置，不能晋级事实或直接下删稿命令。之后相同实际模型回原作者身份才选 `MOVE_ON / LOOK_BACK_NOW`。G `reader_first_self_review=True` 为 opt-in，必须 G+自审轮次+ai_decides，新增读者请求**计入原 8 次自主审稿模型调用上限**；预算不足时优先留给作者自己选择。Studio 原页新增默认关闭的读者先行控件。
+- **真的自主判断已经发生，不是模拟**：[真实 DeepSeek #40108836214](https://github.com/66tyu55/WriterForge/actions/runs/40108836214) 用先前原始供应商 wire/SHA 完整验证的旧 451 字，不重新付费写作。读者实际提出 8 条来源可复核动作＋3 条未证推测，其中准确指出“程九先进入船里、最终蹲在岸边桩旁”的缺失过渡。随后同一创作 AI **第一次真实选择 `LOOK_BACK_NOW`**，说“位置和姿态的转换没有落笔，读者只能自行补足”；第三次模型真实写了“片刻后他却又起身跨回岸上……”的 V119 `REVISE` 候选。新实测真供应商调用 **3 次**，用量 prompt 4,120 + completion 1,480 tokens，旧三次 `MOVE_ON` 原话仍在 0.O。
+- **不要错说为成功改稿**：本次真实提供商编辑 JSON 额外带 `type=json_object` 标识，模型报错的 `start/end=423/500` 甚至超过原文451字，旧 `_self_edit_one_turn` 首次报 `WF_SELF_EDIT_SCHEMA_INVALID`，旧文原样保留。[零模型来源回放 #40109306167](https://github.com/66tyu55/WriterForge/actions/runs/40109306167) 仅剥离这一种已观察冗余包装、按实际 `expected_original` 在同 SHA 原文中**唯一逐字定位**恢复坐标，能产生真实模型文字的**私有源锁预览**，但严格 V96 进一步拒绝 `WF96_UNDECLARED_PREVIOUS_CAUSE`：模型居然把**本场**“我留着……”对白当作不存在的**前一事件** `trace.parent_effect_quote`。不能悄悄把值替模型写成 `null` 或软化 V96；真正通过完整因果门槛的新原稿数 **0**。私有预览还可能让程九**在“你留着？”问话之前**已跨岸，后续放刀动作位置也不完全清楚；文学盲评没有做，不得宣称艺术品质进步或自动经验晋级。
+- **只修通用机械问题，原始文学/因果判断不动**：已在原 V119 写作入口增加极窄 `type=json_object` 兼容及按唯一逐字源句找实际 Unicode 坐标，保留真实原 raw JSON/原错误坐标和 SHA 证据；虚假引句、不唯一原句、伪造前因仍回滚。未来 V119 请求字段加明确**没有 `causal_parent` 时模型自己须输出 `trace.parent_effect_quote=null`** 的技术提示。旧原始错误及所有供应商 wire 没有被改写、R2 / Canon 0 写。
+- **验收和交接**：[初次 reader-first 全量离线回归 #40108338519](https://github.com/66tyu55/WriterForge/actions/runs/40108338519) 1,547 项、4 skipped、0 失败；[狭窄来源兼容 + trace 负例 #40109111936](https://github.com/66tyu55/WriterForge/actions/runs/40109111936) 1,551 项；[目前最终回归 #40109468598](https://github.com/66tyu55/WriterForge/actions/runs/40109468598) **1,552 tests run、4 skipped、0 failures**，同时 Node Studio JS 检查成功。真实实测仍为一个独立场景，不是 Studio 跨章付费文学证明；真正记录见上述专项文档，raw 供应商附件 [#12566065553](https://github.com/66tyu55/WriterForge/actions/runs/40108836214/artifacts/12566065553)，无模型严格编辑回放 [#12566001733](https://github.com/66tyu55/WriterForge/actions/runs/40109306167/artifacts/12566001733)。
+- **下一步不要重复对同稿付费劝改**：先保存原样旧正文、真实盲读源回包、AI 第一次 LOOK_BACK_NOW、由同一 AI 创造的**未验收**版本和 V96 源由来。待新授权换**不同原创场景**检验能否稳定自己发现真实写作错误，确认真正经过 V119/V96/V114 的有效改稿，并通过读者匿名盲评对比人物行动、动机、已知信息、代价与语言自然度。没有新授权绝不自动扣费、训练或部署。
+
+---
+
 ## 0.O 同一真实 DeepSeek 连续三次读回自己真实原稿，仍无法主动发现并改正空间跳转（2026-10-24，本轮最新）
 
 **从真实证据继续，不要复制旧提示假装训练**：[WF_REAL_DEEPSEEK_451_BLIND_SOURCE_V116_20261024.md](WF_REAL_DEEPSEEK_451_BLIND_SOURCE_V116_20261024.md) 是完整来源、真模型原话、有限架构、原 CI 和后续限定条件。前次三模型试验仍见下方 0.N。所有操作只发生在开发分支 `refactor-unified-scene-delivery-audit`，禁止触碰 main、Railway、R2 原著、作者正式 Canon，不重复训练已读 15 章、不增第二文学记忆或代写 AI。
