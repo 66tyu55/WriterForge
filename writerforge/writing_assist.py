@@ -1093,7 +1093,13 @@ class AutonomousWriting:
             literary_progression_mode:str="baseline",
             cancel_requested=None,review_turn=None,
             bootstrap_unified_core:bool=False,
-            self_edit_rounds:int=0) -> dict:
+            self_edit_rounds:int=0,
+            self_edit_timing:str="always_offer") -> dict:
+        if (self_edit_timing not in ("always_offer","ai_decides") or
+            self_edit_timing=="ai_decides" and (
+                draft_mode!="continuity_guard" or self_edit_rounds==0)):
+            raise WritingExecutionError(
+                "WF_AI_WRITER_TIMING_REQUIRES_ACTIVE_G_SELF_EDIT")
         if (type(self_edit_rounds) is not int or not
             0<=self_edit_rounds<=SELF_EDIT_MAX_PER_TURN or
             self_edit_rounds and draft_mode!="continuity_guard"):
@@ -1577,6 +1583,7 @@ class AutonomousWriting:
                 source_citation_normalizations=[]
                 model_trace_review_failures=[]
                 self_edit_turn_receipts=[]
+                self_edit_moment_receipts=[]
                 source_length_reviews=[]
                 prompt_delivery_receipts=[]
                 plan_execution_checks=[]
@@ -1755,8 +1762,37 @@ class AutonomousWriting:
                                     packet,model=self.assist.model,
                                     api_base=self.assist.api_base,
                                     max_tokens=max_tokens)
-                            last_turn_response,revision_note=(
-                                _self_edit_one_turn(
+                            moment=None
+                            if self_edit_timing=="ai_decides":
+                                remaining=max(
+                                    0,SELF_EDIT_MAX_PROVIDER_CALLS_PER_RUN-
+                                    self_edit_model_calls)
+                                if remaining>0:
+                                    moment=_ai_decides_when_to_revisit(
+                                        raw=last_turn_response,beat=beat,
+                                        accepted=tuple(accepted_turns),
+                                        turn_packet=turn_packet,
+                                        ask_model=invoke_self_edit,
+                                        directory=job/(
+                                            f"chapter-{index:03d}-turn-"
+                                            f"{turn_index+1:02d}-ai-moment"),
+                                        cancel_check=check_cancel)
+                                    self_edit_model_calls+=moment["model_calls"]
+                                else:
+                                    moment={
+                                        "decision":"BUDGET_EXHAUSTED",
+                                        "model_calls":0,
+                                        "reason":None,
+                                        "receipt":{
+                                            "decision":"BUDGET_EXHAUSTED",
+                                            "model_calls":0,
+                                            "literary_quality_verified":False}}
+                                self_edit_moment_receipts.append(
+                                    moment["receipt"])
+                            if (self_edit_timing=="always_offer" or
+                                moment["decision"]=="LOOK_BACK_NOW"):
+                                last_turn_response,revision_note=(
+                                    _self_edit_one_turn(
                                     raw=last_turn_response,beat=beat,
                                     accepted=tuple(accepted_turns),
                                     project_id=self.assist.project_id,
@@ -1783,7 +1819,30 @@ class AutonomousWriting:
                                     active_narrative_core=active_narrative_core,
                                     story_chapter_index=(
                                         first_story_chapter_index+index-1),
-                                    cancel_check=check_cancel))
+                                    cancel_check=check_cancel,
+                                    writer_attention=(
+                                        {"reason":moment["reason"],
+                                         "risk":moment["risk"],
+                                         "desired_effect":moment["desired_effect"],
+                                         "source_quote":moment.get("source_quote"),
+                                         "focus":moment.get("focus")}
+                                        if moment is not None else None)))
+                            else:
+                                # AI said MOVE_ON (or signal invalid/over
+                                # budget). WF must not invent a need to edit.
+                                revision_note={
+                                    "format":"wf.writer.self-edit.v1",
+                                    "enabled":True,
+                                    "model_calls":0,
+                                    "rounds":[{
+                                        "round":0,
+                                        "status":"AI_CHOSE_TO_MOVE_ON"
+                                        if moment["decision"]=="MOVE_ON"
+                                        else "REVIEW_NOT_STARTED",
+                                        "model_decision":moment["decision"]}],
+                                    "literary_quality_verified":False,
+                                    "canon_writes":0,
+                                }
                             self_edit_model_calls+=revision_note["model_calls"]
                             self_edit_turn_receipts.append(revision_note)
                             if last_turn_response!=old_raw:
@@ -2026,6 +2085,9 @@ class AutonomousWriting:
                             model_trace_review_failures)
                         turn_evidence["wf_self_edit_rounds_configured"]=(
                             self_edit_rounds)
+                        turn_evidence["wf_self_edit_timing"]=self_edit_timing
+                        turn_evidence["wf_ai_self_review_moment_receipts"]=(
+                            self_edit_moment_receipts)
                         turn_evidence["wf_self_edit_receipts"]=(
                             self_edit_turn_receipts)
                         turn_evidence["wf_self_edit_model_calls_in_chapter"]=(
@@ -2392,6 +2454,7 @@ class AutonomousWriting:
             "model_used":self.assist.model,
             "wf_self_edit_model_calls":self_edit_model_calls,
             "wf_self_edit_configured_rounds":self_edit_rounds,
+            "wf_self_edit_timing":self_edit_timing,
             "wf_self_edit_canon_writes":0,
             "literary_quality_verified":False,
             "all_generated_prose_requires_author_review":True,
