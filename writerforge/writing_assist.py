@@ -612,7 +612,8 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                         directory,author_exclusions=(),
                         previous_candidate_state=None,cast=(),
                         current_external_story_checkpoint=None,
-                        active_narrative_core=None,cancel_check=None):
+                        active_narrative_core=None,cancel_check=None,
+                        story_chapter_index=0):
     """Writer self-reads and discards sentences/paragraphs/scenes BEFORE canon.
 
     The model can CHOOSE to keep, delete or rewrite. All text changes are
@@ -808,8 +809,7 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                 review=preflight_continuation(
                     changed,current_external_story_checkpoint,
                     project_id=project_id,
-                    chapter_index=current_external_story_checkpoint[
-                        "chapter_index"],
+                    chapter_index=story_chapter_index,
                     cast=cast)
                 if review["blocked"]:
                     raise ContinuityTraceError(
@@ -908,7 +908,13 @@ class AutonomousWriting:
             scene_delivery_contracts:tuple[dict|None,...]|None=None,
             literary_progression_mode:str="baseline",
             cancel_requested=None,review_turn=None,
-            bootstrap_unified_core:bool=False) -> dict:
+            bootstrap_unified_core:bool=False,
+            self_edit_rounds:int=0) -> dict:
+        if (type(self_edit_rounds) is not int or not
+            0<=self_edit_rounds<=SELF_EDIT_MAX_PER_TURN or
+            self_edit_rounds and draft_mode!="continuity_guard"):
+            raise WritingExecutionError(
+                "WF_SELF_EDIT_REQUIRES_G_MODE_AND_BOUNDED_ROUNDS")
         if (type(bootstrap_unified_core) is not bool or
             bootstrap_unified_core and (
                 draft_mode!="continuity_guard" or
@@ -1142,6 +1148,7 @@ class AutonomousWriting:
         previous=""
         chapters=[]
         issued_turns=0
+        self_edit_model_calls=0
         rolling_replan_calls=0
         previous_emotional_turns=()
         previous_continuity_checkpoint=None
@@ -1385,6 +1392,7 @@ class AutonomousWriting:
                 unified_scene_delivery_turn_checks=[]
                 source_citation_normalizations=[]
                 model_trace_review_failures=[]
+                self_edit_turn_receipts=[]
                 source_length_reviews=[]
                 prompt_delivery_receipts=[]
                 plan_execution_checks=[]
@@ -1551,6 +1559,54 @@ class AutonomousWriting:
                             (job/f"chapter-{index:03d}-turn-"
                                  f"{turn_index+1:02d}-raw.json").write_text(
                                      last_turn_response,encoding="utf8")
+                        if (draft_mode=="continuity_guard" and
+                            self_edit_rounds>0):
+                            old_raw=last_turn_response
+                            def invoke_self_edit(packet,*,model,
+                                                 api_base,max_tokens):
+                                if max_tokens!=SELF_EDIT_MODEL_MAX_TOKENS:
+                                    raise WritingExecutionError(
+                                        "WF_SELF_EDIT_MODEL_BUDGET_CHANGED")
+                                return ask_model(
+                                    packet,model=self.assist.model,
+                                    api_base=self.assist.api_base,
+                                    max_tokens=max_tokens)
+                            last_turn_response,revision_note=(
+                                _self_edit_one_turn(
+                                    raw=last_turn_response,beat=beat,
+                                    accepted=tuple(accepted_turns),
+                                    project_id=self.assist.project_id,
+                                    scene_id=self.assist.scene_id,
+                                    turn_packet=turn_packet,
+                                    ask_model=invoke_self_edit,
+                                    round_limit=self_edit_rounds,
+                                    call_allowance=max(
+                                        0,SELF_EDIT_MAX_PROVIDER_CALLS_PER_RUN-
+                                        self_edit_model_calls),
+                                    directory=job/(
+                                        f"chapter-{index:03d}-turn-"
+                                        f"{turn_index+1:02d}-self-edits"),
+                                    author_exclusions=(
+                                        author_confirmed_forbidden_phrases),
+                                    previous_candidate_state=(
+                                        current_external_story_checkpoint[
+                                            "reducer_result"]["candidate_state"]
+                                        if current_external_story_checkpoint
+                                        else None),
+                                    cast=cast,
+                                    current_external_story_checkpoint=(
+                                        current_external_story_checkpoint),
+                                    active_narrative_core=active_narrative_core,
+                                    story_chapter_index=(
+                                        first_story_chapter_index+index-1),
+                                    cancel_check=check_cancel)))
+                            self_edit_model_calls+=revision_note["model_calls"]
+                            self_edit_turn_receipts.append(revision_note)
+                            if last_turn_response!=old_raw:
+                                (job/f"chapter-{index:03d}-turn-"
+                                     f"{turn_index+1:02d}-selfedit-final.json"
+                                ).write_text(last_turn_response,
+                                             encoding="utf8")
                         if draft_mode in ("emotion_rolling","foresight_rolling"):
                             evidence=check_emotional_turn(
                                 last_turn_response,beat,
@@ -1784,6 +1840,14 @@ class AutonomousWriting:
                             source_citation_normalizations)
                         turn_evidence["unified_model_trace_review_failures"]=(
                             model_trace_review_failures)
+                        turn_evidence["wf_self_edit_rounds_configured"]=(
+                            self_edit_rounds)
+                        turn_evidence["wf_self_edit_receipts"]=(
+                            self_edit_turn_receipts)
+                        turn_evidence["wf_self_edit_model_calls_in_chapter"]=(
+                            sum(x["model_calls"] for x in
+                                self_edit_turn_receipts))
+                        turn_evidence["wf_self_edit_no_canon_promotion"]=True
                         turn_evidence["unified_source_length_reviews"]=(
                             source_length_reviews)
                         turn_evidence["unified_source_prose_not_discarded_for_trace"]=True
@@ -2142,6 +2206,9 @@ class AutonomousWriting:
             "source_snapshot_id":self.assist.rt.pinned_snapshot_id,
             "chapter_count":len(chapters),"chapters":chapters,
             "model_used":self.assist.model,
+            "wf_self_edit_model_calls":self_edit_model_calls,
+            "wf_self_edit_configured_rounds":self_edit_rounds,
+            "wf_self_edit_canon_writes":0,
             "literary_quality_verified":False,
             "all_generated_prose_requires_author_review":True,
         }
