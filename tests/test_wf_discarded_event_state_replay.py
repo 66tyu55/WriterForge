@@ -39,8 +39,12 @@ HANDOFF="沈砚把火髓果从左手心递给唐蜃。"
 
 class SourceDeletionDoesNotRecreateFacts(unittest.TestCase):
     def test_v114_item_handoff_removed_from_new_history_and_signed_v117(self):
-        original=SOURCE+HANDOFF
-        old=external_temporal_step(original,cast=CAST)
+        # The prior source already established an exact palm holder.
+        # Exercise the licensed reducer's time-ordered handoff in a
+        # subsequent event, instead of inventing an impossible atomic batch.
+        initial=external_temporal_step(SOURCE,cast=CAST)
+        old=external_temporal_step(
+            HANDOFF+"唐蜃握着火髓果。",cast=CAST,prior=initial)
         old_cells=cells(old["reducer_result"]["candidate_state"])
         self.assertEqual(old_cells[FRUIT_KEY],"唐蜃手中",old_cells)
         # Simulate the writing model deleting the precise source sentence.
@@ -182,6 +186,7 @@ class ActualGPassesOnlyRevisedPhysicalState(unittest.TestCase):
             "沈砚把火髓果从齿间吐到左手心，攥紧。"
             +HANDOFF+
             "雨顺着门柱落下，两人都不肯先说出自己真正担心的事。"
+            "沈砚望着石阶尽头的灯，知道眼前的选择还没有确定。"
         )
         self.assertGreater(len(first),80)
         before=first.replace(HANDOFF,"")
