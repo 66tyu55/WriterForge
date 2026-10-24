@@ -13,6 +13,7 @@ on:
       - tests/test_studio_author_stage_cancel_discard.py
       - tests/test_wf_writer_self_revision_loop.py
       - tests/test_wf_ai_writer_chooses_when_and_why.py
+      - tests/test_wf_ai_writer_previous_turn_rewind.py
       - writerforge/v96_causal_turns.py
       - writerforge/deepseek_flash_model.py
       - tests/test_wf_scene_format_recovery.py
