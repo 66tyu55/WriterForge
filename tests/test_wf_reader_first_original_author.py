@@ -156,6 +156,47 @@ class SourceSeparation(TestCase):
             self.assertTrue(outcome["receipt"]["reader_did_not_preselect_literary_decision"])
 
 
+class RealModelProbeBoundariesOffline(TestCase):
+    def test_real_probe_model_adapter_is_same_provider_three_stages_max(self):
+        import os
+        from experiments import wf_real_deepseek_reader_first_author_once_20261024 as live
+        class FakeClient:
+            def __init__(self,*,api_key,budget,timeout_seconds,
+                         on_response_wire):
+                self.sink=on_response_wire
+                self.requests=[]
+            def ask_json(self,*,role,system,user,max_tokens):
+                self.requests.append((role,max_tokens,system))
+                self.sink(b'{"choices":[{"finish_reason":"stop"}]}')
+                return {"reader_reply":"offline-only"}
+        with TemporaryDirectory() as tmp,patch.dict(
+                os.environ,{"DEEPSEEK_API_KEY":"offline-mock-key-12345"}),patch.object(
+                live,"DeepSeekFlashModel",FakeClient):
+            model=live.OriginalModelInTwoRoles(Path(tmp))
+            self.assertEqual(live.MAX_CALLS,3)
+            self.assertEqual(live.EXPECTED_TOKENS,3400)
+            with self.assertRaisesRegex(
+                    RuntimeError,"WF_READER_FIRST_STAGE_NOT_AUTHORIZED"):
+                model.ask(packet("x"),model=None,api_base=None,max_tokens=600)
+            for max_tokens in (1000,600,1800):
+                model.ask(packet("generic novel"),model=None,
+                          api_base=None,max_tokens=max_tokens)
+            self.assertEqual(len(model.events),3)
+            self.assertEqual([e["stage"] for e in model.events],[
+                "INDEPENDENT_READER","ORIGINAL_AUTHOR","AUTHOR_V119_REVISION"])
+            self.assertEqual([e["max_requested_output_tokens"]
+                              for e in model.events],[1000,600,1800])
+            for i,stage in enumerate((
+                    "INDEPENDENT_READER","ORIGINAL_AUTHOR",
+                    "AUTHOR_V119_REVISION"),1):
+                self.assertTrue((Path(tmp)/f"{i:02d}-{stage}-provider-wire.json"
+                                 ).is_file())
+                self.assertEqual(model.events[i-1]["provider_wire_preserved_before_decode"],True)
+            with self.assertRaisesRegex(
+                    RuntimeError,"WF_READER_FIRST_INCORRECT_MODEL_OR_BUDGET"):
+                model.ask(packet("x"),model=None,api_base=None,max_tokens=600)
+
+
 class RealGOptinOffline(TestCase):
     def setUp(self):
         self.temp=TemporaryDirectory()
