@@ -652,7 +652,7 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
             "author_accepted":False,"canon_writes":0,
             "literary_quality_verified":False,
         }
-    if type(directory) is not Path:
+    if not isinstance(directory,Path):
         raise WritingExecutionError("WF_SELF_EDIT_PRIVATE_PATH_INVALID")
     directory.mkdir(parents=True,exist_ok=False)
     (directory/"first-original.md").write_text(doc["prose"],encoding="utf8")
