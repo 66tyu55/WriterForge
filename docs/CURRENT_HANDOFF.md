@@ -1,6 +1,21 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.N 三个现有真实写作模型的第一轮文学自审对照：会写不等于会发现自己写错（2026-10-24，本轮最新）
+
+**必须从实测证据而不是技术回归开始**：[WF_REAL_THREE_EXISTING_WRITER_MODELS_20261024.md](WF_REAL_THREE_EXISTING_WRITER_MODELS_20261024.md)。第一轮 [Actions #40094106486](https://github.com/66tyu55/WriterForge/actions/runs/40094106486)，未完成模型的单独思考参数补测 [Actions #40094721282](https://github.com/66tyu55/WriterForge/actions/runs/40094721282)。两轮共 **8 次真实模型请求**，不是模拟；原始供应商 wire、原文、原始判断和失败全部保留在 Actions 附件。没有新增 R2/Canon、模型训练、main 修改或 Railway 部署。
+
+- **已选现有三模型**：DeepSeek 官方 `deepseek-flash`、Discovery 已集成 `glm-5.3` 和 `kimi-k2.6`。相同全新“顾翎与程九的雾中渡索、带血税簿与身份不明求救者”原创场景，写作模型必须自己设计人物选择与代价。每个模型 WRITE → **同一写作 AI 自己选 MOVE_ON/LOOK_BACK_NOW** → 只有真实合法 LOOK_BACK_NOW 才允许由**同一模型**提议 V119 source-locked 修改；至多 3 次 provider 调用、无隐藏重试、无第三方文学代写。
+- **首次真实红灯不抹掉**：DeepSeek 第一次直接完成 451 字符原文、V96/V114 PASS、本人决定 `MOVE_ON`。GLM 和 Kimi 第一次各用完 1,450 输出 token，真实 `finish_reason=length`，不具备完整来源；没有因此断言模型不会写作。另一次独立用户已授权的有界补测只重试这两个未完成模型，GLM 设 `reasoning_effort=low`、Kimi 设 `thinking.type=disabled` 并各调高实际传输额度；完整原文都产生，但此时不能冒称相同模型参数。
+- **真实结果一览**：DeepSeek 451 字符，真 `MOVE_ON`；GLM 360 字符、真回复 `MOVE_ON` 但 **64 位原文 SHA 抄成 62 位**，WF 依法拒绝 `INVALID_SIGNAL`；Kimi 772 字符、真 `MOVE_ON`，**超过本次 260—520 字符建议上限**。三者真实 V96/V114 来源校验都通过，但真正完成合法 `LOOK_BACK_NOW → V119 自主修订` 的次数为 **0**。不可用代码绿灯声称 AI 已具备人类式文学删稿能力。
+- **最关键文学负例**：DeepSeek 实际原文前面写“程九已经坐进船里”，末尾变成“程九仍蹲在桩边”，却没有下船动作；同一个模型自我辩护“顾翎先走、程九留守的代价都已落实”，判定保留。说明**AI 自己说明为什么满意，不等于真正知道自己错在哪里**，V96 来源 PASS 也不覆盖空间物理连续性。应优先关注此类可定位正文错误，不重复安装另一套 AI 文学打分器。
+- **公平报告和来源纪律**：两轮总 8 次真实 provider calls，DeepSeek 2、GLM 3、Kimi 3；所有回复原件仅在限期 Actions 附件存档 30 天。原 GH 初次输出和补测都有独立原件，不将坏结果“修饰成绿色”。模型声明的文学理由仍是未证、用户仍需独立匿名读正文。本实验是**真实模型单场景写作＋现有 WF V96/V114/自审入口**，不是完整 Studio 双章 V117 跨章流程付费验证，更不是在真实 Xuehai 原书上重新训练。
+- **工程回归**：[离线 Actions #40094532271](https://github.com/66tyu55/WriterForge/actions/runs/40094532271)：1,531 tests run、4 skipped、0 失败，核验原白名单、真模型请求总闸、独立输出推理参数与失败不重试、真 AI MOVE_ON 不做 V119、真实决定触发才源锁改稿。这个 CI 无模型密钥；不能替代上述真实模型负例。
+- **0.M 原写作中枢全部保持**：Studio 单次任务、同一 AI 章节级自主回看、候选版本 SHA 选择与冷恢复、V26 双候选/自动保存、V98 滚动计划、V119 精确修改、V117/唯一 NarrativeCore FACT/UNKNOWN/THREAD 及热暖冷内容不删不重建。保留“AI 作家负责创造、WF 只负责来源和事务”的三层职责。禁止把模型自行留白扭曲成“必须强制删一段”，也禁止让 WF 替它创造替换小说正文。
+- **下一步建议**：先审阅这三份原著样本，让独立阅读者从正文定位问题；后续用不同类型的新题、相同的真实条件研究模型会否**自然**选回看，且修改后确实减少局部因果、人物认知/位置错误。机械复制 SHA 可研究既有 WF 源身份由软件确定性绑定（**不是**由程序替 AI 判断文学），但不能擅自改原始模型判断或静默放宽来源校验。**本轮试验结束，不再自动开启任何额外付费推断；新一轮需用户明确许可**。
+
+---
+
 ## 0.M 写作 AI 自己在两章边界选择回头，Studio 版本选择和冷重启连通（2026-10-24，本轮最新）
 
 **跨窗口必读**：[WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md](WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md)；真实软件路径、负例和边界 [WF_AI_STUDIO_CHAPTER_SELF_REVIEW_BRANCH_20261024.md](WF_AI_STUDIO_CHAPTER_SELF_REVIEW_BRANCH_20261024.md)。本轮只动开发分支 refactor-unified-scene-delivery-audit，不改生产 main、Railway、用户 R2 原书、已接受 Canon，不重新训练15章、不引入第二个文学记忆主人。
