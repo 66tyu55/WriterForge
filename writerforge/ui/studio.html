@@ -94,6 +94,11 @@ label{font-size:13px;font-weight:600;display:block;margin-top:13px}
     </select>
     <p class="note">新模式在写完一个可观察的事件段后，请同一个模型选择继续或回读。它必须说明修改的原文依据、保留不改的风险和想实现的阅读效果，WF 只负责执行和复查。当前并不是观察模型私有思考或生成一半 token 时删除，仍属于实验功能。</p>
     <label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:normal">
+      <input id="reader-first-self-review" type="checkbox" />
+      G · 同一个写作 AI 先做一次独立读者式原文复述，再自己决定保留／修改（实验，默认关闭）
+    </label>
+    <p class="note">先只看真实正文，分别写出原文明确发生的动作与只能由读者猜出的过渡；随后仍由原作者模型自主选择。WF 只核对引用来源，不下文学结论，不自动要求删稿。额外复读调用计入原有每作业最多 8 次自主审稿请求额度，不会无限增加模型调用。</p>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:normal">
       <input id="continue-unreviewed" type="checkbox" />
       G 模式：接续上一批未接受候选的下一章（本机签名恢复，重启仍可选）
     </label>
@@ -324,6 +329,11 @@ async function startAuto(){
     const pause_between_turns=(draft_mode!=="single"&&$("pause-turns").checked);
     const continue_unreviewed=(draft_mode==="continuity_guard"&&$("continue-unreviewed").checked);
     const ai_chapter_review=$("ai-chapter-review").checked;
+    const reader_first_self_review=$("reader-first-self-review").checked;
+    if(reader_first_self_review&&!(draft_mode==="continuity_guard"&&
+      self_edit_rounds>0&&self_edit_timing==="ai_decides")){
+      throw Error("独立读者复述只支持 G 模式且需启用 AI 自主审稿。");
+    }
     if(ai_chapter_review&&!(draft_mode==="continuity_guard"&&
       continue_unreviewed&&chapters.length===2&&self_edit_rounds>0&&
       self_edit_timing==="ai_decides"&&!pause_between_turns)){
@@ -331,7 +341,8 @@ async function startAuto(){
     }
     const job=await send("/api/autodraft",{
       outline,chapters,draft_mode,pause_between_turns,continue_unreviewed,
-      self_edit_rounds,self_edit_timing,ai_chapter_review});
+      self_edit_rounds,self_edit_timing,ai_chapter_review,
+      reader_first_self_review});
     currentJobId=job.job_id;
     $("auto-results").replaceChildren();
     $("branch-panel").hidden=true;
@@ -343,6 +354,7 @@ async function startAuto(){
       (self_edit_rounds?"；同一写作 AI 将"+(self_edit_timing==="ai_decides"
         ?"自主决定什么时候回头看、为什么改":"按原有方式逐段审稿")+
         "，每段最多 "+self_edit_rounds+" 轮。":"")+
+      (reader_first_self_review?"；先做独立读者来源复述（计入原有审稿额度）。":"")+
       (pause_between_turns?"；每段完成会暂停等待你的选择。":"；无需重复发送创作指令。"));
     await watchJob(job.job_id);
   }catch(err){
@@ -445,6 +457,14 @@ $("choose-candidate-branch").addEventListener("click",async()=>{
       "… 继续；旧稿原样留存。");
   }catch(err){message("branch-status",err.message,true)}
   finally{$("choose-candidate-branch").disabled=false}
+});
+$("reader-first-self-review").addEventListener("change",()=>{
+  if($("reader-first-self-review").checked){
+    $("draft-mode").value="continuity_guard";
+    if(Number($("self-edit-rounds").value)===0)$("self-edit-rounds").value="1";
+    $("self-edit-timing").value="ai_decides";
+    $("pause-turns").checked=false;
+  }
 });
 $("ai-chapter-review").addEventListener("change",()=>{
   if($("ai-chapter-review").checked){
