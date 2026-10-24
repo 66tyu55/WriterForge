@@ -509,7 +509,8 @@ class StudioService:
                    continue_unreviewed:bool=False,
                    self_edit_rounds:int=0,
                    self_edit_timing:str="always_offer",
-                   ai_chapter_review:bool=False) -> dict:
+                   ai_chapter_review:bool=False,
+                   reader_first_self_review:bool=False) -> dict:
         # Author chooses A (single) or segmented B-F. For segmented Studio
         # work, default to SHOW EACH TURN and wait for explicit continuation.
         if draft_mode not in ("single","split_only","causal_guard",
@@ -528,6 +529,13 @@ class StudioService:
                 self_edit_rounds==0 or draft_mode!="continuity_guard")):
             raise StudioError(
                 "WF_AI_WRITER_TIMING_REQUIRES_ACTIVE_G_SELF_EDIT")
+        if (type(reader_first_self_review) is not bool or
+            reader_first_self_review and (
+                draft_mode!="continuity_guard" or
+                self_edit_rounds==0 or
+                self_edit_timing!="ai_decides")):
+            raise StudioError(
+                "WF_STUDIO_READER_FIRST_REQUIRES_G_AI_DECIDES")
         if type(ai_chapter_review) is not bool:
             raise StudioError("WF_STUDIO_CHAPTER_REVIEW_FLAG_INVALID")
         if (ai_chapter_review and
@@ -604,6 +612,7 @@ class StudioService:
                     "continue_unreviewed":continue_unreviewed,
                     "self_edit_rounds":self_edit_rounds,
                     "self_edit_timing":self_edit_timing,
+                    "reader_first_self_review":reader_first_self_review,
                     "ai_chapter_review":ai_chapter_review,
                     "pending_turn":None,
                     "cancel_requested":False,
@@ -661,6 +670,7 @@ class StudioService:
                         selected_fork_receipt=selected_fork_receipt,
                         self_edit_rounds=self_edit_rounds,
                         self_edit_timing=self_edit_timing,
+                        reader_first_self_review=reader_first_self_review,
                     )
                     candidate_branches={"original":result}
                     selected_candidate="original"
@@ -723,7 +733,8 @@ class StudioService:
                                     selected_fork_receipt=selected_fork_receipt,
                                     cross_chapter_fork=proposal,
                                     self_edit_rounds=self_edit_rounds,
-                                    self_edit_timing=self_edit_timing)
+                                    self_edit_timing=self_edit_timing,
+                                    reader_first_self_review=reader_first_self_review)
                                 check_author_stop()
                             except WriterDraftCancelled:
                                 raise
@@ -828,6 +839,8 @@ class StudioService:
                 "self_edit_provider_call_cap":(
                     8 if self_edit_rounds else 0),
                 "ai_chapter_review":ai_chapter_review,
+                "reader_first_self_review":reader_first_self_review,
+                "reader_calls_within_existing_self_edit_cap":True,
                 "chapter_review_model_call_cap":(1 if ai_chapter_review else 0),
                 "chapter_fork_redraft_cap":(1 if ai_chapter_review else 0),
                 "no_auto_accept":True,"can_request_discard":True}
@@ -1062,6 +1075,8 @@ class StudioHandler(BaseHTTPRequestHandler):
                         "self_edit_timing","always_offer"),
                     ai_chapter_review=payload.get(
                         "ai_chapter_review",False),
+                    reader_first_self_review=payload.get(
+                        "reader_first_self_review",False),
                 )
             elif self.path=="/api/autodraft/cancel":
                 result=svc.cancel_auto(payload.get("job_id"))
