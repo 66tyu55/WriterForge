@@ -2314,7 +2314,7 @@ class AutonomousWriting:
                                     project_id=self.assist.project_id,
                                     chapter_index=first_story_chapter_index+index-1,
                                     reference=continuity_reference,
-                                    cast=cast)
+                                cast=cast)
                                 trace_checks.append(preflight)
                                 if preflight["blocked"]:
                                     raise ContinuityTraceError(
