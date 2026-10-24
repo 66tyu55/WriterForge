@@ -77,8 +77,13 @@ label{font-size:13px;font-weight:600;display:block;margin-top:13px}
       <option value="rolling_causal">D · 正文驱动的滚动情节（额外模型调用／实验）</option>
        <option value="emotion_rolling">E · 情感＋因果＋代价＋后果（使用D相同次数的滚动规划／实验）</option>
        <option value="foresight_rolling">F · 选择前预演两条未来＋跨章未偿代价（试验）</option>
+       <option value="continuity_guard">G · 统一叙事核心（分段／人物视角／物件／跨章候选）</option>
     </select>
     <p class="note">B/C/D/E/F为可选本地实验，最多两章、每次最多16个事件。D在每个后续事件前额外调用模型重拟目标，单任务最多14次额外重拟；E与D调用次数上限相同，但额外记录真实正文情感触发、行动代价、后果与下一幕压力。F不增加后续重规划次数，但章计划输出额度更大，并尝试多步未来的符号可行性检查与跨章未偿债务；没有作者已审核的世界初始事实时只能报告未知，不能保证文学逻辑正确。旧模式默认不变。真实文学因果、人物动机与代价仍需审阅。所有草稿不自动接受或写入人物事实。</p>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:normal">
+      <input id="continue-unreviewed" type="checkbox" />
+      G 模式：接续上一批未接受候选的下一章（仅本次本机服务会话有效）
+    </label>
     <label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:normal">
       <input id="pause-turns" type="checkbox" checked />
       分段模式：每段写完先让我阅读，再决定继续
@@ -265,6 +270,8 @@ $("discard-auto").addEventListener("click",async()=>{
     $("auto-results").replaceChildren();
     $("preview-area").hidden=true;
     $("discard-auto").hidden=true;
+    $("continue-unreviewed").checked=false;
+    $("continue-unreviewed").disabled=true;
     currentPreview="";
     message("auto-status","仅本次生成候选已删除，原手工手稿仍保留。");
   }catch(err){message("auto-status",err.message,true)}
@@ -281,8 +288,9 @@ async function startAuto(){
   message("auto-status","正在创建分章计划…");
   try{
     const pause_between_turns=(draft_mode!=="single"&&$("pause-turns").checked);
+    const continue_unreviewed=(draft_mode==="continuity_guard"&&$("continue-unreviewed").checked);
     const job=await send("/api/autodraft",{
-      outline,chapters,draft_mode,pause_between_turns});
+      outline,chapters,draft_mode,pause_between_turns,continue_unreviewed});
     currentJobId=job.job_id;
     $("auto-results").replaceChildren();
     $("preview-area").hidden=true;
@@ -343,6 +351,9 @@ async function watchJob(jobId){
         message("auto-status","已写完 "+job.result.chapter_count+" 章候选稿并保存计划和来源。尚未自动接受。");
         showChapters(job.result.chapters);
         $("discard-auto").hidden=false;
+        if(job.unreviewed_resume_available){
+          $("continue-unreviewed").disabled=false;
+        }
       }
       break;
     }
@@ -353,7 +364,7 @@ function showChapters(chapters){
   chapters.forEach(item=>{
     const row=document.createElement("div");row.className="option";
     const label=document.createElement("div");label.className="option-head";
-    label.textContent="第 "+item.chapter+" 章 · "+item.goal;
+    label.textContent="第 "+(item.story_chapter_index||item.chapter)+" 章 · "+item.goal;
     const btn=document.createElement("button");btn.className="secondary";btn.textContent="预览正文";
     btn.onclick=async()=>{
       try{
@@ -382,10 +393,12 @@ $("copy-preview").onclick=async()=>{
     message("indicator","本地模型："+bootstrap.model);
     message("save-state","已自动恢复" );
     message("help-status","开始写作；适当停笔时会有两种文字建议");
+    $("continue-unreviewed").disabled=!bootstrap.unreviewed_resume_available;
     if(bootstrap.auto_job&&bootstrap.auto_job.id){
       currentJobId=bootstrap.auto_job.id;
       if(bootstrap.auto_job.status==="completed"&&bootstrap.auto_job.result){
         showChapters(bootstrap.auto_job.result.chapters);
+        $("continue-unreviewed").disabled=!bootstrap.unreviewed_resume_available;
         $("discard-auto").hidden=false;
       }else if(["queued","running","awaiting_review","cancelling"].includes(bootstrap.auto_job.status)){
         $("stop-auto").hidden=false;
