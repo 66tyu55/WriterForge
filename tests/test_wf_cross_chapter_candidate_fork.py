@@ -287,6 +287,48 @@ class CrossChapterUnacceptedSourceFork(TestCase):
             model.assert_not_called()
         self.assertFalse(untouched.exists())
 
+    def test_only_new_v117_head_can_continue_writer_to_next_chapter(self):
+        old,old_head,original=self.old_branch()
+        fresh=self.run_writer(
+            out="regenerated",answer_list=replies(1,alternate=True),
+            fork=self.request(old,old_head,original))
+        selected=json.loads(Path(fresh["cross_chapter_fork_receipt"]).read_text(
+            "utf8"))
+        new_head=json.loads(Path(fresh["chapters"][-1][
+            "v117_unreviewed_text_trace_resume"]).read_text("utf8"))
+        answers=replies(3,alternate=True)[:4]
+        with patch("writerforge.writing_assist.local_chat_completion",
+                   side_effect=answers) as provider:
+            following=AutonomousWriting(self.assist).run(
+                outline=self.outline,
+                chapter_goals=["新的故事选择只继承真正生效的前章人物视角与物件状态。"],
+                draft_mode="continuity_guard",
+                resume_story_checkpoint=new_head,
+                selected_fork_receipt=selected,
+                output_dir=self.root/"following")
+        self.assertEqual(provider.call_count,4)
+        self.assertEqual(following["chapter_count"],1)
+        self.assertEqual(following["chapters"][0]["story_chapter_index"],3)
+        last=json.loads(Path(following["chapters"][0][
+            "v117_unreviewed_text_trace_resume"]).read_text("utf8"))
+        parent_core=read_core_from_resume(
+            new_head,project_id=self.project,scene_id=self.scene)
+        child_core=read_core_from_resume(
+            last,project_id=self.project,scene_id=self.scene)
+        self.assertEqual(child_core["parent_sha256"],
+                         parent_core["receipt_sha256"])
+        old_graph=read_core_from_resume(
+            old_head,project_id=self.project,scene_id=self.scene)
+        self.assertNotEqual(child_core["parent_sha256"],
+                            old_graph["receipt_sha256"])
+        old_descendant={x["source_sha256"] for x in
+                        selected["obsolete_only_in_this_fork"]}
+        self.assertFalse(any(
+            item["source_sha256"] in old_descendant
+            for item in child_core["memory"]["hot"]+
+                        child_core["memory"]["warm"]))
+        self.assertEqual(following["canonical_fact_writes"],0)
+
     def test_tampered_branch_selection_receipt_rejected(self):
         old,head,prose=self.old_branch()
         rebuilt=self.run_writer(out="new",answer_list=replies(1,alternate=True),
