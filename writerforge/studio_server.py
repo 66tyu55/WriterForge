@@ -301,7 +301,8 @@ class StudioService:
             "author_accepted":False,"canon_writes":0,
         }
         doc["receipt_sha256"]=self._selection_hash(doc)
-        return self._validate_branch_catalog(doc)
+        self._validate_branch_catalog(doc)
+        return doc
 
     def _validate_branch_catalog(self,doc):
         if (type(doc) is not dict or
@@ -342,6 +343,34 @@ class StudioService:
                 type(item.get("chapter_count")) is not int or
                 len(item["chapters"])!=item["chapter_count"]):
                 raise StudioError("WF_STUDIO_BRANCH_MANIFEST_SCHEMA")
+            # The signed resume alone cannot prove on-disk prose hasn't
+            # changed. Recheck EACH saved chapter's actual bytes against its
+            # hot-buffer source pointer and its own V117 graph receipt.
+            for chapter in item["chapters"]:
+                if (type(chapter) is not dict or
+                    chapter.get("accepted") is not False):
+                    raise StudioError("WF_STUDIO_BRANCH_CHAPTER_ACCEPTANCE")
+                cp=self._branch_relative(job_id,chapter.get("candidate"))
+                actual_prose=self._branch_file(
+                    job_id,cp,max_bytes=70_000).read_bytes()
+                c_resume=self._branch_relative(
+                    job_id,chapter.get("v117_unreviewed_text_trace_resume"))
+                c_raw=json.loads(self._branch_file(
+                    job_id,c_resume).read_text("utf8"))
+                try:
+                    read_resume(c_raw,project_id=self.project,
+                                scene_id=self.scene)
+                    c_graph=read_core_from_resume(
+                        c_raw,project_id=self.project,scene_id=self.scene)
+                except (ContinuityTraceError,NarrativeCoreError):
+                    raise StudioError(
+                        "WF_STUDIO_BRANCH_CHAPTER_SOURCE_TAMPERED") from None
+                hot=(c_graph["memory"]["hot"] if c_graph is not None else [])
+                if (not hot or hot[-1]["source_sha256"]!=sha256(
+                        actual_prose).hexdigest() or
+                    hot[-1]["chapter"]!=chapter.get("story_chapter_index") or
+                    self._branch_relative(job_id,hot[-1]["source_path"])!=cp):
+                    raise StudioError("WF_STUDIO_BRANCH_MANUSCRIPT_CHANGED")
             actual=self._branch_relative(
                 job_id,item["chapters"][-1]["v117_unreviewed_text_trace_resume"])
             if actual!=row["resume"]:
