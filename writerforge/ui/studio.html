@@ -80,6 +80,13 @@ label{font-size:13px;font-weight:600;display:block;margin-top:13px}
        <option value="continuity_guard">G · 统一叙事核心（分段／人物视角／物件／跨章候选）</option>
     </select>
     <p class="note">B/C/D/E/F为可选本地实验，最多两章、每次最多16个事件。D在每个后续事件前额外调用模型重拟目标，单任务最多14次额外重拟；E与D调用次数上限相同，但额外记录真实正文情感触发、行动代价、后果与下一幕压力。F不增加后续重规划次数，但章计划输出额度更大，并尝试多步未来的符号可行性检查与跨章未偿债务；没有作者已审核的世界初始事实时只能报告未知，不能保证文学逻辑正确。旧模式默认不变。真实文学因果、人物动机与代价仍需审阅。所有草稿不自动接受或写入人物事实。</p>
+    <label for="self-edit-rounds">G · WF 自主反复删改（默认关闭，最多两轮）</label>
+    <select class="detail" id="self-edit-rounds" style="width:100%;padding:10px;border:1px solid #dedfd6;border-radius:8px;background:#fffdf8">
+      <option value="0">不启用 · 按原流程生成</option>
+      <option value="1">1 轮 · 写完每段自己判断保留、删句、改段、重写</option>
+      <option value="2">2 轮 · 再阅读已修改草稿，最多 8 次额外模型调用/作业</option>
+    </select>
+    <p class="note">这是原 WF 写作模型的自主内部试写与废稿循环，不需要再次发送作者指令。失败修改会回滚，废稿仅保存在本次私有候选目录，不能代表已学会文学技巧。按原样继续写、选择删一句／改一小段／推翻重写一场，由 WF 自己决定。</p>
     <label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:normal">
       <input id="continue-unreviewed" type="checkbox" />
       G 模式：接续上一批未接受候选的下一章（仅本次本机服务会话有效）
@@ -287,17 +294,22 @@ async function startAuto(){
   $("run-auto").disabled=true;
   message("auto-status","正在创建分章计划…");
   try{
+    const self_edit_rounds=(draft_mode==="continuity_guard"
+      ? Number($("self-edit-rounds").value) : 0);
     const pause_between_turns=(draft_mode!=="single"&&$("pause-turns").checked);
     const continue_unreviewed=(draft_mode==="continuity_guard"&&$("continue-unreviewed").checked);
     const job=await send("/api/autodraft",{
-      outline,chapters,draft_mode,pause_between_turns,continue_unreviewed});
+      outline,chapters,draft_mode,pause_between_turns,continue_unreviewed,
+      self_edit_rounds});
     currentJobId=job.job_id;
     $("auto-results").replaceChildren();
     $("preview-area").hidden=true;
     $("discard-auto").hidden=true;
     $("stop-auto").hidden=false;
     $("stop-auto").disabled=false;
-    message("auto-status","已开始按 "+draft_mode+" 创作"+(pause_between_turns?"；每段完成会暂停等待你的选择。":"。"));
+    message("auto-status","已开始按 "+draft_mode+" 创作"+
+      (self_edit_rounds?"；WF 将自动阅读并尝试删改，每段最多 "+self_edit_rounds+" 轮。":"")+
+      (pause_between_turns?"；每段完成会暂停等待你的选择。":"；无需重复发送创作指令。"));
     await watchJob(job.job_id);
   }catch(err){
     message("auto-status",err.message,true);
@@ -348,7 +360,8 @@ async function watchJob(jobId){
         $("discard-auto").hidden=false;
         throw Error(job.error||"生成失败；如有未完成候选可手动丢弃");
       }else if(job.status==="completed"){
-        message("auto-status","已写完 "+job.result.chapter_count+" 章候选稿并保存计划和来源。尚未自动接受。");
+        message("auto-status","已写完 "+job.result.chapter_count+" 章候选稿，WF 自主审改额外模型调用 "+
+          (job.result.wf_self_edit_model_calls||0)+" 次。废稿仅存本次候选目录，尚未正式接受。");
         showChapters(job.result.chapters);
         $("discard-auto").hidden=false;
         if(job.unreviewed_resume_available){
@@ -377,6 +390,14 @@ function showChapters(chapters){
     row.append(label,btn);box.appendChild(row);
   });
 }
+$("self-edit-rounds").addEventListener("change",()=>{
+  if(Number($("self-edit-rounds").value)>0){
+    $("draft-mode").value="continuity_guard";
+    // Once the author selected fully automatic self-editing, no per-turn
+    // resend is required. Author may explicitly reenable staged pauses.
+    $("pause-turns").checked=false;
+  }
+});
 $("run-auto").onclick=startAuto;
 $("copy-preview").onclick=async()=>{
   try{await navigator.clipboard.writeText(currentPreview);message("auto-status","已复制本章正文")}
