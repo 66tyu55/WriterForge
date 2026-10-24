@@ -1,9 +1,7 @@
 name: WF Real Writer Internal Self-Edit - Keep Delete Revise Rewrite
 on:
-  push:
-    branches: [refactor-unified-scene-delivery-audit]
-    paths:
-      - .github/workflows/wf-real-writer-self-edit-first-once.yml
+  # Completed first paid author-self-edit trial. Re-run only by explicit user action.
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
