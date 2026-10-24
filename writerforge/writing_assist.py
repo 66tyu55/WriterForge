@@ -70,7 +70,10 @@ from .v117_continuity_trace import (
 from .v118_lamp_scheduler import (
     plan_scene_lamps,LampDecisionError,MAX_CHARS as MAX_LAMP_CHARS,
 )
-from .v119_revision_transaction import preview_revision as preview_surgical_revision
+from .v119_revision_transaction import (
+    preview_revision as preview_surgical_revision,
+    RevisionTransactionError,
+)
 from .v120_plan_prose_gate import (
     compare_plan_to_prose, pending_dependency_hint, PlanExecutionError,
 )
@@ -596,6 +599,269 @@ def _writing_scene_scope(base_scene,*,local_index,resume_source_chapter=None):
     if absolute>1000000:
         raise WritingExecutionError("WFCORE_SCENE_CHAPTER_OVERFLOW")
     return f"{base_scene}.chapter-{absolute:03d}"
+
+
+SELF_EDIT_SCOPES={"sentence":180,"paragraph":650,"scene":1800}
+SELF_EDIT_MAX_PER_TURN=2
+SELF_EDIT_MAX_PROVIDER_CALLS_PER_RUN=8
+SELF_EDIT_MODEL_MAX_TOKENS=1800
+
+
+def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
+                        turn_packet,ask_model,round_limit,call_allowance,
+                        directory,author_exclusions=(),
+                        previous_candidate_state=None,cast=(),
+                        current_external_story_checkpoint=None,
+                        active_narrative_core=None,cancel_check=None):
+    """Writer self-reads and discards sentences/paragraphs/scenes BEFORE canon.
+
+    The model can CHOOSE to keep, delete or rewrite. All text changes are
+    applied ONLY by the existing V119 source-locked edit transaction, then
+    rechecked by the old V96, V117 and unified narrative source gates.
+    No model's subjective feeling or asserted quality is trusted as proof.
+    The unmodified original and abandoned variants are private job drafts,
+    capped and never used as authoritative cross-chapter story state.
+    """
+    if (type(round_limit) is not int or not
+        0<=round_limit<=SELF_EDIT_MAX_PER_TURN or
+        type(call_allowance) is not int or call_allowance<0 or
+        not callable(ask_model)):
+        raise WritingExecutionError("WF_SELF_EDIT_BOUNDARY_INVALID")
+    if round_limit==0:
+        return raw,{"format":"wf.writer.self-edit.v1",
+                    "enabled":False,"model_calls":0,
+                    "rounds":[],"author_accepted":False,
+                    "canon_writes":0}
+    try:
+        doc=_decode_json(raw)
+        if (set(doc)!={"prose","trace"} or
+            type(doc["prose"]) is not str or
+            type(doc["trace"]) is not dict or
+            set(doc["trace"])!={"action_quote","effect_quote",
+                               "parent_effect_quote"} or
+            not 80<=len(doc["prose"].strip())<=
+                   _WF96_GUARDED_TURN_CHARS):
+            raise ValueError("UNSAFE_MODEL_TURN_ENVELOPE")
+    except (WritingExecutionError,ValueError,TypeError) as e:
+        return raw,{
+            "format":"wf.writer.self-edit.v1",
+            "enabled":True,"model_calls":0,
+            "rounds":[{"status":"SKIPPED_UNSAFE_INITIAL_RESPONSE",
+                       "original_sha256":sha256(raw.encode()).hexdigest()}],
+            "author_accepted":False,"canon_writes":0,
+            "literary_quality_verified":False,
+        }
+    if type(directory) is not Path:
+        raise WritingExecutionError("WF_SELF_EDIT_PRIVATE_PATH_INVALID")
+    directory.mkdir(parents=True,exist_ok=False)
+    (directory/"first-original.md").write_text(doc["prose"],encoding="utf8")
+    current_raw=raw
+    original_sha=sha256(doc["prose"].strip().encode("utf8")).hexdigest()
+    rounds=[]
+    calls=0
+    for i in range(min(round_limit,call_allowance)):
+        if cancel_check is not None:
+            cancel_check()
+        previous=doc["prose"].strip()
+        previous_sha=sha256(previous.encode("utf8")).hexdigest()
+        details={
+            "source_sha256":previous_sha,
+            "prose":previous,
+            "beat":beat,
+            "last_observed_effects":[
+                (r.get("effect_quote") or "")[:120]
+                for r in accepted[-2:]],
+            "requirements":{
+                "decision":["KEEP","DELETE","REVISE","REPLACE_SCENE"],
+                "scope":["sentence","paragraph","scene"],
+                "source_max_edit_codepoints":1800,
+                "no_canon_or_prose_acceptance":True,
+            },
+        }
+        instruction=(
+            "\n【WriterForge 写作过程中自主删改】"
+            "你刚写完小说的一段，独自重新读自己的正文，像作家反复打磨草稿。"
+            "先判断人物当时知道什么、为何选择、动作是否重复、"
+            "时间地点和代价是否可信，语言是否自然。"
+            "稿子已经合适就 KEEP，不允许为了凑修改次数强迫反转。"
+            "不满意时自行选删除一句 DELETE、修改局部 REVISE"
+            "（sentence 或 paragraph）或整场 REPLACE_SCENE。"
+            "只能针对本轮 prose 源原句给出起止字符下标，"
+            "不可重写选择范围以外的任何文字。"
+            "删除/改写以后必须仍是一段完整小说，不准附带评语写进 prose。"
+            "所有新文本必须延续上文真实已发生的结果，"
+            "不得让人物突然获得未见过的秘密或改变他人物件持有者。"
+            "只输出严格 JSON 对象，字段恰好为"
+            "decision、scope、source_sha256、start、end、"
+            "expected_original、replacement、trace、reason。"
+            "KEEP 时 scope/start/end/expected_original/replacement/trace 均为 JSON null。"
+            "改动时 trace 为 action_quote/effect_quote/parent_effect_quote"
+            "三个键的对象：必须逐字引用修改后真正出现的原句，"
+            "没有才填 null。reason 用一句话指出真实缺陷，不能自评分。"
+            "\n【本轮真实未完成草稿】"+
+            json.dumps(details,ensure_ascii=False,separators=(",",":"))
+        )
+        prompt=turn_packet.prompt+instruction
+        if len(prompt)>MAX_PROMPT_CHARS:
+            rounds.append({"round":i+1,"status":"SKIPPED_CONTEXT_BUDGET",
+                           "old_sha256":previous_sha})
+            break
+        own_packet=replace(
+            turn_packet,prompt=prompt,
+            prompt_sha256=sha256(prompt.encode("utf8")).hexdigest())
+        # This is the SAME writing model, acting as its own provisional
+        # editor. No external critic, no user resend and no hidden retrial.
+        answer=ask_model(own_packet,model=None,api_base=None,
+                         max_tokens=SELF_EDIT_MODEL_MAX_TOKENS)
+        calls+=1
+        (directory/f"round-{i+1:02d}-model-proposal.json").write_text(
+            answer,encoding="utf8")
+        try:
+            if type(answer) is not str or len(answer.encode("utf8"))>18000:
+                raise ValueError("WF_SELF_EDIT_REPLY_TOO_BIG")
+            def no_duplicate(pairs):
+                out={}
+                for k,v in pairs:
+                    if k in out:
+                        raise ValueError("WF_SELF_EDIT_DUPLICATE_JSON_KEY")
+                    out[k]=v
+                return out
+            choice=json.loads(answer,object_pairs_hook=no_duplicate)
+            expected_keys={
+                "decision","scope","source_sha256","start","end",
+                "expected_original","replacement","trace","reason"}
+            if type(choice) is not dict or set(choice)!=expected_keys:
+                raise ValueError("WF_SELF_EDIT_SCHEMA_INVALID")
+            decision=choice["decision"]
+            if (decision not in ("KEEP","DELETE","REVISE","REPLACE_SCENE")
+                or choice["source_sha256"]!=previous_sha or
+                type(choice["reason"]) is not str or
+                not 6<=len(choice["reason"])<=240):
+                raise ValueError("WF_SELF_EDIT_UNTRUSTED_CHOICE")
+            if decision=="KEEP":
+                if any(choice[x] is not None for x in (
+                        "scope","start","end","expected_original",
+                        "replacement","trace")):
+                    raise ValueError("WF_SELF_EDIT_KEEP_NOT_CLEAN")
+                rounds.append({
+                    "round":i+1,"status":"KEEP_BY_WRITER",
+                    "source_sha256":previous_sha,
+                    "model_self_assessment_not_literary_proof":True})
+                break
+            scope=choice["scope"]
+            start,end=choice["start"],choice["end"]
+            original=choice["expected_original"]
+            replacement=choice["replacement"]
+            if (scope not in SELF_EDIT_SCOPES or
+                type(start) is not int or type(end) is not int or
+                not 0<=start<end<=len(previous) or
+                end-start>SELF_EDIT_SCOPES[scope] or
+                type(original) is not str or
+                previous[start:end]!=original or
+                type(replacement) is not str or
+                len(replacement)>SELF_EDIT_SCOPES[scope] or
+                (decision=="DELETE" and replacement!="") or
+                (decision!="DELETE" and not replacement) or
+                (decision=="REPLACE_SCENE" and
+                 (scope!="scene" or start!=0 or end!=len(previous))) or
+                (decision!="REPLACE_SCENE" and
+                 scope=="scene")):
+                raise ValueError("WF_SELF_EDIT_INVALID_EDIT_REGION")
+            trace=choice["trace"]
+            if type(trace) is not dict or set(trace)!={
+                    "action_quote","effect_quote","parent_effect_quote"}:
+                raise ValueError("WF_SELF_EDIT_TRACE_SHAPE")
+            preview=preview_surgical_revision(
+                project_id=project_id,scene_id=scene_id,
+                source=previous,source_sha256=previous_sha,
+                start=start,end=end,expected_original=original,
+                replacement=replacement,
+                previous_candidate_state=previous_candidate_state,
+                cast=cast)
+            if (preview["status"]!="PROVISIONAL_REVIEW" or
+                type(preview["candidate_prose"]) is not str):
+                rounds.append({
+                    "round":i+1,"status":"REJECTED_NEW_SOURCE_WARNING",
+                    "old_sha256":previous_sha,
+                    "model_decision":decision,
+                    "patch_receipt_sha256":preview["receipt"]["receipt_sha256"]})
+                break
+            changed=preview["candidate_prose"]
+            # Do not accept a too-short deleted paragraph or forged
+            # model-made trace; back out to the last valid draft.
+            next_doc={"prose":changed,"trace":trace}
+            next_raw=json.dumps(next_doc,ensure_ascii=False,
+                                separators=(",",":"))
+            check_turn(next_raw,beat,mode="causal_guard",
+                       accepted=accepted,
+                       author_confirmed_forbidden_phrases=author_exclusions,
+                       max_prose_chars=_WF96_GUARDED_TURN_CHARS)
+            if active_narrative_core is not None:
+                review=audit_narrative_candidate(
+                    active_narrative_core,
+                    project_id=project_id,scene_id=scene_id,
+                    prose=changed,cast=cast)
+                if review["blocked"]:
+                    raise NarrativeCoreError(
+                        "WF_SELF_EDIT_REVISED_POV_KNOWLEDGE_BLOCKED")
+            if current_external_story_checkpoint is not None:
+                review=preflight_continuation(
+                    changed,current_external_story_checkpoint,
+                    project_id=project_id,
+                    chapter_index=current_external_story_checkpoint[
+                        "chapter_index"],
+                    cast=cast)
+                if review["blocked"]:
+                    raise ContinuityTraceError(
+                        "WF_SELF_EDIT_REVISED_SOURCE_STATE_BLOCKED")
+            if cancel_check is not None:
+                cancel_check()
+            (directory/f"round-{i+1:02d}-discarded-draft.md").write_text(
+                previous,encoding="utf8")
+            (directory/f"round-{i+1:02d}-selected-draft.md").write_text(
+                changed,encoding="utf8")
+            current_raw=next_raw
+            doc=next_doc
+            rounds.append({
+                "round":i+1,"status":"PROVISIONALLY_REVISED",
+                "decision":decision,"scope":scope,
+                "revised_before_canon":True,
+                "original_sha256":previous_sha,
+                "candidate_sha256":sha256(changed.encode("utf8")).hexdigest(),
+                "patch_receipt_sha256":preview["receipt"]["receipt_sha256"],
+                "literary_quality_not_proven":True})
+        except (ValueError,TypeError,KeyError,
+                RevisionTransactionError,V96CausalDraftError,
+                NarrativeCoreError,ContinuityTraceError) as exc:
+            error=str(exc)
+            if not error.startswith(("WF_", "WF96_", "WF119_", "WFCORE_")):
+                error=type(exc).__name__+":SELF_EDIT_MODEL_OR_PATCH_INVALID"
+            rounds.append({
+                "round":i+1,"status":"REJECTED_AND_ROLLED_BACK",
+                "reason_code":error[:150],
+                "unmodified_candidate_sha256":previous_sha})
+            break
+    last=doc["prose"].strip()
+    receipt={
+        "format":"wf.writer.self-edit.v1",
+        "enabled":True,
+        "max_rounds":round_limit,
+        "model_calls":calls,
+        "original_sha256":original_sha,
+        "final_candidate_sha256":sha256(last.encode("utf8")).hexdigest(),
+        "discarded_drafts_preserved_locally_only":sum(
+            r["status"]=="PROVISIONALLY_REVISED" for r in rounds),
+        "rounds":rounds,
+        "all_revisions_are_unaccepted_candidates":True,
+        "model_critic_not_independent":True,
+        "literary_quality_verified":False,
+        "canon_writes":0,
+        "no_external_review_model":True,
+    }
+    (directory/"self-edit-receipt.json").write_text(
+        json.dumps(receipt,ensure_ascii=False,sort_keys=True,indent=2),
+        encoding="utf8")
+    return current_raw,receipt
 
 
 class WriterDraftCancelled(WritingExecutionError):
