@@ -1,9 +1,7 @@
 name: WF Re-Examine Actual Writer Self-Edits - Zero New Model Calls
 on:
-  push:
-    branches: [refactor-unified-scene-delivery-audit]
-    paths:
-      - .github/workflows/wf-selfedit-existing-provider-offline-replay.yml
+  # Original saved-proposal replay complete; manual reproduction only.
+  workflow_dispatch:
 permissions:
   contents: read
   actions: read
