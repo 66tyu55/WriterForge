@@ -250,6 +250,128 @@ class WholeGWriterRewindMockProvider(TestCase):
                 db.close()
 
 
+class FailedPreviousTurnBranchRestoresAuthoritativeCandidate(TestCase):
+    """Provider replies are mocked: test state transactions, not writing taste."""
+
+    def _case(self, *, fail_during_v114=False):
+        from writerforge import RuntimeEngine,WriterForgeDB
+        from writerforge.writing_assist import InvisibleWritingAssist
+        from writerforge.v114_external_story_state import (
+            V114ExternalMemoryError,
+            external_temporal_step as actual_reducer,
+        )
+        from unittest.mock import patch as patch_mock
+        start_text=prose1()
+        old_second=prose2()
+        old_sentence="黄昏最后一点天光落到桥头时，"
+        revised_head="山风起时，"
+        patched_first=start_text.replace(old_sentence,revised_head,1)
+        update=json.dumps({
+            "decision":"REVISE","scope":"sentence",
+            "source_sha256":digest(start_text),
+            "start":start_text.index(old_sentence),
+            "end":start_text.index(old_sentence)+len(old_sentence),
+            "expected_original":old_sentence,
+            "replacement":revised_head,
+            "trace":{"action_quote":ACTION1,"effect_quote":EFFECT1,
+                     "parent_effect_quote":None},
+            "reason":"前段天气开场在此处没有形成有效行动张力，作者希望重新安排。"
+        },ensure_ascii=False)
+        responses=[
+            PLAN,json.dumps(turns(),ensure_ascii=False),
+            response(start_text,ACTION1,EFFECT1),
+            moment("MOVE_ON",start_text),
+            response(old_second,ACTION2,EFFECT2,EFFECT1),
+            moment("LOOK_BACK_NOW",start_text,
+                   target="previous",quote=old_sentence),
+            update,
+        ]
+        if not fail_during_v114:
+            # No semantic decision is forced; a provider may return an
+            # unusable downstream candidate after spending its request.
+            responses+=["deliberate invalid model response"]
+        with TemporaryDirectory() as temporary:
+            root=Path(temporary)
+            dbpath=root/"db.sqlite"
+            snapshot=make_db(dbpath)
+            db=WriterForgeDB(dbpath)
+            try:
+                rt=RuntimeEngine()
+                rt.enter_write(snapshot)
+                assist=InvisibleWritingAssist(
+                    db,rt,"atomic-previous","atomic-scene",
+                    "正文不满意时允许回到自己的未完成草稿。",
+                    model="synthetic-only",api_base="http://127.0.0.1:1234/v1")
+                def reducer(prose,*,cast=(),prior=None):
+                    if fail_during_v114 and prose==patched_first:
+                        raise V114ExternalMemoryError(
+                            "WF114_SYNTHETIC_REPLAY_REDUCER_FAILURE")
+                    return actual_reducer(prose,cast=cast,prior=prior)
+                with patch_mock(
+                    "writerforge.writing_assist.local_chat_completion",
+                    side_effect=responses) as provider, patch_mock(
+                    "writerforge.writing_assist.external_temporal_step",
+                    side_effect=reducer) as actual:
+                    result=AutonomousWriting(assist).run(
+                        outline="桥边事故迫使少年在承诺与危险之间抉择，女子也必须根据真实证据决定去向。",
+                        chapter_goals=["少年和女子根据石桥异状商议下一步，暂不宣告幕后真凶。"],
+                        output_dir=root/"work",
+                        draft_mode="continuity_guard",
+                        bootstrap_unified_core=True,
+                        self_edit_rounds=1,self_edit_timing="ai_decides")
+                self.assertEqual(provider.call_count,len(responses))
+                self.assertEqual(result["wf_self_edit_previous_turn_rewinds"],0)
+                self.assertEqual(result[
+                    "wf_self_edit_previous_turn_rewind_attempts"],1)
+                self.assertEqual(result["wf_self_edit_canon_writes"],0)
+                chap=result["chapters"][0]
+                actual_text=Path(chap["candidate"]).read_text("utf8")
+                self.assertIn(start_text,actual_text)
+                self.assertIn(old_second,actual_text)
+                self.assertNotIn(revised_head,actual_text)
+                evidence=json.loads(Path(chap["turn_evidence"]).read_text("utf8"))
+                self.assertEqual(len(evidence["wf_ai_previous_turn_rewinds"]),1)
+                rollback=evidence["wf_ai_previous_turn_rewinds"][0]
+                self.assertEqual(rollback["status"],
+                                 "PREVIOUS_TURN_REVERTED_AFTER_FAILURE")
+                self.assertTrue(rollback["restored_original_source"])
+                self.assertTrue(rollback["model_requests_not_refunded"])
+                self.assertIn("FAILURE" if fail_during_v114 else "",
+                              rollback["failure_code"])
+                self.assertEqual(evidence["wf_self_edit_receipts"][-1][
+                    "rounds"][0]["status"],
+                    "ORIGINAL_SOURCE_RESTORED_AFTER_FAILED_REWIND")
+                saved=json.loads(Path(chap[
+                    "v114_novel_studio_temporal_state"]).read_text("utf8"))
+                all_reduce_prose=[row.kwargs["prose"] for row in
+                                  actual.call_args_list]
+                self.assertEqual(all_reduce_prose[-1],old_second)
+                self.assertEqual(all_reduce_prose[0],start_text)
+                self.assertNotIn(patched_first,saved.get("source_sha256",""))
+                resume=json.loads(Path(chap[
+                    "v117_unreviewed_text_trace_resume"]).read_text("utf8"))
+                self.assertTrue(resume["unified_narrative_core"]["memory"]["hot"])
+                self.assertEqual(resume["unified_narrative_core"][
+                    "memory"]["hot"][-1]["source_sha256"],digest(actual_text))
+                job=Path(result["job_dir"])
+                old_raw=json.loads((job/"chapter-001-turn-02-raw.json").read_text("utf8"))
+                self.assertEqual(old_raw["prose"],old_second)
+                self.assertTrue((job/"chapter-001-turn-01-lookback-01"/
+                                 "round-01-selected-draft.md").exists())
+                # The source patch was saved privately, but never advanced
+                # the accepted candidate or signed future state.
+                self.assertEqual(chap["wf_previous_turn_rewind_receipts"][0][
+                    "status"],"PREVIOUS_TURN_REVERTED_AFTER_FAILURE")
+            finally:
+                db.close()
+
+    def test_v114_reducer_failure_after_previous_v119_rewinds_to_original(self):
+        self._case(fail_during_v114=True)
+
+    def test_bad_downstream_model_reply_rewinds_without_second_provider_retry(self):
+        self._case(fail_during_v114=False)
+
+
 if __name__=="__main__":
     import unittest
     unittest.main()
