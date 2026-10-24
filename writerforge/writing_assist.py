@@ -711,10 +711,20 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
                 doc[k]=v
             return doc
         fields=json.loads(response,object_pairs_hook=reject_duplicates)
-        if (type(fields) is not dict or set(fields)!={
+        keys={
             "decision","source_sha256","evidence_quote","focus",
             "why_now","what_goes_wrong_if_unchanged",
-            "intended_reader_effect"} or
+            "intended_reader_effect"}
+        # Observed REAL DeepSeek returned the correct author decision
+        # with ONE harmless envelope marker: "type":"json_object".
+        # Strip only that literal wrapper, not actual source/reason text;
+        # malformed prose echoes must remain invalid model signals.
+        wrapper_only_removed=False
+        if (type(fields) is dict and set(fields)==keys|{"type"}
+            and fields.get("type")=="json_object"):
+            fields={k:v for k,v in fields.items() if k!="type"}
+            wrapper_only_removed=True
+        if (type(fields) is not dict or set(fields)!=keys or
             fields["decision"] not in ("MOVE_ON","LOOK_BACK_NOW") or
             fields["source_sha256"]!=original_sha or
             type(fields["why_now"]) is not str or
@@ -743,6 +753,7 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
                     raise ValueError("WF_AI_WRITER_WHY_OR_EFFECT_MISSING")
         receipt.update({
             "decision":fields["decision"],
+            "format_wrapper_type_only_removed":wrapper_only_removed,
             "focus":fields["focus"],
             "has_exact_model_quote":fields["evidence_quote"] is not None,
             "quoted_prose_sha256":(
