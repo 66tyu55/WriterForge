@@ -250,6 +250,23 @@ class WriterSelfCritiqueAndDiscard(TestCase):
         self.assertTrue(record["format_wrapper_only_removed"])
         self.assertFalse(list((self.root/"scratch").glob("*selected-draft*")))
 
+    def test_author_prompt_explicitly_prevents_fake_prior_source_trace(self):
+        recorded=[]
+        def proposed(packet,*,model,api_base,max_tokens):
+            recorded.append(packet.prompt)
+            self.assertIn("trace.parent_effect_quote 必须是 JSON null",
+                          packet.prompt)
+            self.assertIn("expected_original",packet.prompt)
+            return advice(self.source)
+        result,_=_self_edit_one_turn(
+            raw=self.raw,beat=self.beat,accepted=(),
+            project_id=self.packet.project_id,scene_id=self.packet.scene_id,
+            turn_packet=self.packet,ask_model=proposed,round_limit=1,
+            call_allowance=1,directory=self.root/"parent-null")
+        self.assertEqual(result,self.raw)
+        self.assertEqual(len(recorded),1)
+        self.assertIn("工作台只能用原文唯一引句恢复坐标",recorded[0])
+
     def test_wrong_offset_with_nonunique_original_does_not_guess_target(self):
         self.assertGreater(self.source.count("他"),1)
         wrong_start=self.source.index("黄昏")
