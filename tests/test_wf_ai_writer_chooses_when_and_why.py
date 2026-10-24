@@ -117,6 +117,23 @@ class WriterChoosesWhen(unittest.TestCase):
         self.assertIsNone(result["source_quote"])
         self.assertEqual(result["focus"],"scene")
 
+    def test_literal_json_object_type_wrapper_is_not_a_literary_decision(self):
+        # The REAL provider sent exactly one redundant type='json_object'
+        # on a correctly formed MOVE_ON self-assessment. Removing this
+        # wrapper is parsing, never a new literary judgment by WF.
+        item=json.loads(proposed("MOVE_ON"))
+        item["type"]="json_object"
+        result,calls=self.signal(json.dumps(item,ensure_ascii=False))
+        self.assertEqual(len(calls),1)
+        self.assertEqual(result["decision"],"MOVE_ON")
+        self.assertTrue(result["receipt"][
+            "format_wrapper_type_only_removed"])
+        self.assertIn("悬念",result["reason"])
+        invalid=dict(item)
+        invalid["type"]="model_claims_literary_excellence"
+        result,_=self.signal(json.dumps(invalid,ensure_ascii=False))
+        self.assertEqual(result["decision"],"INVALID_SIGNAL")
+
     def test_wrong_hash_or_unseen_quote_fails_closed_without_deletion(self):
         for reply in (
             proposed("LOOK_BACK_NOW",quote=QUOTE,
