@@ -169,13 +169,13 @@ class TwoActuallyWrittenSources(TestCase):
             "江遥忽然想起后台旧箱子，里面压着那张赎身票据。"
             "她并没有在这里明说什么时候把票据存进去。"
             "宋易继续听鼓声，却不知道楼上究竟是谁。"
-        )*2
+            "她望见窗边一盏灯，决定先等宋易回答再往前走，"
+            "不把心里的猜测当作确定发生过的动作。"
+        )
         prev_quote="江遥站在戏楼的柱后，把一张赎身票据藏进袖里。"
         curr_quote="江遥忽然想起后台旧箱子，里面压着那张赎身票据。"
         self.assertEqual(previous.count(prev_quote),1)
-        self.assertEqual(current.count(curr_quote),2)
-        curr_quote="里面压着那张赎身票据。"  # repeated, so choose once only
-        current=current[:len(current)//2]
+        self.assertEqual(current.count(curr_quote),1)
         # Source-only reporter always creates a hypothesis, never a verdict.
         reply=json.dumps({
             "observed":[],"inferred_links":[],
@@ -227,6 +227,8 @@ class TwoActuallyWrittenSources(TestCase):
             "江遥在后台听鼓声，旧戏箱就在屋里。"
             "她脚踝隐隐发疼，只能靠着栏杆站着。"
             "宋易在楼梯口叫了一声，仍不能确认是谁。"
+            "她心里想的秘密没有说出，就连宋易也不能知道"
+            "她究竟为何拖着伤脚回到这座戏楼。"
         )
         original=json.dumps({"prose":current,"trace":{
             "action_quote":None,"effect_quote":None,
