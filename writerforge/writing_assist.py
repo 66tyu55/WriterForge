@@ -79,6 +79,7 @@ from .v123_long_arc import (
     audit_revenge_prose,advance_open_revenge,LongArcError,
 )
 from .narrative_core import (
+    new_graph as new_unified_narrative_graph,
     validate as verify_narrative_core,
     read_core_from_resume,
     schedule as schedule_narrative,
@@ -640,7 +641,16 @@ class AutonomousWriting:
             narrative_memory_backend:str="local",
             scene_delivery_contracts:tuple[dict|None,...]|None=None,
             literary_progression_mode:str="baseline",
-            cancel_requested=None,review_turn=None) -> dict:
+            cancel_requested=None,review_turn=None,
+            bootstrap_unified_core:bool=False) -> dict:
+        if (type(bootstrap_unified_core) is not bool or
+            bootstrap_unified_core and (
+                draft_mode!="continuity_guard" or
+                resume_story_checkpoint is not None or
+                narrative_core_checkpoint is not None or
+                long_arc_checkpoint is not None)):
+            raise WritingExecutionError(
+                "WFCORE_INITIAL_UNIFIED_BOOTSTRAP_SCOPE_INVALID")
         # Both optional callbacks are only used by the local staged Studio.
         # No waiting, cancellation or model call added to existing SDK runs.
         if (cancel_requested is not None and not callable(cancel_requested) or
@@ -735,6 +745,14 @@ class AutonomousWriting:
         active_long_arc=None
         active_narrative_core=None
         first_story_chapter_index=0
+        if bootstrap_unified_core:
+            # An opt-in local Studio G task starts a genuine single unified
+            # narrative graph at chapter zero; the first real source chapter
+            # advances to 1. Do not initialize a competing memory owner.
+            active_narrative_core=new_unified_narrative_graph(
+                project_id=self.assist.project_id,
+                scene_id=self.assist.scene_id)
+            first_story_chapter_index=1
         if resume_story_checkpoint is not None:
             try:
                 earlier_external=read_resume(
@@ -1611,7 +1629,11 @@ class AutonomousWriting:
                 },ensure_ascii=False,indent=2),encoding="utf-8",
             )
             chapter_data={
-                "chapter":index,"goal":goal,"candidate":saved["candidate"],
+                "chapter":index,
+                "story_chapter_index":(
+                    first_story_chapter_index+index-1
+                    if draft_mode=="continuity_guard" else index),
+                "goal":goal,"candidate":saved["candidate"],
                 "manifest":saved["manifest"],"plan":str(plan_file),
                 "source_refs":saved["source_refs"],
                 "verified_facets":len(facets),"accepted":False,
