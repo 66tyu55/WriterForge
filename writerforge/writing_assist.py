@@ -1341,6 +1341,158 @@ def _prepare_unaccepted_chapter_fork(*,source_job_dir,writer_decision_reply,
     }
 
 
+def _ai_decides_cross_chapter(*,assist,outline,chapter_goals,
+                              original_result,parent_resume,directory,
+                              cancel_check=None):
+    """One genuine same-writer-model decision after two completed G chapters.
+
+    The AI alone owns the literary reason and whether to revisit. WF keeps
+    its original response exact; any bad signal is INVALID_SIGNAL, not an
+    excuse to force a rewrite. One decision request maximum, no retry.
+    """
+    if (type(chapter_goals) is not list or len(chapter_goals)!=2 or
+        type(outline) is not str or
+        type(original_result) is not dict or
+        type(parent_resume) is not dict or
+        not isinstance(directory,Path) or
+        not directory.is_dir()):
+        raise WritingExecutionError("WF_AI_CHAPTER_MOMENT_CONTEXT_INVALID")
+    try:
+        read_resume(parent_resume,project_id=assist.project_id,
+                    scene_id=assist.scene_id)
+        parent_core=read_core_from_resume(
+            parent_resume,project_id=assist.project_id,
+            scene_id=assist.scene_id)
+    except (ContinuityTraceError,NarrativeCoreError):
+        raise WritingExecutionError("WF_AI_CHAPTER_MOMENT_PARENT_INVALID") from None
+    if parent_core is None:
+        raise WritingExecutionError("WF_AI_CHAPTER_MOMENT_UNIFIED_ONLY")
+    chapters=original_result.get("chapters")
+    job=Path(original_result.get("job_dir","")).resolve()
+    if (not job.is_dir() or not job.name.startswith("auto-") or
+        type(chapters) is not list or len(chapters)!=2 or
+        not all(type(z) is dict and z.get("accepted") is False and
+                z.get("story_chapter_index")==
+                parent_resume["chapter_index"]+i+1
+                for i,z in enumerate(chapters))):
+        raise WritingExecutionError("WF_AI_CHAPTER_MOMENT_NOT_TWO_UNACCEPTED")
+    sources=[]
+    for row in chapters:
+        source_file=_fork_private_local_file(
+            job,row["candidate"],max_bytes=70_000)
+        source=source_file.read_text("utf8")
+        sources.append(source)
+    start=parent_resume["chapter_index"]+1
+    source_sha=sha256(sources[0].encode("utf8")).hexdigest()
+    # Source must fit intact, else no false claim that the AI read the scene.
+    base=assist.flow.prepare(
+        _writing_scene_scope(assist.scene_id,local_index=1,
+                             resume_source_chapter=parent_resume["chapter_index"]),
+        chapter_goals[0],concerns=("scene","decision"),
+        genre=assist.source_genre)
+    addition=(
+        "\n【小说作者自己的章节边界回看选择】"
+        "你是正在写这本小说的原创作者。下列两章都是你刚写完且"
+        "未被使用者正式采纳的实际小说，而不是大纲或别人写的示例。"
+        "你自己决定现在应该 MOVE_ON 保留两个章节，还是"
+        "LOOK_BACK_NOW 回头重新考虑前章以及从它衍生的后章。"
+        "允许合理的留白、迟疑和错误；不要为了展示删改而刻意选择回头。"
+        "叙事意义、角色想法和为什么不满意由你自己负责，"
+        "工作台不会替你提出任何审美判断。"
+        "若想回改，接下来会由你本人重新创作，绝不自动修改原稿。"
+        "仅返回一个 JSON 对象，必须恰好包含字段："
+        "decision、target_chapter_index、source_sha256、"
+        "evidence_quote、why_now、what_goes_wrong_if_unchanged、"
+        "intended_reader_effect。"
+        "decision 仅 MOVE_ON 或 LOOK_BACK_NOW；target_chapter_index "
+        "固定为本次显示的第一章编号（格式身份而非剧情命令），"
+        "source_sha256 原样复制第一章 SHA。"
+        "MOVE_ON 时后三个中的后两个理由字段为 null，"
+        "evidence_quote 为 null；why_now 必须说明保留的文学理由。"
+        "LOOK_BACK_NOW 时 evidence_quote 是第一章唯一出现的真实原句"
+        "（6到160字）；若需要补一个完全缺失的场景效果则为 null；"
+        "why_now、what_goes_wrong_if_unchanged、"
+        "intended_reader_effect 各为 8到260字自然中文。"
+        "不要返回 prose/trace，不要模仿写一段正文，不要评分或输出推理轨迹。"
+        "\n【原作者大纲（仅作者意图而非已经发生的事实）】"+outline+
+        "\n【章节原计划】"+json.dumps(chapter_goals,ensure_ascii=False)+
+        "\n【第一章章号和 SHA】"+str(start)+" / "+source_sha+
+        "\n【第一章全部未接受原文】"+sources[0]+
+        "\n【第二章全部未接受原文】"+sources[1]
+    )
+    if len(base.prompt)+len(addition)+1>MAX_PROMPT_CHARS:
+        return {
+            "decision":"CONTEXT_TOO_FULL","model_calls":0,
+            "raw_reply":None,
+            "receipt":{"status":"CONTEXT_TOO_FULL","model_calls":0,
+                       "writer_was_not_asked":True,
+                       "literary_quality_verified":False,"canon_writes":0},
+        }
+    packet=_enrich(base,addition,prose_task=False)
+    if cancel_check is not None:
+        cancel_check()
+    original_reply=local_chat_completion(
+        packet,model=assist.model,api_base=assist.api_base,max_tokens=700)
+    # Save the literal answer BEFORE parsing or any possible rewrite.
+    (directory/"ai-chapter-review-original.json").write_text(
+        original_reply,encoding="utf8")
+    if cancel_check is not None:
+        cancel_check()
+    receipt={
+        "format":"wf.writer.ai-owns-chapter-review.v1",
+        "original_reply_sha256":sha256(
+            original_reply.encode("utf8")).hexdigest(),
+        "source_sha256":source_sha,
+        "original_chapter_count":2,"target_chapter_index":start,
+        "model_calls":1,"only_same_writer_model_asked":True,
+        "one_choice_no_retry":True,
+        "literary_quality_verified":False,"canon_writes":0,
+    }
+    action="INVALID_SIGNAL"
+    try:
+        data=_fork_strict_json(original_reply,max_bytes=12000)
+        keys={"decision","target_chapter_index","source_sha256",
+              "evidence_quote","why_now","what_goes_wrong_if_unchanged",
+              "intended_reader_effect"}
+        if set(data)==keys|{"type"} and data["type"]=="json_object":
+            data.pop("type")
+            receipt["format_wrapper_only_removed"]=True
+        if (set(data)!=keys or data["decision"] not in (
+                "MOVE_ON","LOOK_BACK_NOW") or
+            type(data["target_chapter_index"]) is not int or
+            data["target_chapter_index"]!=start or
+            data["source_sha256"]!=source_sha or
+            type(data["why_now"]) is not str or
+            not 8<=len(data["why_now"])<=260):
+            raise WritingExecutionError("WF_AI_CHAPTER_MOMENT_INVALID_SIGNAL")
+        if data["decision"]=="MOVE_ON":
+            if any(data[k] is not None for k in (
+                "evidence_quote","what_goes_wrong_if_unchanged",
+                "intended_reader_effect")):
+                raise WritingExecutionError("WF_AI_CHAPTER_MOVE_ON_HAS_EDIT")
+        else:
+            quote=data["evidence_quote"]
+            if quote is not None and (
+                type(quote) is not str or not 6<=len(quote)<=160 or
+                sources[0].count(quote)!=1):
+                raise WritingExecutionError("WF_AI_CHAPTER_QUOTE_NOT_UNIQUE")
+            if any(type(data[k]) is not str or
+                   not 8<=len(data[k])<=260 for k in (
+                       "what_goes_wrong_if_unchanged",
+                       "intended_reader_effect")):
+                raise WritingExecutionError("WF_AI_CHAPTER_WHY_INCOMPLETE")
+        action=data["decision"]
+    except (WritingExecutionError,ValueError,KeyError,TypeError) as error:
+        receipt["failure_code"]=str(error)[:130]
+    receipt["decision"]=action
+    (directory/"ai-chapter-review-receipt.json").write_text(
+        json.dumps(receipt,ensure_ascii=False,sort_keys=True,indent=2),
+        encoding="utf8")
+    return {"decision":action,"raw_reply":original_reply,
+            "model_calls":1,"receipt":receipt}
+
+
+
 def _validate_unaccepted_fork_resume(*,fork_receipt,candidate_resume,
                                      project_id,scene_id):
     """Reject a formerly valid OLD resume when caller selects a new fork."""
