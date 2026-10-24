@@ -756,9 +756,8 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
             if (scope not in SELF_EDIT_SCOPES or
                 type(start) is not int or type(end) is not int or
                 not 0<=start<end<=len(previous) or
-                end-start>SELF_EDIT_SCOPES[scope] or
-                type(original) is not str or
-                previous[start:end]!=original or
+                type(original) is not str or not original or
+                len(original)>SELF_EDIT_SCOPES[scope] or
                 type(replacement) is not str or
                 len(replacement)>SELF_EDIT_SCOPES[scope] or
                 (decision=="DELETE" and replacement!="") or
@@ -768,6 +767,24 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                 (decision!="REPLACE_SCENE" and
                  scope=="scene")):
                 raise ValueError("WF_SELF_EDIT_INVALID_EDIT_REGION")
+            # Real DeepSeek wrote correct exact original sentence/paragraph
+            # but miscounted its Python Unicode offsets by 11 / 82 chars.
+            # V119 must still receive an exact, UNIQUE source span.
+            # Recover only from verbatim source evidence, never fuzzy
+            # matching, guessed referents, or replacing another occurrence.
+            model_start,model_end=start,end
+            recovered_offset=False
+            if previous[start:end]!=original:
+                if previous.count(original)!=1:
+                    raise ValueError(
+                        "WF_SELF_EDIT_SOURCE_QUOTE_NOT_UNIQUE")
+                start=previous.index(original)
+                end=start+len(original)
+                recovered_offset=True
+                if (decision=="REPLACE_SCENE" and
+                    (start!=0 or end!=len(previous))):
+                    raise ValueError(
+                        "WF_SELF_EDIT_REWRITE_SCOPE_NOT_ENTIRE_SCENE")
             trace=choice["trace"]
             if type(trace) is not dict or set(trace)!={
                     "action_quote","effect_quote","parent_effect_quote"}:
@@ -829,6 +846,9 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                 "original_sha256":previous_sha,
                 "candidate_sha256":sha256(changed.encode("utf8")).hexdigest(),
                 "patch_receipt_sha256":preview["receipt"]["receipt_sha256"],
+                "source_offset_recovered_exactly":recovered_offset,
+                "original_model_coordinates":[model_start,model_end],
+                "host_verified_coordinates":[start,end],
                 "literary_quality_not_proven":True})
         except (ValueError,TypeError,KeyError,
                 RevisionTransactionError,V96CausalDraftError,
