@@ -1,0 +1,10 @@
+ONE USER AUTHORIZED REAL WRITERFORGE WRITING EXPERIMENT. User: "继续" after 0.P, on 2026-10-24.
+Development branch refactor-unified-scene-delivery-audit ONLY; do not update main or deploy Railway.
+New original night-opera story source never drawn from user R2 originals or previous bridge/fruit/boat samples.
+Only existing DeepSeek Flash in same provider adapter may WRITE by real G chapter plan + self beat plan + two original prose turns, then review SAME first turn independently as:
+(A) direct author self-review, (B) source-only reader before author self-review.
+The actual model owns all novel words, literary judgments, and any V119 corrections; WF only checks exact source, temporal and graph provenance.
+At most 9 real DeepSeek requests and 10,800 requested output tokens, NO RETRIES.
+The old human author Canon, user's book corpus, R2, main, Railway, unrelated A-F modes and second memory modules remain untouched.
+Keep every model provider wire and all rejected G/private V119 drafts. Blind readers see anonymous source variants with separate reveal mapping; no automated literary grades.
+Run only from this exact once-only sentinel commit. Never edit this sentinel again.
