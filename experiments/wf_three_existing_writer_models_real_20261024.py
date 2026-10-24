@@ -189,7 +189,8 @@ class ActualModel:
         data={
             "model":self.name,
             "messages":[
-                {"role":"system","content":SYSTEM_BY_TOKENS[max_tokens]+
+                {"role":"system","content":SYSTEM_BY_TOKENS[
+                     {"write":1450,"decide":600,"edit":1800}[self.stage]]+
                  " 仅返回严格有效的JSON对象，不输出Markdown。"},
                 {"role":"user","content":prompt}],
             "stream":False,"max_tokens":max_tokens,
