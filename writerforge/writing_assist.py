@@ -1755,7 +1755,9 @@ class AutonomousWriting:
                             old_raw=last_turn_response
                             def invoke_self_edit(packet,*,model,
                                                  api_base,max_tokens):
-                                if max_tokens!=SELF_EDIT_MODEL_MAX_TOKENS:
+                                if max_tokens not in (
+                                    SELF_EDIT_MODEL_MAX_TOKENS,
+                                    SELF_EDIT_MOMENT_TOKENS):
                                     raise WritingExecutionError(
                                         "WF_SELF_EDIT_MODEL_BUDGET_CHANGED")
                                 return ask_model(
