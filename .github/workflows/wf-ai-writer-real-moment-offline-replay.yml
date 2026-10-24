@@ -1,9 +1,7 @@
 name: WF Real AI Writer When-and-Why Source Replay - Zero Provider Calls
 on:
-  push:
-    branches: [refactor-unified-scene-delivery-audit]
-    paths:
-      - .github/workflows/wf-ai-writer-real-moment-offline-replay.yml
+  # Original experiment complete: reproduce only after explicit opt-in.
+  workflow_dispatch:
 permissions:
   contents: read
   actions: read
