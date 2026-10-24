@@ -1,0 +1,81 @@
+name: WF One-Shot Same DeepSeek Blind Reread Then Neutral Source Replay 20261024
+on:
+  # Intentional one-time trial ONLY when the exact user-authorized sentinel
+  # appears, never on code/docs pushes or main.
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_DEEPSEEK_BLIND_SOURCE_REPLAY_FIRE_ONCE_20261024.txt
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wf-original-deepseek-451-blind-reread-20261024
+  cancel-in-progress: false
+jobs:
+  source-provenance-before-original-writer-self-review:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing WriterForge without any R2 secrets
+        run: python -m pip install -e .
+      - name: Offline prove no-host-diagnosis index and source-tamper rejection
+        run: PYTHONPATH=tests python -m unittest tests.test_wf_source_only_original_reread tests.test_wf_ai_writer_chooses_when_and_why tests.test_wf_writer_self_revision_loop -q
+      - name: Recover EXACT old real provider originals with GitHub built-in read-only token
+        uses: actions/download-artifact@v4
+        with:
+          name: WF-3-Existing-Models-Real-Writer-Originals-20261024
+          run-id: 40094106486
+          github-token: ${{ github.token }}
+          path: wf_prior_deepseek_20261024
+      - name: Stop without charging if the old real 451-char source or model wire has changed
+        run: |
+          python - <<'PY'
+          from experiments.wf_real_deepseek_blind_source_replay_20261024 import (
+              verified_prior_source, REAL_PROSE_SHA)
+          p=verified_prior_source()
+          assert len(p['source'])==451 and p['previous_decision']['decision']=='MOVE_ON'
+          assert p['status']['original_prose_sha256']==REAL_PROSE_SHA
+          print('VERIFIED GENUINE ORIGINAL PROVIDER: 451 CHARACTERS; OLD MOVE_ON UNCHANGED')
+          PY
+      - name: Make at most 3 NEW genuine same-writer DeepSeek calls with no retry
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: python -m experiments.wf_real_deepseek_blind_source_replay_20261024
+      - name: Distinguish literary observations from mechanical identity validation
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('wf_real_deepseek_source_replay_20261024/STATUS.json').read_text('utf8'))
+          assert data['max_additional_model_calls']==3
+          assert 0<=data['actual_provider_calls']<=3
+          assert data['new_model_retries']==0
+          assert data['old_original_model_decision']=='MOVE_ON'
+          assert data['source_sha256']=='46334d4e783a32c1def8affeb6eea2b9a4bb6e429e846ef910fb4b44601cd6f7'
+          assert data['canonical_story_writes']==0
+          assert data['R2_user_novel_or_private_cloud_writes']==0
+          assert data['literary_quality_verified'] is False
+          print('REAL WRITER BLIND DECISION:',data.get('blind_decision'))
+          print('REAL WRITER SOURCE-EVIDENCE DECISION:',data.get('source_index_decision'))
+          print('ACTUAL NEW PAID/CREDITED CALLS:',data['actual_provider_calls'])
+          print('NO HOST LITERARY JUDGMENT, NO AUTOMATIC MODEL RETRIES')
+          PY
+      - name: Retain actual provider wire and original/rejected model drafts even after model/validation failure
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WF-Real-DeepSeek-Blind-Then-Source-Index-451-Originals-20261024
+          path: wf_real_deepseek_source_replay_20261024/
+          retention-days: 30
+          if-no-files-found: warn
