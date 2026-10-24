@@ -1,0 +1,58 @@
+name: WF Real Writer Internal Self-Edit - Keep Delete Revise Rewrite
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-real-writer-self-edit-first-once.yml
+permissions:
+  contents: read
+concurrency:
+  group: wf-single-real-self-editor-at-most-six-provider-calls
+  cancel-in-progress: false
+jobs:
+  original-self-revision-with-same-writer:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 19
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install the existing WriterForge runtime
+        run: python -m pip install -e '.[r2]'
+      - name: Offline regression first; retain all old A–G safeguards
+        run: python -m unittest tests.test_wf_writer_self_revision_loop tests.test_studio_author_stage_cancel_discard tests.test_unified_scene_delivery -q
+      - name: Require existing DeepSeek secret before any paid inference
+        run: python -c 'import os; assert os.getenv("DEEPSEEK_API_KEY"), "WF_EXISTING_MODEL_SECRET_NOT_AVAILABLE"'
+      - name: Actual G writer makes bounded literary revision decisions on its own original prose
+        run: python -m experiments.wf_real_writer_self_revise_once
+      - name: Review honest source and call budget; even model KEEP is not literary proof
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path('wf_real_writer_self_edits/STATUS.json').read_text('utf8'))
+          assert x['status']=='WF_REAL_SELF_EDIT_CANDIDATE_SAVED',x['status']
+          assert 4<=x['actual_provider_calls']<=6
+          assert x['actual_provider_calls']==4+x['self_edit_model_calls']
+          assert x['accepted_prose_rows']==0
+          assert x['raw_planning_prose_preserved']
+          print('REAL WRITER SELF-EDIT COMPLETE. Model editorial quality NOT independently proven.')
+          PY
+      - name: Archive first original + any rejected or selected private revision, even if run red
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-Real-Writer-Self-Edit-First-Originals
+          path: wf_real_writer_self_edits/
+          retention-days: 30
+          if-no-files-found: warn
