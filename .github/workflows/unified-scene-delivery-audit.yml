@@ -20,6 +20,8 @@ on:
       - experiments/wf_three_existing_writer_models_real_20261024.py
       - experiments/wf_two_discovery_thinking_aware_real_20261024.py
       - tests/test_wf_three_real_writer_models_bounded.py
+      - tests/test_wf_source_only_original_reread.py
+      - experiments/wf_real_deepseek_blind_source_replay_20261024.py
       - writerforge/v96_causal_turns.py
       - writerforge/deepseek_flash_model.py
       - tests/test_wf_scene_format_recovery.py
