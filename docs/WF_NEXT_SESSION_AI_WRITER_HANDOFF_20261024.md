@@ -1,6 +1,16 @@
 # WF 跨窗口精简交接｜2026-10-24｜AI 自己决定何时及为何删稿
 
-**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.J**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.K**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+
+## 本轮最新 0.K：废稿来源不污染 V114/V117 与失败原子恢复（2026-10-24）
+
+**工程证据入口**：[完整原件与负例](WF_AI_WRITER_DISCARDED_STATE_ATOMIC_RECOVERY_20261024.md)，[最终无模型 Actions #40076159662](https://github.com/66tyu55/WriterForge/actions/runs/40076159662)：**1,508 tests run、4 skipped、0 failed**。开发分支无新付费模型、无训练、无 Railway、无 main 修改。
+
+- 零模型反例已覆盖：原文删掉真正的火髓果交付，V114/V122 将持有者恢复为原合法持有者；删除“右臂垂着”后临时伤势不可凭废稿继承；剑穗虚假跨物件转移产生的 V117 未偿候选从新源重演后消失；删除尚未被作者证实的秘密披露，统一 FACT/UNKNOWN/THREAD 图保持作者明确 UNKNOWN，不允许模型冒称已知；最终 V117 签名与唯一 graph 热记忆源 SHA 指向真正保留稿件。
+- 原 `writerforge/writing_assist.py` 有界 G 回看新增可逆候选边界：AI 仍负责想法、选择、源原句、实际改稿；WF 仅临时冻结前段及下游状态，旧 V119 成功后由同一写作 AI 重写下段。若随后 V96/V114/V117 失败，直接恢复旧前段和旧下段的确切源回包，重新经过校验，不追加新模型重试；旧模型答复永久在私有 job 中不被 regenerated-raw 覆盖，尝试次数和成功次数分开报告。
+- 本轮真实红灯如实保留：[第一组 #40075407455](https://github.com/66tyu55/WriterForge/actions/runs/40075407455) 不合理同一原子事件与短于 V96 下界、[第二组 #40075680350](https://github.com/66tyu55/WriterForge/actions/runs/40075680350) 漏角色 cast / 短原文、[原子事务构造期 #40076014846](https://github.com/66tyu55/WriterForge/actions/runs/40076014846) V121 原结构测试要求固定缩进。无一通过削弱来源校验或假文学评分绕过。
+- **尚无真正模型主动 LOOK_BACK_NOW 成功证据**，仍只在 G opt-in 且同章紧邻上一段、每 job 最多一次。整个章末/跨章归档的外部失败仍 fail-closed、并非通用 StoryWorkTree 依赖回滚；非流式生成也不能声称半个 token 自我删改。原 V26 两种续写+选择、V98 文本驱动构思、V119、V117 和统一 graph 原职责未变；A–F 无新增行为。
+- 下一步优先**检查跨章已保留候选 / 热暖冷记忆的依赖撤销，不得更改作者确认文本**，后续需有限真实同写作模型自发 LOOK_BACK_NOW 原件与独立文学盲评才可称文学能力获得进步。无授权不主动付费实验。
 
 ## 本轮最新 0.J：自主回看上一段与有界下游撤销（2026-10-24）
 
@@ -38,4 +48,4 @@
 
 ## 下个对话可直接发
 
-「继续 WriterForge。读取开发分支 refactor-unified-scene-delivery-audit 的 docs/WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md 和 CURRENT_HANDOFF.md 最新 0.J。核心是 AI 自己决定什么时候不满意、为什么删，WF 绝不能替 AI 计算文学意义或生成，保持 V26/V98/V119/V117/统一图。先核验最新 1501 测试（含上一段回看与 V114 重归约）与历史真实 6 次调用、零模型回放，保留首段 INVALID_SIGNAL 和第二段 MOVE_ON 的负例，再针对真正自发 LOOK_BACK_NOW 与下游状态回退做最小验证；禁止重复训练、增加记忆、改 main 或部署 Railway。」
+「继续 WriterForge。读取开发分支 refactor-unified-scene-delivery-audit 的 docs/WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md 和 CURRENT_HANDOFF.md 最新 0.K。核心是 AI 自己决定什么时候不满意、为什么删，WF 绝不能替 AI 计算文学意义或生成，保持 V26/V98/V119/V117/统一图。先核验最新 1508 测试（含删物件/伤势/秘密、V117、回改失败原子恢复）与历史真实 6 次调用、零模型回放，保留首段 INVALID_SIGNAL 和第二段 MOVE_ON 的负例，再针对真正自发 LOOK_BACK_NOW 与下游状态回退做最小验证；禁止重复训练、增加记忆、改 main 或部署 Railway。」
