@@ -1,9 +1,7 @@
 name: WF Real Same-Model Writer Decides When and Why to Rewrite
 on:
-  push:
-    branches: [refactor-unified-scene-delivery-audit]
-    paths:
-      - .github/workflows/wf-real-ai-writer-chooses-when-once.yml
+  # Original experiment complete: reproduce only after explicit opt-in.
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
