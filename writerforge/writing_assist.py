@@ -928,7 +928,8 @@ def _reader_report_for_author(report,source_sha):
 
 
 def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
-                                ask_model,directory,cancel_check=None):
+                                ask_model,directory,cancel_check=None,
+                                reader_report=None):
     """Ask the ACTUAL author model whether THIS visible draft needs revision.
 
     The code schedules a chance to reflect after an observable story turn.
@@ -1002,6 +1003,12 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
         "\n【当前原文字节身份】"+original_sha
     )
     content=turn_packet.prompt+reminder
+    reader_note=_reader_report_for_author(reader_report,original_sha)
+    reader_provided=False
+    if reader_note and len(content)+len(reader_note)<=MAX_PROMPT_CHARS:
+        # Hard story-state context ALWAYS outranks optional reader notes.
+        content+=reader_note
+        reader_provided=True
     if len(content)>MAX_PROMPT_CHARS:
         return {"decision":"CONTEXT_TOO_FULL","model_calls":0,
                 "reason":None,"risk":None,"desired_effect":None,
@@ -1025,6 +1032,8 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
         "original_decision_sha256":sha256(
             response.encode("utf8")).hexdigest(),
         "only_ai_can_choose_revisit":True,
+        "unverified_reader_input_delivered":reader_provided,
+        "reader_did_not_preselect_literary_decision":True,
         "code_has_not_scored_literary_quality":True,
         "no_canon_writes":True,
         "literary_quality_verified":False,
@@ -1813,8 +1822,15 @@ class AutonomousWriting:
             bootstrap_unified_core:bool=False,
             self_edit_rounds:int=0,
             self_edit_timing:str="always_offer",
+            reader_first_self_review:bool=False,
             cross_chapter_fork:dict|None=None,
             selected_fork_receipt:dict|None=None) -> dict:
+        if (type(reader_first_self_review) is not bool or
+            reader_first_self_review and (
+                draft_mode!="continuity_guard" or self_edit_rounds==0 or
+                self_edit_timing!="ai_decides")):
+            raise WritingExecutionError(
+                "WF_READER_FIRST_REQUIRES_AI_OWNED_G_SELF_EDIT")
         if (self_edit_timing not in ("always_offer","ai_decides") or
             self_edit_timing=="ai_decides" and (
                 draft_mode!="continuity_guard" or self_edit_rounds==0)):
@@ -2349,6 +2365,7 @@ class AutonomousWriting:
                 model_trace_review_failures=[]
                 self_edit_turn_receipts=[]
                 self_edit_moment_receipts=[]
+                self_edit_reader_receipts=[]
                 self_edit_rewind_receipts=[]
                 turn_snapshots=[]
                 pending_revised_turn=None
@@ -2388,7 +2405,8 @@ class AutonomousWriting:
                                     source_citation_normalizations,
                                     model_trace_review_failures,
                                     self_edit_turn_receipts,
-                                    self_edit_moment_receipts,source_length_reviews,
+                                    self_edit_moment_receipts,
+                                    self_edit_reader_receipts,source_length_reviews,
                                     prompt_delivery_receipts,plan_execution_checks,
                                     prompt_shas)
                                 turn_snapshots.append({
@@ -2591,7 +2609,8 @@ class AutonomousWriting:
                                                      api_base,max_tokens):
                                     if max_tokens not in (
                                         SELF_EDIT_MODEL_MAX_TOKENS,
-                                        SELF_EDIT_MOMENT_TOKENS):
+                                        SELF_EDIT_MOMENT_TOKENS,
+                                        SELF_EDIT_READER_MAX_TOKENS):
                                         raise WritingExecutionError(
                                             "WF_SELF_EDIT_MODEL_BUDGET_CHANGED")
                                     return ask_model(
@@ -2599,6 +2618,35 @@ class AutonomousWriting:
                                         api_base=self.assist.api_base,
                                         max_tokens=max_tokens)
                                 moment=None
+                                reader_result=None
+                                if (reader_first_self_review and
+                                    self_edit_timing=="ai_decides"):
+                                    remaining=max(
+                                        0,SELF_EDIT_MAX_PROVIDER_CALLS_PER_RUN-
+                                        self_edit_model_calls)
+                                    if remaining>=2:
+                                        reader_result=(
+                                            _reader_separates_written_and_inferred(
+                                                raw=last_turn_response,
+                                                turn_packet=turn_packet,
+                                                ask_model=invoke_self_edit,
+                                                directory=job/(
+                                                    f"chapter-{index:03d}-turn-"
+                                                    f"{turn_index+1:02d}-reader-first"
+                                                    +("-replay" if writer_rewind_count
+                                                      else "")),
+                                                cancel_check=check_cancel))
+                                        self_edit_model_calls+=reader_result[
+                                            "model_calls"]
+                                        self_edit_reader_receipts.append(
+                                            reader_result["receipt"])
+                                    else:
+                                        self_edit_reader_receipts.append({
+                                            "format":"wf.writer.reader-source-before-self-judgment.v1",
+                                            "status":"NO_BUDGET_RESERVED_FOR_AUTHOR_CHOICE",
+                                            "model_calls":0,
+                                            "canon_writes":0,
+                                            "literary_quality_verified":False})
                                 if self_edit_timing=="ai_decides":
                                     remaining=max(
                                         0,SELF_EDIT_MAX_PROVIDER_CALLS_PER_RUN-
@@ -2614,7 +2662,11 @@ class AutonomousWriting:
                                                 f"{turn_index+1:02d}-ai-moment"
                                                 +("-replay" if writer_rewind_count
                                                   else "")),
-                                            cancel_check=check_cancel)
+                                            cancel_check=check_cancel,
+                                            reader_report=(
+                                                reader_result.get("report")
+                                                if reader_result is not None
+                                                else None))
                                         self_edit_model_calls+=moment["model_calls"]
                                     else:
                                         moment={
@@ -3119,6 +3171,13 @@ class AutonomousWriting:
                         turn_evidence["wf_self_edit_timing"]=self_edit_timing
                         turn_evidence["wf_ai_self_review_moment_receipts"]=(
                             self_edit_moment_receipts)
+                        turn_evidence["wf_reader_first_self_review_enabled"]=(
+                            reader_first_self_review)
+                        turn_evidence["wf_source_reader_receipts"]=(
+                            self_edit_reader_receipts)
+                        turn_evidence["wf_source_reader_model_calls"]=sum(
+                            x.get("model_calls",0)
+                            for x in self_edit_reader_receipts)
                         turn_evidence["wf_self_edit_receipts"]=(
                             self_edit_turn_receipts)
                         turn_evidence["wf_ai_previous_turn_rewinds"]=(
@@ -3323,6 +3382,13 @@ class AutonomousWriting:
                     "wf_previous_turn_rewind_receipts":
                         self_edit_rewind_receipts
                         if draft_mode=="continuity_guard" else [],
+                    "wf_reader_first_self_review_enabled":(
+                        reader_first_self_review
+                        if draft_mode=="continuity_guard" else False),
+                    "wf_source_reader_model_calls":sum(
+                        x.get("model_calls",0)
+                        for x in self_edit_reader_receipts)
+                        if draft_mode=="continuity_guard" else 0,
                     "turn_evidence":str(evidence_path),
                     "turn_outline":str(turn_outline_path),
                     "causal_logic_literary_verified":False,
@@ -3498,6 +3564,10 @@ class AutonomousWriting:
                 writer_rewind_count,
             "wf_self_edit_configured_rounds":self_edit_rounds,
             "wf_self_edit_timing":self_edit_timing,
+            "wf_reader_first_self_review":reader_first_self_review,
+            "wf_reader_model_calls":sum(
+                row.get("wf_source_reader_model_calls",0)
+                for row in chapters),
             "wf_self_edit_canon_writes":0,
             "literary_quality_verified":False,
             "all_generated_prose_requires_author_review":True,
