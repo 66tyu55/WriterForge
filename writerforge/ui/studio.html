@@ -95,8 +95,13 @@ label{font-size:13px;font-weight:600;display:block;margin-top:13px}
     <p class="note">新模式在写完一个可观察的事件段后，请同一个模型选择继续或回读。它必须说明修改的原文依据、保留不改的风险和想实现的阅读效果，WF 只负责执行和复查。当前并不是观察模型私有思考或生成一半 token 时删除，仍属于实验功能。</p>
     <label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:normal">
       <input id="continue-unreviewed" type="checkbox" />
-      G 模式：接续上一批未接受候选的下一章（仅本次本机服务会话有效）
+      G 模式：接续上一批未接受候选的下一章（本机签名恢复，重启仍可选）
     </label>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:normal">
+      <input id="ai-chapter-review" type="checkbox" />
+      G · 两章写完后，让同一个创作 AI 自己决定是否回改上一章
+    </label>
+    <p class="note">需已有签名的上一章候选，并选中“接续”，这次恰好写两章、每段不暂停；开启 AI 决定时机和至少一轮自主修订。最多增加一次章节判断与一次双章重写，可能额外消耗模型额度。默认关闭；AI 可以选择保留，不强制改稿。旧版本可从下方选择恢复，绝不自动写入正式作品。</p>
     <label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:normal">
       <input id="pause-turns" type="checkbox" checked />
       分段模式：每段写完先让我阅读，再决定继续
@@ -113,6 +118,17 @@ label{font-size:13px;font-weight:600;display:block;margin-top:13px}
       <button class="primary" id="continue-turn" type="button">继续生成下一段</button>
     </div>
     <button class="secondary" type="button" id="discard-auto" hidden style="margin:10px 0">丢弃本次生成的候选稿</button>
+    <div id="branch-panel" class="option" hidden>
+      <div class="smalltitle">未接受候选分支 · 历史保留</div>
+      <p class="note">选择仅决定下一章从哪个签名候选继续，不会确认文学事实或覆盖原稿。</p>
+      <label for="candidate-branch">接下来使用的候选版本</label>
+      <select id="candidate-branch" class="detail" style="width:100%;padding:10px;border:1px solid #dedfd6;border-radius:8px">
+        <option value="original">原始未接受候选</option>
+        <option value="revised">AI 提议回改后的新候选</option>
+      </select>
+      <button id="choose-candidate-branch" class="secondary" type="button" style="margin-top:8px">选择该分支继续</button>
+      <div id="branch-status" class="status">尚未选择候选分支。</div>
+    </div>
     <div id="auto-results"></div>
     <div id="preview-area" hidden>
       <div class="divider"></div>
@@ -282,6 +298,7 @@ $("discard-auto").addEventListener("click",async()=>{
     await send("/api/autodraft/discard",{job_id:currentJobId});
     $("auto-results").replaceChildren();
     $("preview-area").hidden=true;
+    $("branch-panel").hidden=true;
     $("discard-auto").hidden=true;
     $("continue-unreviewed").checked=false;
     $("continue-unreviewed").disabled=true;
@@ -306,11 +323,18 @@ async function startAuto(){
       ? $("self-edit-timing").value : "always_offer");
     const pause_between_turns=(draft_mode!=="single"&&$("pause-turns").checked);
     const continue_unreviewed=(draft_mode==="continuity_guard"&&$("continue-unreviewed").checked);
+    const ai_chapter_review=$("ai-chapter-review").checked;
+    if(ai_chapter_review&&!(draft_mode==="continuity_guard"&&
+      continue_unreviewed&&chapters.length===2&&self_edit_rounds>0&&
+      self_edit_timing==="ai_decides"&&!pause_between_turns)){
+      throw Error("章节自主回看需要 G、已有签名前章、恰好两章、AI 决定时机和不暂停。");
+    }
     const job=await send("/api/autodraft",{
       outline,chapters,draft_mode,pause_between_turns,continue_unreviewed,
-      self_edit_rounds,self_edit_timing});
+      self_edit_rounds,self_edit_timing,ai_chapter_review});
     currentJobId=job.job_id;
     $("auto-results").replaceChildren();
+    $("branch-panel").hidden=true;
     $("preview-area").hidden=true;
     $("discard-auto").hidden=true;
     $("stop-auto").hidden=false;
@@ -370,9 +394,14 @@ async function watchJob(jobId){
         $("discard-auto").hidden=false;
         throw Error(job.error||"生成失败；如有未完成候选可手动丢弃");
       }else if(job.status==="completed"){
-        message("auto-status","已写完 "+job.result.chapter_count+" 章候选稿，WF 自主审改额外模型调用 "+
-          (job.result.wf_self_edit_model_calls||0)+" 次。废稿仅存本次候选目录，尚未正式接受。");
+        const review=job.result.wf_chapter_ai_review_decision;
+        message("auto-status","已写完 "+job.result.chapter_count+
+          " 章未接受候选；同一写作 AI 的段落自修调用 "+
+          (job.result.wf_self_edit_model_calls||0)+
+          " 次。"+(review?"章节回看决定："+review+"。":"")+
+          "废稿仅存私有候选目录，尚未正式接受。");
         showChapters(job.result.chapters);
+        showBranchChoices(job.candidate_branches);
         $("discard-auto").hidden=false;
         if(job.unreviewed_resume_available){
           $("continue-unreviewed").disabled=false;
@@ -382,6 +411,50 @@ async function watchJob(jobId){
     }
   }finally{autoPolling=false;$("run-auto").disabled=false}
 }
+function showBranchChoices(branches){
+  if(!branches||!branches.job_id||!branches.available?.length){
+    $("branch-panel").hidden=true;
+    return;
+  }
+  const select=$("candidate-branch");
+  for(const opt of select.options){
+    opt.hidden=!branches.available.includes(opt.value);
+    opt.disabled=opt.hidden;
+  }
+  select.value=branches.selected;
+  $("branch-panel").hidden=false;
+  message("branch-status","当前使用："+(branches.selected==="revised"?
+    "AI 回改的新候选":"原始候选")+
+    "。仅签名选择；不改变已经写下的历史版本。");
+}
+$("choose-candidate-branch").addEventListener("click",async()=>{
+  const info=(await get("/api/job",true)).candidate_branches;
+  if(!info?.job_id)return;
+  $("choose-candidate-branch").disabled=true;
+  try{
+    const reply=await send("/api/autodraft/branch/select",{
+      job_id:info.job_id,branch:$("candidate-branch").value});
+    const job=await get("/api/job",true);
+    showBranchChoices(job.candidate_branches);
+    if(job.result?.chapters)showChapters(job.result.chapters);
+    $("preview-area").hidden=true;
+    $("continue-unreviewed").disabled=false;
+    message("branch-status","已选用 "+
+      (reply.selected_branch==="revised"?"AI 回改候选":"原始候选")+
+      "，下一章将从签名状态 "+reply.resume_sha256.slice(0,12)+
+      "… 继续；旧稿原样留存。");
+  }catch(err){message("branch-status",err.message,true)}
+  finally{$("choose-candidate-branch").disabled=false}
+});
+$("ai-chapter-review").addEventListener("change",()=>{
+  if($("ai-chapter-review").checked){
+    $("draft-mode").value="continuity_guard";
+    if(Number($("self-edit-rounds").value)===0)$("self-edit-rounds").value="1";
+    $("self-edit-timing").value="ai_decides";
+    $("pause-turns").checked=false;
+    $("continue-unreviewed").checked=true;
+  }
+});
 function showChapters(chapters){
   const box=$("auto-results");box.replaceChildren();
   chapters.forEach(item=>{
@@ -429,6 +502,7 @@ $("copy-preview").onclick=async()=>{
       currentJobId=bootstrap.auto_job.id;
       if(bootstrap.auto_job.status==="completed"&&bootstrap.auto_job.result){
         showChapters(bootstrap.auto_job.result.chapters);
+        showBranchChoices(bootstrap.candidate_branches);
         $("continue-unreviewed").disabled=!bootstrap.unreviewed_resume_available;
         $("discard-auto").hidden=false;
       }else if(["queued","running","awaiting_review","cancelling"].includes(bootstrap.auto_job.status)){
