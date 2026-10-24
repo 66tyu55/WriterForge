@@ -1,0 +1,71 @@
+name: WF One-Shot Real Reader-First V119 Exact Proposal Zero-Model Replay 20261024
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_REAL_V119_ZERO_MODEL_REPLAY_FIRE_ONCE_20261024.txt
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wf-previous-real-reader-first-v119-no-provider-replay-20261024
+  cancel-in-progress: false
+jobs:
+  authenticated-originals-no-model-and-no-canon:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing WF and run actual source-transaction edge cases OFFLINE
+        run: |
+          python -m pip install -e .
+          PYTHONPATH=tests python -m unittest tests.test_wf_writer_self_revision_loop tests.test_wf_reader_first_original_author -q
+      - name: Retrieve true writer original from first source run
+        uses: actions/download-artifact@v4
+        with:
+          name: WF-3-Existing-Models-Real-Writer-Originals-20261024
+          run-id: 40094106486
+          github-token: ${{ github.token }}
+          path: wf_prior_deepseek_20261024
+      - name: Retrieve authentic FIRST reader-first V119 invalid original answer
+        uses: actions/download-artifact@v4
+        with:
+          name: WF-Real-DeepSeek-Reader-First-Then-Author-Originals-20261024
+          run-id: 40108836214
+          github-token: ${{ github.token }}
+          path: wf_prior_reader_first_20261024
+      - name: Re-evaluate prior original V119 proposal without any provider key or new model call
+        run: python -m experiments.wf_real_reader_first_v119_replay_zero_model_20261024
+      - name: Assert no story was silently accepted or mutated
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('wf_real_reader_first_v119_replay_zero_model_20261024/STATUS.json').read_text('utf8'))
+          assert d['model_calls_in_replay']==0
+          assert d['old_provider_originals_unchanged']
+          assert d['format_wrapper_only_removed'] is True
+          assert d['source_offset_recovered_exactly'] is True
+          assert d['V96_semantic_and_trace_guard_kept']
+          assert d['revised_accepted_source'] is False
+          assert d['user_canon_writes']==0 and d['R2_writes']==0
+          assert not d['literary_quality_verified']
+          print('EXACT REMAINING SOURCE/TRACE FAILURE:',d['after_strict_mechanical_wrapper_and_quote_offset'])
+          PY
+      - name: Archive genuine author's proposed fiction, strict original error and source-locked preview
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-Real-ReaderFirst-V119-Exact-Saved-Reply-NoModel-Replay-20261024
+          path: wf_real_reader_first_v119_replay_zero_model_20261024/
+          retention-days: 30
+          if-no-files-found: warn
