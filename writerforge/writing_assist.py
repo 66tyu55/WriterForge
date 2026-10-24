@@ -611,6 +611,34 @@ SELF_EDIT_MODEL_MAX_TOKENS=1800
 SELF_EDIT_MOMENT_TOKENS=600
 
 
+def _rewind_unaccepted_turn_suffix(*,accepted,source_sha256,snapshots,tracked):
+    """Restore a pre-turn snapshot, never a deleted draft's derived state.
+
+    Only the immediately preceding UNACCEPTED event turn is eligible. All
+    V96/V114/V117/unified provisional side-receipts after its boundary are
+    truncated together. Caller must replay the AI-revised source through
+    the ordinary validation/reducer path and write a NEW downstream turn.
+    This does not touch signed earlier chapters, Canon or the story graph.
+    """
+    if (not accepted or type(source_sha256) is not str or
+        len(snapshots)!=len(accepted)+1):
+        raise WritingExecutionError("WF_WRITER_REWIND_INVALID_BOUNDARY")
+    prose=accepted[-1].get("prose")
+    if (type(prose) is not str or
+        sha256(prose.strip().encode("utf8")).hexdigest()!=source_sha256):
+        raise WritingExecutionError("WF_WRITER_REWIND_STALE_SOURCE")
+    boundary=snapshots[-2]
+    counts=boundary.get("counts")
+    if (type(counts) is not tuple or len(counts)!=len(tracked) or
+        any(type(n) is not int or n<0 or n>len(items)
+            for items,n in zip(tracked,counts))):
+        raise WritingExecutionError("WF_WRITER_REWIND_SNAPSHOT_INVALID")
+    for items,n in zip(tracked,counts):
+        del items[n:]
+    del snapshots[-2:]
+    return boundary
+
+
 def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
                                 ask_model,directory,cancel_check=None):
     """Ask the ACTUAL author model whether THIS visible draft needs revision.
@@ -637,11 +665,19 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
                            "literary_quality_verified":False,
                            "model_calls":0}}
     original_sha=sha256(prose.encode("utf8")).hexdigest()
+    preceding=(accepted[-1] if accepted else None)
+    preceding_prose=(preceding.get("prose","").strip()
+                     if type(preceding) is dict else "")
+    if not 80<=len(preceding_prose)<=_WF96_GUARDED_TURN_CHARS:
+        preceding_prose=""
+    preceding_sha=(sha256(preceding_prose.encode("utf8")).hexdigest()
+                   if preceding_prose else None)
     seen_effects=[(x.get("effect_quote") or "")[:110]
                   for x in accepted[-2:]]
     reminder=(
         "\n【AI 作家自己决定此刻要不要回头写】"
         "下面是你刚刚真正写出来的文字，而不是小说大纲。"
+        "你也可以检查紧邻上一段尚未被作者接受的真实原文。"
         "你是本篇小说的作者，不是替人类点按钮的程序评分器。"
         "只判断此刻应该继续创作，还是需要先回头修稿。"
         "可以为了节奏、人物性格或真实留白选择不改。"
@@ -653,9 +689,14 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
         "其它情况 evidence_quote 必须是目前原文中唯一出现的逐字原句。"
         "只用自己对本小说当前效果的简短文学判断，"
         "不输出隐藏推理过程或数字评分。"
+        "这是【写后选择】，不是再写正文；不要返回 prose/trace 或重复小说。"
+        "你可选择 target_turn=current（刚写的段）或 previous（紧邻上一段）；"
+        "只有确实存在上一段原文时才可选择 previous。"
+        "选择 previous 并修订成功时，后面尚未接受的草稿和其派生状态"
+        "必须作废，由你依据新原文重新创作。"
         "\n返回严格 JSON 对象，字段必须且只能为："
-        "decision(MOVE_ON 或 LOOK_BACK_NOW)、"
-        "source_sha256、evidence_quote、focus、why_now、"
+        "decision(MOVE_ON 或 LOOK_BACK_NOW)、target_turn、"
+        "source_sha256（所选目标原文的 SHA）、evidence_quote、focus、why_now、"
         "what_goes_wrong_if_unchanged、intended_reader_effect。"
         "MOVE_ON 时 evidence_quote/focus/what_goes_wrong_if_unchanged/"
         "intended_reader_effect 一律为 null，但 why_now 应说明为何此刻保留。"
@@ -666,8 +707,11 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
         +json.dumps(seen_effects,ensure_ascii=False)+
         "\n【当前人物与事件意图（可以质疑）】"
         +json.dumps(beat,ensure_ascii=False,separators=(",",":"))+
+        "\n【上一段实际未接受的小说原文及 SHA；无则为 null】"+
+        json.dumps({"prose":preceding_prose,"sha256":preceding_sha}
+                   if preceding_sha else None,ensure_ascii=False)+
         "\n【当前实际未接受的小说原文】"+prose+
-        "\n【原文字节身份】"+original_sha
+        "\n【当前原文字节身份】"+original_sha
     )
     content=turn_packet.prompt+reminder
     if len(content)>MAX_PROMPT_CHARS:
@@ -715,18 +759,30 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
             "decision","source_sha256","evidence_quote","focus",
             "why_now","what_goes_wrong_if_unchanged",
             "intended_reader_effect"}
+        # Old real answers have no target_turn. Keep their exact schema
+        # compatible; new author decisions can explicitly choose previous.
+        target_keys=keys|{"target_turn"}
         # Observed REAL DeepSeek returned the correct author decision
         # with ONE harmless envelope marker: "type":"json_object".
         # Strip only that literal wrapper, not actual source/reason text;
         # malformed prose echoes must remain invalid model signals.
         wrapper_only_removed=False
-        if (type(fields) is dict and set(fields)==keys|{"type"}
-            and fields.get("type")=="json_object"):
+        if (type(fields) is dict and
+            set(fields) in (keys|{"type"},target_keys|{"type"}) and
+            fields.get("type")=="json_object"):
             fields={k:v for k,v in fields.items() if k!="type"}
             wrapper_only_removed=True
-        if (type(fields) is not dict or set(fields)!=keys or
-            fields["decision"] not in ("MOVE_ON","LOOK_BACK_NOW") or
-            fields["source_sha256"]!=original_sha or
+        if type(fields) is not dict or set(fields) not in (keys,target_keys):
+            raise ValueError("WF_AI_WRITER_SIGNAL_SCHEMA_OR_SOURCE")
+        target_turn=fields.get("target_turn","current")
+        if (target_turn not in ("current","previous") or
+            (target_turn=="previous" and not preceding_sha) or
+            (target_turn=="previous" and fields["decision"]=="MOVE_ON")):
+            raise ValueError("WF_AI_WRITER_INVALID_LOOKBACK_TARGET")
+        target_prose=(preceding_prose if target_turn=="previous" else prose)
+        target_sha=(preceding_sha if target_turn=="previous" else original_sha)
+        if (fields["decision"] not in ("MOVE_ON","LOOK_BACK_NOW") or
+            fields["source_sha256"]!=target_sha or
             type(fields["why_now"]) is not str or
             not 8<=len(fields["why_now"])<=260):
             raise ValueError("WF_AI_WRITER_SIGNAL_SCHEMA_OR_SOURCE")
@@ -744,7 +800,7 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
                 raise ValueError("WF_AI_WRITER_UNGROUNDED_LOCAL_QUOTE")
             if quote is not None and (
                 type(quote) is not str or not 6<=len(quote)<=160 or
-                prose.count(quote)!=1):
+                target_prose.count(quote)!=1):
                 raise ValueError("WF_AI_WRITER_QUOTE_NOT_UNIQUE_IN_PROSE")
             for name in ("what_goes_wrong_if_unchanged",
                          "intended_reader_effect"):
@@ -754,6 +810,8 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
         receipt.update({
             "decision":fields["decision"],
             "format_wrapper_type_only_removed":wrapper_only_removed,
+            "target_turn":target_turn,
+            "target_prose_sha256":target_sha,
             "focus":fields["focus"],
             "has_exact_model_quote":fields["evidence_quote"] is not None,
             "quoted_prose_sha256":(
@@ -764,6 +822,8 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
         })
         answer.update({
             "decision":fields["decision"],
+            "target_turn":target_turn,
+            "target_prose_sha256":target_sha,
             "reason":fields["why_now"],
             "risk":fields["what_goes_wrong_if_unchanged"],
             "desired_effect":fields["intended_reader_effect"],
@@ -1350,6 +1410,7 @@ class AutonomousWriting:
         chapters=[]
         issued_turns=0
         self_edit_model_calls=0
+        writer_rewind_count=0  # Bounded to one previous-turn branch per job.
         rolling_replan_calls=0
         previous_emotional_turns=()
         previous_continuity_checkpoint=None
@@ -1595,6 +1656,10 @@ class AutonomousWriting:
                 model_trace_review_failures=[]
                 self_edit_turn_receipts=[]
                 self_edit_moment_receipts=[]
+                self_edit_rewind_receipts=[]
+                turn_snapshots=[]
+                pending_revised_turn=None
+                redraw_turn_index=None
                 source_length_reviews=[]
                 prompt_delivery_receipts=[]
                 plan_execution_checks=[]
@@ -1610,7 +1675,31 @@ class AutonomousWriting:
                     issued_turns+=len(beats)
                     prompt_shas=[]
                     cast=tuple(dict.fromkeys(b["actor"] for b in beats))
-                    for turn_index,seed_beat in enumerate(beats):
+                    turn_index=0
+                    while turn_index<len(beats):
+                        seed_beat=beats[turn_index]
+                        if draft_mode=="continuity_guard":
+                            # All of these are DERIVED from still-unaccepted
+                            # prose. Restore their lengths and prior V114/V117
+                            # state together when revising a previous turn.
+                            tracked_rewind_lists=(
+                                accepted_turns,accepted_beats,trace_checks,
+                                lamp_decisions,long_arc_checks,
+                                narrative_lane_decisions,narrative_source_reviews,
+                                unified_prose_replay_checks,
+                                unified_scene_delivery_turn_checks,
+                                source_citation_normalizations,
+                                model_trace_review_failures,
+                                self_edit_turn_receipts,
+                                self_edit_moment_receipts,source_length_reviews,
+                                prompt_delivery_receipts,plan_execution_checks,
+                                prompt_shas)
+                            turn_snapshots.append({
+                                "counts":tuple(len(a) for a in
+                                               tracked_rewind_lists),
+                                "continuity":current_continuity_checkpoint,
+                                "external":current_external_story_checkpoint,
+                                "lamp":last_lamp_receipt})
                         beat=seed_beat
                         if draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling") and turn_index>0:
                             if rolling_replan_calls>=MAX_ROLLING_REPLANS_PER_JOB:
@@ -1753,16 +1842,36 @@ class AutonomousWriting:
                                 facets,
                             )
                         prompt_shas.append(turn_packet.prompt_sha256)
-                        last_turn_response=ask_model(
-                            turn_packet,model=self.assist.model,
-                            api_base=self.assist.api_base,max_tokens=1450,
-                        )
-                        if draft_mode in ("foresight_rolling","continuity_guard"):
+                        replaying_revised_source=(
+                            pending_revised_turn is not None and
+                            pending_revised_turn[0]==turn_index)
+                        if replaying_revised_source:
+                            # The SAME AI revised this already. Re-evaluate
+                            # the edited source; do not pay to invent it again.
+                            last_turn_response=pending_revised_turn[1]
+                            pending_revised_turn=None
+                        else:
+                            if (draft_mode=="continuity_guard" and
+                                redraw_turn_index==turn_index):
+                                if (self_edit_model_calls>=
+                                    SELF_EDIT_MAX_PROVIDER_CALLS_PER_RUN):
+                                    raise WritingExecutionError(
+                                        "WF_WRITER_REWIND_REDRAFT_BUDGET")
+                                self_edit_model_calls+=1
+                                redraw_turn_index=None
+                            last_turn_response=ask_model(
+                                turn_packet,model=self.assist.model,
+                                api_base=self.assist.api_base,max_tokens=1450,
+                            )
+                        if (not replaying_revised_source and
+                            draft_mode in ("foresight_rolling",
+                                           "continuity_guard")):
                             (job/f"chapter-{index:03d}-turn-"
                                  f"{turn_index+1:02d}-raw.json").write_text(
                                      last_turn_response,encoding="utf8")
                         if (draft_mode=="continuity_guard" and
-                            self_edit_rounds>0):
+                            self_edit_rounds>0 and
+                            not replaying_revised_source):
                             old_raw=last_turn_response
                             def invoke_self_edit(packet,*,model,
                                                  api_base,max_tokens):
@@ -1788,7 +1897,9 @@ class AutonomousWriting:
                                         ask_model=invoke_self_edit,
                                         directory=job/(
                                             f"chapter-{index:03d}-turn-"
-                                            f"{turn_index+1:02d}-ai-moment"),
+                                            f"{turn_index+1:02d}-ai-moment"
+                                            +("-replay" if writer_rewind_count
+                                              else "")),
                                         cancel_check=check_cancel)
                                     self_edit_model_calls+=moment["model_calls"]
                                 else:
@@ -1802,8 +1913,126 @@ class AutonomousWriting:
                                             "literary_quality_verified":False}}
                                 self_edit_moment_receipts.append(
                                     moment["receipt"])
-                            if (self_edit_timing=="always_offer" or
-                                moment["decision"]=="LOOK_BACK_NOW"):
+                            is_previous_target=(
+                                moment is not None and
+                                moment["decision"]=="LOOK_BACK_NOW" and
+                                moment.get("target_turn")=="previous")
+                            if is_previous_target:
+                                # The model alone chose to revisit source.
+                                # Keep current prose untouched unless an
+                                # earlier V119 patch really succeeds.
+                                revision_note={
+                                    "format":"wf.writer.self-edit.v1",
+                                    "enabled":True,"model_calls":0,
+                                    "rounds":[{"status":"LOOK_BACK_NOT_APPLIED"}],
+                                    "canon_writes":0,
+                                    "literary_quality_verified":False}
+                                remaining=(SELF_EDIT_MAX_PROVIDER_CALLS_PER_RUN-
+                                           self_edit_model_calls)
+                                if (writer_rewind_count==0 and turn_index>0
+                                    and remaining>=2):
+                                    prior=accepted_turns[-1]
+                                    original_previous={
+                                        "prose":prior["prose"],
+                                        "trace":{k:prior[k] for k in (
+                                            "action_quote","effect_quote",
+                                            "parent_effect_quote")}}
+                                    original_previous_raw=json.dumps(
+                                        original_previous,ensure_ascii=False,
+                                        separators=(",",":"))
+                                    prior_snapshot=turn_snapshots[turn_index-1]
+                                    prior_external=prior_snapshot["external"]
+                                    changed_previous,prior_revision=(
+                                        _self_edit_one_turn(
+                                            raw=original_previous_raw,
+                                            beat=accepted_beats[-1],
+                                            accepted=tuple(accepted_turns[:-1]),
+                                            project_id=self.assist.project_id,
+                                            scene_id=self.assist.scene_id,
+                                            turn_packet=turn_packet,
+                                            ask_model=invoke_self_edit,
+                                            round_limit=self_edit_rounds,
+                                            call_allowance=min(
+                                                self_edit_rounds,remaining-1),
+                                            directory=job/(
+                                                f"chapter-{index:03d}-turn-"
+                                                f"{turn_index:02d}-lookback-01"),
+                                            author_exclusions=(
+                                                author_confirmed_forbidden_phrases),
+                                            previous_candidate_state=(
+                                                prior_external["reducer_result"][
+                                                    "candidate_state"]
+                                                if prior_external else None),
+                                            cast=cast,
+                                            current_external_story_checkpoint=(
+                                                prior_external),
+                                            active_narrative_core=(
+                                                active_narrative_core),
+                                            story_chapter_index=(
+                                                first_story_chapter_index+
+                                                index-1),
+                                            cancel_check=check_cancel,
+                                            writer_attention={
+                                                "reason":moment["reason"],
+                                                "risk":moment["risk"],
+                                                "desired_effect":moment[
+                                                    "desired_effect"],
+                                                "source_quote":moment.get(
+                                                    "source_quote"),
+                                                "focus":moment.get("focus")}))
+                                    self_edit_model_calls+=prior_revision[
+                                        "model_calls"]
+                                    if changed_previous!=original_previous_raw:
+                                        # Keep the original current turn as
+                                        # an abandoned downstream branch.
+                                        invalidated_file=job/(
+                                            f"chapter-{index:03d}-turn-"
+                                            f"{turn_index+1:02d}-"
+                                            "invalidated-downstream-01.json")
+                                        invalidated_file.write_text(
+                                            last_turn_response,encoding="utf8")
+                                        snapshot=_rewind_unaccepted_turn_suffix(
+                                            accepted=accepted_turns,
+                                            source_sha256=moment[
+                                                "target_prose_sha256"],
+                                            snapshots=turn_snapshots,
+                                            tracked=tracked_rewind_lists)
+                                        current_continuity_checkpoint=(
+                                            snapshot["continuity"])
+                                        current_external_story_checkpoint=(
+                                            snapshot["external"])
+                                        last_lamp_receipt=snapshot["lamp"]
+                                        self_edit_rewind_receipts.append({
+                                            "status":"PREVIOUS_TURN_REVISED",
+                                            "target_turn_index":turn_index,
+                                            "source_sha256":moment[
+                                                "target_prose_sha256"],
+                                            "revision":prior_revision,
+                                            "invalidated_downstream_sha256":
+                                                sha256(last_turn_response.encode(
+                                                    "utf8")).hexdigest(),
+                                            "downstream_must_be_regenerated":True,
+                                            "state_rewound_before_target":True,
+                                            "old_model_reply_preserved":True,
+                                            "canon_writes":0,
+                                            "literary_quality_verified":False,
+                                            "original_timing_receipt":moment[
+                                                "receipt"]})
+                                        writer_rewind_count+=1
+                                        pending_revised_turn=(
+                                            turn_index-1,changed_previous)
+                                        redraw_turn_index=turn_index
+                                        turn_index-=1
+                                        continue
+                                    revision_note["rounds"][0]["status"]=(
+                                        "LOOK_BACK_REVISION_REJECTED_OR_KEPT")
+                                    revision_note["prior_revision"]=(
+                                        prior_revision)
+                                else:
+                                    revision_note["rounds"][0]["status"]=(
+                                        "LOOK_BACK_NOT_ALLOWED_OR_NO_BUDGET")
+                            elif (self_edit_timing=="always_offer" or
+                                  moment["decision"]=="LOOK_BACK_NOW"):
                                 last_turn_response,revision_note=(
                                     _self_edit_one_turn(
                                     raw=last_turn_response,beat=beat,
@@ -1818,7 +2047,9 @@ class AutonomousWriting:
                                         self_edit_model_calls),
                                     directory=job/(
                                         f"chapter-{index:03d}-turn-"
-                                        f"{turn_index+1:02d}-self-edits"),
+                                        f"{turn_index+1:02d}-self-edits"
+                                        +("-replay" if writer_rewind_count
+                                          else "")),
                                     author_exclusions=(
                                         author_confirmed_forbidden_phrases),
                                     previous_candidate_state=(
@@ -1860,9 +2091,19 @@ class AutonomousWriting:
                             self_edit_turn_receipts.append(revision_note)
                             if last_turn_response!=old_raw:
                                 (job/f"chapter-{index:03d}-turn-"
-                                     f"{turn_index+1:02d}-selfedit-final.json"
+                                     f"{turn_index+1:02d}-selfedit-final"
+                                     +("-replay.json" if writer_rewind_count
+                                       else ".json")
                                 ).write_text(last_turn_response,
                                              encoding="utf8")
+                        elif draft_mode=="continuity_guard" and replaying_revised_source:
+                            self_edit_turn_receipts.append({
+                                "format":"wf.writer.self-edit.v1",
+                                "enabled":True,"model_calls":0,
+                                "rounds":[{"status":
+                                    "PREVIOUS_TURN_REPLAYED_FROM_AI_REVISION"}],
+                                "canon_writes":0,
+                                "literary_quality_verified":False})
                         if draft_mode in ("emotion_rolling","foresight_rolling"):
                             evidence=check_emotional_turn(
                                 last_turn_response,beat,
@@ -2024,6 +2265,7 @@ class AutonomousWriting:
                             current_external_story_checkpoint=external_temporal_step(
                                 prose=evidence["prose"],cast=cast,
                                 prior=current_external_story_checkpoint)
+                        turn_index+=1
                     body=assemble_prose(accepted_turns)
                     if draft_mode=="continuity_guard":
                         # One evaluator for chapter repetition and source
@@ -2103,6 +2345,9 @@ class AutonomousWriting:
                             self_edit_moment_receipts)
                         turn_evidence["wf_self_edit_receipts"]=(
                             self_edit_turn_receipts)
+                        turn_evidence["wf_ai_previous_turn_rewinds"]=(
+                            self_edit_rewind_receipts)
+                        turn_evidence["wf_rewound_old_events_not_state"]=True
                         turn_evidence["wf_self_edit_model_calls_in_chapter"]=(
                             sum(x["model_calls"] for x in
                                 self_edit_turn_receipts))
@@ -2466,6 +2711,7 @@ class AutonomousWriting:
             "chapter_count":len(chapters),"chapters":chapters,
             "model_used":self.assist.model,
             "wf_self_edit_model_calls":self_edit_model_calls,
+            "wf_self_edit_previous_turn_rewinds":writer_rewind_count,
             "wf_self_edit_configured_rounds":self_edit_rounds,
             "wf_self_edit_timing":self_edit_timing,
             "wf_self_edit_canon_writes":0,
