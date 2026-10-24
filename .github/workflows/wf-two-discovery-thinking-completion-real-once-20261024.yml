@@ -1,0 +1,56 @@
+name: WF One-Shot GLM Kimi Real Completion After Actual Length Failures 20261024
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_2_DISCOVERY_RECOVERY_FIRE_ONCE_20261024.txt
+permissions:
+  contents: read
+concurrency:
+  group: wf-discovery-glm-kimi-after-length-20261024
+  cancel-in-progress: false
+jobs:
+  one-exact-after-length-followup:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preflight model allowlist and provider tuning without billing
+        run: |
+          python -m pip install -e .
+          PYTHONPATH=tests python -m unittest tests.test_wf_three_real_writer_models_bounded -q
+      - name: Try GLM-5.3 and Kimi K2.6 only once each, max 6 actual requests, no retry
+        run: python -m experiments.wf_two_discovery_thinking_aware_real_20261024
+      - name: Verify explicit caps and independent literature score remains unproven
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('wf_discovery_two_model_length_followup_20261024/STATUS.json').read_text('utf8'))
+          assert data['actual_calls']<=6
+          assert data['maximum_new_calls']==6
+          assert data['no_automatic_network_retries']
+          assert data['no_training_or_R2_or_canon_writes']
+          assert data['models_attempted']==['glm-5.3','kimi-k2.6']
+          assert not data['literary_quality_independently_verified']
+          print('REAL DISCOVERY TWO-MODEL ADJUSTED ATTEMPTS',data['actual_calls'])
+          PY
+      - name: Preserve provider source wires, complete fiction and model-owned decision even for rejects
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-GLM-Kimi-True-Originals-After-Length-20261024
+          path: wf_discovery_two_model_length_followup_20261024/
+          retention-days: 30
+          if-no-files-found: warn
