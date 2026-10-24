@@ -154,6 +154,51 @@ class WriterSelfCritiqueAndDiscard(TestCase):
         self.assertEqual(r["discarded_drafts_preserved_locally_only"],1)
         self.assertEqual(r["model_calls"],1)
 
+    def test_wrong_model_offsets_recover_using_one_exact_original_quote(self):
+        # Real writer model counted Unicode offsets incorrectly, though
+        # it quoted a unique exact original sentence. Host must derive
+        # offsets, not trust the hallucinated integers.
+        target="黄昏最后一点天光落到桥头时，"
+        real_start=self.source.index(target)
+        self.assertEqual(self.source.count(target),1)
+        wrong_start=real_start+7
+        decision=json.loads(advice(
+            self.source,decision="REVISE",scope="sentence",
+            start=wrong_start,end=wrong_start+len(target),
+            replacement="雨下到桥头时，",
+            trace={"action_quote":ACTION1,"effect_quote":EFFECT1,
+                   "parent_effect_quote":None}))
+        decision["expected_original"]=target
+        revised,receipt=self.execute(
+            json.dumps(decision,ensure_ascii=False))
+        self.assertEqual(receipt["rounds"][0]["status"],
+                         "PROVISIONALLY_REVISED")
+        self.assertTrue(receipt["rounds"][0][
+            "source_offset_recovered_exactly"])
+        self.assertEqual(receipt["rounds"][0][
+            "host_verified_coordinates"][0],real_start)
+        self.assertEqual(json.loads(revised)["prose"],
+                         self.source.replace(target,"雨下到桥头时，",1))
+
+    def test_wrong_offset_with_nonunique_original_does_not_guess_target(self):
+        self.assertGreater(self.source.count("他"),1)
+        wrong_start=self.source.index("黄昏")
+        decision=json.loads(advice(
+            self.source,decision="REVISE",scope="sentence",
+            start=wrong_start,end=wrong_start+1,
+            replacement="她",
+            trace={"action_quote":ACTION1,"effect_quote":EFFECT1,
+                   "parent_effect_quote":None}))
+        decision["expected_original"]="他"
+        before=self.raw
+        after,receipt=self.execute(
+            json.dumps(decision,ensure_ascii=False))
+        self.assertEqual(after,before)
+        self.assertEqual(receipt["rounds"][0]["status"],
+                         "REJECTED_AND_ROLLED_BACK")
+        self.assertEqual(receipt["rounds"][0]["reason_code"],
+                         "WF_SELF_EDIT_SOURCE_QUOTE_NOT_UNIQUE")
+
     def test_stale_or_wrong_source_hash_fails_closed_without_retry(self):
         start=self.source.index("黄昏")
         bad=advice(self.source,decision="REVISE",scope="sentence",
