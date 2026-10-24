@@ -1599,7 +1599,7 @@ class AutonomousWriting:
                                     active_narrative_core=active_narrative_core,
                                     story_chapter_index=(
                                         first_story_chapter_index+index-1),
-                                    cancel_check=check_cancel)))
+                                    cancel_check=check_cancel))
                             self_edit_model_calls+=revision_note["model_calls"]
                             self_edit_turn_receipts.append(revision_note)
                             if last_turn_response!=old_raw:
