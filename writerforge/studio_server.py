@@ -477,7 +477,8 @@ class StudioService:
                    pause_between_turns:bool|None=None,
                    continue_unreviewed:bool=False,
                    self_edit_rounds:int=0,
-                   self_edit_timing:str="always_offer") -> dict:
+                   self_edit_timing:str="always_offer",
+                   ai_chapter_review:bool=False) -> dict:
         # Author chooses A (single) or segmented B-F. For segmented Studio
         # work, default to SHOW EACH TURN and wait for explicit continuation.
         if draft_mode not in ("single","split_only","causal_guard",
@@ -496,6 +497,16 @@ class StudioService:
                 self_edit_rounds==0 or draft_mode!="continuity_guard")):
             raise StudioError(
                 "WF_AI_WRITER_TIMING_REQUIRES_ACTIVE_G_SELF_EDIT")
+        if type(ai_chapter_review) is not bool:
+            raise StudioError("WF_STUDIO_CHAPTER_REVIEW_FLAG_INVALID")
+        if (ai_chapter_review and
+            (draft_mode!="continuity_guard" or
+             not continue_unreviewed or
+             self_edit_rounds==0 or
+             self_edit_timing!="ai_decides" or
+             type(chapters) is not list or len(chapters)!=2)):
+            raise StudioError(
+                "WF_STUDIO_AI_CHAPTER_REVIEW_NEEDS_G_TWO_CHAPTERS_SIGNED_PARENT")
         if pause_between_turns is not None and type(pause_between_turns) is not bool:
             raise StudioError("invalid staged-review option")
         # The self-editing writer works without repeated author sends.
@@ -505,6 +516,9 @@ class StudioService:
                else pause_between_turns)
         if draft_mode=="single" and pause:
             raise StudioError("single-shot writing cannot pause between turns")
+        if ai_chapter_review and pause:
+            raise StudioError(
+                "WF_STUDIO_AI_CHAPTER_REVIEW_CANNOT_REQUIRE_MANUAL_TURN_SEND")
         if draft_mode!="single" and (
             not isinstance(chapters,list) or len(chapters)>2):
             raise StudioError("WF96_SCENE_MODE_MAX_TWO_CHAPTERS_FOR_MODEL_BUDGET")
@@ -527,6 +541,7 @@ class StudioService:
                     "queued","running","awaiting_review","cancelling"):
                     raise StudioError("an autonomous writing run is already active")
                 resume_candidate=None
+                selected_fork_receipt=None
                 if continue_unreviewed:
                     resume_path=self._last_unreviewed_resume
                     if (resume_path is None or
@@ -540,6 +555,12 @@ class StudioService:
                     # verify project/scene, source SHA and the unified graph
                     # BEFORE any model is charged.
                     resume_candidate=json.loads(resume_path.read_text("utf8"))
+                    selected_fork_receipt=self._selected_fork_receipt
+                    if selected_fork_receipt is not None:
+                        _validate_unaccepted_fork_resume(
+                            fork_receipt=selected_fork_receipt,
+                            candidate_resume=resume_candidate,
+                            project_id=self.project,scene_id=self.scene)
                 jobroot.mkdir(parents=True,exist_ok=False)
                 self._job_folder=jobroot
                 self._cancel_event=cancel_event
@@ -552,6 +573,7 @@ class StudioService:
                     "continue_unreviewed":continue_unreviewed,
                     "self_edit_rounds":self_edit_rounds,
                     "self_edit_timing":self_edit_timing,
+                    "ai_chapter_review":ai_chapter_review,
                     "pending_turn":None,
                     "cancel_requested":False,
                     "discarded":False,
@@ -605,9 +627,101 @@ class StudioService:
                             draft_mode=="continuity_guard" and
                             not continue_unreviewed),
                         resume_story_checkpoint=resume_candidate,
+                        selected_fork_receipt=selected_fork_receipt,
                         self_edit_rounds=self_edit_rounds,
                         self_edit_timing=self_edit_timing,
                     )
+                    candidate_branches={"original":result}
+                    selected_candidate="original"
+                    if ai_chapter_review:
+                        with self._job_lock:
+                            self._job["stage"]="ai_decides_cross_chapter"
+                        def check_author_stop():
+                            if cancel_event.is_set():
+                                raise WriterDraftCancelled(
+                                    "WF_STUDIO_DRAFT_CANCELLED")
+                        try:
+                            moment=_ai_decides_cross_chapter(
+                                assist=assistant,outline=outline,
+                                chapter_goals=chapters,
+                                original_result=result,
+                                parent_resume=resume_candidate,
+                                directory=jobroot,
+                                cancel_check=check_author_stop)
+                        except WriterDraftCancelled:
+                            raise
+                        except Exception as exc:
+                            # The real initial story is already a valid
+                            # private candidate. Failure to ask for a chapter
+                            # decision must not discard it or invent a rewrite.
+                            moment={
+                                "decision":"CHAPTER_REVIEW_FAILED",
+                                "model_calls":0,
+                                "receipt":{
+                                    "status":"CHAPTER_REVIEW_FAILED",
+                                    "failure_code":str(exc)[:160],
+                                    "literary_quality_verified":False,
+                                    "canon_writes":0}}
+                        result["wf_chapter_ai_review_decision"]=moment["decision"]
+                        result["wf_chapter_ai_moment_calls"]=moment["model_calls"]
+                        result["wf_chapter_ai_review_receipt"]=moment["receipt"]
+                        result["wf_chapter_ai_literary_quality_verified"]=False
+                        if moment["decision"]=="LOOK_BACK_NOW":
+                            old_end=json.loads(Path(
+                                result["chapters"][-1][
+                                    "v117_unreviewed_text_trace_resume"]
+                            ).read_text("utf8"))
+                            proposal={
+                                "source_job_dir":result["job_dir"],
+                                "writer_decision_reply":moment["raw_reply"],
+                                "expected_old_head_sha256":
+                                    old_end["receipt_sha256"],
+                            }
+                            with self._job_lock:
+                                self._job["stage"]="rewriting_ai_chosen_chapters"
+                            try:
+                                alternate=AutonomousWriting(assistant).run(
+                                    outline=outline,chapter_goals=chapters,
+                                    output_dir=jobroot/"revised",
+                                    progress=self._progress,
+                                    draft_mode=draft_mode,
+                                    cancel_requested=cancel_event.is_set,
+                                    review_turn=None,
+                                    bootstrap_unified_core=False,
+                                    resume_story_checkpoint=resume_candidate,
+                                    selected_fork_receipt=selected_fork_receipt,
+                                    cross_chapter_fork=proposal,
+                                    self_edit_rounds=self_edit_rounds,
+                                    self_edit_timing=self_edit_timing)
+                                check_author_stop()
+                            except WriterDraftCancelled:
+                                raise
+                            except Exception as error:
+                                result["wf_chapter_ai_review_decision"]=(
+                                    "LOOK_BACK_REBUILD_FAILED_ORIGINAL_RETAINED")
+                                result["wf_chapter_ai_rebuild_failure"]=(
+                                    str(error)[:160])
+                                (jobroot/"ai-chapter-rebuild-rejected.json").write_text(
+                                    json.dumps({
+                                        "format":"wf.studio.chapter-rebuild-failed.v1",
+                                        "original_job_dir":result["job_dir"],
+                                        "failure_code":str(error)[:160],
+                                        "old_candidate_unchanged":True,
+                                        "literary_quality_verified":False,
+                                        "canon_writes":0,
+                                    },ensure_ascii=False,indent=2),
+                                    encoding="utf8")
+                            else:
+                                candidate_branches["revised"]=alternate
+                                selected_candidate="revised"
+                                alternate["wf_chapter_ai_review_decision"]=(
+                                    "LOOK_BACK_REBUILT_PROVISIONAL")
+                                alternate["wf_chapter_ai_moment_calls"]=(
+                                    moment["model_calls"])
+                                alternate["wf_chapter_ai_review_receipt"]=(
+                                    moment["receipt"])
+                                alternate["wf_chapter_ai_literary_quality_verified"]=False
+                                result=alternate
                 if cancel_event.is_set():
                     raise WriterDraftCancelled("WF_STUDIO_DRAFT_CANCELLED")
                 with self._job_lock:
@@ -619,8 +733,21 @@ class StudioService:
                         if not candidate_path or not Path(candidate_path).is_file():
                             raise StudioError(
                                 "WFCORE_STAGED_WRITER_MISSING_UNIFIED_RESUME")
-                        self._last_unreviewed_resume=Path(candidate_path)
-                        self._last_unreviewed_job_id=jobid
+                        # A real G result has its signed local job manifest.
+                        # Save this as existing Studio selection metadata;
+                        # historical fake tests lacking a job manifest keep
+                        # the prior in-session resume behavior only.
+                        if (type(result.get("job_dir")) is str and
+                            Path(result["job_dir"],"job_manifest.json").is_file()):
+                            catalog=self._build_branch_catalog(
+                                job_id=jobid,
+                                branch_results=candidate_branches,
+                                selected=selected_candidate)
+                            self._set_branch_catalog(catalog)
+                        else:
+                            self._last_unreviewed_resume=Path(candidate_path)
+                            self._last_unreviewed_job_id=jobid
+                            self._selected_fork_receipt=None
                     self._job.update(status="completed",result=result,
                                      pending_turn=None,stage="saved")
             except WriterDraftCancelled:
@@ -669,6 +796,9 @@ class StudioService:
                 "self_edit_timing":self_edit_timing,
                 "self_edit_provider_call_cap":(
                     8 if self_edit_rounds else 0),
+                "ai_chapter_review":ai_chapter_review,
+                "chapter_review_model_call_cap":(1 if ai_chapter_review else 0),
+                "chapter_fork_redraft_cap":(1 if ai_chapter_review else 0),
                 "no_auto_accept":True,"can_request_discard":True}
 
     def cancel_auto(self,job_id:str) -> dict:
@@ -719,6 +849,12 @@ class StudioService:
             if self._last_unreviewed_job_id==job_id:
                 self._last_unreviewed_resume=None
                 self._last_unreviewed_job_id=None
+                self._selected_fork_receipt=None
+                if (self._branch_catalog is not None and
+                    self._branch_catalog["job_id"]==job_id):
+                    self._branch_catalog=None
+                    (self.store.path/"unaccepted_branch_selection.json"
+                     ).unlink(missing_ok=True)
             self._job.update(
                 status="discarded",result=None,error=None,
                 pending_turn=None,discarded=True,stage="discarded")
@@ -732,6 +868,7 @@ class StudioService:
             state["unreviewed_resume_available"]=bool(
                 self._last_unreviewed_resume is not None and
                 self._last_unreviewed_resume.is_file())
+            state["candidate_branches"]=self.branch_summary()
             return state
 
     def bootstrap(self) -> dict:
@@ -742,6 +879,7 @@ class StudioService:
             "auto_job":self.job(),
             "unreviewed_resume_available":self.job()[
                 "unreviewed_resume_available"],
+            "candidate_branches":self.branch_summary(),
             "status":"studio_connected_to_published_xuehai",
             "external_litcritic_not_automatically_run":True,
             "unverified_facets_not_treated_as_verified":True,
@@ -891,6 +1029,8 @@ class StudioHandler(BaseHTTPRequestHandler):
                         "self_edit_rounds",0),
                     self_edit_timing=payload.get(
                         "self_edit_timing","always_offer"),
+                    ai_chapter_review=payload.get(
+                        "ai_chapter_review",False),
                 )
             elif self.path=="/api/autodraft/cancel":
                 result=svc.cancel_auto(payload.get("job_id"))
@@ -900,6 +1040,9 @@ class StudioHandler(BaseHTTPRequestHandler):
                     payload.get("turn"))
             elif self.path=="/api/autodraft/discard":
                 result=svc.discard_auto(payload.get("job_id"))
+            elif self.path=="/api/autodraft/branch/select":
+                result=svc.select_branch(
+                    payload.get("job_id"),payload.get("branch"))
             else:
                 self._json(404,{"error":"unknown command"})
                 return
