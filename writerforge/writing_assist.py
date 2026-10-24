@@ -92,7 +92,7 @@ from .narrative_core import (
     record_chapter_memory,
     buffered_memory_context,
     character_collision_context,
-    relevant_history_context,
+    relevant_history_context,recall_original,
     detect_long_prose_replay,
     audit_scene_delivery,validate_scene_delivery_contract,
     propose_scene_delivery_debt,
@@ -745,7 +745,9 @@ SELF_EDIT_READER_MAX_SOURCE_CHARS=5000
 
 
 def _reader_separates_written_and_inferred(*,raw,turn_packet,ask_model,
-                                           directory,cancel_check=None):
+                                           directory,cancel_check=None,
+                                           earlier_source=None,
+                                           earlier_source_sha256=None):
     """Separate AI-as-unbiased-reader from AI-as-novelist on real prose.
 
     The SAME author model is asked once, in a NEW context with manuscript
@@ -775,6 +777,16 @@ def _reader_separates_written_and_inferred(*,raw,turn_packet,ask_model,
                     "literary_quality_verified":False,
                     "canon_writes":0}}
     source_sha=sha256(prose.encode("utf8")).hexdigest()
+    if (earlier_source is None)!=(earlier_source_sha256 is None):
+        raise WritingExecutionError("WF_READER_EARLIER_SOURCE_INCOMPLETE")
+    if earlier_source is not None:
+        if (type(earlier_source) is not str or
+            not 1<=len(earlier_source)<=5000 or
+            type(earlier_source_sha256) is not str or
+            sha256(earlier_source.encode("utf8")).hexdigest()!=
+                earlier_source_sha256):
+            raise WritingExecutionError(
+                "WF_READER_EARLIER_SOURCE_HASH_OR_BOUNDS")
     # This request purposefully does NOT include turn_packet.prompt, plan,
     # system-made craft or last writer's justification. Source-only view.
     prompt=(
@@ -803,8 +815,22 @@ def _reader_separates_written_and_inferred(*,raw,turn_packet,ask_model,
         "reader_imagined_step 是6至180字的推测，不可冒充已写事实。"
         "reader_uncertainty 是一句不超过260字的未证读者感受"
         "（没有问题时也可填“没有明显未写连接”）。"
-        "\n【唯一实际原文，无大纲也无作者自评】"+prose
+        "\n【当前唯一实际原文，无大纲也无作者自评】"+prose
     )
+    if earlier_source is not None:
+        prompt+=(
+            "\n【按真实创作顺序更早写出的紧邻前史原文】"
+            +earlier_source+
+            "\n请同时比较前史与当前正文。前史不是情节计划，"
+            "里面未发生的角色行为也不许凭你想象当作已写事实。"
+            "可以指出跨这两份文本需要读者自行补足的物件转移、"
+            "人物认知、时间或动作等变化，但不要替作者决定是否有错。"
+            "此时 JSON 必须多一个 cross_source_links 键（可空，最多3项），"
+            "每一项恰好有 previous_quote、current_quote、"
+            "reader_imagined_step，previous_quote 必须唯一存在于前史，"
+            "current_quote 必须唯一存在于当前，均为6到160字连续原句，"
+            "reader_imagined_step 是6到180字未证推测。"
+            "原先 observed 与 inferred_links 仍只引用当前原文。")
     if len(prompt)>MAX_PROMPT_CHARS:
         return {"model_calls":0,"status":"SOURCE_EXCEEDS_READER_BUDGET",
                 "report":None,"receipt":{
@@ -827,12 +853,17 @@ def _reader_separates_written_and_inferred(*,raw,turn_packet,ask_model,
     try:
         reply=_fork_strict_json(response,max_bytes=19000)
         keys={"observed","inferred_links","reader_uncertainty"}
+        if earlier_source is not None:
+            keys=keys|{"cross_source_links"}
         if set(reply)==keys|{"type"} and reply["type"]=="json_object":
             reply={key:val for key,val in reply.items() if key!="type"}
         if (set(reply)!=keys or type(reply["observed"]) is not list or
             type(reply["inferred_links"]) is not list or
             len(reply["observed"])>8 or
             len(reply["inferred_links"])>3 or
+            (earlier_source is not None and (
+                type(reply["cross_source_links"]) is not list or
+                len(reply["cross_source_links"])>3)) or
             type(reply["reader_uncertainty"]) is not str or
             len(reply["reader_uncertainty"])>260):
             raise WritingExecutionError("WF_READER_SCHEMA_INVALID")
@@ -870,9 +901,35 @@ def _reader_separates_written_and_inferred(*,raw,turn_packet,ask_model,
                 "first_source_offset":prose.index(before),
                 "second_source_offset":prose.index(after),
                 "imagined_step_is_not_story_fact":True})
+        cross_links=[]
+        if earlier_source is not None:
+            for item in reply["cross_source_links"]:
+                if (type(item) is not dict or
+                    set(item)!={"previous_quote","current_quote",
+                                 "reader_imagined_step"} or
+                    type(item["reader_imagined_step"]) is not str or
+                    not 6<=len(item["reader_imagined_step"])<=180):
+                    raise WritingExecutionError(
+                        "WF_READER_CROSS_SOURCE_SCHEMA")
+                previous_quote=item["previous_quote"]
+                current_quote=item["current_quote"]
+                if (any(type(q) is not str or not 6<=len(q)<=160
+                        for q in (previous_quote,current_quote)) or
+                    earlier_source.count(previous_quote)!=1 or
+                    prose.count(current_quote)!=1):
+                    raise WritingExecutionError(
+                        "WF_READER_CROSS_SOURCE_QUOTE_NOT_EXACT")
+                cross_links.append({
+                    **item,
+                    "earlier_original_source_offset":
+                        earlier_source.index(previous_quote),
+                    "current_source_offset":prose.index(current_quote),
+                    "inference_not_an_accepted_change":True})
         report={
             "source_sha256":source_sha,
+            "earlier_source_sha256":earlier_source_sha256,
             "observed":anchored,"inferred_links":gaps,
+            "cross_source_links":cross_links,
             "reader_uncertainty":reply["reader_uncertainty"],
             "all_semantics_are_model_generated_not_verified":True,
             "no_host_literary_error_decision":True,
@@ -888,6 +945,9 @@ def _reader_separates_written_and_inferred(*,raw,turn_packet,ask_model,
             len(report["observed"]) if report is not None else 0),
         "hypothesized_gap_count":(
             len(report["inferred_links"]) if report is not None else 0),
+        "cross_source_inference_count":(
+            len(report["cross_source_links"]) if report is not None else 0),
+        "earlier_original_sha256":earlier_source_sha256,
         "reason_code":code if code and code.startswith("WF_") else None,
         "source_verification_not_semantic_judgment":True,
         "no_auto_edit_if_reader_guesses_a_gap":True,
@@ -911,11 +971,13 @@ def _reader_report_for_author(report,source_sha):
     payload=json.dumps({
         "observed":report["observed"],
         "reader_inferred_links":report["inferred_links"],
+        "reader_cross_source_links":report.get("cross_source_links",[]),
+        "verified_earlier_source_sha256":report.get("earlier_source_sha256"),
         "reader_uncertainty":report["reader_uncertainty"],
         "all_reader_inferences_unverified":True,
         "author_can_choose_to_leave_story_as_is":True,
     },ensure_ascii=False,separators=(",",":"))
-    if len(payload)>4000:
+    if len(payload)>6200:
         return ""
     return (
         "\n【由同一写作模型在独立读者视角提出的未证实阅读意见】"
@@ -2661,6 +2723,33 @@ class AutonomousWriting:
                                         0,SELF_EDIT_MAX_PROVIDER_CALLS_PER_RUN-
                                         self_edit_model_calls)
                                     if remaining>=2:
+                                        prior_reader_source=(
+                                            accepted_turns[-1]["prose"]
+                                            if accepted_turns else None)
+                                        if (prior_reader_source is None and
+                                            active_narrative_core is not None):
+                                            previous_chapter=(
+                                                first_story_chapter_index+index-2)
+                                            if previous_chapter>=0:
+                                                try:
+                                                    prior_reader_source=recall_original(
+                                                        active_narrative_core,
+                                                        project_id=self.assist.project_id,
+                                                        scene_id=self.assist.scene_id,
+                                                        chapter_index=previous_chapter,
+                                                        max_pages=30,
+                                                        source_reader=(
+                                                            narrative_store.read_original
+                                                            if narrative_store else None),
+                                                        archive_reader=(
+                                                            narrative_store.read_capsule
+                                                            if narrative_store else None))
+                                                except (NarrativeCoreError,
+                                                        R2StorageError,OSError):
+                                                    prior_reader_source=None
+                                        if (type(prior_reader_source) is not str or
+                                            not 1<=len(prior_reader_source)<=5000):
+                                            prior_reader_source=None
                                         reader_result=(
                                             _reader_separates_written_and_inferred(
                                                 raw=last_turn_response,
@@ -2671,7 +2760,13 @@ class AutonomousWriting:
                                                     f"{turn_index+1:02d}-reader-first"
                                                     +("-replay" if writer_rewind_count
                                                       else "")),
-                                                cancel_check=check_cancel))
+                                                cancel_check=check_cancel,
+                                                earlier_source=prior_reader_source,
+                                                earlier_source_sha256=(
+                                                    sha256(prior_reader_source.encode(
+                                                        "utf8")).hexdigest()
+                                                    if prior_reader_source is not None
+                                                    else None)))
                                         self_edit_model_calls+=reader_result[
                                             "model_calls"]
                                         self_edit_reader_receipts.append(
