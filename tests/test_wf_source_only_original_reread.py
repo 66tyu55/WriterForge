@@ -227,6 +227,55 @@ class GenuineArtifactProvenanceGate(TestCase):
                 real.verified_prior_source(
                     evidence,expected=real.digest(PROSE))
 
+
+class GenuinePriorTwoReadProof(TestCase):
+    def test_old_two_valid_move_on_wires_have_immutable_source_and_hashes(self):
+        from experiments import wf_real_deepseek_v116_place_reread_20261024 as followup
+        with TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            (root/"blind").mkdir()
+            (root/"source-index").mkdir()
+            (root/"ORIGINAL_PROVIDER_PROSE_READONLY.md").write_text(
+                PROSE,encoding="utf8")
+            events=[]
+            for i,stage,directory in (
+                    (1,"BLIND_SELF_READ","blind"),
+                    (2,"SOURCE_INDEX_SELF_READ","source-index")):
+                reply=answer("MOVE_ON")
+                wire=b'{"choices":[]}' + bytes([i])
+                (root/f"{i:02d}-{stage}-decoded-model.json").write_text(
+                    reply,encoding="utf8")
+                (root/f"{i:02d}-{stage}-original-wire.json").write_bytes(wire)
+                (root/directory/"ai-when-and-why-original.json").write_text(
+                    reply,encoding="utf8")
+                events.append({
+                    "stage":stage,"decoded_sha256":real.digest(reply),
+                    "wire_sha256":real.digest(wire),
+                    "wire_preserved_before_model_parse":True})
+            status={
+                "source_sha256":real.digest(PROSE),
+                "status":"REAL_REVIEW_STAGES_COMPLETED",
+                "old_original_model_decision":"MOVE_ON",
+                "blind_decision":"MOVE_ON",
+                "source_index_decision":"MOVE_ON",
+                "actual_provider_calls":2,
+                "source_actually_changed":False,
+                "source_index_model_offered":True,
+                "model_request_evidence":events}
+            (root/"STATUS.json").write_text(
+                json.dumps(status),encoding="utf8")
+            found=followup.previous_two_real_reviews(
+                root,expected=real.digest(PROSE))
+            self.assertEqual(found["source"],PROSE)
+            self.assertEqual(found["status"]["blind_decision"],"MOVE_ON")
+            (root/"blind"/"ai-when-and-why-original.json").write_text(
+                answer("LOOK_BACK_NOW",
+                       quote="陈七上船，把船篙放在脚边"),encoding="utf8")
+            with self.assertRaisesRegex(RuntimeError,
+                                         "WF_V116_PRIOR_REAL_REPLY_OR_WIRE_INVALID"):
+                followup.previous_two_real_reviews(
+                    root,expected=real.digest(PROSE))
+
 if __name__=="__main__":
     import unittest
     unittest.main()
