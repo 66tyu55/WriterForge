@@ -140,7 +140,7 @@ class CrossChapterUnacceptedSourceFork(TestCase):
             "writer_decision_reply":json.dumps({
                 "decision":"LOOK_BACK_NOW","target_chapter_index":1,
                 "source_sha256":sha(original),
-                "evidence_quote":"细雨不停",
+                "evidence_quote":"第1章第1段，细雨不停。",
                 "why_now":"我读回这一章，觉得连场景最初的天气铺垫都在妨碍人物选择的节奏。",
                 "what_goes_wrong_if_unchanged":"继续写可能使读者误以为两人已经在雨势中被迫离开，后续空间不连贯。",
                 "intended_reader_effect":"希望读者在实际行动和犹豫之间体会危险，而非接收预定的背景解释。",
@@ -348,24 +348,24 @@ class HotWarmColdRetentionAcrossFork(TestCase):
             self.assertEqual(restored["receipt_sha256"],graph["receipt_sha256"])
             before=json.dumps(memory,ensure_ascii=False,sort_keys=True)
             new_prose="沈砚望见云层散开，唐蜃也看着无人的山谷。"
-            new_graph=advance_graph(graph,project_id=project,scene_id=scene,
+            regenerated_graph=advance_graph(graph,project_id=project,scene_id=scene,
                                     chapter_index=14,prose=new_prose,events=())
             new_path=root/"chapter-14-rewritten.md"
             new_path.write_text(new_prose,encoding="utf8")
-            new_graph=record_chapter_memory(
-                new_graph,project_id=project,scene_id=scene,chapter_index=14,
+            regenerated_graph=record_chapter_memory(
+                regenerated_graph,project_id=project,scene_id=scene,chapter_index=14,
                 source_path=str(new_path),prose=new_prose,
                 archive_writer=lambda packet:
                     _save_unified_cold_capsule(root,packet))
             self.assertEqual(json.dumps(memory,ensure_ascii=False,
                                         sort_keys=True),before)
-            self.assertEqual(new_graph["memory"]["hot"][-1]["source_sha256"],
+            self.assertEqual(regenerated_graph["memory"]["hot"][-1]["source_sha256"],
                              sha(new_prose))
-            self.assertEqual(new_graph["parent_sha256"],
+            self.assertEqual(regenerated_graph["parent_sha256"],
                              graph["receipt_sha256"])
             self.assertFalse(any(x["chapter"]>=14 for x in
                                  graph["memory"]["hot"]+graph["memory"]["warm"]))
-            self.assertEqual(new_graph["memory"]["cold_count"],
+            self.assertEqual(regenerated_graph["memory"]["cold_count"],
                              memory["cold_count"]+1)
 
 
