@@ -207,7 +207,8 @@ class StudioService:
                    draft_mode:str="single",
                    pause_between_turns:bool|None=None,
                    continue_unreviewed:bool=False,
-                   self_edit_rounds:int=0) -> dict:
+                   self_edit_rounds:int=0,
+                   self_edit_timing:str="always_offer") -> dict:
         # Author chooses A (single) or segmented B-F. For segmented Studio
         # work, default to SHOW EACH TURN and wait for explicit continuation.
         if draft_mode not in ("single","split_only","causal_guard",
@@ -221,6 +222,11 @@ class StudioService:
             not 0<=self_edit_rounds<=2 or
             self_edit_rounds and draft_mode!="continuity_guard"):
             raise StudioError("WF_SELF_EDIT_REQUIRES_G_MODE_0_TO_2_ROUNDS")
+        if (self_edit_timing not in ("always_offer","ai_decides") or
+            self_edit_timing=="ai_decides" and (
+                self_edit_rounds==0 or draft_mode!="continuity_guard")):
+            raise StudioError(
+                "WF_AI_WRITER_TIMING_REQUIRES_ACTIVE_G_SELF_EDIT")
         if pause_between_turns is not None and type(pause_between_turns) is not bool:
             raise StudioError("invalid staged-review option")
         # The self-editing writer works without repeated author sends.
@@ -276,6 +282,7 @@ class StudioService:
                     "pause_between_turns":pause,
                     "continue_unreviewed":continue_unreviewed,
                     "self_edit_rounds":self_edit_rounds,
+                    "self_edit_timing":self_edit_timing,
                     "pending_turn":None,
                     "cancel_requested":False,
                     "discarded":False,
@@ -330,6 +337,7 @@ class StudioService:
                             not continue_unreviewed),
                         resume_story_checkpoint=resume_candidate,
                         self_edit_rounds=self_edit_rounds,
+                        self_edit_timing=self_edit_timing,
                     )
                 if cancel_event.is_set():
                     raise WriterDraftCancelled("WF_STUDIO_DRAFT_CANCELLED")
@@ -389,6 +397,7 @@ class StudioService:
                 "draft_mode":draft_mode,
                 "pause_between_turns":pause,
                 "self_edit_rounds":self_edit_rounds,
+                "self_edit_timing":self_edit_timing,
                 "self_edit_provider_call_cap":(
                     8 if self_edit_rounds else 0),
                 "no_auto_accept":True,"can_request_discard":True}
@@ -611,6 +620,8 @@ class StudioHandler(BaseHTTPRequestHandler):
                         "continue_unreviewed",False),
                     self_edit_rounds=payload.get(
                         "self_edit_rounds",0),
+                    self_edit_timing=payload.get(
+                        "self_edit_timing","always_offer"),
                 )
             elif self.path=="/api/autodraft/cancel":
                 result=svc.cancel_auto(payload.get("job_id"))
