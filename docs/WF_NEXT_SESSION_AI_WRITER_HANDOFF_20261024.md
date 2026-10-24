@@ -1,6 +1,17 @@
 # WF 跨窗口精简交接｜2026-10-24｜AI 自己决定何时及为何删稿
 
-**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.K**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.L**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+
+## 本轮最新 0.L：AI 回改整章后的新 V117 分支与热暖冷引用（2026-10-24）
+
+**全文**：[WF_AI_CROSS_CHAPTER_BRANCH_FORK_20261024.md](WF_AI_CROSS_CHAPTER_BRANCH_FORK_20261024.md)。[最终无模型回归 #40083326608](https://github.com/66tyu55/WriterForge/actions/runs/40083326608)：**1,516 tests run，4 skipped，0 failures**。仅开发分支，旧 `main` / Railway / R2 / 已接受作者文本未动，没有新模型请求或再次训练。
+
+- `writing_assist.py` 原位置现有 opt-in `cross_chapter_fork` 和 `selected_fork_receipt`：接受**由写作 AI 提出的**明确 `LOOK_BACK_NOW`、需要重审的章号、源正文 SHA、唯一真实原句/场景缺口和原因；WF 不判断小说为什么坏、不会生成正文。**重要限制**：还没有让真实写作模型自己在章节边界发起此请求，当前输入只是外部提供的 `writer_decision_reply`，无提供商真实性证明。
+- 最小安全适用范围：原本 G 本地 job 恰好 2 个**未接受**章节，修改目标是二者第一章，且已有目标之前一章的合法 V117 signed resume（不是无前史书的第1章）；完整模型+资料快照+本地 source SHA+统一 NarrativeCore graph 的 parent SHA 链先验核查，不通过就连新 job 都不建、不扣费。原作品是否在其他外部客户端已经接受，尚需该客户端另外确认。
+- 模型在**不同**新 job 重新独立规划、写两章，V96/V114/V117 与旧唯一 graph 重新计算；不把旧第二章冒充新故事事实。首章没有实际 source 变化则拒绝标记成功；最后生成新分支的 SHA 封口 receipt，旧文件不修改，旧模型原文留存；新分支选择后旧下游 resume 必须拒绝，合法新 resume 可以继续生成下一章。
+- 热/暖/冷仅继承分叉前合法前缀及其冷索引，不引入旧后代的 source SHA；本地 13 章压缩前缀的 3 热/8 暖/冷库延续已用离线反例验证；**并不删除旧存储字节，仍未实现跨任意章节/R2/多分支的全局失效或完整工作树事务**。
+- 保留 [首次红灯 #40083002707](https://github.com/66tyu55/WriterForge/actions/runs/40083002707)：测试模型引用旧章重复短语，被唯一性校验拒绝；另外热暖冷单测变量遮蔽。修正真实引用和 Python 测试变量，不放宽 V119 或 V117。 [第一轮绿色 #40083135333](https://github.com/66tyu55/WriterForge/actions/runs/40083135333) 1,514 项；最终 #40083326608 1,516 项（新增第三章合法沿新头续写、重写后一章失败时旧双章完整不动且不生成成功收据）。
+- **下阶段**：给同一个正在写的 AI 一次作者请求内的真实“是否跨章回头”发起机会，将 Studio 现有版本选择与 `selected_fork_receipt` 连接；先离线校验，再另行授权有限真实创作探针。禁止以 mock LOOK_BACK_NOW 冒充付费模型成功，禁止新增文学评判模型或记忆模块，保持 V26/V98/V119/统一图、A–F 与已有废稿/失败原件。
 
 ## 本轮最新 0.K：废稿来源不污染 V114/V117 与失败原子恢复（2026-10-24）
 
@@ -48,4 +59,4 @@
 
 ## 下个对话可直接发
 
-「继续 WriterForge。读取开发分支 refactor-unified-scene-delivery-audit 的 docs/WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md 和 CURRENT_HANDOFF.md 最新 0.K。核心是 AI 自己决定什么时候不满意、为什么删，WF 绝不能替 AI 计算文学意义或生成，保持 V26/V98/V119/V117/统一图。先核验最新 1508 测试（含删物件/伤势/秘密、V117、回改失败原子恢复）与历史真实 6 次调用、零模型回放，保留首段 INVALID_SIGNAL 和第二段 MOVE_ON 的负例，再针对真正自发 LOOK_BACK_NOW 与下游状态回退做最小验证；禁止重复训练、增加记忆、改 main 或部署 Railway。」
+「继续 WriterForge。读取开发分支 refactor-unified-scene-delivery-audit 的 docs/WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md 和 CURRENT_HANDOFF.md 最新 0.L。核心是 AI 自己决定什么时候不满意、为什么删，WF 绝不能替 AI 计算文学意义或生成，保持 V26/V98/V119/V117/统一图。先核验最新 1516 测试（含双章新分支、源父 SHA、热暖冷、旧支拒绝与失败完整保留）与历史真实 6 次调用、零模型回放，保留首段 INVALID_SIGNAL 和第二段 MOVE_ON 的负例，再针对真正自发 LOOK_BACK_NOW 与下游状态回退做最小验证；禁止重复训练、增加记忆、改 main 或部署 Railway。」
