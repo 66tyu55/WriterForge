@@ -17,6 +17,7 @@ from writerforge.writing_assist import (
     _ai_decides_when_to_revisit, _rewind_unaccepted_turn_suffix,
 )
 from writerforge.verified_flow import GroundedDraftPacket, WritingExecutionError
+from writerforge.v114_external_story_state import external_temporal_step as real_temporal_step
 from test_v26_invisible_writer import make_db, PLAN
 from test_v96_causal_turns import (
     ACTION1, EFFECT1, ACTION2, EFFECT2,
@@ -199,7 +200,9 @@ class WholeGWriterRewindMockProvider(TestCase):
                     model="fixture-model",
                     api_base="http://127.0.0.1:1234/v1")
                 with patch("writerforge.writing_assist.local_chat_completion",
-                           side_effect=model_responses) as provider:
+                           side_effect=model_responses) as provider, patch(
+                           "writerforge.writing_assist.external_temporal_step",
+                           wraps=real_temporal_step) as temporal:
                     output=AutonomousWriting(assist).run(
                         outline="少年看见石桥异动，停下原定渡河计划；同伴调查旧账册，必须由实际事件决定行动。",
                         chapter_goals=[
@@ -209,6 +212,16 @@ class WholeGWriterRewindMockProvider(TestCase):
                         output_dir=base/"drafts",
                     )
                 self.assertEqual(provider.call_count,len(model_responses))
+                # V114 must re-reduce the revised SOURCE from its genuine
+                # pre-turn state, NOT continue from a discarded first event.
+                self.assertEqual([z.kwargs["prose"] for z in
+                                  temporal.call_args_list],
+                                 [original_first,revised_first,regenerated_next])
+                self.assertIsNone(temporal.call_args_list[1].kwargs["prior"])
+                revised_state=real_temporal_step(
+                    revised_first,cast=("少年","女子"),prior=None)
+                self.assertEqual(
+                    temporal.call_args_list[2].kwargs["prior"],revised_state)
                 self.assertEqual(output["wf_self_edit_previous_turn_rewinds"],1)
                 self.assertEqual(output["wf_self_edit_model_calls"],5)
                 candidate=Path(output["chapters"][0]["candidate"]).read_text("utf8")
