@@ -103,6 +103,79 @@ def _actor(prose, start, cast, *, limit=220):
     return max(choices)[1] if choices else None
 
 
+
+def source_only_character_place_mentions(prose,*,cast=()):
+    """V116 source-only timeline of EXPLICIT name + motion/place substrings.
+
+    Unlike V114's guarded item/arm reducers, this is merely a literal
+    read-only index for the SAME writing AI's later decision. Do not infer
+    missing movement, reconcile locations, label an error, make a story
+    fact, trigger an edit, or add another memory owner. Under-extraction
+    is acceptable; a speculative / quoted movement must not become truth.
+    """
+    if (type(prose) is not str or not 1<=len(prose)<=MAX_PROSE or
+        type(cast) is not tuple or not 1<=len(cast)<=MAX_CAST or
+        any(type(name) is not str or not 1<=len(name)<=20
+            for name in cast) or len(set(cast))!=len(cast)):
+        raise ValueError("WF116_PLACE_SOURCE_INPUT_INVALID")
+    results=[]
+    verbs=(
+        "坐进","坐在","蹲在","站在","留在","回到","走到",
+        "跑到","移到","进入","跨上","登上","上了",
+        "走进","走出",
+    )
+    for offset,end,fragment,spoken in _segments(prose):
+        if spoken or any(flag in fragment for flag in BAD_NARRATIVE):
+            continue
+        for actor in cast:
+            pattern=(
+                rf"(?P<actor>{re.escape(actor)})"
+                r"(?P<lead>[^。！？；，“”\n]{0,10}?)"
+                r"(?P<verb>"+ "|".join(map(re.escape,verbs)) +r")"
+                r"(?P<place>[\u3400-\u9fff]{1,6})(?=[，。！？；“”\n]|$)"
+            )
+            for match in re.finditer(pattern,fragment):
+                lead=match.group("lead")
+                # Negated/mixed-agent descriptions may be a guess, not an
+                # observed move. Fail closed rather than assert a position.
+                if (any(x in lead for x in ("不","没","未","若","想","梦")) or
+                    any(name!=actor and name in lead for name in cast)):
+                    continue
+                start=offset+match.start()
+                stop=offset+match.end()
+                snippet=prose[start:stop]
+                if snippet!=match.group(0):
+                    raise ValueError("WF116_PLACE_SOURCE_SPAN_MISMATCH")
+                results.append({
+                    "actor":actor,
+                    "start":start,"end":stop,
+                    "source_quote":snippet,
+                    "literal_verb":match.group("verb"),
+                    "literal_place_phrase":match.group("place"),
+                    "source_assertion_status":"LITERAL_MENTION_NOT_VERIFIED_FACT",
+                })
+    results.sort(key=lambda x:(x["start"],x["end"],x["actor"]))
+    if len(results)>30:
+        raise ValueError("WF116_PLACE_SOURCE_TOO_MANY_MENTIONS")
+    payload={
+        "format":"wf.writing.source-only-place-mentions.v116",
+        "source_sha256":_sha(prose),
+        "source_character_count":len(prose),
+        "entries":results,
+        "source_mentions_are_not_reducer_state":True,
+        "unmatched_locations_unknown":True,
+        "spatial_consistency_judged_by_model_not_host":True,
+        "literary_error_detected_by_software":False,
+        "automatically_request_revision":False,
+        "model_calls":0,"canon_writes":0,
+    }
+    payload["receipt_sha256"]=sha256(json.dumps(
+        payload,ensure_ascii=False,sort_keys=True,
+        separators=(",",":")).encode("utf8")).hexdigest()
+    return payload
+
+
+
 def _fruit_name(report, prior_state, prose):
     found={r["term"] for r in report["mentions"] if
            r["kind"]=="resource" and
