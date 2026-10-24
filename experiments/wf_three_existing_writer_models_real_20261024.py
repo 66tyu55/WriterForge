@@ -152,7 +152,14 @@ def discover_models(secret):
 
 
 class ActualModel:
-    def __init__(self,name,provider,secret,output):
+    def __init__(self,name,provider,secret,output,*,provider_token_caps=None):
+        # Existing WF stage requests stay 1450/600/1800. Only the
+        # Discovery transport quota changes for a separately logged
+        # thinking-aware follow-up, never the source or review prompts.
+        self.provider_token_caps=provider_token_caps or {}
+        self.max_output_budget=sum(
+            self.provider_token_caps.get(stage,tokens)
+            for tokens,stage in ((1450,"write"),(600,"decide"),(1800,"edit")))
         self.name=name
         self.provider=provider
         self.secret=secret
@@ -189,6 +196,13 @@ class ActualModel:
             "response_format":{"type":"json_object"},
             "temperature":1 if self.name=="kimi-k2.6" else 0.4,
         }
+        if self.provider_token_caps:
+            # Only after an actual output-length failure. These options
+            # are documented by already integrated provider model families.
+            if self.name=="glm-5.3":
+                data["reasoning_effort"]="low"
+            elif self.name=="kimi-k2.6":
+                data["thinking"]={"type":"disabled"}
         payload=json.dumps(data,ensure_ascii=False,separators=(",",":")).encode("utf8")
         if len(payload)>28_000:
             raise RuntimeError("WF_REAL_COMPARE_PROMPT_TOO_LARGE")
@@ -227,15 +241,20 @@ class ActualModel:
             raise RuntimeError("DISCOVERY_CHAT_JSON_INVALID") from None
 
     def ask(self,packet,*,model,api_base,max_tokens):
+        stage={1450:"write",600:"decide",1800:"edit"}.get(max_tokens)
+        requested=(self.provider_token_caps.get(stage,max_tokens)
+                   if stage is not None else 0)
         if (self.calls>=PER_MODEL_MAX_CALLS or
-            max_tokens not in SYSTEM_BY_TOKENS or
-            self.reserved+max_tokens>PER_MODEL_MAX_REQUESTED_TOKENS):
+            stage is None or type(requested) is not int or
+            not 50<=requested<=5000 or
+            self.reserved+requested>self.max_output_budget):
             raise RuntimeError("WF_REAL_COMPARE_CALL_BUDGET_EXCEEDED")
         self.calls+=1
-        self.reserved+=max_tokens
-        self.stage={1450:"write",600:"decide",1800:"edit"}[max_tokens]
+        self.reserved+=requested
+        self.stage=stage
         self.events.append({
-            "stage":self.stage,"requested_tokens":max_tokens,
+            "stage":self.stage,"requested_tokens":requested,
+            "WF_original_stage_cap":max_tokens,
             "prompt_sha256":h(packet.prompt),
             "status":"REQUESTED","wire_preserved":False,
         })
@@ -243,12 +262,12 @@ class ActualModel:
             result=self.client.ask_json(
                 role="self_scene_writing",
                 system=SYSTEM_BY_TOKENS[max_tokens],
-                user=packet.prompt,max_tokens=max_tokens)
+                user=packet.prompt,max_tokens=requested)
             content=json.dumps(result,ensure_ascii=False,separators=(",",":"))
             self.usage["prompt_tokens"]=self.budget.prompt_tokens_reported
             self.usage["completion_tokens"]=self.budget.completion_tokens_reported
         else:
-            content=self._discovery_ask(packet.prompt,max_tokens)
+            content=self._discovery_ask(packet.prompt,requested)
         (self.output/f"{self.calls:02d}-{self.stage}-model-answer.json"
         ).write_text(content,encoding="utf8")
         self.events[-1]["status"]="ORIGINAL_RECEIVED"
@@ -268,14 +287,17 @@ def summarize(model):
     }
 
 
-def test_one_model(name,provider,key):
+def test_one_model(name,provider,key,*,provider_token_caps=None):
     out=OUTPUT/name
     out.mkdir(parents=True,exist_ok=False)
-    model=ActualModel(name,provider,key,out)
+    model=(ActualModel(name,provider,key,out,
+                       provider_token_caps=provider_token_caps)
+           if provider_token_caps else ActualModel(name,provider,key,out))
     status={
         "model":name,"provider":provider,
         "original_new_scenario_sha256":h(SEED),
         "is_authentic_provider_attempt":True,
+        "provider_token_caps":provider_token_caps or {},
         "no_literary_quality_score":True,
         "original_is_synthetic_not_user_manuscript":True,
         "status":"STARTED",
