@@ -22,6 +22,8 @@ on:
       - tests/test_wf_three_real_writer_models_bounded.py
       - tests/test_wf_source_only_original_reread.py
       - experiments/wf_real_deepseek_blind_source_replay_20261024.py
+      - experiments/wf_real_deepseek_v116_place_reread_20261024.py
+      - writerforge/v116_state_delta.py
       - writerforge/v96_causal_turns.py
       - writerforge/deepseek_flash_model.py
       - tests/test_wf_scene_format_recovery.py
