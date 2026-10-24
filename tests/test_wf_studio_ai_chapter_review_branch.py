@@ -202,6 +202,71 @@ class StudioSameWriterChapterFork(TestCase):
         self.assertFalse((self.studio.output_dir/"autonomous"/started["job_id"]/
                           "revised").exists())
 
+    def test_failed_model_redraft_keeps_original_branch_and_no_fake_success(self):
+        self.create_parent()
+        bad=two_chapters(2)+[decision(2,"LOOK_BACK_NOW")]
+        bad+=[PLAN,TURNS,"invalid model response does not contain prose"]
+        with patch("writerforge.writing_assist.local_chat_completion",
+                   side_effect=bad) as host:
+            started=self.studio.start_auto(
+                OUTLINE,GOALS,draft_mode="continuity_guard",
+                continue_unreviewed=True,self_edit_rounds=1,
+                self_edit_timing="ai_decides",
+                ai_chapter_review=True,pause_between_turns=False)
+            done=wait_status(self.studio,{"completed","failed"},timeout=20)
+        self.assertEqual(done["status"],"completed",done.get("error"))
+        self.assertEqual(host.call_count,len(bad))
+        self.assertEqual(done["candidate_branches"]["available"],["original"])
+        self.assertEqual(done["result"]["wf_chapter_ai_review_decision"],
+                         "LOOK_BACK_REBUILD_FAILED_ORIGINAL_RETAINED")
+        self.assertTrue(done["result"].get("wf_chapter_ai_rebuild_failure"))
+        self.assertEqual(done["result"]["chapter_count"],2)
+        self.assertIn("细雨不停",Path(
+            done["result"]["chapters"][0]["candidate"]).read_text("utf8"))
+        job=self.studio.output_dir/"autonomous"/started["job_id"]
+        self.assertTrue((job/"ai-chapter-rebuild-rejected.json").exists())
+        self.assertTrue(done["unreviewed_resume_available"])
+        self.assertFalse((job/"revised"/"cross-chapter-fork-rebuilt.json").exists())
+
+    def test_local_http_branch_selection_checks_session_and_auth_token(self):
+        from threading import Thread
+        from urllib.request import Request,urlopen
+        from urllib.error import HTTPError
+        from writerforge.studio_server import StudioHTTPServer
+        started,completed,_=self.full_writer("LOOK_BACK_NOW")
+        server=StudioHTTPServer("127.0.0.1",0,self.studio)
+        thread=Thread(target=server.serve_forever,daemon=True)
+        thread.start()
+        try:
+            root="http://127.0.0.1:"+str(server.server_address[1])
+            def post(choice,jobid,token):
+                payload=json.dumps({"job_id":jobid,"branch":choice}).encode("utf8")
+                header={"Content-Type":"application/json"}
+                if token:
+                    header["X-WriterForge-Token"]=self.studio._token
+                url=Request(root+"/api/autodraft/branch/select",data=payload,
+                            headers=header,method="POST")
+                with urlopen(url,timeout=4) as response:
+                    return json.loads(response.read().decode("utf8"))
+            with self.assertRaises(HTTPError) as unauth:
+                post("original",started["job_id"],False)
+            self.assertEqual(unauth.exception.code,403)
+            with self.assertRaises(HTTPError) as wrong_job:
+                post("original","0"*16,True)
+            self.assertEqual(wrong_job.exception.code,400)
+            switched=post("original",started["job_id"],True)
+            self.assertEqual(switched["selected_branch"],"original")
+            req=Request(root+"/api/job",headers={
+                "X-WriterForge-Token":self.studio._token},method="GET")
+            with urlopen(req,timeout=4) as view:
+                state=json.loads(view.read().decode("utf8"))
+            self.assertEqual(state["candidate_branches"]["selected"],"original")
+            self.assertEqual(state["result"]["chapter_count"],2)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(3)
+
     def test_wrong_scope_and_no_signed_parent_rejected_before_model(self):
         for extra in (
             {"ai_chapter_review":True},
