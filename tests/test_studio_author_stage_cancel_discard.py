@@ -226,7 +226,8 @@ class StudioAuthorControlledTurns(unittest.TestCase):
             rt.enter_write(row["id"])
             help=InvisibleWritingAssist(
                 db,rt,"test-cancel","test-scene",
-                "人物自己思考去留的问题",model="local-fixture")
+                "人物自己思考去留的问题",model="local-fixture",
+                api_base="http://127.0.0.1:1234/v1")
             with patch("writerforge.writing_assist.local_chat_completion") as fake:
                 with self.assertRaises(WriterDraftCancelled):
                     AutonomousWriting(help).run(
