@@ -1,0 +1,7 @@
+SECOND EXPLICIT, BOUNDED DISCOVERY COMPLETION PROBE FOR USER'S "TRY A FEW EXISTING MODELS" REQUEST.
+Prior genuine run #40094106486: GLM-5.3 and Kimi K2.6 each had finish_reason=length at max_tokens=1450, and their original provider wires were retained.
+Use the SAME source prompt; GLM-5.3 reasoning_effort=low with bounded larger output; Kimi K2.6 thinking.type=disabled.
+Each max 3 provider calls; absolutely no network retries, no DeepSeek re-run, no model substitution.
+The second dataset is separate, never replaces the first failed samples.
+No R2 secrets, no training, no official Canon, no main, no Railway.
+One push with this sentinel triggers this one run. Never edit this file again.
