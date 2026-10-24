@@ -208,6 +208,7 @@ class WholeGWriterRewindMockProvider(TestCase):
                         chapter_goals=[
                             "少年与女子在雨夜桥边调查，发现旧账册并作出新的渡河决定"],
                         draft_mode="continuity_guard",
+                        bootstrap_unified_core=True,
                         self_edit_rounds=1,self_edit_timing="ai_decides",
                         output_dir=base/"drafts",
                     )
@@ -224,6 +225,11 @@ class WholeGWriterRewindMockProvider(TestCase):
                     temporal.call_args_list[2].kwargs["prior"],revised_state)
                 self.assertEqual(output["wf_self_edit_previous_turn_rewinds"],1)
                 self.assertEqual(output["wf_self_edit_model_calls"],5)
+                # Existing unified graph remains the sole memory owner.
+                self.assertEqual(len(output["chapters"][0][
+                    "unified_narrative_core_sha256"]),64)
+                self.assertEqual(output["chapters"][0][
+                    "unified_narrative_core_chapter"],1)
                 candidate=Path(output["chapters"][0]["candidate"]).read_text("utf8")
                 self.assertIn(replacement,candidate)
                 self.assertIn("山风渐停",candidate)
