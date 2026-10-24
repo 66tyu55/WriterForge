@@ -972,7 +972,7 @@ def _reader_report_for_author(report,source_sha):
         "observed":report["observed"],
         "reader_inferred_links":report["inferred_links"],
         "reader_cross_source_links":report.get("cross_source_links",[]),
-        "verified_earlier_source_sha256":report.get("earlier_source_sha256"),
+        "literal_earlier_source_sha256":report.get("earlier_source_sha256"),
         "reader_uncertainty":report["reader_uncertainty"],
         "all_reader_inferences_unverified":True,
         "author_can_choose_to_leave_story_as_is":True,
