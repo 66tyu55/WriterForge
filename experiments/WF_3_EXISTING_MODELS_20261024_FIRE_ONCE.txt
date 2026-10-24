@@ -1,0 +1,6 @@
+USER AUTHORIZED SINGLE REAL WRITING MODEL COMPARISON, 2026-10-24.
+Development branch only: refactor-unified-scene-delivery-audit.
+Compare existing deepseek-flash official, glm-5.3 discovery, kimi-k2.6 discovery.
+One identical NEW original scene. Per model max 3 requests: WRITE, self-chosen MOVE_ON/LOOK_BACK_NOW, optional self-generated V119 edit.
+No R2 secrets, no book downloads, no model training, no Railway deployment, no main update, no Canon writes, no retry.
+Do not edit this sentinel again. The workflow's push path matches only this file.
