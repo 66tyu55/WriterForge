@@ -1,0 +1,9 @@
+USER AUTHORIZATION: "可以--开始" on 2026-10-24, specifically to test DeepSeek's ORIGINAL honest position-inconsistency miss from genuine Actions run #40094106486.
+Developer branch only: refactor-unified-scene-delivery-audit.
+Download immutable original run artifact #12559689583 via GitHub read-only token.
+BEFORE any new provider calls verify provider source SHA 46334d4e783a32c1def8affeb6eea2b9a4bb6e429e846ef910fb4b44601cd6f7; original two provider wire SHA receipts and original MOVE_ON response.
+No new fictional author prose by WF. DeepSeek alone chooses blind MOVE_ON/LOOK_BACK_NOW.
+If no LOOK_BACK_NOW, supply only lossless literal source quote index, without identifying literary error, and ask same model independently again.
+Only model-selected LOOK_BACK_NOW permits one exact V119 edit call. Max 3 new calls, no retry of uncertain requests.
+Never modify main, Railway, R2 originals, author Canon, or installed literary memory.
+Create this sentinel once; no recurring/push-triggered paid model execution on later code changes.
