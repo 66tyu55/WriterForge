@@ -678,6 +678,65 @@ def _restore_unaccepted_turn_capture(*,capture,tracked,snapshots):
     return capture["boundary"]
 
 
+
+def _source_only_writer_replay_index(prose:str,*,cast:tuple[str,...]) -> dict:
+    """Enumerate literal scene units, NEVER diagnose their literary meaning.
+
+    Reuses the actual model-written prose as the only source of evidence.
+    Offsets, quoted bytes and literal character mentions are mechanical.
+    It intentionally does NOT infer locations, injuries, motivations, errors,
+    scene outcomes or needed edits. One temporary read-only prompt aid;
+    never a parallel story memory, Canon, or a grade/revision trigger.
+    """
+    if (type(prose) is not str or not 1<=len(prose)<=16000 or
+        type(cast) is not tuple or not 1<=len(cast)<=10 or
+        any(type(name) is not str or not 1<=len(name)<=70
+            for name in cast) or len(set(cast))!=len(cast)):
+        raise WritingExecutionError("WF_WRITER_SOURCE_INDEX_INPUT_INVALID")
+    chunks=[]
+    start=0
+    for i,ch in enumerate(prose):
+        if i<start or ch not in "。！？\n":
+            continue
+        end=i+1
+        if ch!="\n" and end<len(prose) and prose[end] in "”’":
+            end+=1
+        chunk=prose[start:end]
+        if chunk.strip():
+            chunks.append({
+                "start":start,"end":end,"source_quote":chunk,
+                "explicit_names":[name for name in cast if name in chunk],
+            })
+        start=end
+    if start<len(prose) and prose[start:].strip():
+        chunks.append({
+            "start":start,"end":len(prose),"source_quote":prose[start:],
+            "explicit_names":[name for name in cast if name in prose[start:]],
+        })
+    raw=json.dumps(chunks,ensure_ascii=False,sort_keys=True,
+                   separators=(",",":"))
+    if len(chunks)>120 or len(raw)>21000:
+        raise WritingExecutionError("WF_WRITER_SOURCE_INDEX_TOO_LARGE")
+    # No semantic cells or auto-corrections: this aid is wholly derived
+    # from the unchanged original source.
+    index={
+        "format":"wf.writer.literal-source-replay-index.v1",
+        "source_sha256":sha256(prose.encode("utf8")).hexdigest(),
+        "units":chunks,
+        "any_source_beyond_original":False,
+        "character_mentions_literal_only":True,
+        "literary_error_found_by_host":False,
+        "literary_quality_verified":False,
+        "auto_revision_requested":False,
+        "canon_writes":0,
+    }
+    index["receipt_sha256"]=sha256(json.dumps(
+        index,ensure_ascii=False,sort_keys=True,
+        separators=(",",":")).encode("utf8")).hexdigest()
+    return index
+
+
+
 def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
                                 ask_model,directory,cancel_check=None):
     """Ask the ACTUAL author model whether THIS visible draft needs revision.
