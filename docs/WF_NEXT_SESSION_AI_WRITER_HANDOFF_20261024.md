@@ -1,6 +1,17 @@
 # WF 跨窗口精简交接｜2026-10-24｜AI 自己决定何时及为何删稿
 
-**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.N**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.O**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+
+## 本轮最新 0.O：真实 DeepSeek 原稿复读三次，事实索引有用但 AI 仍为错误辩护（2026-10-24）
+
+**先看新专项原始证据报告**：[WF_REAL_DEEPSEEK_451_BLIND_SOURCE_V116_20261024.md](WF_REAL_DEEPSEEK_451_BLIND_SOURCE_V116_20261024.md)。[盲读＋全句源索引实测 #40104976936](https://github.com/66tyu55/WriterForge/actions/runs/40104976936)，[V116 角色位置短句实测 #40105777757](https://github.com/66tyu55/WriterForge/actions/runs/40105777757)。本轮合计**新增 3 次真实官方 DeepSeek Flash 调用**（2+1），完整源原文 SHA、旧两次原始 wire 与旧 `MOVE_ON` 在付费前通过 GitHub 原件复核，原稿与坏例均按原样保留；不重复写 451 字原文、不重训、不触动 main/Railway/R2/Canon。
+
+- **真正的文学结果是红灯**：第一次独立复读自己真实写下的 451 字，DeepSeek `MOVE_ON`；第二次提供**全文全部句子的中性来源偏移**，仍 `MOVE_ON`；第三次仅给现有 V116 从真实原文摘出并按先后排序的四条“姓名＋动作＋地点词”：`程九蹲在船头` → `程九已经坐进船里` → `顾翎跨上船` → `程九仍蹲在桩边`，仍 `MOVE_ON`。不存在一次 `LOOK_BACK_NOW`，所以 **0 次 V119 改稿、0 字新修改正文**，不能冒称文学修复成功。
+- **第三次作者 AI 自我辩护值得研究**：真实回复明说“……读者能自然补出他回身留岸的动作；不点明反而贴合他在雾中沉默的选择”。但真正原文没有明确写程九从船里下船回到桩边。审美省略可以合理，然而“原文动线已经交代清楚”不等于事实完整。尤其是 AI **看到了**位置变化，仍把缺失动作转述成可凭想象补齐。
+- **只新增读证据的能力，不新建记忆**：原 `writing_assist.py` 加读原文的 lossless 逐句索引；原 `v116_state_delta.py` 增 `source_only_character_place_mentions`，抽取显式角色与地点动作**真实短句和字节位置**，保守拒绝梦境/引述/传闻/否定，不判断对错、不自动写小说，也不把它作为 V114 reducer confirmed state。这些能力只有 opt-in 实验调用，**未默认塞进 G 或 Studio 写作提示**，因为真实试验尚未证明能改善自审。
+- **新真实原件**：[三条件原句与完整解释](WF_REAL_DEEPSEEK_451_BLIND_SOURCE_V116_20261024.md)；第一阶段源回复 [Actions 附件 #12564063524](https://github.com/66tyu55/WriterForge/actions/runs/40104976936/artifacts/12564063524)，第二阶段位置复盘 [Actions 附件 #12564064911](https://github.com/66tyu55/WriterForge/actions/runs/40105777757/artifacts/12564064911)，原始创作回复 [旧附件 #12559689583](https://github.com/66tyu55/WriterForge/actions/runs/40094106486/artifacts/12559689583)。新增 3 calls 报告 usage prompt 5,055 + completion 527 tokens，不能虚构现金价格。
+- **CI**：[最终无模型全量 #40105578908](https://github.com/66tyu55/WriterForge/actions/runs/40105578908) **1,539 tests run，4 skipped，0 failures**。包含来源字节和旧 provider wire 被篡改时拒绝推断、全句无损索引、V116 不把引述／假设当场景事实、新源码兼容老系统。
+- **下步文学方向**：停止同稿多遍付费劝删，转向**同一写作 AI 的独立读者视角先重建“已写原文”和“只能猜到的动作”差异，再交回原作家自行决定 KEEP/LOOK_BACK_NOW**。WF 只保留 source-first 证据和 V119/114/117 事务，不靠美学评分自动否决 MOVE_ON。真正下一次样本要有独立匿名阅读、来源有界的真实模型修订、修改前后效果对照；新付费试验需用户另行指示。
 
 ## 本轮最新 0.N：三个现有真实模型试验（2026-10-24，最新）
 
