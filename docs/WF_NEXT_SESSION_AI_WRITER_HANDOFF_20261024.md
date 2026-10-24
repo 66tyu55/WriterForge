@@ -1,6 +1,14 @@
 # WF 跨窗口精简交接｜2026-10-24｜AI 自己决定何时及为何删稿
 
-**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.I**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.J**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+
+## 本轮最新 0.J：自主回看上一段与有界下游撤销（2026-10-24）
+
+- **新入口/证据**：[上一段事务说明](WF_AI_WRITER_PREVIOUS_TURN_TRANSACTION_20261024.md)。开发分支 `writerforge/writing_assist.py` 新增有界 `_rewind_unaccepted_turn_suffix`，同一原创 AI 在 G 的 opt-in `ai_decides` 决定 `target_turn="previous"` 后，才会以旧 V119 源锁和旧 model 原完整 `prose+trace` 回复修订上一段。
+- 修订成功时，先私有保存被抛弃的下一段，再整体撤销 V96/场景/人物/计划/审修临时候选回执，恢复 V114 物件时态和上一事件段前的状态，让模型依据新原文重新生成下游；统一 graph 和上章签名、原先已确认 Canon **不会被自动改写**。单次 job 最多一次回上一段，8 次额外模型请求总上限不变，默认旧 V26/V98/A–F 关闭此功能。
+- **原始失败不抹除**：[首次加完整线的红灯 #40074029791](https://github.com/66tyu55/WriterForge/actions/runs/40074029791) 检出 V96 摘要无完整 trace，已改用每次任务的 `selected_turn_raws` 保存经过普通校验的真实完整模型答复；[复归绿色 #40074160492](https://github.com/66tyu55/WriterForge/actions/runs/40074160492) **1,501 执行、4 跳过、0 失败**；[进一步校验 V114 必须使用修改后的原文重归约 #40074298398](https://github.com/66tyu55/WriterForge/actions/runs/40074298398) 同样全绿。以上全为**人工构造回复的无付费模型工程测试**。
+- 原有真正 DeepSeek 证据不变：第一段 INVALID_SIGNAL、第二段经零模型回放后真正 MOVE_ON。**没有真正模型的 LOOK_BACK_NOW → 上一段改稿 → 重新下游成功原件**。也未支持跨前两段、跨章、逐字删写、通用状态依赖树撤销、部分后续校验失败时回到先前完整任务。不可称有文学质量进步证明。
+- **继续顺序**：检验更强的“删除得物/知情/伤势”后 V114/V117/统一叙事所有下游失效及冷重启，做好失败时整段复位，再审议是否授权有限的真实同模型探针；不重新训练、不改 main 或 Railway，不新设记忆/文学裁判。
 
 ## 不得偏离的创作目标和职责
 
@@ -30,4 +38,4 @@
 
 ## 下个对话可直接发
 
-「继续 WriterForge。读取开发分支 refactor-unified-scene-delivery-audit 的 docs/WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md 和 CURRENT_HANDOFF.md 最新 0.I。核心是 AI 自己决定什么时候不满意、为什么删，WF 绝不能替 AI 计算文学意义或生成，保持 V26/V98/V119/V117/统一图。先核验最新 1495 测试与真实 6 次调用、零模型回放，保留首段 INVALID_SIGNAL 和第二段 MOVE_ON 的负例，再针对真正自发 LOOK_BACK_NOW 与下游状态回退做最小验证；禁止重复训练、增加记忆、改 main 或部署 Railway。」
+「继续 WriterForge。读取开发分支 refactor-unified-scene-delivery-audit 的 docs/WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md 和 CURRENT_HANDOFF.md 最新 0.J。核心是 AI 自己决定什么时候不满意、为什么删，WF 绝不能替 AI 计算文学意义或生成，保持 V26/V98/V119/V117/统一图。先核验最新 1501 测试（含上一段回看与 V114 重归约）与历史真实 6 次调用、零模型回放，保留首段 INVALID_SIGNAL 和第二段 MOVE_ON 的负例，再针对真正自发 LOOK_BACK_NOW 与下游状态回退做最小验证；禁止重复训练、增加记忆、改 main 或部署 Railway。」
