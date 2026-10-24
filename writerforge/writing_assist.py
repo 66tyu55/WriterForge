@@ -2090,12 +2090,13 @@ class AutonomousWriting:
                             self_edit_model_calls+=revision_note["model_calls"]
                             self_edit_turn_receipts.append(revision_note)
                             if last_turn_response!=old_raw:
-                                (job/f"chapter-{index:03d}-turn-"
-                                     f"{turn_index+1:02d}-selfedit-final"
-                                     +("-replay.json" if writer_rewind_count
-                                       else ".json")
-                                ).write_text(last_turn_response,
-                                             encoding="utf8")
+                                (job/(
+                                    f"chapter-{index:03d}-turn-"
+                                    f"{turn_index+1:02d}-selfedit-final"
+                                    +("-replay.json" if writer_rewind_count
+                                      else ".json")
+                                )).write_text(last_turn_response,
+                                              encoding="utf8")
                         elif draft_mode=="continuity_guard" and replaying_revised_source:
                             self_edit_turn_receipts.append({
                                 "format":"wf.writer.self-edit.v1",
