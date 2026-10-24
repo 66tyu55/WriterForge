@@ -1,0 +1,7 @@
+USER OPT-IN "可以" ON 2026-10-24 for the next independent-reader/source-vs-inference then actual-author decision literary trial.
+Exactly one live run; development branch refactor-unified-scene-delivery-audit.
+Reuse original source from genuine DeepSeek Actions run 40094106486, artifact ID 12559689583; verify original prose SHA and both provider wire SHAs, original MOVE_ON, prior to a new paid request.
+Same official DeepSeek Flash instance and model identifier performs: (1) fresh independent reader of source-only fiction with no old editorial verdict, (2) original author decides MOVE_ON or LOOK_BACK_NOW after reading unverified reader hypotheses, (3) optional original author produces exact V119 source-locked replacement ONLY after model-selected valid LOOK_BACK_NOW.
+Per-run hard cap three new provider calls (1000+600+1800 requested completion tokens), no retries.
+No forced editing, no literary scoring module, no second narrative memory, no training, no main/Railway/R2/Canon writes.
+One exact sentinel; future code/docs updates cannot rerun live model by themselves.
