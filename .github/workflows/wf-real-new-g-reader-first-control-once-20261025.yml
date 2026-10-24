@@ -1,0 +1,68 @@
+name: WF One-Shot New Real G Chapter Same-Source Reader-First vs Direct Author 20261025
+on:
+  # One intentional user-authorized sentinel: ordinary code/docs pushes
+  # and future tests NEVER generate model charges.
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_NEW_G_READER_CONTROL_FIRE_ONCE_20261025.txt
+permissions:
+  contents: read
+concurrency:
+  group: wf-new-original-chapter-fair-reader-first-control-20261025
+  cancel-in-progress: false
+jobs:
+  genuine-WF-G-source-first:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing WF dependencies; no R2 secrets supplied
+        run: python -m pip install -e '.[r2]'
+      - name: Prove actual G 4-call original, same-source review arms and rollback WITHOUT inference
+        run: PYTHONPATH=tests python -m unittest tests.test_wf_real_new_scene_reader_first_control tests.test_wf_reader_first_original_author tests.test_wf_writer_self_revision_loop -q
+      - name: Use existing DeepSeek secret only after offline guard succeeds
+        run: python -c 'import os; assert len(os.getenv("DEEPSEEK_API_KEY",""))>=16, "WF_NEW_REAL_EXISTING_DEEPSEEK_KEY_MISSING"'
+      - name: Generate truly new story through actual G and compare direct-vs-reader-first author choices
+        run: python -m experiments.wf_real_new_scene_reader_first_control_20261025
+      - name: Preserve truthful real failures and enforce max nine provider requests
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          data=json.loads(Path('wf_real_new_scene_reader_first_control_20261025/STATUS.json').read_text('utf8'))
+          assert 0<=data['actual_provider_calls']<=9
+          assert data['max_real_model_requests']==9
+          assert data['max_output_tokens_reserved']==10800
+          assert data['network_retries']==0
+          assert data['canon_writes']==0 and data['R2_writes']==0
+          assert data['main_or_railway_deployed'] is False
+          assert data['literary_quality_verified'] is False
+          assert data['independent_human_blind_review_performed'] is False
+          print('HONEST TRUE WRITER RESULT:',data['status'])
+          print('AUTHENTIC CALLS:',data['actual_provider_calls'])
+          print('ORIGINAL G PASS:',data.get('actual_wf_G_original_generated'))
+          print('CONTROL:',data.get('control',{}).get('author_decision'))
+          print('READER-FIRST:',data.get('reader_first_treatment',{}).get('author_decision'))
+          print('ACTUALLY CHANGED:',data.get('control',{}).get('approved_as_provisional_source'),
+                data.get('reader_first_treatment',{}).get('approved_as_provisional_source'))
+          PY
+      - name: Retain every authentic provider wire, G original, both decisions and blind pairs, even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-New-Actual-G-Author-Control-vs-Reader-First-20261025
+          path: wf_real_new_scene_reader_first_control_20261025/
+          retention-days: 30
+          if-no-files-found: warn
