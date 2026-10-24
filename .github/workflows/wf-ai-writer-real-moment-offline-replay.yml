@@ -1,0 +1,44 @@
+name: WF Real AI Writer When-and-Why Source Replay - Zero Provider Calls
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-ai-writer-real-moment-offline-replay.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  same-real-model-decision-no-rewrite:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: No model API keys - must never generate another text
+        run: python -c 'import os; assert not any(os.getenv(k) for k in ("DEEPSEEK_API_KEY","OPENAI_API_KEY","DISCOVERY_API_KEY"))'
+      - run: python -m pip install -e '.[r2]'
+      - name: Confirm bounded AI literary decision input/source negative tests
+        run: PYTHONPATH=tests python -m unittest tests.test_wf_ai_writer_chooses_when_and_why -q
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40070821134
+          name: WF-Real-AI-Writer-Decides-When-Original-Prose-and-Rejections
+          github-token: ${{ github.token }}
+          path: wf_real_timing_original_artifact
+      - name: Read literal old model replies through today's source-only signal validator
+        run: python -m experiments.wf_saved_ai_writer_timing_zero_model_replay
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WF-Actual-Writer-Timing-Same-Original-Recheck-No-Model
+          path: wf_real_timing_offline_recheck/
+          retention-days: 30
+          if-no-files-found: warn
