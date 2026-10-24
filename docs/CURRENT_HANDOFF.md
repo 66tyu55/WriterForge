@@ -1,6 +1,20 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.K 删掉的事件不能继续活着：V114/V117/统一图失效与 AI 回看失败原子恢复（2026-10-24，本轮最新）
+
+**精简继续入口**：[WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md](WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md)。详细工程验证和真实红灯 [WF_AI_WRITER_DISCARDED_STATE_ATOMIC_RECOVERY_20261024.md](WF_AI_WRITER_DISCARDED_STATE_ATOMIC_RECOVERY_20261024.md)。本轮仍仅在 `refactor-unified-scene-delivery-audit`，不改生产 main / Railway / 用户小说与 R2 原库，不增独立记忆，也不复训原有15章。
+
+- **职责仍严格分开**：创作 AI 自己产生小说正文，决定自己何时不满意、具体为什么、保留还是 LOOK_BACK_NOW、删哪处、如何重写。WF 只核实未接受源稿 SHA 和唯一选区、调旧 V119、重演原 V114/V117/统一图状态，不给出文学审稿分数，不替 AI 生成正文或认为某个故事“该反转”。
+- **原始来源删除负例已经跑通**：新 `tests/test_wf_discarded_event_state_replay.py` 包含“火髓果合法持有人交付后被删”“右臂真实伤势被删”“无来源剑穗转移产生的 V117 债务被删”“不被作者正式确认的秘密披露删后维持 UNKNOWN、不进热记忆”“真实 G 源事务删物后按新文重写及 V117 signed resume”的纯离线实现。真实 MIT Novel Studio reducer、V122 核验、V117 signed resume、原 NarrativeCore 唯一 graph 均受检；这些是 source-only 有界工程证据，不证明对中文所有代词/隐喻/旁白都能做语义推断。
+- **原子恢复**：此前 V119 成功改前段后，若后续 V96、V114、V117 或模型生成出错，可能留下半段派生状态。现在用原 `writing_assist.py` 的有限旧候选冻结/还原，恢复旧前段＋旧下一段的真实供应商原答复和临时来源状态，再经过标准校验完成原未接受候选；绝不能给代码生成替代小说正文，不能借失败追加超限调用。原回答 `*-raw.json` 不被 `*-regenerated-01-raw.json` 覆盖。旧草稿/坏提案留私有记录；计数明确区分 `wf_self_edit_previous_turn_rewind_attempts` 与确认通过新下游的 `wf_self_edit_previous_turn_rewinds`，模型费用已经用掉就不能伪装归零。
+- **最终全量 [#40076159662](https://github.com/66tyu55/WriterForge/actions/runs/40076159662)**：**1,508 tests run / 4 skipped / 0 failures**；工作流明确不注入任何付费模型密钥，新测试全部是人工模拟模型回信。旧 DeepSeek `#40070821134` 首段 INVALID_SIGNAL、次段原生 MOVE_ON 的证据和 `#40071088617` 零模型回放仍保持原样；绝不能把新 mock LOOK_BACK_NOW 冒称真实成功。
+- **不能抹掉红灯**：[#40075407455](https://github.com/66tyu55/WriterForge/actions/runs/40075407455) 暴露同一原子事件的来源前提和短文本门槛，[#40075680350](https://github.com/66tyu55/WriterForge/actions/runs/40075680350) 漏 cast/仍短于 V96，[#40076014846](https://github.com/66tyu55/WriterForge/actions/runs/40076014846) 与 [#40076099235](https://github.com/66tyu55/WriterForge/actions/runs/40076099235) 重构的旧 V121 固定缩进源码断言触发——均未放松校验，而是修正原件和非语义布局，重新验证后绿色。
+- **当前能力边界**：只有 G 自愿 opt-in、同章紧邻上一事件段、最多一次跨段回头；逐段故障可恢复。仍**没有**任意多段/跨章已保存候选热暖冷索引撤销，整章完成/文件存储/R2 失败的完备跨系统原子恢复，或流式半句自主删写。不要因 1508 次工程绿灯误称文学判断已成熟。以后若对真实同模型原创试验做有限探针，需单独授权并保留完整原始成功/失败样本及匿名文学审阅。
+- **下阶段**：先按既有 V117/StoryWorkTree 的可追溯依赖图研究“跨章候选 A 被推翻后，下游章节 B/C 的私有签名、热暖冷引用是否失效”，禁止对既有作者确认 Canon 反向修改；源错则 fail-closed，不能自动修补小说文字。
+
+---
+
 ## 0.J AI 真正拥有回看上一段的决定权，WF 只负责源事务和下游撤销（2026-10-24，本轮最新）
 
 **下一窗口先读**：[WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md](WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md)，再读 [WF_AI_WRITER_PREVIOUS_TURN_TRANSACTION_20261024.md](WF_AI_WRITER_PREVIOUS_TURN_TRANSACTION_20261024.md)，必要时回看下面 0.I 的原始模型证据。继续范围严格为开发分支 `refactor-unified-scene-delivery-audit`，不改 `main`、不部署 Railway、不增加记忆模块或训练。
