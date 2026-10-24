@@ -607,13 +607,175 @@ SELF_EDIT_MAX_PROVIDER_CALLS_PER_RUN=8
 SELF_EDIT_MODEL_MAX_TOKENS=1800
 
 
+
+SELF_EDIT_MOMENT_TOKENS=600
+
+
+def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
+                                ask_model,directory,cancel_check=None):
+    """Ask the ACTUAL author model whether THIS visible draft needs revision.
+
+    The code schedules a chance to reflect after an observable story turn.
+    ONLY the model chooses MOVE_ON vs LOOK_BACK_NOW and WHY. No Python
+    keyword/taste scoring or auto-delete decisions. A model assertion of
+    dissatisfaction is a private, source-bounded hypothesis, never a
+    literary PASS or permission to change Canon.
+    """
+    if not callable(ask_model) or not isinstance(directory,Path):
+        raise WritingExecutionError("WF_AI_WRITER_MOMENT_INPUT_INVALID")
+    try:
+        doc=_decode_json(raw)
+        prose=doc["prose"].strip()
+        if (set(doc)!={"prose","trace"} or type(doc["prose"]) is not str
+            or not 80<=len(prose)<=_WF96_GUARDED_TURN_CHARS):
+            raise ValueError("UNSAFE_INITIAL_DRAFT")
+    except (WritingExecutionError,ValueError,KeyError,TypeError,
+            AttributeError):
+        return {"decision":"NO_SOURCE_FOR_REVIEW","model_calls":0,
+                "reason":None,"risk":None,"desired_effect":None,
+                "receipt":{"decision":"NO_SOURCE_FOR_REVIEW",
+                           "literary_quality_verified":False,
+                           "model_calls":0}}
+    original_sha=sha256(prose.encode("utf8")).hexdigest()
+    seen_effects=[(x.get("effect_quote") or "")[:110]
+                  for x in accepted[-2:]]
+    reminder=(
+        "\n【AI 作家自己决定此刻要不要回头写】"
+        "下面是你刚刚真正写出来的文字，而不是小说大纲。"
+        "你是本篇小说的作者，不是替人类点按钮的程序评分器。"
+        "只判断此刻应该继续创作，还是需要先回头修稿。"
+        "可以为了节奏、人物性格或真实留白选择不改。"
+        "若某个局部使后续人物动机、信息获取、时间、情绪、"
+        "读者认知或者独特叙述感觉不成立，可以选择 LOOK_BACK_NOW。"
+        "不能为了凑修改次数强迫反转或堆词。"
+        "若最重要的问题是缺少必要的铺垫或结果，"
+        "evidence_quote 可为 null，focus 必须为 scene；"
+        "其它情况 evidence_quote 必须是目前原文中唯一出现的逐字原句。"
+        "只用自己对本小说当前效果的简短文学判断，"
+        "不输出隐藏推理过程或数字评分。"
+        "\n返回严格 JSON 对象，字段必须且只能为："
+        "decision(MOVE_ON 或 LOOK_BACK_NOW)、"
+        "source_sha256、evidence_quote、focus、why_now、"
+        "what_goes_wrong_if_unchanged、intended_reader_effect。"
+        "MOVE_ON 时 evidence_quote/focus/what_goes_wrong_if_unchanged/"
+        "intended_reader_effect 一律为 null，但 why_now 应说明为何此刻保留。"
+        "LOOK_BACK_NOW 时 focus 只能是 sentence、paragraph 或 scene，"
+        "其余三个理由字段必须是 8-260 字的中文自然语言，"
+        "不允许给出编辑后的正文；真正改稿是随后独立一步。"
+        "\n【过去已写出而非计划的后果】"
+        +json.dumps(seen_effects,ensure_ascii=False)+
+        "\n【当前人物与事件意图（可以质疑）】"
+        +json.dumps(beat,ensure_ascii=False,separators=(",",":"))+
+        "\n【当前实际未接受的小说原文】"+prose+
+        "\n【原文字节身份】"+original_sha
+    )
+    content=turn_packet.prompt+reminder
+    if len(content)>MAX_PROMPT_CHARS:
+        return {"decision":"CONTEXT_TOO_FULL","model_calls":0,
+                "reason":None,"risk":None,"desired_effect":None,
+                "receipt":{"decision":"CONTEXT_TOO_FULL","model_calls":0,
+                           "literary_quality_verified":False,
+                           "writer_was_not_asked":True}}
+    pkt=replace(turn_packet,prompt=content,
+                prompt_sha256=sha256(content.encode("utf8")).hexdigest())
+    if cancel_check is not None:
+        cancel_check()
+    response=ask_model(pkt,model=None,api_base=None,
+                       max_tokens=SELF_EDIT_MOMENT_TOKENS)
+    directory.mkdir(parents=True,exist_ok=True)
+    (directory/"ai-when-and-why-original.json").write_text(
+        response,encoding="utf8")
+    if cancel_check is not None:
+        cancel_check()
+    receipt={
+        "format":"wf.writer.ai-owns-self-review-timing.v1",
+        "model_calls":1,"original_prose_sha256":original_sha,
+        "original_decision_sha256":sha256(
+            response.encode("utf8")).hexdigest(),
+        "only_ai_can_choose_revisit":True,
+        "code_has_not_scored_literary_quality":True,
+        "no_canon_writes":True,
+        "literary_quality_verified":False,
+    }
+    answer={"decision":"INVALID_SIGNAL","model_calls":1,
+            "reason":None,"risk":None,"desired_effect":None,
+            "receipt":receipt}
+    try:
+        if type(response) is not str or len(response.encode("utf8"))>14000:
+            raise ValueError("WF_AI_WRITER_SIGNAL_TOO_BIG")
+        def reject_duplicates(pairs):
+            doc={}
+            for k,v in pairs:
+                if k in doc:
+                    raise ValueError("WF_AI_WRITER_SIGNAL_DUPLICATE_FIELD")
+                doc[k]=v
+            return doc
+        fields=json.loads(response,object_pairs_hook=reject_duplicates)
+        if (type(fields) is not dict or set(fields)!={
+            "decision","source_sha256","evidence_quote","focus",
+            "why_now","what_goes_wrong_if_unchanged",
+            "intended_reader_effect"} or
+            fields["decision"] not in ("MOVE_ON","LOOK_BACK_NOW") or
+            fields["source_sha256"]!=original_sha or
+            type(fields["why_now"]) is not str or
+            not 8<=len(fields["why_now"])<=260):
+            raise ValueError("WF_AI_WRITER_SIGNAL_SCHEMA_OR_SOURCE")
+        if fields["decision"]=="MOVE_ON":
+            if any(fields[x] is not None for x in (
+                 "evidence_quote","focus",
+                 "what_goes_wrong_if_unchanged",
+                 "intended_reader_effect")):
+                raise ValueError("WF_AI_WRITER_MOVE_ON_HAS_EDIT_FIELDS")
+        else:
+            if fields["focus"] not in ("sentence","paragraph","scene"):
+                raise ValueError("WF_AI_WRITER_SIGNAL_FOCUS")
+            quote=fields["evidence_quote"]
+            if (quote is None and fields["focus"]!="scene"):
+                raise ValueError("WF_AI_WRITER_UNGROUNDED_LOCAL_QUOTE")
+            if quote is not None and (
+                type(quote) is not str or not 6<=len(quote)<=160 or
+                prose.count(quote)!=1):
+                raise ValueError("WF_AI_WRITER_QUOTE_NOT_UNIQUE_IN_PROSE")
+            for name in ("what_goes_wrong_if_unchanged",
+                         "intended_reader_effect"):
+                if (type(fields[name]) is not str or
+                    not 8<=len(fields[name])<=260):
+                    raise ValueError("WF_AI_WRITER_WHY_OR_EFFECT_MISSING")
+        receipt.update({
+            "decision":fields["decision"],
+            "focus":fields["focus"],
+            "has_exact_model_quote":fields["evidence_quote"] is not None,
+            "quoted_prose_sha256":(
+                sha256(fields["evidence_quote"].encode("utf8")).hexdigest()
+                if fields["evidence_quote"] is not None else None),
+            "why_now_sha256":sha256(
+                fields["why_now"].encode("utf8")).hexdigest(),
+        })
+        answer.update({
+            "decision":fields["decision"],
+            "reason":fields["why_now"],
+            "risk":fields["what_goes_wrong_if_unchanged"],
+            "desired_effect":fields["intended_reader_effect"],
+            "source_quote":fields["evidence_quote"],
+            "focus":fields["focus"],
+        })
+    except (ValueError,TypeError,KeyError) as error:
+        why=str(error)
+        receipt.update({
+            "decision":"INVALID_SIGNAL",
+            "failure_code":(why if why.startswith("WF_AI_WRITER_")
+                            else "WF_AI_WRITER_SIGNAL_PARSE_INVALID"),
+        })
+    return answer
+
+
 def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                         turn_packet,ask_model,round_limit,call_allowance,
                         directory,author_exclusions=(),
                         previous_candidate_state=None,cast=(),
                         current_external_story_checkpoint=None,
                         active_narrative_core=None,cancel_check=None,
-                        story_chapter_index=0):
+                        story_chapter_index=0,writer_attention=None):
     """Writer self-reads and discards sentences/paragraphs/scenes BEFORE canon.
 
     The model can CHOOSE to keep, delete or rewrite. All text changes are
@@ -669,6 +831,8 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
             "source_sha256":previous_sha,
             "prose":previous,
             "beat":beat,
+            "writer_previous_self_decided_focus":(
+                writer_attention if type(writer_attention) is dict else None),
             "last_observed_effects":[
                 (r.get("effect_quote") or "")[:120]
                 for r in accepted[-2:]],
