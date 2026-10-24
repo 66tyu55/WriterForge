@@ -3149,8 +3149,8 @@ class AutonomousWriting:
                 raise WritingExecutionError(
                     "WF_CHAPTER_FORK_NEW_GRAPH_NOT_REBUILT")
             fork_receipt={
-                "format":"wf.candidate.chapter-fork-rebuilt.v1",
                 **cross_chapter_plan,
+                "format":"wf.candidate.chapter-fork-rebuilt.v1",
                 "old_source_job_not_mutated":True,
                 "new_branch_head_resume_sha256":new_final["receipt_sha256"],
                 "new_branch_final_chapter_index":new_final["chapter_index"],
