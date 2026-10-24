@@ -398,6 +398,75 @@ class RealGOptinOffline(TestCase):
         self.assertIn("细雨不停",Path(
             result["chapters"][0]["candidate"]).read_text("utf8"))
 
+    def test_real_signed_prior_chapter_source_is_read_not_guessed_from_plan(self):
+        from writerforge.v114_external_story_state import external_temporal_step
+        from writerforge.v117_continuity_trace import make_resume
+        from writerforge.narrative_core import (
+            new_graph,advance_graph,record_chapter_memory)
+        prior=(
+            "沈砚在前一章的书铺门口把旧账本递到唐蜃面前，但唐蜃没有接。"
+            "唐蜃仍不知道那本账册为何留下红色墨迹，也没有见过掌柜本人。"
+            "沈砚把账本抱回怀中，往后退了两步；此时两人还没有交换任何密令。"
+        )
+        first=self.root/"real-earlier-source.md"
+        first.write_text(prior,encoding="utf8")
+        graph=new_graph(project_id=self.assist.project_id,
+                        scene_id=self.assist.scene_id)
+        graph=advance_graph(
+            graph,project_id=self.assist.project_id,
+            scene_id=self.assist.scene_id,
+            chapter_index=1,prose=prior,events=())
+        graph=record_chapter_memory(
+            graph,project_id=self.assist.project_id,
+            scene_id=self.assist.scene_id,chapter_index=1,
+            source_path=str(first),prose=prior)
+        checkpoint=external_temporal_step(
+            prior,cast=("沈砚","唐蜃"))
+        resume=make_resume(
+            project_id=self.assist.project_id,
+            scene_id=self.assist.scene_id,chapter_index=1,
+            checkpoint=checkpoint,unified_narrative_core=graph)
+        model_replies=[PLAN,json.dumps(PLAN_TURNS,ensure_ascii=False)]
+        for turn in (1,2):
+            text=visible_prose(2,turn)
+            model_replies +=[
+                prose_response(2,turn),
+                source_reader_reply(text,with_earlier=True),
+                moment("MOVE_ON",text),
+            ]
+        observed=[]
+        def model(pkt,*,model,api_base,max_tokens):
+            observed.append((max_tokens,pkt.prompt))
+            return model_replies[len(observed)-1]
+        with patch("writerforge.writing_assist.local_chat_completion",
+                   side_effect=model) as provider:
+            result=AutonomousWriting(self.assist).run(
+                outline=self.outline,chapter_goals=self.goals,
+                output_dir=self.root/"from-signed-original",
+                draft_mode="continuity_guard",
+                resume_story_checkpoint=resume,
+                self_edit_rounds=1,self_edit_timing="ai_decides",
+                reader_first_self_review=True)
+        self.assertEqual(provider.call_count,8)
+        self.assertEqual(result["wf_reader_model_calls"],2)
+        self.assertEqual(result["chapters"][0]["story_chapter_index"],2)
+        reader_prompts=[prompt for kind,prompt in observed if kind==1000]
+        self.assertEqual(len(reader_prompts),2)
+        self.assertIn(prior,reader_prompts[0])
+        self.assertIn(visible_prose(2,1),reader_prompts[1])
+        self.assertNotIn("先前已经修改失败",reader_prompts[0])
+        row=json.loads(Path(result["chapters"][0]["turn_evidence"]).read_text("utf8"))
+        self.assertEqual(row["wf_source_reader_receipts"][0][
+            "earlier_original_sha256"],sha(prior))
+        self.assertEqual(row["wf_source_reader_receipts"][1][
+            "earlier_original_sha256"],sha(visible_prose(2,1)))
+        self.assertEqual([x["cross_source_inference_count"] for x in
+                          row["wf_source_reader_receipts"]],[0,0])
+        self.assertTrue(all(
+            x["unverified_reader_input_delivered"] for x in
+            row["wf_ai_self_review_moment_receipts"]))
+        self.assertEqual(result["canonical_fact_writes"],0)
+
     def test_reader_optin_refuses_wrong_mode_before_any_model_or_file(self):
         with patch("writerforge.writing_assist.local_chat_completion") as m:
             with self.assertRaisesRegex(
