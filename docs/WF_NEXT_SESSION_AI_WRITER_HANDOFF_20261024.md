@@ -1,6 +1,18 @@
 # WF 跨窗口精简交接｜2026-10-24｜AI 自己决定何时及为何删稿
 
-**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.O**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.P**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+
+## 最新 0.P：同一 AI 先独立读者重建实际正文，再作家式决定，首次真实 LOOK_BACK_NOW（2026-10-24）
+
+**必须读的新证据**：[WF_READER_FIRST_SAME_AI_LITERARY_REAL_PILOT_20261024.md](WF_READER_FIRST_SAME_AI_LITERARY_REAL_PILOT_20261024.md)。[真正同一 DeepSeek 的 3 调用 #40108836214](https://github.com/66tyu55/WriterForge/actions/runs/40108836214) 和 [零新增模型原始 V119 回放 #40109306167](https://github.com/66tyu55/WriterForge/actions/runs/40109306167)；一切运行都在开发分支，现有 main / Railway / 作者 Canon / R2 原书不动、无新模型训练、无第二文学记忆模块。绝不能把单样本模型自评当作文学质量改善。
+
+- **0.O 三次真实 `MOVE_ON` 仍作为负例原封不动**：用上次官方 DeepSeek 真正写出的 451 字候选，单独读、全句来源索引、V116 位置短句都未推动模型自发回改。新 0.P 不是第四次告诉模型答案，而是架构转向：**同一个模型先只看原文作为独立读者复述，严格区分“原文明确发生”与“需要读者自行推测的过渡”；随后作为原作者自行决定如何处理**。
+- **真正写作 AI 的文学变化**：真实新读者阶段返回 8 个原文字面观察和 3 条有前后唯一原句锚点的推测，其中一条准确提到程九“从坐进船里到又在桩边”缺少明写动作；**同一 DeepSeek 原作者真正选择了 `LOOK_BACK_NOW`**，理由明确提及“位置和姿态转换没有落笔，读者只能自行补足”。它随后独立生成了补“跨回岸上”的 `REVISE` 新句。三阶段是真实供应商请求，旧 provider wire 与本次三个新 wire 皆留存；本轮新增 **3 次真实调用**，usage prompt 4,120 + completion 1,480 tokens、无自动重试。
+- **严格不能夸大落稿成果**：新 V119 原回复多了 `type=json_object` 包装且给出超出原长度的错误 `start/end`；首先因 `WF_SELF_EDIT_SCHEMA_INVALID` 被拒，旧 451 字文逐字不变。离线 **0 新模型回放**仅精确剔除官方已观察格式标记、用模型给出的原文唯一引句恢复数字坐标，确实得到了 V119 私有来源锁定预览，但 V96 仍报 **`WF96_UNDECLARED_PREVIOUS_CAUSE`**：模型把本段“我留着”的对白冒充此前事件的 `parent_effect_quote`，即使原 beat 没有父事件也不能默许。**因此真正通过 V96/V114 的改稿数仍是 0**。私有预览还可能在“你留着？”问句之前就让程九回岸，新增对话和道具位置歧义；未经独立文学盲评不得称优。
+- **代码只改本职工作范围**：`writing_assist.py` 新增 `_reader_separates_written_and_inferred`、`_reader_report_for_author`，仅校验原句唯一性和前后位置，把读者推测标为候选，不自动改稿。原 G `AutonomousWriting.run(reader_first_self_review=True)` 只有 `continuity_guard+self_edit_rounds>0+self_edit_timing=ai_decides` 可开启；`studio_server.py` 和原 `ui/studio.html` 新增**默认关闭**的同模型独立读者复述选项，读者模型请求计入**原每作业 8 次**自主审稿限额且优先保留原作者决定。历史 V26、V98、V114/V117、V119、唯一 NarrativeCore 与取消/回滚保护不变。
+- **格式兼容严格并可追责**：只支持旧供应商真实出现的冗余 `type=json_object` 字段、及从**完全相同 SHA 源全文唯一引句**恢复错误 Unicode 坐标，原模型回复字节保留，错误来源、非唯一引句和任何伪造因果依旧拒绝。下一次 V119 模型调用的提示现在明确：没有 `causal_parent` 就应由模型自身返回 `trace.parent_effect_quote=null`，WF **绝不悄悄修正旧原始错误**。
+- **无模型回归**：[本阶段 #40108338519](https://github.com/66tyu55/WriterForge/actions/runs/40108338519) 1,547 执行、4 skip、0 fail；[追加源坐标/模拟真实格式 #40109111936](https://github.com/66tyu55/WriterForge/actions/runs/40109111936) 1,551 项；[最新最终 #40109468598](https://github.com/66tyu55/WriterForge/actions/runs/40109468598) **1,552 tests executed、4 skipped、0 failed**。不要用这些软件绿灯替代真实文学盲评。
+- **下阶段约束**：不再对这篇真实 451 字旧稿不断付费劝改；首先冻结旧稿、真实读者记录、作者新决定、新模型亲写但未验收的 private preview、V96 失败。下一轮若获用户新指示，换全新的不同情境做**真正完整通过 V119/V96 后的匿名盲评、跨章行为一致性对照**，而不是追求 LOOK_BACK_NOW 次数。不给 WF 新增文学审稿模型、第二记忆主人或固定剧情评分；作者始终能选择原样保留。
 
 ## 本轮最新 0.O：真实 DeepSeek 原稿复读三次，事实索引有用但 AI 仍为错误辩护（2026-10-24）
 
