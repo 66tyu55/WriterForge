@@ -234,6 +234,23 @@ class StudioSameWriterChapterFork(TestCase):
         self.assertTrue(reread.job()["unreviewed_resume_available"])
         self.assertEqual(reread.branch_summary()["selected"],"original")
 
+    def test_manuscript_bytes_changed_after_save_cannot_restore_signed_branch(self):
+        self.create_parent()
+        info=self.studio.job()["result"]
+        file=Path(info["chapters"][0]["candidate"])
+        original=file.read_bytes()
+        file.write_bytes(original+b"\nthis was not the signed source")
+        try:
+            after=StudioService(**self.params)
+            self.assertFalse(after.job()["unreviewed_resume_available"])
+            self.assertIn("MANUSCRIPT_CHANGED",
+                          after.branch_summary()["restore_warning"])
+            self.assertEqual(after.job()["status"],"idle")
+        finally:
+            file.write_bytes(original)
+        fixed=StudioService(**self.params)
+        self.assertTrue(fixed.job()["unreviewed_resume_available"])
+
     def test_browser_exposes_real_choice_controls_without_default_activation(self):
         html=(Path(__file__).resolve().parents[1]/"writerforge"/"ui"/
               "studio.html").read_text("utf8")
