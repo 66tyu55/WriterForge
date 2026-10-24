@@ -11,16 +11,18 @@ from hashlib import sha256
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib import resources
 from pathlib import Path
-from threading import Lock, Semaphore, Thread
+from threading import Event, Lock, Semaphore, Thread
 import json
 import os
+import re
+import shutil
 import secrets
 import time
 from urllib.parse import urlsplit
 
 from .db import WriterForgeDB
 from .runtime import RuntimeEngine
-from .writing_assist import InvisibleWritingAssist, AutonomousWriting
+from .writing_assist import InvisibleWritingAssist, AutonomousWriting, WriterDraftCancelled
 from .verified_flow import WritingExecutionError
 
 MAX_REQUEST_BYTES = 30_000
@@ -112,6 +114,25 @@ class StudioStore:
                     "learning_rule_automatically_promoted":False}
 
 
+def _delete_only_job_folder(root:Path,base:Path,job_id:str):
+    """Erase only THIS job's unaccepted outputs, never author autosave.
+
+    No absolute arbitrary path arrives from an HTTP request. Check the
+    exact parent and session name BEFORE recursive removal; do not follow
+    symlinks or delete previous jobs, shared snapshots, manuscript drafts,
+    Canon, or any R2 file.
+    """
+    if not isinstance(job_id,str) or not re.fullmatch(r"[a-f0-9]{16}",job_id):
+        raise StudioError("invalid author draft job id")
+    parent=base.resolve()
+    if (root.is_symlink() or root.name!=job_id or
+        root.resolve().parent!=parent or
+        base.is_symlink()):
+        raise StudioError("refused unsafe draft directory deletion")
+    if root.exists():
+        shutil.rmtree(root)
+
+
 class StudioService:
     def __init__(self,*,db_path:str|Path,project:str,scene:str,goal:str,
                  model:str,api_base:str="http://127.0.0.1:1234/v1",
@@ -128,6 +149,9 @@ class StudioService:
         self._model_busy=Semaphore(1)
         self._job_lock=Lock()
         self._job=None
+        self._job_folder=None
+        self._cancel_event=None
+        self._continue_event=None
         self._token=secrets.token_urlsafe(30)
         # Verify a REAL published snapshot on startup (not a fake mode flag).
         with self._writer() as assistant:
@@ -178,16 +202,23 @@ class StudioService:
                 self._job["stage"]=stage
 
     def start_auto(self,outline:str,chapters:list[str], *,
-                   draft_mode:str="single") -> dict:
-        # Validate BEFORE queueing. Default single keeps existing browser
-        # behavior; experimental B/C/D require an EXPLICIT author selection.
-        if draft_mode not in ("single","split_only","causal_guard","rolling_causal","emotion_rolling","foresight_rolling"):
+                   draft_mode:str="single",
+                   pause_between_turns:bool|None=None) -> dict:
+        # Author chooses A (single) or segmented B-F. For segmented Studio
+        # work, default to SHOW EACH TURN and wait for explicit continuation.
+        if draft_mode not in ("single","split_only","causal_guard",
+                              "rolling_causal","emotion_rolling",
+                              "foresight_rolling"):
             raise StudioError("WF96_UNKNOWN_EXPERIMENTAL_DRAFT_MODE")
+        if pause_between_turns is not None and type(pause_between_turns) is not bool:
+            raise StudioError("invalid staged-review option")
+        pause=(draft_mode!="single" if pause_between_turns is None
+               else pause_between_turns)
+        if draft_mode=="single" and pause:
+            raise StudioError("single-shot writing cannot pause between turns")
         if draft_mode!="single" and (
             not isinstance(chapters,list) or len(chapters)>2):
-            raise StudioError(
-                "WF96_SCENE_MODE_MAX_TWO_CHAPTERS_FOR_MODEL_BUDGET")
-        # Validate BEFORE queueing. No unlimited jobs or unbounded prompts.
+            raise StudioError("WF96_SCENE_MODE_MAX_TWO_CHAPTERS_FOR_MODEL_BUDGET")
         if (not isinstance(outline,str) or not 15<=len(outline.strip())<=6000
             or not isinstance(chapters,list) or not 1<=len(chapters)<=6
             or any(not isinstance(c,str) or not 8<=len(c.strip())<=450
@@ -195,37 +226,176 @@ class StudioService:
             raise StudioError("please supply an outline and 1..6 chapter goals")
         if not self._model_busy.acquire(blocking=False):
             raise StudioError("the local model is already processing a request")
-        with self._job_lock:
-            if self._job and self._job["status"] in ("queued","running"):
-                self._model_busy.release()
-                raise StudioError("an autonomous writing run is already active")
-            jobid=secrets.token_hex(8)
-            self._job={"id":jobid,"status":"queued","chapter":0,
-                       "total":len(chapters),"stage":"queued","result":None,
-                       "error":None,"draft_mode":draft_mode}
+
+        jobid=secrets.token_hex(8)
+        jobbase=self.output_dir/"autonomous"
+        jobroot=jobbase/jobid
+        cancel_event=Event()
+        continue_event=Event()
+        try:
+            with self._job_lock:
+                if self._job and self._job["status"] in (
+                    "queued","running","awaiting_review","cancelling"):
+                    raise StudioError("an autonomous writing run is already active")
+                jobroot.mkdir(parents=True,exist_ok=False)
+                self._job_folder=jobroot
+                self._cancel_event=cancel_event
+                self._continue_event=continue_event
+                self._job={
+                    "id":jobid,"status":"queued","chapter":0,
+                    "total":len(chapters),"stage":"queued",
+                    "result":None,"error":None,"draft_mode":draft_mode,
+                    "pause_between_turns":pause,
+                    "pending_turn":None,
+                    "cancel_requested":False,
+                    "discarded":False,
+                }
+        except Exception:
+            self._model_busy.release()
+            raise
+
+        def turn_review(chapter,turn,prose):
+            with self._job_lock:
+                if cancel_event.is_set():
+                    return False
+                continue_event.clear()
+                self._job.update(
+                    status="awaiting_review",stage="awaiting_review",
+                    chapter=chapter,
+                    pending_turn={
+                        "chapter":chapter,"turn":turn,
+                        "text":prose,"length":len(prose),
+                        "provisional_not_accepted":True,
+                    })
+            # This is a human pause, not auto acceptance. No more provider
+            # requests are made until the author clicks CONTINUE.
+            while not cancel_event.is_set():
+                if continue_event.wait(0.2):
+                    with self._job_lock:
+                        if cancel_event.is_set():
+                            return False
+                        continue_event.clear()
+                        self._job.update(
+                            status="running",stage="drafting",
+                            pending_turn=None)
+                    return True
+            return False
+
         def worker():
             try:
                 with self._job_lock:
+                    if cancel_event.is_set():
+                        raise WriterDraftCancelled("WF_STUDIO_DRAFT_CANCELLED")
                     self._job["status"]="running"
                 with self._writer() as assistant:
                     result=AutonomousWriting(assistant).run(
                         outline=outline,chapter_goals=chapters,
-                        output_dir=self.output_dir/"autonomous",
+                        output_dir=jobroot,
                         progress=self._progress,
                         draft_mode=draft_mode,
+                        cancel_requested=cancel_event.is_set,
+                        review_turn=(turn_review if pause else None),
                     )
+                if cancel_event.is_set():
+                    raise WriterDraftCancelled("WF_STUDIO_DRAFT_CANCELLED")
                 with self._job_lock:
-                    self._job["status"]="completed"
-                    self._job["result"]=result
+                    self._job.update(status="completed",result=result,
+                                     pending_turn=None,stage="saved")
+            except WriterDraftCancelled:
+                try:
+                    _delete_only_job_folder(jobroot,jobbase,jobid)
+                except (OSError,StudioError):
+                    with self._job_lock:
+                        self._job.update(
+                            status="cancel_cleanup_failed",
+                            error="本次生成已停止，但私有候选目录清理失败，请手动检查",
+                            pending_turn=None)
+                else:
+                    with self._job_lock:
+                        self._job.update(
+                            status="cancelled",result=None,
+                            error=None,discarded=True,
+                            stage="cancelled",pending_turn=None)
             except Exception as exc:
-                with self._job_lock:
-                    self._job["status"]="failed"
-                    self._job["error"]=str(exc)[:500]
+                if cancel_event.is_set():
+                    try:
+                        _delete_only_job_folder(jobroot,jobbase,jobid)
+                    except (OSError,StudioError):
+                        with self._job_lock:
+                            self._job.update(
+                                status="cancel_cleanup_failed",
+                                error="停止后清理失败，原手稿未变更",
+                                pending_turn=None)
+                    else:
+                        with self._job_lock:
+                            self._job.update(
+                                status="cancelled",result=None,
+                                error=None,discarded=True,
+                                stage="cancelled",pending_turn=None)
+                else:
+                    with self._job_lock:
+                        self._job.update(
+                            status="failed",error=str(exc)[:500],
+                            pending_turn=None)
             finally:
                 self._model_busy.release()
         Thread(target=worker,daemon=True).start()
         return {"job_id":jobid,"status":"queued",
-                "draft_mode":draft_mode,"no_auto_accept":True}
+                "draft_mode":draft_mode,
+                "pause_between_turns":pause,
+                "no_auto_accept":True,"can_request_discard":True}
+
+    def cancel_auto(self,job_id:str) -> dict:
+        """Author explicitly stops and discards the CURRENT draft job."""
+        with self._job_lock:
+            if (not self._job or self._job["id"]!=job_id or
+                self._job["status"] not in (
+                    "queued","running","awaiting_review","cancelling")):
+                raise StudioError("draft job is not active")
+            if self._job["status"]!="cancelling":
+                self._cancel_event.set()
+                self._continue_event.set()
+                self._job.update(
+                    status="cancelling",stage="cancelling",
+                    cancel_requested=True,pending_turn=None)
+            return {"job_id":job_id,"status":"cancelling",
+                    "discard_after_current_model_call":True,
+                    "already_saved_manuscript_unchanged":True}
+
+    def continue_auto(self,job_id:str,chapter:int,turn:int) -> dict:
+        """Approve ONLY continuing draft generation, never story Canon."""
+        with self._job_lock:
+            current=self._job
+            if (not current or current.get("id")!=job_id or
+                current.get("status")!="awaiting_review" or
+                current.get("cancel_requested") or
+                type(chapter) is not int or type(turn) is not int or
+                not current.get("pending_turn") or
+                current["pending_turn"]["chapter"]!=chapter or
+                current["pending_turn"]["turn"]!=turn):
+                raise StudioError("stale or unavailable staged writing choice")
+            self._continue_event.set()
+            return {"job_id":job_id,"status":"continuing",
+                    "author_accepted_prose":False,
+                    "canon_writes":0}
+
+    def discard_auto(self,job_id:str) -> dict:
+        """Explicitly discard a finished/failed run's own candidates only."""
+        with self._job_lock:
+            if (not self._job or self._job["id"]!=job_id or
+                self._job["status"] not in (
+                    "completed","failed","cancelled","cancel_cleanup_failed")):
+                raise StudioError("cannot delete an active or unrelated job")
+            _delete_only_job_folder(
+                self._job_folder,
+                self.output_dir/"autonomous",
+                job_id)
+            self._job.update(
+                status="discarded",result=None,error=None,
+                pending_turn=None,discarded=True,stage="discarded")
+            return {"job_id":job_id,"status":"discarded",
+                    "author_manuscript_unchanged":True,
+                    "canonical_story_not_deleted":True}
 
     def job(self) -> dict:
         with self._job_lock:
@@ -379,7 +549,16 @@ class StudioHandler(BaseHTTPRequestHandler):
                 result=svc.start_auto(
                     payload.get("outline"),payload.get("chapters"),
                     draft_mode=payload.get("draft_mode","single"),
+                    pause_between_turns=payload.get("pause_between_turns"),
                 )
+            elif self.path=="/api/autodraft/cancel":
+                result=svc.cancel_auto(payload.get("job_id"))
+            elif self.path=="/api/autodraft/continue":
+                result=svc.continue_auto(
+                    payload.get("job_id"),payload.get("chapter"),
+                    payload.get("turn"))
+            elif self.path=="/api/autodraft/discard":
+                result=svc.discard_auto(payload.get("job_id"))
             else:
                 self._json(404,{"error":"unknown command"})
                 return
