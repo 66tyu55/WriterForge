@@ -1,0 +1,92 @@
+name: WF One-Shot Same DeepSeek V116 Exact Actor Place Source Reread 20261024
+on:
+  # Authorized specific follow-up is *not* re-triggered on code or docs.
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_DEEPSEEK_V116_PLACE_FOLLOWUP_FIRE_ONCE_20261024.txt
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wf-genuine-deepseek-source-place-followup-20261024
+  cancel-in-progress: false
+jobs:
+  source-proof-and-ai-only-choice:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install the existing WriterForge runtime without R2 secrets
+        run: python -m pip install -e .
+      - name: Check V116 narrow position excerpts and two real prior replies offline
+        run: PYTHONPATH=tests python -m unittest tests.test_wf_source_only_original_reread tests.test_wf_ai_writer_chooses_when_and_why tests.test_wf_writer_self_revision_loop -q
+      - name: Download original DeepSeek source from real first published artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: WF-3-Existing-Models-Real-Writer-Originals-20261024
+          run-id: 40094106486
+          github-token: ${{ github.token }}
+          path: wf_prior_deepseek_20261024
+      - name: Download independently genuine blind and lossless-index MOVE_ON responses
+        uses: actions/download-artifact@v4
+        with:
+          name: WF-Real-DeepSeek-Blind-Then-Source-Index-451-Originals-20261024
+          run-id: 40104976936
+          github-token: ${{ github.token }}
+          path: wf_prior_reread_20261024
+      - name: Verify both source chains, then build only literal V116 location-verb quotes before any paid request
+        run: |
+          python - <<'PY'
+          from experiments import wf_real_deepseek_blind_source_replay_20261024 as a
+          from experiments import wf_real_deepseek_v116_place_reread_20261024 as b
+          from writerforge.v116_state_delta import source_only_character_place_mentions
+          from experiments.wf_three_existing_writer_models_real_20261024 import CAST
+          src=a.verified_prior_source()
+          old=b.previous_two_real_reviews()
+          assert src['source']==old['source']
+          timeline=source_only_character_place_mentions(src['source'],cast=CAST)
+          assert timeline['source_sha256']==a.REAL_PROSE_SHA
+          assert timeline['literary_error_detected_by_software'] is False
+          assert timeline['automatically_request_revision'] is False
+          print('GENUINE OLD SOURCE AND TWO UNSUCCESSFUL READS PRESERVED; GENERIC SOURCE-ONLY PHRASES:',len(timeline['entries']))
+          PY
+      - name: ONE new author-model source-place reread; V119 call only if AI itself asks
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: python -m experiments.wf_real_deepseek_v116_place_reread_20261024
+      - name: No host literary scoring or unapproved extra provider calls
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('wf_real_deepseek_v116_place_reread_20261024/STATUS.json').read_text('utf8'))
+          assert 0<=s['new_actual_provider_calls']<=2
+          assert s['max_new_provider_calls']==2
+          assert s['provider_retries']==0
+          assert s['canonical_prose_writes']==0 and s['R2_library_writes']==0
+          assert s['host_did_not_specify_a_revision_or_literary_outcome']
+          assert not s['literary_quality_verified']
+          assert s['old_original_model_decision']=='MOVE_ON'
+          assert s['old_blind_decision']=='MOVE_ON'
+          assert s['old_literal_index_decision']=='MOVE_ON'
+          print('SAME REAL WRITER V116 CHOICE:',s.get('source_place_review_decision'))
+          print('EXACT REAL CALLS:',s['new_actual_provider_calls'])
+          PY
+      - name: Store raw supplier responses, factual quote list, model choice and optional author revision
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WF-Real-DeepSeek-V116-Literal-Place-Source-Review-20261024
+          path: wf_real_deepseek_v116_place_reread_20261024/
+          retention-days: 30
+          if-no-files-found: warn
