@@ -16,6 +16,7 @@ on:
       - tests/test_wf_ai_writer_previous_turn_rewind.py
       - tests/test_wf_discarded_event_state_replay.py
       - tests/test_wf_cross_chapter_candidate_fork.py
+      - tests/test_wf_studio_ai_chapter_review_branch.py
       - writerforge/v96_causal_turns.py
       - writerforge/deepseek_flash_model.py
       - tests/test_wf_scene_format_recovery.py
