@@ -1,5 +1,18 @@
-# WriterForge 当前有效交接｜2026-10-23
+# WriterForge 当前有效交接｜2026-10-24
 
+
+## 0.J AI 真正拥有回看上一段的决定权，WF 只负责源事务和下游撤销（2026-10-24，本轮最新）
+
+**下一窗口先读**：[WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md](WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md)，再读 [WF_AI_WRITER_PREVIOUS_TURN_TRANSACTION_20261024.md](WF_AI_WRITER_PREVIOUS_TURN_TRANSACTION_20261024.md)，必要时回看下面 0.I 的原始模型证据。继续范围严格为开发分支 `refactor-unified-scene-delivery-audit`，不改 `main`、不部署 Railway、不增加记忆模块或训练。
+
+- **为何改**：原 G 只能在刚完成的事件段做自审，AI 即使觉得**上一段**有错也无精确选段 / 依赖撤销能力；现用显式 `target_turn=current|previous`，仅由**同一个创作 AI**提出决定、原因、引用证据和实际改稿。WF 不判断美学，不生成正文，不拿文学分数触发修订。原旧版本只有七个字段的 MOVE_ON 仍兼容，程序只处理字段/源身份。
+- **如何改**：真实前段 `prose+trace` 回包按本 job 的 `selected_turn_raws` 暂存（V96 的 accepted evidence 只有正文/effect，不能伪造丢失的 trace）；既有 V119 检查 SHA / 唯一原句 / 修改区间。原上一段有实际改动后，先私有归档被废弃的当前下一段，再整体裁剪 `accepted_turns`、计划、V96/叙事审查、lamp、提示/审修等暂存回执，恢复从未被删源污染的 V114 事件前时态状态。修改后的上一段必须重新走原 V96/NovelStudio/统一 graph 检查，再由创作模型重新生成下一段，最后才产生新候选章节；不改已有 signed resume 或 Canon。
+- **明确限度**：仅 `continuity_guard`、`self_edit_rounds>0`、`self_edit_timing="ai_decides"` 自愿启用；一 job 最多回看上一事件段一次，额外模型调用受原有 8 次上限约束。还不支持多段/跨章/逐字流式回改，完整冷重启依赖树、后续更大范围校验失败时的原子旧稿恢复待继续。现有 V26 Ctrl+1/Ctrl+2 候选、V98 正文驱动滚动计划、V119 精修、V117 和统一 FACT/UNKNOWN/THREAD 主体不动。
+- **本轮工程 red → green**：[首次新全链路红灯 #40074029791](https://github.com/66tyu55/WriterForge/actions/runs/40074029791) 真实抓到丢失 V96 action_quote 字段，已修复为回放完整实际 model JSON；[首轮绿色 #40074160492](https://github.com/66tyu55/WriterForge/actions/runs/40074160492) 1,501 项执行、4 跳过、0 失败；[增加 V114 从新源重归约证据后再次全绿 #40074298398](https://github.com/66tyu55/WriterForge/actions/runs/40074298398) 同为 1,501 项、4 跳过。均由现成 Actions 无模型秘密环境运行，无真实模型扣费、无人替小说作者评价文学。
+- **历史真实模型原件必须不混淆**：见下节 0.I：DeepSeek 第一次回看判断返回 prose+trace 无效，第二次真实 `MOVE_ON` 经零新增调用只恢复了多余 type wrapper。真实 6 次 call 仍**没有** `LOOK_BACK_NOW → 回上一段 → 下游重写` 成功样本。人工写的单元/端到端模拟模型回复不是它的证明，不能声称作家水平提高。
+- **下一步**：本分支先实现和验证删去关键物件交付 / 获知秘密 / 重伤事实后 V114、V117、统一图临时状态完全按新文源重建，旧稿后果不可漏入人物认知、长期债务或热暖冷记忆；检测状态中途失败时要复原整个候选。只在单独授权后才开展有限真实模型探针；不重复15章训练或改动原始模型证据。
+
+---
 
 ## 0.I AI 自己决定何时回头以及为什么：作家负责思考，WF 只负责工作台（2026-10-24，本轮最新）
 
