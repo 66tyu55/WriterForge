@@ -1644,6 +1644,7 @@ class AutonomousWriting:
                             raw_turn_outline,encoding="utf8")
                 accepted_turns=[]
                 accepted_beats=[]
+                selected_turn_raws=[]  # The real source and ALL trace fields.
                 trace_checks=[]
                 last_lamp_receipt=None
                 lamp_decisions=[]
@@ -1683,7 +1684,8 @@ class AutonomousWriting:
                             # prose. Restore their lengths and prior V114/V117
                             # state together when revising a previous turn.
                             tracked_rewind_lists=(
-                                accepted_turns,accepted_beats,trace_checks,
+                                accepted_turns,accepted_beats,
+                                selected_turn_raws,trace_checks,
                                 lamp_decisions,long_arc_checks,
                                 narrative_lane_decisions,narrative_source_reviews,
                                 unified_prose_replay_checks,
@@ -1931,15 +1933,12 @@ class AutonomousWriting:
                                            self_edit_model_calls)
                                 if (writer_rewind_count==0 and turn_index>0
                                     and remaining>=2):
+                                    # V96 evidence stores only prose/effect,
+                                    # not the model's action/parent trace.
+                                    # Reuse the complete SELECTED source
+                                    # envelope, never infer missing fields.
                                     prior=accepted_turns[-1]
-                                    original_previous={
-                                        "prose":prior["prose"],
-                                        "trace":{k:prior[k] for k in (
-                                            "action_quote","effect_quote",
-                                            "parent_effect_quote")}}
-                                    original_previous_raw=json.dumps(
-                                        original_previous,ensure_ascii=False,
-                                        separators=(",",":"))
+                                    original_previous_raw=selected_turn_raws[-1]
                                     prior_snapshot=turn_snapshots[turn_index-1]
                                     prior_external=prior_snapshot["external"]
                                     changed_previous,prior_revision=(
@@ -2257,6 +2256,8 @@ class AutonomousWriting:
                             check_cancel()
                         accepted_turns.append(evidence)
                         accepted_beats.append(beat)
+                        if draft_mode=="continuity_guard":
+                            selected_turn_raws.append(checked_response)
                         if draft_mode=="continuity_guard":
                             # Update from ACTUAL source prose, not prewritten
                             # chapter objectives or a model's self-assessment.
