@@ -138,6 +138,82 @@ class RealWriterCompareOfflineLimits(TestCase):
         self.assertNotIn(QUOTE,final)
         self.assertEqual(final,SCENE.replace(QUOTE,REPLACE))
 
+    def test_followup_provider_caps_are_observed_but_host_roles_not_changed(self):
+        from experiments.wf_two_discovery_thinking_aware_real_20261024 import (
+            FOLLOWUPS,)
+        from writerforge.verified_flow import WritingExecutionError
+        with tempfile.TemporaryDirectory() as tmp:
+            for name in ("glm-5.3","kimi-k2.6"):
+                out=Path(tmp)/name
+                out.mkdir()
+                m=pilot.ActualModel(
+                    name,"discovery","fake-secret-unit",out,
+                    provider_token_caps=FOLLOWUPS[name])
+                packet=GroundedDraftPacket(
+                    scene_id="bounded",project_id="bounded",snapshot_id=0,
+                    evidence=(),craft_ids=(),prompt="test-only-stage",
+                    prompt_sha256=h("test-only-stage"))
+                with patch.object(m,"_discovery_ask",
+                                  return_value=wire(SCENE)) as provider:
+                    self.assertEqual(m.ask(packet,model=name,api_base="discovery",
+                                          max_tokens=1450),wire(SCENE))
+                    self.assertEqual(m.ask(packet,model=name,api_base="discovery",
+                                          max_tokens=600),wire(SCENE))
+                    self.assertEqual(m.ask(packet,model=name,api_base="discovery",
+                                          max_tokens=1800),wire(SCENE))
+                    self.assertEqual([x.args[-1] for x in provider.call_args_list],
+                                     [FOLLOWUPS[name][label] for label in
+                                      ("write","decide","edit")])
+                self.assertEqual(m.calls,3)
+                self.assertEqual(m.reserved,sum(FOLLOWUPS[name].values()))
+                with self.assertRaisesRegex(RuntimeError,"CALL_BUDGET_EXCEEDED"):
+                    m.ask(packet,model=name,api_base="discovery",
+                          max_tokens=600)
+
+    def test_discovery_tuning_sends_only_documented_params_to_fixed_host(self):
+        class FakeResponse:
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def read(self,max_bytes):
+                return json.dumps({
+                    "choices":[{"finish_reason":"stop",
+                        "message":{"content":wire(SCENE)}}],
+                    "usage":{"prompt_tokens":180,"completion_tokens":520},
+                },ensure_ascii=False).encode("utf8")
+        for name,expected_key in (
+            ("glm-5.3","reasoning_effort"),
+            ("kimi-k2.6","thinking")):
+            with self.subTest(name=name),tempfile.TemporaryDirectory() as tmp:
+                out=Path(tmp)
+                m=pilot.ActualModel(
+                    name,"discovery","fake-secret-unit",out,
+                    provider_token_caps={"write":2500,
+                                         "decide":900,"edit":1800})
+                m.calls=1
+                m.stage="write"
+                m.events=[{"status":"REQUESTED"}]
+                seen=[]
+                class FakeOpener:
+                    def open(self,request,timeout):
+                        seen.append((request.full_url,json.loads(request.data)))
+                        return FakeResponse()
+                with patch.object(pilot,"opener",return_value=FakeOpener()):
+                    raw=m._discovery_ask("test-only-writing",2500)
+                self.assertEqual(raw,wire(SCENE))
+                self.assertEqual(seen[0][0],pilot.DISCOVERY_ROOT+
+                                 "/chat/completions")
+                self.assertEqual(seen[0][1]["model"],name)
+                self.assertEqual(seen[0][1]["max_tokens"],2500)
+                if name=="glm-5.3":
+                    self.assertEqual(seen[0][1][expected_key],"low")
+                    self.assertNotIn("thinking",seen[0][1])
+                else:
+                    self.assertEqual(seen[0][1][expected_key],{
+                        "type":"disabled"})
+                    self.assertNotIn("reasoning_effort",seen[0][1])
+                self.assertTrue(m.events[-1]["wire_preserved"])
+                self.assertEqual(m.usage["completion_tokens"],520)
+
     def test_invalid_author_decision_cannot_trigger_billable_edit(self):
         state,final=self._pilot([wire(SCENE),"{}"])
         self.assertEqual(state["status"],"REAL_MODEL_EVALUATED")
