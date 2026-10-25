@@ -272,9 +272,11 @@ def preflight_continuation(next_prose,checkpoint,*,project_id,chapter_index,
       "physical_relation_review_pairs":fast["physical_relation_review_pairs"],
       "physical_relation_previous_unresolved":(
           fast["physical_relation_prior_review_unresolved_count"]),
+      "physical_relation_dependent_on_unresolved_source":(
+          fast["physical_relation_dependent_on_previous_source"]),
       "physical_relation_must_not_be_fact_or_downstream_parent":(
           bool(fast["physical_relation_review_pairs"] or
-               fast["physical_relation_prior_review_unresolved_count"])),
+               fast["physical_relation_dependent_on_previous_source"])),
       "physical_relation_receipt_sha256":fast["physical_relation_receipt_sha256"],
       "temporal_order_conflicts":frame["chronology"]["order_conflicts"],
       "knowledge_needs_review":frame["knowledge_warnings"],
