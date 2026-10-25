@@ -1,0 +1,85 @@
+name: WF One-Shot Real DeepSeek Opera Signed Prior Chapter Reader vs Own Author 20261025
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_REAL_OPERA_SIGNED_PRIOR_READER_FOLLOWUP_ONCE_20261025.txt
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wf-real-opera-ticket-old-chapter-cross-source-reader-20261025
+  cancel-in-progress: false
+jobs:
+  existing-deepseek-signed-source-own-author:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing WF, no R2 keys
+        run: python -m pip install -e '.[r2]'
+      - name: Offline fail first for false quote, fake previous source or excessive provider stages
+        run: |
+          PYTHONPATH=tests python -m unittest tests.test_wf_real_opera_cross_source_writer tests.test_wf_writer_source_identity_binding -q
+      - name: Read EXACT prior actual G manuscript and original DeepSeek provider wires
+        uses: actions/download-artifact@v4
+        with:
+          name: WF-New-Actual-G-Author-Control-vs-Reader-First-20261025
+          run-id: 40110957161
+          github-token: ${{ github.token }}
+          path: wf_real_opera_previous_20261025
+      - name: Reject nonidentical G prose, invalid signed V117 and wrong chapter-one hot source before model cost
+        run: |
+          python - <<'PY'
+          from experiments.wf_real_opera_source_sha_replay_20261025 import get_verified_prior,ORIGINAL_SOURCE_SHA,h
+          from experiments.wf_real_new_scene_reader_first_control_20261025 import SEED
+          old=get_verified_prior()
+          assert h(old['source'])==ORIGINAL_SOURCE_SHA
+          assert old['seed']==SEED
+          assert any(x['chapter']==1 and x['source_sha256']==h(SEED) for x in old['graph']['memory']['hot'])
+          assert old['status']['actual_provider_calls']==7
+          print('SIGNED REAL CHAPTER1 AND NEW MODEL CHAPTER2 WITH SEVEN ORIGINAL PROVIDER WIRES VERIFIED')
+          PY
+      - name: SAME existing DeepSeek reads both actual prose sources, then owns optional V119 revision
+        run: python -m experiments.wf_real_opera_cross_source_reader_followup_20261025
+      - name: Validate bounded genuine outcome without auto-grading literary success
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('wf_real_opera_true_prior_cross_source_review_20261025/STATUS.json').read_text('utf8'))
+          assert 0<=s['actual_new_provider_calls']<=3
+          assert s['max_new_provider_calls']==3
+          assert s['provider_retries']==0
+          assert s['canonical_writes']==0
+          assert s['user_R2_writes']==0
+          assert s['training_runs']==0
+          assert s['literary_quality_verified'] is False
+          assert s['model_permitted_to_keep_source']
+          assert s['preidentified_item_error_not_sent_to_model']
+          assert s['old_original_sha256'] if 'old_original_sha256' in s else True
+          print('REAL NEW MODEL REQUESTS:',s['actual_new_provider_calls'])
+          print('READER:',s.get('reader_status'))
+          print('UNVERIFIED CROSS-SOURCE QUOTES:',len(s.get('unverified_cross_source_hypotheses',[])))
+          print('AUTHOR CHOICE:',s.get('author_original_decision'))
+          print('CANDIDATE CHANGED:',s.get('model_did_change_accepted_candidate'))
+          PY
+      - name: Archive old manuscript source, real reader/author provider wires, proposed and rejected fiction
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-Real-Opera-Signed-Prior-Chapter-Reader-Originals-20261025
+          path: wf_real_opera_true_prior_cross_source_review_20261025/
+          retention-days: 30
+          if-no-files-found: warn
