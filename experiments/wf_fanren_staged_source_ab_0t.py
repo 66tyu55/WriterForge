@@ -342,7 +342,8 @@ def perform_arm(arm,author,windows):
                         checked=check_turn(patched,beat,mode="causal_guard",
                                            accepted=(),max_prose_chars=1024)
                         result=patched
-                        changed=True
+                        # A changed trace or JSON wrapper is not a literary rewrite.
+                        changed=(revised["prose"].strip()!=doc["prose"].strip())
                         output["revision_receipt_statuses"]=[
                             x["status"] for x in edit["rounds"]]
                     else:
