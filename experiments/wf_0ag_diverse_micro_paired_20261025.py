@@ -249,9 +249,9 @@ def parse_micro_judge(answer):
     }
 
 
-def judge_one(model,item,pair,order,task):
-    # Same unchanged 0.AD five criteria, but the new *200-350* goal, not
-    # 0.AD's older 260-340 prompt: no cross-protocol metric distortion.
+def judge_prompt_0ag(item,pair,order):
+    # Frozen from the first actual three provider judge wires, zero prose
+    # rewrites. This text MUST NOT drift on the no-author score replay.
     q=("匿名阅读同一原创微段文学任务的两个正文，五项各给0至20整数分。"
        "只根据实际文字，不猜哪篇来自WF，不把任何技术检测结果作为文学分数。"
        "五项是："+ "、".join(CRITERIA) +"。"
@@ -261,6 +261,11 @@ def judge_one(model,item,pair,order,task):
        "\n【原始同题目标】"+scene_prompt(item))
     for arm,label in zip(order,("甲","乙")):
         q+="\n【匿名"+label+"】"+pair["bare" if arm=="裸模型" else "WF"]["prose"]
+    return q
+
+
+def judge_one(model,item,pair,order,task):
+    q=judge_prompt_0ag(item,pair,order)
     parsed,representation_receipt=parse_micro_judge(
         model.ask(item,task,"craft_analysis",q,RATER_OUTPUT_TOKENS))
     return {name:{
