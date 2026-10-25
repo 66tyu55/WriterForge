@@ -1,6 +1,22 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.AH 真实跨题材第二批完成：仙侠、历史、喜剧，评分源接口 RED→FIX→GREEN（2026-10-25，最新）
+
+**下一窗口优先读取**：[0.AH 原始实测、真实软件失败与下一阶段来源问题](WF_0AH_SECOND_THREE_GENRES_REAL_SOURCE_FAILURES_20261025.md) → [0.AG 第一批真实跨类型因果/评分报告](WF_0AG_THREE_REAL_ORIGINALS_CAUSAL_AND_RATER_FORENSICS_20261025.md)。唯一工作分支 `refactor-unified-scene-delivery-audit`。
+
+- **第二批真实原作家**：[GitHub Actions #40201458798](https://github.com/66tyu55/WriterForge/actions/runs/40201458798) 使用 DeepSeek Flash 完成预登记仙侠灵植/历史一夜传令/喜剧早餐错单三类，**6份不可改作者原文 + 5份评分原件，共11次调用**；相同1400写作token封顶、每段200–350字、无重试。工作流最后因为喜剧首次评委 JSON 多一个 `note` 而失败，**不等于作者未完成**。旧11源文件没有改。
+- **第二批评分无重写恢复成功**：[GitHub Actions #40202483990](https://github.com/66tyu55/WriterForge/actions/runs/40202483990) 已先零模型 SHA 锁定原11个 provider wire 和冻结题目/原句，再**仅花费1次新逆序喜剧文学评分，作者新调用0**，保存新增真实 wire；该工作流离线回归 **1,736 tests，10 skipped，0 failed**，来源/分数重放成功。仙侠裸 **80.0** / WF **84.5**（+4.5，长度比1.235，**NOT_COMPARABLE**；WF换序评分波动13）；历史裸 **82.0** / WF **85.0**（+3.0，长度比1.021，单题探索信号）；喜剧裸 **74.5** / WF **77.5**（+3.0，长度比1.489，**NOT_COMPARABLE**；WF评分换序波动11）。评分器和作者同模型家族，无独立人类盲评，不能声称WF文学技术进步。
+- **真正 RED→原模块修补→GREEN**：真实喜剧评委原始 `scores` 数字完整，根层额外 `note` 导致 `WF0AD_MODEL_SCHEMA_INVALID`。源 SHA 固定：`9ad03b5df68624e0b5ec956024915111a6f36ef31182902277bc2a5b70cd2e2f`。已在原 `experiments/wf_0ag_diverse_micro_paired_20261025.py:parse_micro_judge` 做**仅允许有界附注的无损解析**并保留附注SHA，不改任何文学分数、正文或来源；0.AH改为重用同一评分解析器。带负例测试 `tests/test_wf_0ah_real_comedy_grade_note_repair.py` 和 `tests/test_wf_0ah_source_only_one_reverse_protocol.py`。一次错误的离线门禁仅失败、没有付费；修后全部通过。
+- **V96/真实因果尚未通过文学验收**：仙侠 `action_quote` 是“退回廊下、没开门”，`effect_quote` 是“旧鞋印在开门前已有”，字面次序成立却不证明前者造成后者；另有灵壤36升→取7升→余29升，数值守恒但**资源变动关联未证实**。历史 WF 写出一夜传令限制（应避免假红），但“整理换人记号→听见马蹄”仍非已证直接后果。喜剧合法错单信息差、对话补救和间接后果不该因插入中间动作被错拦。三个V96均仅 SOURCE_QUOTES_ORDER_VERIFIED_CAUSALITY_NOT_PROVEN、`causal_relation_verified=false`，没有晋级正式 Canon；V116/122均未命中关系问题。因此是**真实语义来源风险、软件覆盖缺口候选，尚非被证实的硬事实晋级 bug**。不能拿高分覆盖它，也不能凭“没报警”宣称真的会写。
+- **底层下一步**：先攻击 V96 对 `kind=decision` 必须同时有 action/effect 两个引句的强约束，研究它是否驱使真实写作模型“凑后果”。用不同类型有效省略、真实物理后果、无关事件的正反例写出**可重放 RED**，再局部修原 V96/V98/NarrativeCore；一律保持 **未证因果不变 KNOWN**、来源SHA与V114/V117/V119依赖安全。禁止简单扩词表或靠提醒AI改词掩盖机制。
+- **两批跨类型总表**：0.AG 第一批武侠 **80.5/82.5**（+2.0、可探索），恐怖 **78.0/83.5**（+5.5、篇幅不比），计谋 **69.5/78.5**（+9.0、篇幅不比）；0.AH 仙侠 **80.0/84.5**（+4.5、篇幅不比），历史 **82.0/85.0**（+3.0、可探索），喜剧 **74.5/77.5**（+3.0、篇幅不比）。**6类实测、12份不同作者原稿；4类篇幅不可比，仅2类弱探索信号，绝不算跨类型稳定提升**。十类预登记还剩 **言情、日常、科幻灾难、初雪抒情4类未完成真实模型测试**。必须先按失败优先继续找WF底层问题，随后分批做剩余题。
+- **全部限制持续有效**：不重复既有15章训练、不让WF代写文学正文、不添加独立记忆模块、不修改 main、不部署Railway、不写R2原著与正式Canon。文学评分是差距诊断，不是自奖励或提示词迎合目标。
+
+---
+
+
+
 ## 0.AG 最新真实文学实测及评分底层 RED→GREEN（2026-10-25）
 
 **最新第一入口：** [WF_0AG_THREE_REAL_ORIGINALS_CAUSAL_AND_RATER_FORENSICS_20261025.md](WF_0AG_THREE_REAL_ORIGINALS_CAUSAL_AND_RATER_FORENSICS_20261025.md) → [原始六份文学作者与三次首评分 #40198761026](https://github.com/66tyu55/WriterForge/actions/runs/40198761026) → [仅补三次逆序评分的原始第二轮 #40199709409](https://github.com/66tyu55/WriterForge/actions/runs/40199709409) → **[全部12份原始回包零模型复核 #40200160702](https://github.com/66tyu55/WriterForge/actions/runs/40200160702)**（SUCCESS）。
