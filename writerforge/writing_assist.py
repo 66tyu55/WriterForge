@@ -2691,7 +2691,8 @@ class AutonomousWriting:
                     _verify_unified_temporal_source_link(
                         active_narrative_core,earlier_external,
                         resume_story_checkpoint["chapter_index"],
-                        require_strong_for_new=True)
+                        require_strong_for_new=True,
+                        require_verified_ancestry=True)
             except (ContinuityTraceError,LongArcError,NarrativeCoreError) as exc:
                 raise WritingExecutionError(str(exc)) from None
         if long_arc_checkpoint is not None:
