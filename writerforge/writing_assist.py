@@ -42,6 +42,7 @@ from .v96_causal_turns import (
 from .v98_rolling_causal_planner import (
     V98RollingPlanError,MAX_ROLLING_REPLANS_PER_JOB,
     prepare_replan_instructions,validate_replan,
+    latest_source_basis_for_replan,
 )
 from .v102_emotional_causality import (
     V102EmotionalCausalityError,check_emotional_turn,
@@ -1554,13 +1555,39 @@ def _ask_same_writer_for_source_trace_only(
         not callable(ask_model) or not isinstance(directory,Path)):
         raise WritingExecutionError("WF_TRACE_ONLY_REPAIR_INPUT_INVALID")
     previous=None
+    parent_pending=False
     if beat.get("causal_parent") is not None:
         parents=[a for a in accepted if a.get("beat_id")==beat["causal_parent"]]
         if len(parents)!=1:
             raise WritingExecutionError("WF_TRACE_ONLY_REPAIR_PARENT_INVALID")
-        previous=parents[0].get("effect_quote")
+        prior=parents[0]
+        previous=prior.get("effect_quote")
         if type(previous) is not str:
+            # V96 allows SOURCE-verified decisions with no observed effect.
+            # The previous action can be used as a pending basis, but the
+            # trace-only author must not invent a parent effect to pass.
+            try:
+                verified,basis,kind=latest_source_basis_for_replan((prior,))
+            except V98RollingPlanError:
+                raise WritingExecutionError(
+                    "WF_TRACE_ONLY_REPAIR_PARENT_UNVERIFIED") from None
+            if (kind!="DECISION_ACTION_ONLY_OUTCOME_PENDING" or
+                verified.get("beat_id")!=beat["causal_parent"]):
+                raise WritingExecutionError(
+                    "WF_TRACE_ONLY_REPAIR_PARENT_UNVERIFIED")
+            parent_pending=True
+        elif (type(prior.get("receipt")) is dict and
+              prior["receipt"].get("outcome_pending_source_only") is True):
             raise WritingExecutionError("WF_TRACE_ONLY_REPAIR_PARENT_UNVERIFIED")
+    quote_rule=(
+        "如果本段是 decision 且确实写出决定/尝试，却没有可见后果，"
+        "action_quote 必须引用原句6至96字，effect_quote 可为 JSON null；"
+        "如果已经有可见结果，两段实际引用均须在正文唯一出现且不重叠。"
+        if beat.get("kind")=="decision" else
+        "action_quote 与 effect_quote 引用必须是各6至96字的"
+        "两个不同的、在下面小说中唯一出现且不重叠的实际子串；"
+        "动作必须出现在后果之前。"
+    )
     prompt=(
         "【WriterForge 源引句订正：保留你已经自己创作的全部新小说正文】"
         "你之前真正生成的这版小说正文现已冻结。"
@@ -1570,13 +1597,14 @@ def _ask_same_writer_for_source_trace_only(
         " trace.parent_effect_quote 三个字面引句。"
         "本次只允许更正引用元数据，不许返回 prose、replacement、"
         "reason、下一章或更多字段。"
-        "action_quote 与 effect_quote 引用必须是各6至96字的"
-        "两个不同的、在下面小说中唯一出现且不重叠的实际子串；"
-        "动作必须出现在后果之前。"
+        +quote_rule+
         "若这个版本没有可见后果，引用不能假装它存在，"
         "请输出真实能引用的文本，否则源校验仍会失败。"
         "如果段落没有前一个依赖事件，parent_effect_quote 为 JSON null；"
-        "如果有父事件，只能引用下面逐字来源的真正前一段结果。"
+        +("如果父事件仅有来源锁定的决定而无实际后果，"
+          "parent_effect_quote 必须为 JSON null，不可强行补一个结果。"
+          if parent_pending else
+          "如果有父事件，只能引用下面逐字来源的真正前一段结果。")
         "只返回恰好一个 JSON 对象 {\"trace\":"
         "{\"action_quote\":... ,\"effect_quote\":... ,"
         "\"parent_effect_quote\":...}}，不得加文学评分。"
