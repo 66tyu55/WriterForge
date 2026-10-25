@@ -129,6 +129,40 @@ def validate(graph,*,project_id,scene_id):
           (type(graph["parent_sha256"]) is str
            and SHA.fullmatch(graph["parent_sha256"])),
           "WFCORE_PARENT_INVALID")
+    # The same signed graph must track the V114 ancestry that actually
+    # produced its candidate chapter. Distinct valid SHAs are not proof
+    # that two artifacts belong to the same STORY BRANCH.
+    source_link=graph.get("source_temporal_link")
+    if source_link is not None:
+        _need(type(source_link) is dict and
+              set(source_link)=={
+                  "chapter_index","whole_chapter_sha256",
+                  "last_v114_checkpoint_sha256",
+                  "previous_v114_checkpoint_sha256",
+                  "turn_prose_sha256s","turn_count",
+                  "source_assembly_verified","prior_link_verified"} and
+              type(source_link["chapter_index"]) is int and
+              1<=source_link["chapter_index"]<=graph["chapter_index"] and
+              all(type(source_link[k]) is str and
+                  SHA.fullmatch(source_link[k]) for k in (
+                      "whole_chapter_sha256","last_v114_checkpoint_sha256")) and
+              (source_link["previous_v114_checkpoint_sha256"] is None or
+               (type(source_link["previous_v114_checkpoint_sha256"]) is str and
+                SHA.fullmatch(source_link["previous_v114_checkpoint_sha256"]))) and
+              type(source_link["turn_count"]) is int and
+              1<=source_link["turn_count"]<=12 and
+              type(source_link["turn_prose_sha256s"]) is list and
+              len(source_link["turn_prose_sha256s"])==source_link["turn_count"] and
+              all(type(x) is str and SHA.fullmatch(x)
+                  for x in source_link["turn_prose_sha256s"]) and
+              source_link["source_assembly_verified"] is True and
+              type(source_link["prior_link_verified"]) is bool,
+              "WFCORE_SOURCE_TEMPORAL_BINDING_TAMPERED")
+    inherited_temporal=graph.get("source_temporal_parent_sha256")
+    _need(inherited_temporal is None or
+          (type(inherited_temporal) is str and
+           SHA.fullmatch(inherited_temporal)),
+          "WFCORE_TEMPORAL_PARENT_SHA_INVALID")
     memory=graph.get("memory")
     if memory is not None:
         _need(type(memory) is dict and
@@ -463,6 +497,9 @@ def advance_graph(graph,*,project_id,scene_id,chapter_index,prose,events=()):
         "format":FORMAT,"project_id":project_id,"scene_id":scene_id,
         "chapter_index":chapter_index,
         "parent_sha256":graph["receipt_sha256"],
+        "source_temporal_parent_sha256":(
+            graph["source_temporal_link"]["last_v114_checkpoint_sha256"]
+            if graph.get("source_temporal_link") is not None else None),
         "nodes":nodes,"edges":edges,
         "last_delta_flags":flags,"last_event_count":len(events),
         "memory":json.loads(json.dumps(graph.get("memory",{
@@ -987,7 +1024,9 @@ def _condense_source(hot, *, proposal=None,graph_nodes=None,
 def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
                           source_path,prose,summary_proposal=None,
                           archive_writer=None,source_writer=None,
-                          source_reader=None,archive_reader=None):
+                          source_reader=None,archive_reader=None,
+                          chapter_source_parts=None,
+                          chapter_temporal_checkpoints=None):
     """Delayed compaction: 3 hot chapters -> 8 warm capsules -> cold CAS.
 
     Must be called AFTER original candidate.md has been durably saved. The
@@ -1001,6 +1040,41 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
           graph["chapter_index"]==chapter_index,
           "WFCORE_BUFFER_NOT_AT_SAVED_CHAPTER")
     source_sha=_hash(prose)
+    temporal_link=None
+    if chapter_source_parts is not None or chapter_temporal_checkpoints is not None:
+        _need(type(chapter_source_parts) in (tuple,list) and
+              type(chapter_temporal_checkpoints) in (tuple,list) and
+              1<=len(chapter_source_parts)<=12 and
+              len(chapter_source_parts)==len(chapter_temporal_checkpoints) and
+              all(type(p) is str and 1<=len(p)<=MAX_CHARS
+                  for p in chapter_source_parts) and
+              "\\n\\n".join(chapter_source_parts)==prose,
+              "WFCORE_CHAPTER_SOURCE_ASSEMBLY_MISMATCH")
+        from .v117_continuity_trace import _checkpoint
+        for index,(part,checkpoint) in enumerate(zip(
+                chapter_source_parts,chapter_temporal_checkpoints)):
+            _checkpoint(checkpoint)
+            _need(checkpoint["source_sha256"]==_hash(part),
+                  "WFCORE_TURN_TEMPORAL_SOURCE_SHA_MISMATCH")
+            if index:
+                _need(checkpoint.get("previous_checkpoint_sha256")==
+                      chapter_temporal_checkpoints[index-1]["receipt_sha256"],
+                      "WFCORE_WITHIN_CHAPTER_TEMPORAL_PARENT_MISMATCH")
+        first,last=chapter_temporal_checkpoints[0],chapter_temporal_checkpoints[-1]
+        inherited=graph.get("source_temporal_parent_sha256")
+        if inherited is not None:
+            _need(first.get("previous_checkpoint_sha256")==inherited,
+                  "WFCORE_CROSS_CHAPTER_TEMPORAL_PARENT_MISMATCH")
+        temporal_link={
+            "chapter_index":chapter_index,"whole_chapter_sha256":source_sha,
+            "last_v114_checkpoint_sha256":last["receipt_sha256"],
+            "previous_v114_checkpoint_sha256":first.get(
+                "previous_checkpoint_sha256"),
+            "turn_prose_sha256s":[_hash(p) for p in chapter_source_parts],
+            "turn_count":len(chapter_source_parts),
+            "source_assembly_verified":True,
+            "prior_link_verified":inherited is not None,
+        }
     _need(_verify_source_file(source_path,source_sha)==prose,
           "WFCORE_SAVED_SOURCE_DIFFERENT_FROM_CANDIDATE")
     stored_source_path=source_path
@@ -1091,6 +1165,8 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
           "WFCORE_WORKING_MEMORY_BUDGET_REFUSE_TRUNCATION")
     result={k:v for k,v in graph.items() if k!="receipt_sha256"}
     result["memory"]=memory
+    if temporal_link is not None:
+        result["source_temporal_link"]=temporal_link
     # This is still the same completed chapter; no duplicate new chapter.
     return validate(_signed(result),project_id=project_id,scene_id=scene_id)
 
