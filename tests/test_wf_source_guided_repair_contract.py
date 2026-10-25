@@ -87,6 +87,39 @@ class GuardrailRequirements(TestCase):
                     accepted=(),original_trace=self.trace)
                 self.assertFalse(info["source_action_effect_required"])
 
+    def test_repair_guide_supplies_real_previous_prop_and_injury_candidates(self):
+        state={
+            json.dumps(["item","火髓果","holder","author_plan",None],
+                       ensure_ascii=False):"沈砚左手心",
+            json.dumps(["character","沈砚","右臂伤情","author_plan",None],
+                       ensure_ascii=False):"先前遭丹火灼伤，尚未痊愈",
+        }
+        contract=self.contract(previous_candidate_state=state,
+                               cast=("沈砚",))
+        rows=contract["prior_source_candidate_state"]
+        self.assertTrue(any(x["entity"]=="火髓果" and
+                            x["previous_candidate_value"]=="沈砚左手心"
+                            for x in rows))
+        self.assertTrue(any(x["entity"]=="沈砚" and
+                            x["predicate"]=="右臂伤情"
+                            for x in rows))
+        self.assertTrue(all(x[
+            "source_is_unaccepted_v114_candidate_not_canon"] for x in rows))
+        self.assertTrue(contract["other_prior_state_domains_not_in_this_small_view"])
+        self.assertTrue(contract["omission_does_not_mean_state_was_erased"])
+        self.assertEqual(contract["prior_item_character_rows_omitted"],0)
+        # More than eight candidate cells are deliberately NOT discarded
+        # as story facts; the writer is told that the small view is partial.
+        large={}
+        for i in range(11):
+            key=json.dumps(["item",f"器物{i}","holder","author_plan",None],
+                           ensure_ascii=False)
+            large[key]=f"位置{i}"
+        limited=self.contract(previous_candidate_state=large,cast=())
+        self.assertEqual(len(limited["prior_source_candidate_state"]),8)
+        self.assertEqual(limited["prior_item_character_rows_omitted"],3)
+        self.assertTrue(limited["omission_does_not_mean_state_was_erased"])
+
     def test_wrong_original_sha_or_missing_parent_is_rejected_before_llm(self):
         with self.assertRaisesRegex(
                 RevisionTransactionError,"WF119_REPAIR_ORIGINAL_SOURCE_INVALID"):
