@@ -216,7 +216,24 @@ def parse_micro_judge(answer):
     the blind prompt. This is an exact representation normalization, NOT
     an invented grade, a prose edit, a literary judgment, or a retry.
     """
-    original=normalize(answer,("ratings",))
+    # Actual 0.AH comedy DeepSeek provider returned a bounded supplementary
+    # judge 'note' alongside the two scores. The note is neither a score nor
+    # an instruction to modify author fiction. Keep the original envelope
+    # untouched in the artifact, SHA-lock this metadata, and normalize only
+    # the consumer projection. All other unexpected fields still fail.
+    supplementary_note_sha256=None
+    if type(answer) is dict and "note" in answer:
+        need(set(answer) in ({"ratings","note"},
+                            {"type","ratings","note"}),
+             "WF0AG_RATER_UNEXPECTED_ROOT_METADATA")
+        note=answer["note"]
+        need(type(note) is str and 1<=len(note)<=3000,
+             "WF0AG_RATER_SUPPLEMENTARY_NOTE_INVALID")
+        supplementary_note_sha256=h(note)
+        clean={key:value for key,value in answer.items() if key!="note"}
+    else:
+        clean=answer
+    original=normalize(clean,("ratings",))
     scores=original["ratings"]
     # Original 0.AG reverse paid rater provider emitted a {甲:{...},乙:{...}}
     # keyed map for wuxia/horror; the third emitted [{id:甲,..},{id:乙,..}].
@@ -277,6 +294,8 @@ def parse_micro_judge(answer):
         "frozen_criterion_order":list(CRITERIA),
         "numeric_scores_unchanged":True,
         "model_reason_and_weakness_unchanged":True,
+        "supplementary_note_sha256":supplementary_note_sha256,
+        "supplementary_note_excluded_from_scores":True,
         "model_notes_exceeding_legacy_160_char_bound":
             above_legacy_limit,
         "prose_unchanged":True,
