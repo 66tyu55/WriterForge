@@ -1,6 +1,20 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.AB 文学质量必须有分数，但评分也得接受故障测试：真实原著62、A79、B76仅是未匹配片段的局部偏好（2026-10-25，最新）
+
+**下窗口先读**：[WF_0AA_0AB_REAL_LITERARY_SCORECARD_20261025.md](WF_0AA_0AB_REAL_LITERARY_SCORECARD_20261025.md) → [WF_0Z_SIGNED_ANCESTRY_PROVENANCE_20261025.md](WF_0Z_SIGNED_ANCESTRY_PROVENANCE_20261025.md) → [WF_0X_FAILURE_FIRST_WF_DEFECT_REPAIR_20261025.md](WF_0X_FAILURE_FIRST_WF_DEFECT_REPAIR_20261025.md)。用户新的明确方向：**逐段对照《凡人》前几章的真实文学技巧，让 WF 辅助 AI 靠近文学水平而不复制/编造，必须有直观的分数**。测试仍以暴露和修复 WF 自身真实错误为目的，绝不因为高分迁就 AI 或偷改文学判断。
+
+- **评分的实际数字，不是我编的**：[旧真实 A/B DeepSeek 六次作者调用 #40163959949](https://github.com/66tyu55/WriterForge/actions/runs/40163959949) 的四份源码和 provider wire 重新校验，私有 R2《凡人》原著与原实验 SHA 锁定，只读提取第1、2章开始的230字窗口。新增隔离的 `experiments/wf_0aa_literary_reference_score_20261025.py` 采用五项各20的百分制：语言自然与节制、细节的叙事作用、动作与场景可信、节奏与信息取舍、人物真实感。现有 DeepSeek Flash 以**4次非 WF 内部文学裁判**匿名顺序交叉评分。[真实评分 #40182718487](https://github.com/66tyu55/WriterForge/actions/runs/40182718487)：原著R第一窗口66.5/第二57.5/平均**62.0**，WF未读原著A 80.0/78.0/平均**79.0**，WF逐次读原著B 76.5/75.5/平均**76.0**。每个分数含两种匿名顺序原始 provider wire SHA 与维度回执，不预设名著100分，不公开版权原文，不修改作者真实四段原稿。
+- **这并不意味着 WF 比《凡人》强，也不能说读原著反而降低文学能力**：作者和打分者是同一模型家族，可能偏爱自己的叙事密度；原著开篇是家境/城镇背景，AI片段是异常发现/责任/悬疑，文学任务不一样；第二窗口原著230字，B仅183字；仅2个位置，没有裸模型 C，也没有独立人类评委。表面 A 比原著高17、B高14是**不公平的局部模型偏好指标**，不能拿作 WF 文学进步或自动训练奖励。
+- **用评分红灯修正测量流程**：新增 `experiments/wf_0ab_score_validity_gate.py` + `tests/test_wf_0ab_literary_score_validity_gate.py`。严格保存真实 62/79/76，但对叙事功能不匹配、样本长度不平衡、同模型家族打分、缺裸模型、缺人类复评等给出红旗，`valid_progression_signal=false`、`comparable_literary_level_score=null`、`proves_WF_improvement=false`、`cannot_use_as_WF_training_reward=true`。评分系统的破坏性测试还找出了共享可变 SHA 夹具的问题，已修正而未放松来源身份核验。无模型 [审计 #40183539551](https://github.com/66tyu55/WriterForge/actions/runs/40183539551) 对原先 62/79/76 重放，结论是“数字真实，但不可作为写作水平已经接近或超越原著的凭证”。
+- **文学分不能洗白源世界错误**：B第二段文学局部分75.5，但原 `绳结仍系在桩上/从桩头解下` 被现有 V122/V114/V117 在 [真实旧源重放 #40167612081](https://github.com/66tyu55/WriterForge/actions/runs/40167612081) 确认为 `HELD_NEEDS_SOURCE_RELATION_REVIEW`。文学读者观感和可核实的世界状态事实是**两个不同维度**，不能互相冒名当通关。绝不要求 AI `LOOK_BACK_NOW` 才把 WF 源错误算错。
+- **最新无付费软件回归**：[全量 #40183418181](https://github.com/66tyu55/WriterForge/actions/runs/40183418181) **1,691 tests run、8 skipped、0 failed**；历史最初错误或拒绝样本没有被抹去。
+- **后续正确的一点点比较**：先把下一轮每个 200–300 字片段的“叙事任务”对齐（静态生活/环境与人物压力 → 选择及代价 → 自然后果），以三路相同模型/相同原创题/相同预算对照：裸模型、WF辅助不读原著、WF辅助逐段读原著；原著只作为独立参照和文学技巧对照，不强行复制人物/剧情/原句。5项评分一律先冻结标准、匿名复评、显式来源风险，尽可能加独立人类读者。不能从一个 230字低分片段推断数百万字名著水平，也不把新的分数自动反喂给创作 AI。
+- **安全/版本**：所有本轮代码仅开发分支 `refactor-unified-scene-delivery-audit`，评分实验只是 `experiments/` 外部测量工具，不新增 WF 文学裁判、知识库或记忆模块；既有 V26、V98、V119 及唯一 NarrativeCore 的职责不变。不修改 main、不部署 Railway、不写 R2/正式 Canon，不重复旧 15 章训练，也不对旧《潮簿》《雨册》重复付费劝改。0.AA新增 4次**评分模型调用**、0次**新小说生成调用**；0.AB审计新增0模型调用。
+
+---
+
 ## 0.Z 先红后绿：修复旧未证祖先经后续合法签名被“洗白”；明确签名第 0 章根与 14 章热暖冷分支源绑定（2026-10-25，最新）
 
 **下一窗口先读**：[WF_0Z_SIGNED_ANCESTRY_PROVENANCE_20261025.md](WF_0Z_SIGNED_ANCESTRY_PROVENANCE_20261025.md) → [WF_0Y_CROSS_CHAPTER_SOURCE_LINEAGE_BUG_HUNT_20261025.md](WF_0Y_CROSS_CHAPTER_SOURCE_LINEAGE_BUG_HUNT_20261025.md) → [WF_0X_FAILURE_FIRST_WF_DEFECT_REPAIR_20261025.md](WF_0X_FAILURE_FIRST_WF_DEFECT_REPAIR_20261025.md)。继续遵守用户的真正测试目的：**用测试找出并修复 WriterForge 自身错误，不能逼小说 AI 认错，更不能让 WF 迁就 AI 的 `MOVE_ON`**。只改 `refactor-unified-scene-delivery-audit`；不改 main、Railway、用户 R2 原小说、正式 Canon、旧真实模型证据，不重复 15 章训练或增建第二文学记忆。
