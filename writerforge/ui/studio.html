@@ -97,7 +97,7 @@ label{font-size:13px;font-weight:600;display:block;margin-top:13px}
       <input id="reader-first-self-review" type="checkbox" />
       G · 同一个写作 AI 先做一次独立读者式原文复述，再自己决定保留／修改（实验，默认关闭）
     </label>
-    <p class="note">先只看真实正文，分别写出原文明确发生的动作与只能由读者猜出的过渡；随后仍由原作者模型自主选择。WF 只核对引用来源，不下文学结论，不自动要求删稿。额外复读调用计入原有每作业最多 8 次自主审稿请求额度，不会无限增加模型调用。</p>
+    <p class="note">先只看真实正文，分别写出原文明确发生的动作与只能由读者猜出的过渡；随后仍由原作者模型自主选择。有可核对的前段/前章来源时，原作者须区分“真正已写原句”“没有写出或未知”“有意留白”。WF 只核对字面引用，不证明动作已发生，不自动删稿。读者复读及作者归因都计入原有每作业最多 8 次审稿调用；来源归因的单次输出预算可能高于旧作者判断，默认关闭。</p>
     <label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:normal">
       <input id="continue-unreviewed" type="checkbox" />
       G 模式：接续上一批未接受候选的下一章（本机签名恢复，重启仍可选）
