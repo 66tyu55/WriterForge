@@ -58,6 +58,8 @@ on:
       - tests/test_wf_0ac_multigenre_narrative_stress.py
       - tests/test_wf_0ag_v96_causal_false_green.py
       - tests/test_wf_0ag_diverse_micro_paired_protocol.py
+      - tests/test_wf_0ag_three_scores_replay.py
+      - experiments/wf_0ag_replay_three_real_micro_scores_only_20261025.py
       - experiments/wf_0ag_diverse_micro_paired_20261025.py
       - experiments/wf_0ad_multigenre_real_paired_writing_20261025.py
       - tests/test_wf_0ad_multigenre_real_paired_protocol.py
