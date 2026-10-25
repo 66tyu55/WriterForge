@@ -1,0 +1,69 @@
+name: WF 0.AD Diverse Real Matched-Two-Arm Original Writing and Source Audit
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_0AD_DIVERSE_REAL_AUTHOR_FIRE_ONCE_20261025.txt
+permissions:
+  contents: read
+concurrency:
+  group: wf-0ad-one-real-four-genre-two-arm-judged-bounded
+  cancel-in-progress: false
+jobs:
+  diverse-source-and-score-samples:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 27
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install only existing WF dependencies
+        run: python -m pip install -e '.[r2]'
+      - name: Ensure no R2/book sources or second model vendor credentials enter job
+        run: python -c 'import os; assert not any(os.getenv(x) for x in ("WRITERFORGE_R2_ACCESS_KEY_ID","WRITERFORGE_R2_ACCOUNT_ID","DISCOVERY_API_KEY","OPENAI_API_KEY"))'
+      - name: Prove 9-genre source adversarial and four-genre author/judge protocols before any paid model
+        run: >
+          PYTHONPATH=tests python -m unittest
+          tests.test_wf_0ac_multigenre_narrative_stress
+          tests.test_wf_0ad_multigenre_real_paired_protocol
+          -q
+      - name: Four DIFFERENT real novel tasks, bare vs WF V96, blind paired /100 ratings, no retrials
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: python -m experiments.wf_0ad_multigenre_real_paired_writing_20261025
+      - name: Confirm actual cost cap, original provider wire SHA and truthful status
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('wf_0ad_multigenre_writer_pilot_20261025/STATUS.json').read_text('utf8'))
+          assert s['format']=='wf.0ad.multigenre-real-original-writing-v1'
+          assert 0<=s['actual_model_calls']<=16
+          assert s['real_reserved_output_token_cap']==27000
+          assert s['R2_reads']==s['R2_writes']==s['canon_writes']==0
+          assert s['Railway_deployments']==0 and not s['main_modified']
+          assert s['no_author_forced_revisions_or_retries']
+          assert s['WF_literary_superiority_not_proven']
+          assert s['rater_is_not_independent_human_review']
+          print('ACTUAL MULTIGENRE STATUS:',s['status'])
+          print('PAID CALL COUNT:',s['actual_model_calls'])
+          for key,item in s['cases'].items():
+              print(key,item.get('status'),
+                    item.get('ratings',{}).get('WF_minus_bare'),
+                    item.get('WF_source_checks',{}).get('V116_review_findings'))
+          PY
+      - name: Save true model originals, rater evidence and WF errors, no copyrighted literature
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AD-MultiGenre-Original-Bare-vs-WF-Real-Four-Case-Evidence
+          path: wf_0ad_multigenre_writer_pilot_20261025/
+          retention-days: 30
+          if-no-files-found: warn
