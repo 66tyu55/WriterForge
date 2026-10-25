@@ -1,6 +1,20 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.S 已签名戏楼原作者自主 LOOK_BACK 后，真正改写动作句但 V96 因果引句重叠严格拒绝；私有预览不得当成新完整章（2026-10-25，最新）
+
+**继续先读**：[WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md](WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md) → [WF_REAL_OPERA_AUTHOR_V119_SOURCE_ONLY_20261025.md](WF_REAL_OPERA_AUTHOR_V119_SOURCE_ONLY_20261025.md)。仅 `refactor-unified-scene-delivery-audit` 开发分支；禁止改 main、Railway、用户 R2 原小说或正式 Canon，不再重复旧15章训练、不得添加第二个文学记忆/审稿 AI。
+
+- **来源真的未被替换**：沿 [原真正 G 完整作者章 #40110957161](https://github.com/66tyu55/WriterForge/actions/runs/40110957161) → [同一真模型双文本读者 #40151857245](https://github.com/66tyu55/WriterForge/actions/runs/40151857245) → [原作家带来源归因自行决定 LOOK_BACK_NOW #40153456601](https://github.com/66tyu55/WriterForge/actions/runs/40153456601) → [这次仅一次真正 DeepSeek V119 修改提案 #40155863914](https://github.com/66tyu55/WriterForge/actions/runs/40155863914)。发出模型请求前核对上述真实原始 wire、V96/G 源、V117、来源 SHA `2a0d2827d51dc1197065cd21126e091a3fd44c4db3bb7d92048c3167d24f4dbd`，以及作者自己选定的唯一原句。**本轮新模型调用仅1次、没有重试或再次劝改**。
+- **AI 的确写出了小说修订，不是 WF 编句**：原写“她刚要把重心全压上去，板缘猛地往上一翻……”，原 DeepSeek 新 `replacement` 写“她把重心一点点挪上去，心里早备好了往回撤的那口气；板缘还是猛地往上一翻……”，增加江遥预判风险的谨慎心理，保留撞栏和膝头受伤后果。模型 raw XML/JSON 原件独立存档，WF 未代写。其 `type=json_object` 冗余字样及错误字符位置均只按旧精确、唯一、同 SHA 原句机械归位。
+- **关键文学/技术红灯不能绕过**：实际 V119 提案却令 `trace.action_quote` 与 `trace.effect_quote` 同时等于**整个相同的 replacement**，V96 正确拒绝 `WF96_ACTION_EFFECT_OVERLAP_OR_REVERSED`。旧 G 章旧第二段、V117 旧签名及原正文照旧保留，实际**合法通过全部源/因果门槛的新编辑0次，完整新章节0份**；不能悄悄由 Python 替原作家拆 `trace` 制造“成功”。[本次真 V119 全部原回包、失败源](https://github.com/66tyu55/WriterForge/actions/runs/40155863914/artifacts/12584493249)。
+- **零模型严格取证 #40156185580**：从四组真正 provider wire 重新核验，在没有多花任何模型费用下得到原模型文字的 V119 **私人源锁定预览 `PROVISIONAL_REVIEW`**。其 V117 **仅源预检** `blocked=false`、`needs_review=false`，而模型原 V96 trace 仍然红灯；**没有**新完整章节 signed resume，旧章第二段也**没有**当新下游被复用。私人预览 SHA `653865dfc002e24493178773d4c90ec4c5b6dea1d57a05d3ba47eb714c696beb`，并非文学质量通过的凭证。[真实作者新句＋原文匿名对照源件](https://github.com/66tyu55/WriterForge/actions/runs/40156185580/artifacts/12584084616)。
+- **代码修复只纠正下一次模型的来源引用约束**：在原 `writing_assist._self_edit_one_turn` 提示里明确动作与后果必须各选 **6—96字、两个不同、不重叠、动作先于结果的真正源字串**；同句可分两段，不能同一全文充作双重证据。WF 不自行补结果、解析语义或替模型修正本次坏 `trace`。原 V26、V98、V114/V117、V119、单一 NarrativeCore 热暖冷记忆及 Studio 用户取消／私有废稿功能保持完整。
+- **验收和准确状态**：[首次 #40155679207](https://github.com/66tyu55/WriterForge/actions/runs/40155679207) 的红灯仅为测试源码检索断言写错，修正后 [#40155768365](https://github.com/66tyu55/WriterForge/actions/runs/40155768365) 1,589 项绿；[补充分离 V96 源行动与结果引用的最新全量 #40156031520](https://github.com/66tyu55/WriterForge/actions/runs/40156031520) **1,590 tests run、4 skipped、0 failures**。软件绿不证明文学进步，单一作者新句不是完整真实作家反复删改能力。
+- **下一步不是反复付费劝这篇旧稿认错**：换真正不同的原创场景，让同一创作 AI 自己选择何时删改并写出**源合法且 V96/V114/V117 完整可用的修订后章节**，重新创作已受影响的下一段；以真实匿名读者比较人物选择、动作因果、物件秘密一致性和自然度。未经用户继续授权，不启动新模型调用，不部署生产环境。
+
+---
+
 ## 0.R 原作家“前章已经写过”必须提供原文：真实 DeepSeek 自主区分有意留白与未写动作，也真的决定 LOOK_BACK（2026-10-25，本轮最新）
 
 **接续顺序**：[WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md](WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md) → [WF_AUTHOR_SOURCE_EVIDENCE_REAL_20261025.md](WF_AUTHOR_SOURCE_EVIDENCE_REAL_20261025.md)。本节只代表**签名更早原文＋原作者同模型来源引用约束**的单阶段真模型实验，不能假装已有文学质量进步。所有变更仅 `refactor-unified-scene-delivery-audit`，不改 main / Railway / R2 原著 / 用户正式接受 Canon，勿重复旧书学习或添加第二文学记忆/审稿 AI。
