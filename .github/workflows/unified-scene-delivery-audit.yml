@@ -56,6 +56,7 @@ on:
       - experiments/wf_0ab_score_validity_gate.py
       - tests/test_wf_0ab_literary_score_validity_gate.py
       - tests/test_wf_0ac_multigenre_narrative_stress.py
+      - tests/test_wf_0ag_v96_causal_false_green.py
       - experiments/wf_0ad_multigenre_real_paired_writing_20261025.py
       - tests/test_wf_0ad_multigenre_real_paired_protocol.py
       - experiments/wf_0ae_replay_original_multigenre_real_scores_20261025.py
