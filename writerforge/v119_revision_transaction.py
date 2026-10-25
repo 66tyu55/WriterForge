@@ -143,6 +143,8 @@ def preview_revision(*, project_id: str, scene_id: str, source: str,
                                "NO_PRIOR_STATE_PROVIDED"),
         "baseline_preflight_warnings": (
             prior_report["findings"] if prior_report else []),
+        "baseline_review_findings": (
+            prior_report["review_findings"] if prior_report else []),
         "revision_preflight_warnings": (
             revised_report["findings"] if revised_report else []),
         "revision_review_findings": (
@@ -233,6 +235,13 @@ def prepare_source_repair_contract(
         source_before=preflight_next_prose(
             source,previous_candidate_state=previous_candidate_state,
             cast=cast)
+    # Reuse the original V122 source-bound physical relation evidence.
+    # The host supplies two actual quotes and an uncertainty, not a verdict
+    # about which story-world interpretation or rewrite would be better.
+    from .v122_item_provenance import audit_physical_relation_sources
+    relation_evidence=audit_physical_relation_sources(prose=source)
+    _need(relation_evidence["source_sha256"]==source_sha256,
+          "WF119_RELATION_EVIDENCE_SOURCE_SHA_MISMATCH")
     # Bounded projection of already available V114/V116 state cells:
     # not a new memory store and never a permanent fact assertion.
     # If a long state was truncated, the omission is EXPLICIT so that
@@ -275,6 +284,17 @@ def prepare_source_repair_contract(
         "baseline_state_coverage":(
             "V116_SOURCE_ONLY_NARROW" if source_before is not None
             else "NO_PREVIOUS_CANDIDATE_STATE"),
+        "physical_relation_source_evidence":{
+            "source_sha256":relation_evidence["source_sha256"],
+            "source_receipt_sha256":relation_evidence["receipt_sha256"],
+            "review_status":relation_evidence["review_status"],
+            "source_quote_pairs":relation_evidence["review_pairs"],
+            "physical_identity_or_contact_may_differ":True,
+            "source_quotes_only_not_a_literary_verdict":True,
+            "unverified_relation_cannot_become_downstream_fact":True,
+            "writer_may_keep_unrevealed_actor_and_meaning":True,
+            "writer_chooses_keep_delete_local_edit_or_scene_rewrite":True,
+        },
         "prior_source_candidate_state":source_rows[:8],
         "prior_item_character_rows_omitted":max(0,len(source_rows)-8),
         "other_prior_state_domains_not_in_this_small_view":True,
@@ -337,6 +357,9 @@ def compare_source_repair_impact(*,preview_receipt:dict) -> dict:
     _need(introduced==new_hard-old_hard,
           "WF119_REPAIR_IMPACT_DELTA_INCONSISTENT")
     review_introduced=arr("new_preflight_review_flags")
+    remaining_relation=(
+        "NEEDS_SOURCE_RELATION_REVIEW" in
+        arr("revision_review_findings"))
     _need(review_introduced.issubset(
         arr("revision_review_findings")),
           "WF119_REPAIR_IMPACT_REVIEW_DELTA_INCONSISTENT")
@@ -344,6 +367,10 @@ def compare_source_repair_impact(*,preview_receipt:dict) -> dict:
         status="BLOCKED_NEW_HARD_SOURCE_RISK"
     elif review_introduced:
         status="HELD_NEW_UNVERIFIED_SOURCE_RISK"
+    elif remaining_relation:
+        # A model cannot make its own contradictory position claims valid
+        # merely by rewording an unrelated sentence.
+        status="HELD_EXISTING_SOURCE_RELATION_RISK"
     else:
         status="NO_NEW_DETECTED_STRUCTURAL_RISK_ONLY"
     impact={
@@ -358,6 +385,8 @@ def compare_source_repair_impact(*,preview_receipt:dict) -> dict:
         "candidate_review_only_findings":sorted(
             arr("revision_review_findings")),
         "new_unverified_review_findings":sorted(review_introduced),
+        "existing_physical_relation_review_remaining":remaining_relation,
+        "source_relation_risk_cannot_be_cleared_by_prose_without_evidence":True,
         "previously_existing_hard_findings_remain":sorted(
             old_hard & new_hard),
         "one_fix_may_create_another_error":True,
