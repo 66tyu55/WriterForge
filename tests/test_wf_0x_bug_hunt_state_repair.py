@@ -62,6 +62,34 @@ class FalseGreenRiskCodeCollision(unittest.TestCase):
         self.assertEqual(len(result["still_open_source_relation_issue_keys"]),1,result)
 
 
+class RepeatedSourceQuoteMustNotBeSkipped(unittest.TestCase):
+    def test_two_same_state_quotes_plus_detach_must_still_be_checked(self):
+        # Today's V122 silently DROPS the duplicated quoted state because
+        # prose.count(quote) != 1, even when exact source offsets exist.
+        p=("铜牌还在木匣里，铜牌还在木匣里，"
+           "只是铜牌已经被人从木匣里取出来。")
+        report=audit_physical_relation_sources(prose=p)
+        self.assertTrue(report["current_source_needs_review"],report)
+        self.assertEqual(len(report["claims"]),3,report)
+        self.assertEqual(len(report["review_pairs"]),2,report)
+        self.assertNotEqual(
+            report["review_pairs"][0]["first_source_start"],
+            report["review_pairs"][1]["first_source_start"])
+        from writerforge.v116_state_delta import preflight_next_prose
+        from writerforge.writing_assist import _physical_relation_source_hold
+        gate=preflight_next_prose(
+            p,previous_candidate_state={},cast=())
+        self.assertTrue(gate["needs_review"])
+        hold=_physical_relation_source_hold(prose=p,preflight=gate)
+        self.assertIsNotNone(hold)
+        self.assertEqual(hold["status"],"HELD_NEEDS_SOURCE_RELATION_REVIEW")
+
+    def test_duplicate_same_state_alone_is_not_a_world_contradiction(self):
+        p="铜牌还在木匣里，铜牌还在木匣里。"
+        report=audit_physical_relation_sources(prose=p)
+        self.assertEqual(report["review_pairs"],[])
+        self.assertEqual(len(report["claims"]),2)
+
 class SourceLockedV114RebaseAfterV119(unittest.TestCase):
     def test_true_author_source_edit_rebuilds_checkpoint_not_poisoned_forever(self):
         old=OLD+CALM
