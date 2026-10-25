@@ -3044,6 +3044,9 @@ class AutonomousWriting:
                 accepted_turns=[]
                 accepted_beats=[]
                 selected_turn_raws=[]  # The real source and ALL trace fields.
+                # Snapshots of the ACTUAL V114 state after each authored
+                # short turn. Rewind together with every other derived list.
+                turn_external_checkpoints=[]
                 trace_checks=[]
                 last_lamp_receipt=None
                 lamp_decisions=[]
@@ -3088,7 +3091,8 @@ class AutonomousWriting:
                                 # state together when revising a previous turn.
                                 tracked_rewind_lists=(
                                     accepted_turns,accepted_beats,
-                                    selected_turn_raws,trace_checks,
+                                    selected_turn_raws,turn_external_checkpoints,
+                                    trace_checks,
                                     lamp_decisions,long_arc_checks,
                                     narrative_lane_decisions,narrative_source_reviews,
                                     unified_prose_replay_checks,
@@ -3815,6 +3819,8 @@ class AutonomousWriting:
                                 current_external_story_checkpoint=external_temporal_step(
                                     prose=evidence["prose"],cast=cast,
                                     prior=current_external_story_checkpoint)
+                                turn_external_checkpoints.append(
+                                    current_external_story_checkpoint)
                             turn_index+=1
                             if (rewind_pending is not None and
                                 turn_index>rewind_pending["resume_index"]):
@@ -4266,6 +4272,10 @@ class AutonomousWriting:
                         scene_id=self.assist.scene_id,
                         chapter_index=first_story_chapter_index+index-1,
                         source_path=saved["candidate"],prose=body,
+                        chapter_source_parts=tuple(
+                            turn["prose"] for turn in accepted_turns),
+                        chapter_temporal_checkpoints=tuple(
+                            turn_external_checkpoints),
                         source_writer=(narrative_store.put_original
                                        if narrative_store else None),
                         source_reader=(narrative_store.read_original
