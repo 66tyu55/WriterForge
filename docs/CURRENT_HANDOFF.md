@@ -1,6 +1,19 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.Z 先红后绿：修复旧未证祖先经后续合法签名被“洗白”；明确签名第 0 章根与 14 章热暖冷分支源绑定（2026-10-25，最新）
+
+**下一窗口先读**：[WF_0Z_SIGNED_ANCESTRY_PROVENANCE_20261025.md](WF_0Z_SIGNED_ANCESTRY_PROVENANCE_20261025.md) → [WF_0Y_CROSS_CHAPTER_SOURCE_LINEAGE_BUG_HUNT_20261025.md](WF_0Y_CROSS_CHAPTER_SOURCE_LINEAGE_BUG_HUNT_20261025.md) → [WF_0X_FAILURE_FIRST_WF_DEFECT_REPAIR_20261025.md](WF_0X_FAILURE_FIRST_WF_DEFECT_REPAIR_20261025.md)。继续遵守用户的真正测试目的：**用测试找出并修复 WriterForge 自身错误，不能逼小说 AI 认错，更不能让 WF 迁就 AI 的 `MOVE_ON`**。只改 `refactor-unified-scene-delivery-audit`；不改 main、Railway、用户 R2 原小说、正式 Canon、旧真实模型证据，不重复 15 章训练或增建第二文学记忆。
+
+- **WF 又找到一项真假绿色**：第 1 章没有完整 V114 祖先来源时，旧系统只要第 2 章新签名正常，就可能当作整个历史已证；再追加第 3 章依然错误放行；第 1 章偷偷把未登记外部 V114 CP 当先验也被误接。[RED #40180369416](https://github.com/66tyu55/WriterForge/actions/runs/40180369416) 1 条失败，[RED #40180485943](https://github.com/66tyu55/WriterForge/actions/runs/40180485943) 3 条失败。**合法单个签名不等于合法完整来源祖先链。**
+- **实际修在原 NarrativeCore/V117/G，不造新记忆**：`source_temporal_link.ancestry_fully_verified` 和 `source_temporal_parent_ancestry_verified` 随章节从可信来源根递推。未证祖先不能因后来一章局部签名变成已证，V117 新 resume 与新 G 续写在 `WF117_GRAPH_TEMPORAL_ANCESTRY_UNVERIFIED` 处拒绝。旧签名归档仍可只读查原文，但不可直接冒充新的安全父版本；正式状态不落 Canon。
+- **保留合法第 0 章初始化**：首次过严测试把旧 G 的已签名第 0 章种子也拦了，这是**假红色**。已在原 `record_chapter_memory(root_resume_anchor=...)` 与原 G 中验证完整同项目/同场景、根图、根 V117 签名和真正 V114 CP 的联系；允许合法初始化，裸 V114 外部种子依旧拒绝。中间失败的 [#40180815423](https://github.com/66tyu55/WriterForge/actions/runs/40180815423) 如实保留。
+- **真实多章软件验收（不冒充文学）**：14 章本地热/暖/冷归档，从已证第 12 章改第 13 章，旧/新第 14 章就算正文一样也必须各自指向不同父 SHA；旧第 1～12 章原始归档和冷档索引保持可追溯，不污染新分支。已有跨章 G 真实方法的合成模型回包重建测试、合法 root、孤立/两跳洗白攻击都做了。
+- **最终全量**：[GitHub Actions #40181186594](https://github.com/66tyu55/WriterForge/actions/runs/40181186594) **1,678 tests executed，7 skipped，0 failed**，含原 Novel Studio 及统一叙事图的现有回归；0 个新增付费模型请求、0 个用户 R2 真实读写、0 Canon、0 Railway 部署、main 未动。
+- **仍不应过度宣称**：这轮只证明在开发分支中，新版本的源回滚与来源根能按既定工程边界工作。旧冷档长期索引跨分支污染尚需持续攻击；没有证明任何新真实 AI 的自主 V119 文学改稿成功、没有独立人类文学质量认可。后续继续“失败原稿→真正 RED→修 WF→正反例 GREEN”，不要再问旧《潮簿》/《雨册》原作者认不认错。
+
+---
+
 ## 0.X 测试本来是爆出 WF 自身缺陷，不能让 WF 迎合 AI：三项实测红→绿修复（2026-10-25，最新）
 
 **优先阅读**：[WF_0X_FAILURE_FIRST_WF_DEFECT_REPAIR_20261025.md](WF_0X_FAILURE_FIRST_WF_DEFECT_REPAIR_20261025.md) → [WF_0W_CONTAINER_CROSS_CHAPTER_REAL_WRITER_20261025.md](WF_0W_CONTAINER_CROSS_CHAPTER_REAL_WRITER_20261025.md) → [WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md](WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md)。用户明确纠偏：**测试是为了发现 WF 底层的错误，再修 WF；不是让 WF 迁就 AI 的 `MOVE_ON` 或不断提问逼 AI 修改。** 此阶段新文学模型调用0次，仅开发分支 `refactor-unified-scene-delivery-audit`；主线 main、Railway、R2 原小说、正式 Canon、旧模型回包和已完成的15章训练都不动。
