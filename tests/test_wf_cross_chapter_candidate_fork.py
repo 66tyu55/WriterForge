@@ -386,6 +386,52 @@ class CrossChapterUnacceptedSourceFork(TestCase):
                         child_core["memory"]["warm"]))
         self.assertEqual(following["canonical_fact_writes"],0)
 
+    def test_legacy_valid_but_unbound_resume_cannot_start_new_G_writing(self):
+        # Authentic old V117 files may contain separately signed V114 and
+        # graph snapshots whose true chapter-assembly relationship was
+        # never recorded. They remain readable, but cannot be source of
+        # *new* chapters until that provenance is independently checked.
+        from writerforge.v117_continuity_trace import RESUME,packed,hashb
+        graph=new_graph(project_id=self.project,scene_id=self.scene)
+        a=visible_prose(1,1)
+        b=visible_prose(1,2)
+        whole=a+"\\n\\n"+b
+        first=external_temporal_step(a,cast=ACTORS)
+        last=external_temporal_step(b,cast=ACTORS,prior=first)
+        path=self.root/"legacy-chapter.md"
+        path.write_text(whole,encoding="utf8")
+        graph=advance_graph(
+            graph,project_id=self.project,scene_id=self.scene,
+            chapter_index=1,prose=whole,events=())
+        graph=record_chapter_memory(
+            graph,project_id=self.project,scene_id=self.scene,
+            chapter_index=1,source_path=str(path),prose=whole)
+        legacy={
+            "format":RESUME,"project_id":self.project,"scene_id":self.scene,
+            "chapter_index":1,
+            "source_checkpoint_sha256":last["receipt_sha256"],
+            "source_prose_sha256":last["source_sha256"],
+            "unreviewed_story_state_checkpoint":last,
+            "author_accepted":False,"literary_truth_verified":False,
+            "canon_writes":0,"model_calls":0,
+            "unified_narrative_core":graph,
+        }
+        legacy["receipt_sha256"]=hashb(packed(legacy))
+        self.assertEqual(
+            read_resume(legacy,project_id=self.project,
+                        scene_id=self.scene),last)
+        dest=self.root/"old-unbound-rejected"
+        with patch("writerforge.writing_assist.local_chat_completion") as model:
+            with self.assertRaisesRegex(
+                WritingExecutionError,"WF117_GRAPH_TEMPORAL_SOURCE_UNBOUND"):
+                AutonomousWriting(self.assist).run(
+                    outline=self.outline,
+                    chapter_goals=["新一章必须继承真实、可证的前章物件和人物状态。"],
+                    draft_mode="continuity_guard",
+                    resume_story_checkpoint=legacy,output_dir=dest)
+            model.assert_not_called()
+        self.assertFalse(dest.exists())
+
     def test_tampered_branch_selection_receipt_rejected(self):
         old,head,prose=self.old_branch()
         rebuilt=self.run_writer(out="new",answer_list=replies(1,alternate=True),
