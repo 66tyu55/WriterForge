@@ -492,12 +492,40 @@ _PHYSICAL_ACTION_BIND=re.compile(
 _PHYSICAL_COLORS=("红","蓝","黑","白","青","黄","绿","紫","金","银")
 _PHYSICAL_NUMBERS=("第一","第二","第三","两根","另一根","左边","右边","左侧","右侧")
 _PHYSICAL_PARTS=("自由端","另一端","绳头","锁扣的一侧","末端")
+# The container case shares EXACTLY the existing V122/V114 relation receipt,
+# not a second memory channel. Narrow forms only: object-in-container and
+# directly observed removal/placement; these are NOT ownership statements.
+_PHYSICAL_CONTAINED=re.compile(
+    r"^(?P<item>[\u3400-\u9fff]{1,14}?)"
+    r"(?P<aspect>仍然|依然|一直|尚|仍|还|正|已经|已)?"
+    r"(?:在|放在|藏在|留在)"
+    r"(?P<site>[\u3400-\u9fff]{1,12}?)"
+    r"(?:里面|里|之中|中|内)$")
+_PHYSICAL_PASSIVE_TAKE=re.compile(
+    r"^(?P<item>[\u3400-\u9fff]{1,14}?)(?:已经|早已|已)?"
+    r"被[\u3400-\u9fff]{1,8}?从"
+    r"(?P<site>[\u3400-\u9fff]{1,12}?)"
+    r"(?:里面|里|之中|中|内)"
+    r"(?:取出|拿出|掏出|取走|搬出|移出)(?:来|去)?$")
+_PHYSICAL_DIRECT_TAKE=re.compile(
+    r"^(?:[\u3400-\u9fff]{1,8}?(?:把|将))?"
+    r"(?P<item>[\u3400-\u9fff]{1,14}?)从"
+    r"(?P<site>[\u3400-\u9fff]{1,12}?)"
+    r"(?:里面|里|之中|中|内)"
+    r"(?:取出|拿出|掏出|取走|搬出|移出)(?:来|去)?$")
+_PHYSICAL_PLACE=re.compile(
+    r"^(?:[\u3400-\u9fff]{1,8}?(?:把|将))?"
+    r"(?P<item>[\u3400-\u9fff]{1,14}?)"
+    r"(?:放入|放进|装进|收进|藏进|送进)"
+    r"(?P<site>[\u3400-\u9fff]{1,12}?)"
+    r"(?:里面|里|之中|中|内)?$")
+MAX_OPEN_PHYSICAL_RELATIONS=8
 
 def _physical_site_label(value):
     # Retain the original text as evidence. This heuristic is for *possible*
     # contact targets, never an identity assertion or novel-world state cell.
     raw=value
-    for suffix in ("上面","上头","之上","顶端","上","头","边","旁","处"):
+    for suffix in ("上面","上头","之上","顶端","里面","之中","上","头","边","旁","处","里","中","内"):
         if raw.endswith(suffix) and len(raw)>len(suffix):
             return raw[:-len(suffix)]
     return raw
@@ -556,6 +584,10 @@ def _physical_relation_clause(prose,start,end,clause,spoken):
         ("DETACH_ACTION",_PHYSICAL_PASSIVE_FREE),
         ("DETACH_ACTION",_PHYSICAL_DIRECT_FREE),
         ("ATTACH_ACTION",_PHYSICAL_ACTION_BIND),
+        ("CONTAINED_STATE",_PHYSICAL_CONTAINED),
+        ("REMOVE_ACTION",_PHYSICAL_PASSIVE_TAKE),
+        ("REMOVE_ACTION",_PHYSICAL_DIRECT_TAKE),
+        ("PLACE_ACTION",_PHYSICAL_PLACE),
     ):
         m=rx.fullmatch(inner)
         if m:
@@ -575,7 +607,14 @@ def _physical_relation_clause(prose,start,end,clause,spoken):
         "source_start":offset,"source_end":offset+len(raw),
         "source_quote":raw,"source_quote_sha256":_digest(raw),
         "item_literal":item,"contact_literal":site,
-        "relation":("ATTACHED" if status.startswith("ATTACH") else "DETACHED"),
+        "relation":(
+            "CONTAINED" if status in ("CONTAINED_STATE","PLACE_ACTION") else
+            "REMOVED" if status=="REMOVE_ACTION" else
+            "ATTACHED" if status.startswith("ATTACH") else "DETACHED"),
+        "relation_family":(
+            "CONTAINMENT" if status in (
+                "CONTAINED_STATE","REMOVE_ACTION","PLACE_ACTION")
+            else "ATTACHMENT"),
         "source_form":status,
         "continuing_state_words":bool(mapping.get("aspect") in
                                      ("仍然","依然","一直","尚","仍","还")),
@@ -586,8 +625,9 @@ def _physical_relation_clause(prose,start,end,clause,spoken):
 def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
     """Bounded evidence-first relation review within V122; zero model calls.
 
-    Only a SAME-SENTENCE, unresolved ATTACHED versus DETACH source pair
-    may become a review candidate, and even then an object/anchor may be an
+    Only narrow unresolved SAME-SENTENCE attached/detached OR
+    contained/removed source pairs may become review candidates, and
+    even then an object/anchor may be an
     alias, a partial end, or a narration choice. Never call it a proven
     contradiction. Explicit sequential acts and different items are allowed.
     """
@@ -601,7 +641,9 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
                   k:v for k,v in r.items() if k!="receipt_sha256"}) and
               type(r.get("source_sha256")) is str and
               len(r.get("claims",()))<=20 and
-              len(r.get("review_pairs",()))<=8,
+              len(r.get("review_pairs",()))<=8 and
+              type(r.get("open_relation_reviews",[])) is list and
+              len(r.get("open_relation_reviews",[]))<=MAX_OPEN_PHYSICAL_RELATIONS,
               "WF122_PREVIOUS_RELATION_RECEIPT_UNTRUSTED")
     claims=[]
     reviews=[]
@@ -635,10 +677,12 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
         for i,one in enumerate(sentence_claims):
             for two in sentence_claims[i+1:]:
                 if len(reviews)>=8:break
-                if one["relation"]==two["relation"]:
+                if (one["relation_family"]!=two["relation_family"] or
+                    one["relation"]==two["relation"]):
                     continue
-                if (one["source_form"]=="ATTACH_ACTION" and
-                    two["source_form"]=="DETACH_ACTION"):
+                if (one["source_form"],two["source_form"]) in (
+                    ("ATTACH_ACTION","DETACH_ACTION"),
+                    ("PLACE_ACTION","REMOVE_ACTION")):
                     continue
                 if not (one["continuing_state_words"] or
                         two["continuing_state_words"]):
@@ -667,6 +711,7 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
                     "contact_identity_evidence":contact_match,
                     "first_item_literal":one["item_literal"],
                     "second_item_literal":two["item_literal"],
+                    "relation_family":one["relation_family"],
                     "first_contact_literal":one["contact_literal"],
                     "second_contact_literal":two["contact_literal"],
                     "unresolved_question":"SAME_REFERENT_AND_CONTACT_STATUS_NOT_PROVEN",
@@ -674,18 +719,59 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
                     "literary_ellipsis_not_a_physical_state_proof":True,
                     "writer_must_choose_whether_and_where_to_edit":True,
                 })
-    old_unresolved=(len(previous_relation_receipt.get("review_pairs",()))
-                    if previous_relation_receipt is not None else 0)
+    # Provenance debt is carried INSIDE the existing signed V114 receipt
+    # through QUIET chapters. Otherwise a 3-chapter story would lose the
+    # original question as soon as a chapter did not mention the object.
+    # Never silently truncate or auto-settle an old unresolved claim.
+    old_open=[]
+    if previous_relation_receipt is not None:
+        older=previous_relation_receipt.get("open_relation_reviews")
+        if older is None:  # compatible with old (pre-0.W) V122 receipts
+            older=[{**p,"origin_source_sha256":
+                    previous_relation_receipt["source_sha256"]}
+                   for p in previous_relation_receipt["review_pairs"]]
+        for p in older:
+            _need(type(p) is dict and type(p.get("origin_source_sha256")) is str
+                  and re.fullmatch(r"[0-9a-f]{64}",p["origin_source_sha256"])
+                  and all(type(p.get(k)) is str for k in (
+                      "first_source_quote","second_source_quote",
+                      "first_source_quote_sha256",
+                      "second_source_quote_sha256",
+                      "first_item_literal","first_contact_literal"))
+                  and all(_digest(p[k+"_source_quote"])==
+                          p[k+"_source_quote_sha256"]
+                          for k in ("first","second")),
+                  "WF122_OLD_OPEN_RELATION_CITATION_NOT_VALID")
+            old_open.append(p)
+    open_debts=list(old_open)
+    seen={(p["origin_source_sha256"],
+           p["first_source_quote_sha256"],p["second_source_quote_sha256"])
+          for p in open_debts}
+    for p in reviews:
+        key=(_digest(prose),p["first_source_quote_sha256"],
+             p["second_source_quote_sha256"])
+        if key not in seen:
+            open_debts.append({**p,"origin_source_sha256":_digest(prose)})
+            seen.add(key)
+    # The existing single-V114-candidate budget wins over silent evidence
+    # eviction. Overflow is a SOURCE HOLD, not a green continuity result.
+    _need(len(open_debts)<=MAX_OPEN_PHYSICAL_RELATIONS,
+          "WF122_OPEN_RELATION_DEBT_BUDGET_EXCEEDED")
+    old_unresolved=len(old_open)
     source_dependents=[]
     if old_unresolved:
         # An unresolved older physical relation cannot become the necessary
         # premise of a new unqualified statement. Unrelated story events
         # remain free to proceed; do NOT block a whole book on old questions.
         for now in claims:
-            if (now["source_form"] not in ("ATTACHED_STATE","DETACH_ACTION")
+            if (now["source_form"] not in (
+                    "ATTACHED_STATE","DETACH_ACTION",
+                    "CONTAINED_STATE","REMOVE_ACTION")
                 or len(source_dependents)>=8):
                 continue
-            for former in previous_relation_receipt["review_pairs"]:
+            for former in old_open:
+                if (former.get("relation_family") or "ATTACHMENT")!=now["relation_family"]:
+                    continue
                 prior_item=former.get("first_item_literal")
                 prior_site=former.get("first_contact_literal")
                 if (type(prior_item) is not str or type(prior_site) is not str):
@@ -700,7 +786,7 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
                         "prior_source_quote":former["first_source_quote"],
                         "prior_source_quote_sha256":former["first_source_quote_sha256"],
                         "prior_relation_source_sha256":(
-                            previous_relation_receipt["source_sha256"]),
+                            former["origin_source_sha256"]),
                         "prior_relation_claim_not_a_confirmed_world_fact":True,
                         "writer_can_continue_unrelated_scenes":True,
                     })
@@ -713,6 +799,10 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
             if previous_relation_receipt is not None else None),
         "claims":claims,
         "review_pairs":reviews,
+        "open_relation_reviews":open_debts,
+        "open_relations_forwarded_from_signed_prior":old_unresolved,
+        "open_relation_debts_are_source_only_not_state_cells":True,
+        "open_relation_debt_budget":MAX_OPEN_PHYSICAL_RELATIONS,
         "dependent_on_unresolved_previous_relation":source_dependents,
         "current_source_needs_review":bool(reviews),
         "previous_source_unresolved_review_count":old_unresolved,
