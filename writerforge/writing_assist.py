@@ -1942,9 +1942,11 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                 # source-quoted trace is verified; do NOT start another
                 # unrelated full rewrite in this single bounded cycle.
                 break
-        except (ValueError,TypeError,KeyError,
+        except (ValueError,TypeError,KeyError,WritingExecutionError,
                 RevisionTransactionError,V96CausalDraftError,
                 NarrativeCoreError,ContinuityTraceError) as exc:
+            if isinstance(exc,WriterDraftCancelled):
+                raise  # User cancellation must never be converted to review.
             error=str(exc)
             if not error.startswith(("WF_", "WF96_", "WF119_", "WFCORE_")):
                 error=type(exc).__name__+":SELF_EDIT_MODEL_OR_PATCH_INVALID"
