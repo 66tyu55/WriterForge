@@ -1242,8 +1242,10 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
     attribution_requested=False
     if attribution_possible and reader_provided:
         instruction=(
-            "\n【原作者对读者跨章疑问的原文归因，非自动文学裁决】"
-            "以下是刚刚核验过字节身份的更早一章全文，不是故事计划："+
+            "\n【原作者对读者前后已写原文的来源归因，非自动文学裁决】"
+            "以下是已核验字节身份的更早已写文本，"
+            "它可能是紧邻上一段，也可能是 V117 签名的前章；"
+            "它不是故事计划："+
             earlier_source_for_attribution+
             "\n请你对 reader_cross_source_links 中的每一项"
             "另填 source_attributions 数组（严格按0开始的 link_index 顺序）。"
