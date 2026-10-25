@@ -4,7 +4,7 @@ on:
   push:
     branches: [refactor-unified-scene-delivery-audit]
     paths:
-      - experiments/WF_0AH_VERIFY_11_ORIGINALS_ONLY_COMEDY_REVERSE_ONCE_20261025.txt
+      - experiments/WF_0AH_VERIFY_11_ORIGINALS_CORRECTED_PREFLIGHT_ONCE_20261025.txt
 
 permissions:
   contents: read
@@ -20,7 +20,7 @@ jobs:
       github.repository == '66tyu55/WriterForge' &&
       github.ref_name == 'refactor-unified-scene-delivery-audit' &&
       github.run_attempt == 1 &&
-      github.event.head_commit.message == 'experiment(0.AH): FIRE ONLY ONE MISSING COMEDY REVERSE GRADE'
+      github.event.head_commit.message == 'experiment(0.AH): FIRE SOURCE VERIFIED COMEDY GRADE AFTER ZERO PAID PREFLIGHT'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -34,7 +34,7 @@ jobs:
         run: python -m pip install -e '.[r2]'
       - name: Freeze one-shot and stop R2 or additional model credentials
         run: |
-          test "$(cat experiments/WF_0AH_VERIFY_11_ORIGINALS_ONLY_COMEDY_REVERSE_ONCE_20261025.txt)" = "WF0AH_REPLAY_11_REAL_ORIGINALS_COMEDY_REVERSE_ONLY_NO_AUTHOR"
+          test "$(cat experiments/WF_0AH_VERIFY_11_ORIGINALS_CORRECTED_PREFLIGHT_ONCE_20261025.txt)" = "WF0AH_REPLAY_11_ORIGINALS_AFTER_PREMODEL_ASSERTION_FIX_NO_AUTHOR"
           python - <<'PY'
           import os
           assert not any(os.getenv(x) for x in (
