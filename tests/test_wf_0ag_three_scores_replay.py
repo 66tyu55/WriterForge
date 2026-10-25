@@ -31,6 +31,13 @@ class ScoreOnlySourceReplay(unittest.TestCase):
                 "model_or_WF_literary_truth_verified"])
             self.assertTrue(row["score_schema_issue_confirmed_from_provider_wire"])
         self.assertEqual(manifest["actual_model_calls"],9)
+        # Actual wuxia first-order raw judge wrote 164 characters of
+        # explanation; prior 0.AD cap 160 wrongly discarded the whole grade.
+        wuxia_note=verified["wuxia_bridge"]["first_ratings"]["裸模型"]
+        self.assertEqual(len(wuxia_note["model_reason"]),164)
+        self.assertEqual(
+            wuxia_note["score_representation_receipt"][
+                "model_notes_exceeding_legacy_160_char_bound"],1)
 
     def test_second_judge_can_only_be_blind_reverse_and_budgeted(self):
         src=inspect.getsource(p.OnlyReverseJudge)
