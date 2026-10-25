@@ -76,6 +76,10 @@ class BoundedModel:
         # Generated fiction is our ORIGINAL content, but raw provider
         # envelopes may carry account metadata: retain only signed hash.
         self.calls[-1]["raw_provider_sha256"]=h(wire)
+        path=OUT/"provider-originals"/(self.active.replace(":","_")+".json")
+        path.parent.mkdir(parents=True,exist_ok=True)
+        path.write_bytes(wire)
+        self.calls[-1]["original_wire_preserved"]=True
     def ask(self,scene_id,task,role,prompt,tokens):
         guard(len(self.calls)<MAX_CALLS and task in (
             "bare-author","WF-author","anonymous-rater-first",
@@ -103,7 +107,7 @@ def scene_prompt(item):
         "；目标人物："+item["actor"]+"；"
         "场景："+item["topic"]+
         "；文学要求："+item["literary_task"]+
-        "只能写一个约200到360汉字的完整小说片段。"
+        "只能写一个约260到340汉字的完整小说片段。"
         "必须原创，不能引用或模仿任何名著的角色、物件或原句。"
         "不得一口气写整章；人物想法、行动和未完成悬念由你自己决定。"
         "不解释写作原理，不附评价，不预测未来章节。")
@@ -249,7 +253,16 @@ def main():
                  "author_real_prose_ready":False,
                  "blind_ratings_ready":False}
             summary["cases"][name]=row
-            author=author_pair(model,item)
+            try:
+                author=author_pair(model,item)
+            except Exception as exc:
+                code=str(exc)
+                row["status"]="REAL_AUTHOR_SOURCE_INVALID_NO_RETRY"
+                row["failure_code"]=(
+                    code if re.fullmatch(r"WF[A-Z0-9_:\-]{3,170}",code)
+                    else type(exc).__name__+":SOURCE_INVALID")
+                save(OUT/"PARTIAL.json",summary)
+                continue
             row["author_real_prose_ready"]=True
             row["source_evidence"]={
                 arm:{"source_sha256":author[arm]["source_sha256"],
@@ -262,16 +275,38 @@ def main():
             for k in ("bare","WF"):
                 (OUT/(name+"-"+k+"-original.md")).write_text(
                     author[k]["prose"],encoding="utf8")
-            row["ratings"]=judge_pair(model,item,author)
+            lens=[len(author[k]["prose"]) for k in ("bare","WF")]
+            row["author_length_ratio"]=round(max(lens)/min(lens),3)
+            row["length_comparable_within_25_percent"]=(
+                max(lens)/min(lens)<=1.25)
+            try:
+                row["ratings"]=judge_pair(model,item,author)
+            except Exception as exc:
+                code=str(exc)
+                row["status"]="BLIND_RATING_INVALID_NO_RETRY"
+                row["failure_code"]=(
+                    code if re.fullmatch(r"WF[A-Z0-9_:\-]{3,170}",code)
+                    else type(exc).__name__+":RATING_INVALID")
+                save(OUT/"PARTIAL.json",summary)
+                continue
             row["blind_ratings_ready"]=True
             row["status"]="REAL_MATCHED_FUNCTION_PAIR_AND_PROVISIONAL_SCORE"
             save(OUT/"PARTIAL.json",summary)
-        diffs=[summary["cases"][x["id"]]["ratings"]["WF_minus_bare"]
-               for x in GENRES]
-        summary["local_mean_WF_minus_bare"]=round(sum(diffs)/len(diffs),1)
+        diffs=[row["ratings"]["WF_minus_bare"]
+               for row in summary["cases"].values()
+               if row.get("blind_ratings_ready")]
+        summary["local_mean_WF_minus_bare"]=(
+            round(sum(diffs)/len(diffs),1) if diffs else None)
+        summary["eligible_comparable_pairs"]=[
+            key for key,row in summary["cases"].items()
+            if row.get("blind_ratings_ready") and
+               row.get("length_comparable_within_25_percent")]
         summary["valid_for_book_reference_rank"]=False
         summary["statistical_literary_improvement_proven"]=False
-        summary["status"]="FOUR_DIVERSE_REAL_PAIRED_SCENES_PROVISIONALLY_RATED"
+        summary["status"]=(
+            "FOUR_DIVERSE_REAL_PAIRED_SCENES_PROVISIONALLY_RATED"
+            if len(diffs)==len(GENRES) else
+            "PARTIAL_REAL_SOURCE_OR_RATING_FAILURE_NOT_A_FULL_SCORE")
     except Exception as exc:
         problem=str(exc)
         summary["status"]="REAL_PROVIDER_OR_WF_CHECK_FAILED_NO_RETRY"
