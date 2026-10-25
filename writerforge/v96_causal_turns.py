@@ -157,6 +157,39 @@ def _quote_anchor(prose,quote,name):
             "quote_sha256":digest(quote.encode("utf8"))}
 
 
+def _source_causal_relation_review(prose, action, effect, action_quote,
+                                   effect_quote):
+    """Conservative *review cues*, never a host verdict on literary causality.
+
+    Citation order cannot prove that an action caused the quoted outcome.
+    Explicit unrelatedness, a localized subjective guess, or coincidence
+    wording requires *source-relation review*, not rejection of valid prose.
+    A missing cue never means CAUSAL_TRUE. Keep original characters intact.
+    """
+    between=prose[action["end"]:effect["start"]]
+    if re.search(
+        r"(?:与|和|跟)[^。！？；\n]{0,24}(?:毫无关系|完全无关|无关|没有关系)"
+        r"|(?:与此无关|只是巧合|并非由)",between
+    ):
+        return "EXPLICITLY_DISCONNECTED"
+    # Only the immediately preceding clause, not an earlier person's
+    # unrelated thoughts. A belief is an observation of the BELIEF, not
+    # proof that the imagined event happened behind the door.
+    prefix=prose[max(0,action["start"]-24):action["start"]]
+    clause=re.split(r"[。！？；，：:\n]",prefix)[-1]
+    if re.search(
+        r"(?:猜|猜想|猜测|以为|怀疑|听说|据说|假设|如果|假如|"
+        r"也许|可能|似乎|仿佛|好像)$",clause
+    ):
+        return "POV_UNOBSERVED"
+    # A coincidence marker is NOT proof of noncausation. Flag uncertainty
+    # without hard-blocking a true cause that happens to use this wording.
+    if re.search(r"(?:正好|恰好|刚巧|碰巧|凑巧|纯属巧合)",
+                 effect_quote):
+        return "POSSIBLE_COINCIDENCE"
+    return None
+
+
 def _approved_exclusions(phrases):
     need(type(phrases) in (list,tuple) and
          len(phrases)<=MAX_APPROVED_EXCLUSIONS and
@@ -203,6 +236,9 @@ def check_turn(raw,beat, *, mode, accepted=(),
         "kind":beat["kind"],
         "parent_turn_id":beat["causal_parent"],
         "causal_check":"SPLIT_ONLY_UNVERIFIED",
+        "source_causal_review_reason":None,
+        "source_causal_review_required":False,
+        "causal_relation_verified":False,
         "action_anchor":None,"effect_anchor":None,
         "parent_effect_sha256":None,
         "inherited_canon_facts_written":False,
@@ -248,6 +284,12 @@ def check_turn(raw,beat, *, mode, accepted=(),
                  "WF96_ACTION_EFFECT_OVERLAP_OR_REVERSED")
             recorded["action_anchor"]=a
             recorded["effect_anchor"]=b
+            reason=_source_causal_relation_review(
+                prose,a,b,action,effect_quote)
+            recorded["source_causal_review_reason"]=reason
+            recorded["source_causal_review_required"]=reason is not None
+            # The trace remains a valid candidate SOURCE citation when a
+            # review cue appears; it is never a certified event cause.
             effect=effect_quote
         recorded["causal_check"]="EXACT_OBSERVABLE_ANCHORS_ONLY"
     recorded["receipt_sha256"]=digest(canonical(recorded))
@@ -282,6 +324,8 @@ def make_turn_instructions(beat,*,mode,accepted=(),
             "\n【仅用于候选层的程序核验】"
             "实际文字需体现当前事件的选择/阻力/变化；若前因未出现，"
             "请承认不确定，不得凭空宣布已造成后果。"
+            "引句先后不证明因果；若只是巧合或人物猜测，"
+            "仍保持未知，不得当作已验证因果。"
             "你对人物动机的判断尚未证明，不能输出已验证事实状态。"
         )
     if mode=="causal_guard":
@@ -459,6 +503,9 @@ def review_only_model_turn(raw,beat,*,failure_code,accepted=(),
         "kind":beat["kind"],
         "parent_turn_id":parent,
         "causal_check":"TRACE_REJECTED_SOURCE_PROSE_REVIEW_ONLY",
+        "source_causal_review_reason":"TRACE_REJECTED",
+        "source_causal_review_required":True,
+        "causal_relation_verified":False,
         "action_anchor":None,"effect_anchor":None,
         "parent_effect_sha256":None,
         "model_trace_failure_code":failure_code,
