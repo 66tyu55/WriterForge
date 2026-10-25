@@ -1048,7 +1048,7 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
               len(chapter_source_parts)==len(chapter_temporal_checkpoints) and
               all(type(p) is str and 1<=len(p)<=MAX_CHARS
                   for p in chapter_source_parts) and
-              "\\n\\n".join(chapter_source_parts)==prose,
+              "\n\n".join(chapter_source_parts)==prose,
               "WFCORE_CHAPTER_SOURCE_ASSEMBLY_MISMATCH")
         from .v117_continuity_trace import _checkpoint
         for index,(part,checkpoint) in enumerate(zip(
