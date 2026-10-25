@@ -680,6 +680,80 @@ def _restore_unaccepted_turn_capture(*,capture,tracked,snapshots):
 
 
 
+def _physical_relation_source_hold(*,prose,preflight):
+    """Source-scoped candidate HOLD, not a host-written literary correction.
+
+    A signed V114/V122 or a direct V116 candidate can expose two mutually
+    unreconciled physical claims; their referents and literary intent remain
+    uncertain. Only dependent continuation is held. The writer chooses
+    whether to clarify, separate items/ends, delete, or preserve mystery.
+    """
+    if (type(prose) is not str or type(preflight) is not dict or
+        preflight.get("next_prose_sha256")!=
+            sha256(prose.encode("utf8")).hexdigest()):
+        raise WritingExecutionError(
+            "WF122_RELATION_HOLD_WRONG_SOURCE_SHA")
+    pairs=preflight.get("physical_relation_review_pairs",[])
+    descendants=preflight.get(
+        "physical_relation_dependent_on_previous_source",[])
+    if (type(pairs) is not list or len(pairs)>8 or
+        type(descendants) is not list or len(descendants)>8):
+        raise WritingExecutionError("WF122_RELATION_HOLD_EVIDENCE_BOUNDS")
+    if not (pairs or descendants):
+        return None
+    for item in pairs:
+        for prefix in ("first","second"):
+            quote=item.get(prefix+"_source_quote")
+            start=item.get(prefix+"_source_start")
+            digest=item.get(prefix+"_source_quote_sha256")
+            if (type(quote) is not str or type(start) is not int or
+                not 6<=len(quote)<=160 or
+                prose.count(quote)!=1 or
+                prose[start:start+len(quote)]!=quote or
+                digest!=sha256(quote.encode("utf8")).hexdigest()):
+                raise WritingExecutionError(
+                    "WF122_RELATION_HOLD_UNVERIFIED_ORIGINAL_QUOTE")
+    for item in descendants:
+        quote=item.get("current_source_quote")
+        start=item.get("current_source_start")
+        if (type(quote) is not str or type(start) is not int or
+            not 6<=len(quote)<=160 or
+            prose.count(quote)!=1 or
+            prose[start:start+len(quote)]!=quote or
+            item.get("current_source_quote_sha256")!=
+                sha256(quote.encode("utf8")).hexdigest()):
+            raise WritingExecutionError(
+                "WF122_RELATION_HOLD_UNVERIFIED_DEPENDENT_QUOTE")
+    info={
+        "format":"wf.writer.source-relation-private-hold.v1",
+        "prose_sha256":sha256(prose.encode("utf8")).hexdigest(),
+        "v122_relation_receipt_sha256":preflight.get(
+            "physical_relation_receipt_sha256"),
+        "current_conflicting_source_quote_pairs":pairs,
+        "downstream_claims_relying_on_unverified_prior_relation":descendants,
+        "status":"HELD_NEEDS_SOURCE_RELATION_REVIEW",
+        "literary_ellipsis_and_physical_state_are_separate":True,
+        "actor_unknown_may_remain_literary_mystery":True,
+        "item_identity_or_free_end_is_not_assumed":True,
+        "source_sha_and_exact_quotes_required_before_downstream":True,
+        "original_prose_kept_private_not_promoted":True,
+        "writer_owns_edit_and_literary_choice":True,
+        "safe_author_options":[
+            "KEEP_MYSTERY_BUT_EXPLAIN_WHICH_RELATION_REMAINS",
+            "LOCALLY_REVISE_AUTHOR_CHOSEN_EXACT_SPAN_USING_V119",
+            "DISTINGUISH_DIFFERENT_OBJECT_OR_FREE_END_IF_TRUE_IN_STORY",
+            "DELETE_UNSUPPORTED_RELATION_CLAIM_WITH_VALIDATED_DEPENDENCIES",
+        ],
+        "downstream_relation_dependent_scene_must_not_reuse_old_state":True,
+        "new_model_calls":0,"R2_writes":0,"canon_writes":0,
+        "automatic_author_decision_or_fiction_generation":False,
+    }
+    info["receipt_sha256"]=sha256(json.dumps(
+        info,ensure_ascii=False,sort_keys=True,
+        separators=(",",":")).encode("utf8")).hexdigest()
+    return info
+
+
 def _source_only_writer_replay_index(prose:str,*,cast:tuple[str,...]) -> dict:
     """Enumerate literal scene units, NEVER diagnose their literary meaning.
 
@@ -3690,6 +3764,35 @@ class AutonomousWriting:
                                     raise ContinuityTraceError(
                                         "WF117_NEXT_TURN_STATE_PRECONDITION_REJECTED:"+
                                         ",".join(preflight["state_findings"]))
+                            if draft_mode=="continuity_guard":
+                                relation_preflight=preflight_next_prose(
+                                    evidence["prose"],
+                                    previous_candidate_state=prior_candidate_state,
+                                    cast=cast,
+                                    previous_relation_receipt=(
+                                        current_external_story_checkpoint.get(
+                                            "v122_physical_relation_source_receipt")
+                                        if current_external_story_checkpoint
+                                        is not None else None))
+                                relation_hold=_physical_relation_source_hold(
+                                    prose=evidence["prose"],
+                                    preflight=relation_preflight)
+                                if relation_hold is not None:
+                                    hold_name=job/(
+                                        f"chapter-{index:03d}-turn-"
+                                        f"{turn_index+1:02d}-relation-HOLD.json")
+                                    hold_name.write_text(json.dumps(
+                                        relation_hold,ensure_ascii=False,
+                                        sort_keys=True,indent=2),
+                                        encoding="utf8")
+                                    # The original model-authored source is
+                                    # retained, not rewritten or promoted.
+                                    (job/(
+                                        f"chapter-{index:03d}-turn-"
+                                        f"{turn_index+1:02d}-unaccepted-HOLD.md")
+                                     ).write_text(evidence["prose"],encoding="utf8")
+                                    raise WritingExecutionError(
+                                        "WF122_SOURCE_RELATION_HOLD_AWAIT_AUTHOR_SOURCE")
                             check_cancel()
                             if review_turn is not None:
                                 # A stop/discard here has not accepted this turn.
