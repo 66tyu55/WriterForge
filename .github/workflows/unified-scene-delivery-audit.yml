@@ -53,6 +53,8 @@ on:
       - tests/test_wf_0w_fresh_original_real_probe_protocol.py
       - experiments/wf_0aa_literary_reference_score_20261025.py
       - tests/test_wf_0aa_literary_reference_score_protocol.py
+      - experiments/wf_0ab_score_validity_gate.py
+      - tests/test_wf_0ab_literary_score_validity_gate.py
       - experiments/wf_0v_real_B_physical_source_replay_20261025.py
       - tests/test_wf_0v_real_B_physical_replay.py
       - writerforge/v96_causal_turns.py
