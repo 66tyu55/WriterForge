@@ -1,0 +1,8 @@
+WriterForge 0.W single genuine new original author proof 2026-10-25
+After full 1,656 offline suite PASS (GitHub Actions #40172308706), run once on development branch ONLY.
+FRESH original story "雨册", no references, no earlier original Fanren novel R2, no reuse of old "潮簿" story, no new memory, no parallel evaluator.
+Same existing DeepSeek Flash writer creates 2 short actual prose turns, then source-only reread, and independently chooses MOVE_ON vs LOOK_BACK_NOW.
+Only if genuine model chooses revision: existing V119 local patch with original source SHA, compare V116/V122, V114/V117 source and state, then SAME novelist writes dependent new short prose from revised source, never stitching old downstream to changed source.
+Maximum 8 real model requests and 11,400 reserved output tokens, no retries, no literary score from scripts.
+Keep original provider raw wires even if rejected. No main, Railway, Canon, R2 reads/writes or new credentials.
+A successful engineering trace is not independently rated literary improvement. Any failure is a preserved real red light, never fabricated success.
