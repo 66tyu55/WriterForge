@@ -1,0 +1,65 @@
+name: WF 0.V Replay Real DeepSeek B and Physical Source HOLD Without Models
+on:
+  # A single no-model replay. Ordinary pushes to code/docs NEVER trigger this
+  # job, and no private literature is re-read or uploaded.
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_0V_REAL_B_SOURCE_RELATION_READONLY_ONCE_20261025.txt
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wf-0v-physical-relation-no-model-source-replay
+  cancel-in-progress: false
+jobs:
+  replay-six-authentic-wires:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install WF existing runtime only, no provider tokens
+        run: python -m pip install -e '.[r2]'
+      - name: Restore only sealed previous B author artifact with GitHub read permission
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40163959949
+          name: WF-0T-Real-Fanren-Staged-A-vs-B-Initial-Pair-20261025
+          github-token: ${{ github.token }}
+          path: wf0t_prior_paired_originals
+      - name: Prohibit use of all model and R2 credentials
+        run: python -c 'import os; assert not any(os.getenv(n) for n in ("DEEPSEEK_API_KEY","DISCOVERY_API_KEY","WRITERFORGE_R2_ACCOUNT_ID","WRITERFORGE_R2_ACCESS_KEY_ID","OPENAI_API_KEY","OPENROUTER_API_KEY"))'
+      - name: Recheck exact original B provider SHA, real V96 causal spans and V114/V117 source
+        run: PYTHONPATH=tests python -m unittest tests.test_wf_0v_real_B_physical_replay tests.test_wf_0u_source_attachment_relations -q
+      - name: Complete signed V114/V117/V119 original DeepSeek B source-only zero-model replay
+        run: python -m experiments.wf_0v_real_B_physical_source_replay_20261025
+      - name: Validate truthful blocked unaccepted relation, zero literary gains
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('wf_0v_real_B_physical_source_replay_20261025/STATUS.json').read_text('utf8'))
+          assert s['status']=='REAL_ORIGINAL_B_REPLAYED_AND_SOURCE_RELATION_HELD',s
+          assert s['new_provider_requests']==0 and s['R2_reads']==s['R2_writes']==s['Canon_writes']==0
+          assert not s['production_main_changed'] and s['Railway_deployments']==0
+          assert not s['literary_quality_improvement_proven']
+          assert s['new_accepted_revision']==s['new_written_downstream']==0
+          print('ZERO NEW MODEL / REAL PREVIOUS B SHA VERIFIED / UNVERIFIED WORLD STATE HELD')
+          PY
+      - name: Upload only original writer SHA, two review quotes and private candidate state receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0V-Real-DeepSeek-B-Zero-Model-Source-Relationship-Hold
+          path: wf_0v_real_B_physical_source_replay_20261025/
+          retention-days: 30
+          if-no-files-found: warn
