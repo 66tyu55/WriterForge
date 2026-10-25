@@ -68,7 +68,7 @@ class TestFirstBatchProtocol(unittest.TestCase):
         prompt=caller.call_args.args[3]
         self.assertIn("200至350",prompt)
         self.assertNotIn("约260到340",prompt)
-        self.assertIn("不能把任何技术检测结果作为文学分数",prompt)
+        self.assertIn("不把任何技术检测结果作为文学分数",prompt)
         self.assertNotIn("原作家原文",prompt)
 
     def test_real_provider_original_saved_before_json_validation_and_no_retries(self):
