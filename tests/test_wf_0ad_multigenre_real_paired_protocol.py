@@ -113,6 +113,25 @@ class DiversePairingProtocol(unittest.TestCase):
         self.assertEqual(actual["receipt"]["causal_check"],
                          "EXACT_OBSERVABLE_ANCHORS_ONLY")
 
+    def test_short_source_quote_normalization_cannot_turn_negation_into_an_action(self):
+        from writerforge.v96_causal_turns import normalize_model_source_citations
+        beat={"id":"t01","kind":"action","actor":"许临",
+              "goal":"把未证实动作与实际状态保持分离",
+              "causal_parent":None,"craft_focus":[]}
+        source=("夜晚的站台无人说话，许临仍在考虑要不要打电话。"
+                "许临没把记号笔放进外套内袋，贴着胸口。"
+                "许临关了灯以后又想了想，决定第二天再让父亲核对药盒。"
+                "他没有向别人宣称父亲曾经转移那支笔。")
+        bad={"prose":source,"trace":{
+            "action_quote":"他把记号笔放进外套内袋，贴着胸口",
+            "effect_quote":"许临关了灯以后又想了想",
+            "parent_effect_quote":None}}
+        data=json.dumps(bad,ensure_ascii=False)
+        new,receipt=normalize_model_source_citations(
+            data,beat,accepted=())
+        self.assertEqual(new,data)
+        self.assertIsNone(receipt)
+
     def test_anonymous_prefix_rating_is_not_a_literary_score_change(self):
         original={"ratings":[{
             "id":label,"scores":{key:value for key in exp.CRITERIA},
