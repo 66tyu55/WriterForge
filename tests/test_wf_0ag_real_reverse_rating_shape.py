@@ -33,7 +33,7 @@ class ActualReverseRatingShape(unittest.TestCase):
         self.assertEqual(receipt["extra_model_calls"],0)
         self.assertTrue(receipt["numeric_scores_unchanged"])
         self.assertTrue(receipt["model_reason_and_weakness_unchanged"])
-        self.assertEqual(receipt["label_keyed_rating_recovered"],2)
+        self.assertEqual(receipt["labelled_map_rows_losslessly_rekeyed"],2)
 
     def test_malformed_keyed_labels_refused_instead_of_inventing_missing_grade(self):
         record={"scores":{axis:15 for axis in CRITERIA},
