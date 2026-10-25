@@ -72,6 +72,46 @@ class NoAutomaticApproval(TestCase):
         self.assertIn('"user_accepted_source_changed"]=False',production)
         self.assertIn('V96_revised_first_turn_passed',production)
 
+    def test_model_itself_must_supply_distinct_ordered_action_and_effect_quotes(self):
+        source=json.dumps({
+            "prose":SOURCE,
+            "trace":{"action_quote":None,"effect_quote":None,
+                     "parent_effect_quote":None}},ensure_ascii=False)
+        pkt=GroundedDraftPacket(
+            project_id="unit-only",scene_id="unit-only",snapshot_id=0,
+            evidence=(),craft_ids=(),prompt="真正的写作模型自己写动作和结果",
+            prompt_sha256=task.h("真正的写作模型自己写动作和结果"))
+        observed=[]
+        def original_author(packet,*,model,api_base,max_tokens):
+            self.assertEqual(max_tokens,SELF_EDIT_MODEL_MAX_TOKENS)
+            self.assertIn("两个【不同且互不重叠】",packet.prompt)
+            self.assertIn("【先于】结果引句",packet.prompt)
+            self.assertIn("严禁把整句、整个",packet.prompt)
+            self.assertIn("不能用相同引句假装后果存在",packet.prompt)
+            observed.append(packet.prompt)
+            return json.dumps({
+                "decision":"KEEP","scope":None,
+                "source_sha256":task.h(SOURCE),
+                "start":None,"end":None,
+                "expected_original":None,
+                "replacement":None,"trace":None,
+                "reason":"我仍认为段落以动作推动人物关系，可以保留原文并继续写作。",
+            },ensure_ascii=False)
+        with TemporaryDirectory() as temp:
+            raw,receipt=_self_edit_one_turn(
+                raw=source,
+                beat={"id":"t01","kind":"action","actor":"江遥",
+                      "goal":"江遥尝试跨过南廊裂板",
+                      "causal_parent":None,"craft_focus":[]},
+                accepted=(),project_id="unit-only",scene_id="unit-only",
+                turn_packet=pkt,ask_model=original_author,
+                round_limit=1,call_allowance=1,
+                directory=Path(temp)/"writer")
+        self.assertEqual(raw,source)
+        self.assertEqual(receipt["model_calls"],1)
+        self.assertEqual(receipt["rounds"][0]["status"],"KEEP_BY_WRITER")
+        self.assertEqual(len(observed),1)
+
     def test_bad_synthetic_source_edit_cannot_generate_a_new_canon_narrative(self):
         # Test source-locked mechanical trace: no model-created source event
         # is accepted merely because its replacement looks plausible.
