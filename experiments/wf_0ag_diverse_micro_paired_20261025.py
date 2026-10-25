@@ -235,14 +235,37 @@ def parse_micro_judge(answer):
             row["scores"]=dict(zip(CRITERIA,values))
             converted+=1
         normalized.append(row)
-    # Re-apply the original strict shared parser, including IDs, five
-    # integer bounds and bounded written reasons. Never change values.
-    parsed=parse_judge({"ratings":normalized})
+    # 0.AG genuine first provider wire also has a 164-character reason,
+    # beyond 0.AD's arbitrary 160 cap. Preserve the FULL original note,
+    # never clip it to get a fake green. Strictly bound types and 3,000 chars.
+    parsed={}
+    above_legacy_limit=0
+    for row in normalized:
+        name=row["id"]
+        need(type(name) is str,"WF0AG_RATER_LABEL_NOT_STRING")
+        label=name[2:] if name.startswith("匿名") else name
+        need(label in ("甲","乙") and label not in parsed,
+             "WF0AG_RATER_LABEL_NOT_UNIQUE")
+        score=row["scores"]
+        need(type(score) is dict and set(score)==set(CRITERIA) and
+             all(type(n) is int and 0<=n<=20 for n in score.values()),
+             "WF0AG_RATER_FIVE_CRITERIA_SCORE_INVALID")
+        for field in ("reason","weakness"):
+            note=row[field]
+            need(type(note) is str and 6<=len(note)<=3000,
+                 "WF0AG_RATER_EXPLANATION_INVALID")
+            if len(note)>160:
+                above_legacy_limit+=1
+        parsed[label]={**row,"id":label}
+    need(set(parsed)=={"甲","乙"},"WF0AG_RATER_BOTH_LABELS_REQUIRED")
     return parsed,{
         "format":"wf.0ag.judge-positional-five-lossless-v1",
         "score_arrangement_recovered":converted,
         "frozen_criterion_order":list(CRITERIA),
         "numeric_scores_unchanged":True,
+        "model_reason_and_weakness_unchanged":True,
+        "model_notes_exceeding_legacy_160_char_bound":
+            above_legacy_limit,
         "prose_unchanged":True,
         "human_literary_truth_verified":False,
         "extra_model_calls":0,
