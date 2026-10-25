@@ -7,6 +7,7 @@ on:
     paths:
       - experiments/WF_0T_FANREN_STAGED_AB_FIRE_ONCE_20261025.txt
       - experiments/WF_0T_FANREN_STAGED_AB_R2_READONLY_ONCE_20261025.txt
+      - experiments/WF_0T_FANREN_STAGED_AB_R2_FIXTURE_CORRECT_ONCE_20261025.txt
 
 permissions:
   contents: read
