@@ -72,6 +72,57 @@ class SignedSourceTemporalMismatch(unittest.TestCase):
                 cp2)
             self.assertEqual(graph["source_temporal_link"]["turn_count"],2)
 
+    def test_legacy_unbound_parent_cannot_be_laundered_by_one_new_signed_chapter(self):
+        # An unsigned SOURCE ASSEMBLY in chapter 1 is still unknown even
+        # after chapter 2 receives its own valid whole-prose/V114 binding.
+        # Current code builds a link with prior_link_verified=False but
+        # permits make_resume/new chapter continuation: a false green.
+        with TemporaryDirectory() as td:
+            root=Path(td)
+            base=new_graph(project_id=PROJECT,scene_id=SCENE)
+            cp1=external_temporal_step(CH1_OLD,cast=CAST)
+            legacy_g1=self.record(root,base,1,CH1_OLD)
+            cp2=external_temporal_step(CH2,cast=CAST,prior=cp1)
+            g2=self.record(root,legacy_g1,2,CH2,
+                           chapter_source_parts=(CH2,),
+                           chapter_temporal_checkpoints=(cp2,))
+            self.assertFalse(
+                g2["source_temporal_link"]["prior_link_verified"])
+            self.assertIsNone(g2["source_temporal_parent_sha256"])
+            with self.assertRaisesRegex(
+                Exception,"WF117_GRAPH_TEMPORAL_ANCESTRY_UNVERIFIED"):
+                make_resume(project_id=PROJECT,scene_id=SCENE,
+                            chapter_index=2,checkpoint=cp2,
+                            unified_narrative_core=g2)
+
+    def test_genuine_root_may_have_no_v114_parent_only_at_chapter_one(self):
+        with TemporaryDirectory() as td:
+            root=Path(td)
+            base=new_graph(project_id=PROJECT,scene_id=SCENE)
+            cp1=external_temporal_step(CH1_OLD,cast=CAST)
+            linked1=self.record(
+                root,base,1,CH1_OLD,
+                chapter_source_parts=(CH1_OLD,),
+                chapter_temporal_checkpoints=(cp1,))
+            self.assertFalse(
+                linked1["source_temporal_link"]["prior_link_verified"])
+            r=make_resume(project_id=PROJECT,scene_id=SCENE,
+                          chapter_index=1,checkpoint=cp1,
+                          unified_narrative_core=linked1)
+            self.assertEqual(read_resume(
+                r,project_id=PROJECT,scene_id=SCENE),cp1)
+            cp2=external_temporal_step(CH2,cast=CAST,prior=cp1)
+            linked2=self.record(
+                root,linked1,2,CH2,
+                chapter_source_parts=(CH2,),
+                chapter_temporal_checkpoints=(cp2,))
+            self.assertTrue(linked2["source_temporal_link"]["prior_link_verified"])
+            r2=make_resume(project_id=PROJECT,scene_id=SCENE,
+                           chapter_index=2,checkpoint=cp2,
+                           unified_narrative_core=linked2)
+            self.assertEqual(read_resume(
+                r2,project_id=PROJECT,scene_id=SCENE),cp2)
+
     def test_old_graph_descendant_cannot_use_new_revised_temporal_parent(self):
         with TemporaryDirectory() as tmp:
             root=Path(tmp)
