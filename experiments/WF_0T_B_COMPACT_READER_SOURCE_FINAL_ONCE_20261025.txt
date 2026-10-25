@@ -1,0 +1,9 @@
+WriterForge 0.T B authentic second-turn source-only reader compact profile FINAL one-shot.
+Original follow-up #40165076370 used exactly ONE new DeepSeek call, and provider stop reason was length at 1000 output tokens.
+Original raw remains untouched. Compact profile now permits only 3 observed, 1 local inferred, 1 cross-source inferred, exact source SHA quotes.
+Full no-model 1,621-test suite passed in Actions #40165499368.
+Replay the six original A/B provider wires at zero new cost. No new R2/book access. Same author chooses whether to edit.
+If same author chooses a valid V119 edit, regenerate dependent next small turn from actual revised source. Otherwise stop and preserve true outcome.
+This is the second and final reader try on this frozen B source. If not valid, NO THIRD MODEL RETRY: analyze bottom-layer architecture and preserve failure.
+No main change, Canon acceptance, Railway deploy, R2 writes, outside judge models or hidden retry.
+Overall cap for this new run: six real model requests, 8000 reserved output tokens.
