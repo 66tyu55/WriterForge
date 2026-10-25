@@ -133,6 +133,13 @@ class CrossSourceNovelEvidence(unittest.TestCase):
             self.assertEqual(result["target_prose_sha256"],digest(SOURCE))
             self.assertTrue(result["receipt"]["null_source_sha256_bound_from_current_source"])
             self.assertTrue(result["receipt"]["unverified_reader_input_delivered"])
+            self.assertEqual(result["receipt"][
+                "cross_source_reader_hypotheses_unverified_count"],1)
+            self.assertTrue(result["receipt"][
+                "author_kept_unresolved_cross_source_hypotheses"])
+            self.assertTrue(result["receipt"]["reader_hypotheses_not_source_facts"])
+            self.assertTrue(result["receipt"][
+                "cross_source_reader_review_did_not_confirm_fact"])
             self.assertIn(OLD_QUOTE,seen[0])
             self.assertIn(NEW_QUOTE,seen[0])
             self.assertIsNone(json.loads(raw)["source_sha256"])
