@@ -6,6 +6,7 @@ on:
     branches: [refactor-unified-scene-delivery-audit]
     paths:
       - experiments/WF_0T_B_REAL_REPAIR_FIRE_ONCE_20261025.txt
+      - experiments/WF_0T_B_COMPACT_READER_SOURCE_FINAL_ONCE_20261025.txt
 
 permissions:
   contents: read
