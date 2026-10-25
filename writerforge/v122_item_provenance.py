@@ -566,9 +566,14 @@ def _physical_relation_clause(prose,start,end,clause,spoken):
     if spoken or not _present(prose,start,end):
         return None
     raw=clause.strip()
-    if not 7<=len(raw)<=150 or prose.count(raw)!=1:
+    if not 7<=len(raw)<=150:
         return None
     offset=start+len(clause)-len(clause.lstrip())
+    # A quote may occur twice in the manuscript. Its SHA *and exact
+    # source position* still identify each original occurrence. Dropping
+    # all duplicated phrases made a real conflicting relation invisible.
+    if prose[offset:offset+len(raw)]!=raw:
+        return None
     inner=raw
     for lead in _PHYSICAL_DISCOURSE+_PHYSICAL_TEMPORAL:
         if inner.startswith(lead):
