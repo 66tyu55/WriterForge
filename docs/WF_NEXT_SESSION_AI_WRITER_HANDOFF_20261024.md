@@ -1,6 +1,17 @@
 # WF 跨窗口精简交接｜2026-10-24｜AI 自己决定何时及为何删稿
 
-**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.S**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.T**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+
+## 最新 0.T：WF 真正帮助 AI 修复、比较新旧因果风险、避免无限删改，不是报错就结束（2026-10-25）
+
+**纠偏的完整设计与源码证据**：[WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md](WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md)。用户否定“WF 只是发现错误、提醒一下就结束”，要求**WF 自身正确引导与帮助写作 AI，避免改来改去引入新错**。这里的帮助是基于实际原文/原 V96/V114/V116/V117 的来源约束、修复范围和影响比较；**AI 独立选择保留/删除/重写、独立生成所有文学正文和它自己的因果引句**，WF 绝不偷偷代写或当文学评分器。
+
+- **真正落地源码**：原 `v119_revision_transaction.py` 内增加 `prepare_source_repair_contract` 与 `compare_source_repair_impact`，并通过原 `writing_assist._self_edit_one_turn` 每一轮真正送给同一个模型；包含自己选定的真实源句/目标、SHA、实际父结果、上一段 V114 item/character 原状态候选及截断标记、修改前硬风险和未知、实际选择允许的最小修改路径、修改后必须重新生成受影响下游的边界。**不是另建文学记忆或增加模型**。
+- **防止“修一处引入两处”**：改稿的原/新 V116/V122 硬风险和新增审阅状态生成来源签名对比 receipt；新硬冲突拒绝；新出现来源还不明确的物件/主体问题只在私有候选区 HOLD，不能当已经安全的新故事；旧风险继续显式保留。任何改稿**不保证原作者文学目标已经达成**，下一段不能偷用原分支旧正文。A→B→A 同任务反复改回历史来源 SHA 被 `REJECTED_REVISION_OSCILLATION` 阻断，保留上一个真有效版。
+- **真正帮助，而非又让作家重写一整段**：当模型**已自己写出一份来源锁定的修订正文**，只因 V96 严格可核的 action/effect/parent 引句字段失败，且单任务事先允许 **2 个自审调用名额**，WF 在剩余原预算内最多向**相同写作模型**再请求一次**冻结正文、只补引句元数据**；模型只可返回 `{"trace":{action_quote,effect_quote,parent_effect_quote}}`，不能新增/删除正文一句话，后面再次完整 V96/V114/V117 检验。第二次也错马上回滚，不能发生第三次或免除原错误。用户中途取消照旧传播；任何无法核实的引用不许宿主偷偷改。
+- **本次验证均为零付费模型**：[初步来源契约与抗振荡 #40157466289](https://github.com/66tyu55/WriterForge/actions/runs/40157466289) **1,598 测试绿**；[同一模型两次预算及引用-only 正反例 #40157703160](https://github.com/66tyu55/WriterForge/actions/runs/40157703160) **1,602 绿**；[最终全部回归 #40158010084](https://github.com/66tyu55/WriterForge/actions/runs/40158010084) **1,604 tests run、4 skipped、0 failures**，同时 Node Studio JS 语法正常。新增针对决策/reversal 动作结果及上一段候选物件/伤势值／省略来源保护测试。
+- **不得夸大文学进步**：上轮真实 DeepSeek V119 #40155863914 仍因 `WF96_ACTION_EFFECT_OVERLAP_OR_REVERSED` 失败，新系统**没有实际再次调用那个真模型、没有把旧原始坏 trace 改绿**；新增元数据一次补引句成功的证据目前是**同模型模拟答复**，没有真实成功作品与独立文学盲评。也没有长篇跨章的自动语义正确性证明。
+- **下一步更重要的整体验收**：不同原创文本上，在固定模型/预算下走完“原作家自己选要改→按来源修复契约自己写→必要时本人只补 trace→V96/114/117 真实状态核对→所有受影响下游由同一作者重写→匿名读者验是否更好”；若只出现另一条新风险，回滚/待源复核，不要陷入无边界“修一个错再修一个错”。未经新授权不产生真实付费调用，不改 main、Railway、R2 用户书库、正式 Canon、V26/V98/单一 NarrativeCore 等。
 
 ## 最新 0.S：真实同一 DeepSeek 首次 V119 改写了原句，但返回相同动作/后果引句，被 V96 严格拒绝（2026-10-25）
 
