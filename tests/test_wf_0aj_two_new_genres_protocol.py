@@ -58,7 +58,8 @@ class ThirdTwoGenreFailureFirstProtocol(unittest.TestCase):
         self.assertEqual(len(trial.CRITERIA),5)
 
     def test_reuses_real_lossless_score_decoder_not_a_second_judge(self):
-        self.assertIs(trial.parse_micro_judge,second.parse_micro_judge)
+        self.assertIs(trial._shared_source_graded_parser,
+                      second._shared_source_graded_parser)
         data={"ratings":{
             "甲":{"scores":[15,16,17,16,16],
                  "reason":"情节有节奏，也保留两位人物各自未知的信息。",
