@@ -87,7 +87,11 @@ def _anchor(source,text,reason):
 
 
 def latest_observed_effect(accepted):
-    """Last V96-checked causal effect; skips quiet beats with no effect."""
+    """Last V96-checked SOURCE effect quote; causation remains unproven.
+
+    This must never be interpreted as a signed real-world causal relation.
+    Quiet turns are skipped because they make no action/effect trace claim.
+    """
     require(type(accepted) in (list,tuple) and
             len(accepted)>=1 and len(accepted)<=12,
             "WF98_NO_PRIOR_ACCEPTED_TURN")
@@ -122,6 +126,7 @@ def latest_observed_effect(accepted):
 def prepare_replan_instructions(*,accepted,seed_next_beat,
                                 allowed_actor_names):
     previous=latest_observed_effect(accepted)
+    source_review=previous["receipt"].get("source_causal_review_reason")
     require(type(seed_next_beat) is dict and
             set(seed_next_beat)==BEAT_FIELDS,
             "WF98_BAD_SEED_NEXT_BEAT")
@@ -132,12 +137,17 @@ def prepare_replan_instructions(*,accepted,seed_next_beat,
     context=(
        "\n【刚刚真正写出的情节，而非计划中的情节】\n"
        +accepted[-1]["prose"][-760:]
-       +"\n【前一项已由程序确认在正文中出现的变化（只证明原句存在）】\n"
+       +"\n【前一项仅被确认在正文中出现的引句（未证明由先前动作造成）】\n"
        +previous["effect_quote"]
        +"\n【原来的下一事件建议，可根据实际变化改写，但不是已成立事实】\n"
        +json.dumps(seed_next_beat,ensure_ascii=False,separators=(",",":"))
        +"\n【已登场可选视角人物，不可虚构未出场的新身份】"
        +json.dumps(allowed_actor_names,ensure_ascii=False)
+       +("\n【因果关系需审慎核实】先前两句字面先后只证明来源；"
+         "出现巧合或限知猜测时不能自动认定动作造成了后果。"
+         "可自然续写、调查或保留疑问，不得将人物猜测晋级已知事实。"
+         if source_review else
+         "\n【因果关系尚未独立证明】引句出现及先后仅是来源证据。")
        +"\n根据刚刚写出来的变化，提出**唯一一个**下一事件方向。"
        "人物必须仍有可理解的欲望和阻力；"
        "允许质疑原定目标、误会、倒叙、安静铺垫与开放悬念，"
@@ -220,6 +230,12 @@ def validate_replan(raw,*,accepted,accepted_beats,seed_next_beat,
             "WF98_NEXT_TURN_V96_OUTLINE_REJECTED_"+str(err)) from None
     require(parsed[-1]==proposal,
             "WF98_NEXT_TURN_MUTATED_AFTER_VALIDATION")
+    parent_receipt=parent["receipt"]
+    review_reason=parent_receipt.get("source_causal_review_reason")
+    # Legacy receipts have no explicit source-relation classifier; do not
+    # silently upgrade the older, purely lexical V96 evidence to fact.
+    if "source_causal_review_required" not in parent_receipt:
+        review_reason="LEGACY_SOURCE_ONLY_UNVERIFIED"
     candidate={
         "format":"wf.writing.rolling-proposal.v98",
         "beat_id":proposal["id"],
@@ -227,6 +243,9 @@ def validate_replan(raw,*,accepted,accepted_beats,seed_next_beat,
         "proposed_beat_sha256":digest(canonical(proposal)),
         "grounded_prior_beat_id":parent["beat_id"],
         "grounded_prior_prose_sha256":digest(parent["prose"].encode("utf8")),
+        "source_parent_relation_review_required":review_reason is not None,
+        "source_parent_relation_review_reason":review_reason,
+        "source_parent_causal_relation_verified":False,
         "source_basis_anchor":basis,
         "cost_anchor":costs["cost_quote"],
         "pressure_anchor":costs["pressure_quote"],
