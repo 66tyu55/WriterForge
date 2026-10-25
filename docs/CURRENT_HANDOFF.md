@@ -1,6 +1,21 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.AI—0.AL 更新：十类原创微段真实写作已覆盖，V96决策后果待观察修复（2026-10-25）
+
+**已执行，不能重复写作：** 0.AG武侠/恐怖/计谋、0.AH仙侠/历史/喜剧、0.AJ+0.AL言情/科幻灾难、0.AK日常/抒情，共 **10类不同原创场景、20份作者原稿**。最新 [0.AL 原文恢复与双序评分 #40206306377](https://github.com/66tyu55/WriterForge/actions/runs/40206306377) 及 [0.AK最后两类 #40206473113](https://github.com/66tyu55/WriterForge/actions/runs/40206473113) **成功**；0.AK 全量离线 **1,759 tests、10 skipped、0 failed**。这不是作品文学进步通关：新四类都被标明不可比。
+
+- **0.AL两类新文学评分真实结果（裸/WF）**：言情旧照片 **63.0/79.5（+16.5）**，正文长度不满足200～350字要求，**NOT_COMPARABLE**；科幻压差 **68.0/80.0（+12.0）**，篇幅不均，**NOT_COMPARABLE**。第一次0.AJ中的科幻真实原始回包有一个顶层全角U+FF0C JSON分隔符，导致解析失败，但原作者正文未丢；0.AL在已保存供应商原回包基础上仅恢复这一格式、保留原小说文字，随后只补必要评分，作者新调用0，不允许假造合法JSON或重写。
+- **0.AK两类最后场景**：日常钥匙 WF-裸 **−2.5**，341/235字，**NOT_COMPARABLE**；初雪抒情 WF-裸 **+3.5**，295/234字，**NOT_COMPARABLE**。均由同模型真实生成并双序评分，原wire/artifact保存，**新增模型调用8次**。日常组WF V96 trace被 HOLD，不是文学分数低导致；不能为刷分强迫通过。最后两类原始总分还需从STATUS.json确认，不得凭差值反推评分之外的未验信息。
+- **真正核心0.AI V96/V98修复**：在实际0.AH历史原稿 `SHA256=4069722777f98ef5b9bc3b3eaea5429def9ab9b61be0a224114fae9d7ff97991` 上做**正文不变的反事实trace测试**：人物可以决定夜间传令，而即时后果尚未观察。原V96对所有decision强制双引句，可能逼模型拿无关马蹄声充当后果；现在允许 `kind=decision,action_quote=真实原句,effect_quote=null`，状态标 `DECISION_EFFECT_UNOBSERVED`、`outcome_pending_source_only=true`，不能写入KNOWN/FactJournal。V98能继续基于真实action组织下一步，而不把未出现的effect假装成已有后果；真实action/reversal仍保持原硬约束，伪签名/伪父事件和合法省略正反例测试均存在于 `tests/test_wf_0ai_decision_effect_pending.py`。这只是**来源安全修复，未证明模型真的因修复而创作更好**。
+- **十类文学百分制总体不可直接汇总**：0.AG三类(+2,+5.5,+9)、0.AH三类(+4.5,+3,+3)、0.AL两类(+16.5,+12)、0.AK两类(−2.5,+3.5)中的多个样本字数超阈值或差距>15%，部分评审换序波动明显，评委与写作者属同模型家族，独立人类评审0。**禁止计算十类总平均后宣称WF写作水平胜出**。文学百分制独立于状态、因果、V114/V117/V119源验收，不能作为WF/作者自奖励。
+- **后续先找真正缺陷而非堆题**：优先真实原稿的V96错误引句与0.AI新 `effect_quote=null` 在V114/V117/V119及唯一NarrativeCore上的跨段依赖一致性；检查日常钥匙为何HOLD，分类成合法拒绝、假红或作者引句错误。对跨类型“两个可见事件但非因果”的困难样本保留UNKNOWN/REVIEW，若证实软件错误再RED→修原模块→GREEN；增加历史原始SHA反例，验证修复不会把喜剧信息差、安静抒情、合法动作后果错拦。
+- **约束不变**：仅 `refactor-unified-scene-delivery-audit`；不改main、不部署Railway、不写R2原著/正式Canon、不重复15章训练、不新增独立记忆或让WF代写；不要让用户反复发送已完成任务。旧0.AH标注“剩4类未测”属于历史状态，以本节新记录为准。
+
+---
+
+
+
 ## 0.AH 真实跨题材第二批完成：仙侠、历史、喜剧，评分源接口 RED→FIX→GREEN（2026-10-25，最新）
 
 **下一窗口优先读取**：[0.AH 原始实测、真实软件失败与下一阶段来源问题](WF_0AH_SECOND_THREE_GENRES_REAL_SOURCE_FAILURES_20261025.md) → [0.AG 第一批真实跨类型因果/评分报告](WF_0AG_THREE_REAL_ORIGINALS_CAUSAL_AND_RATER_FORENSICS_20261025.md)。唯一工作分支 `refactor-unified-scene-delivery-audit`。
