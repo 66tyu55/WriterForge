@@ -4,6 +4,7 @@ on:
     branches: [refactor-unified-scene-delivery-audit]
     paths:
       - experiments/WF_0AG_REPLAY_9_WIRES_COMPLETE_3_REVERSE_RATINGS_ONCE_20261025.txt
+      - experiments/WF_0AG_REPLAY_9_WIRES_FIXED_NOTES_ONCE_20261025.txt
 permissions:
   contents: read
   actions: read
