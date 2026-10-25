@@ -416,12 +416,14 @@ class RealGOptinOffline(TestCase):
             graph,project_id=self.assist.project_id,
             scene_id=self.assist.scene_id,
             chapter_index=1,prose=prior,events=())
+        checkpoint=external_temporal_step(
+            prior,cast=("沈砚","唐蜃"))
         graph=record_chapter_memory(
             graph,project_id=self.assist.project_id,
             scene_id=self.assist.scene_id,chapter_index=1,
-            source_path=str(first),prose=prior)
-        checkpoint=external_temporal_step(
-            prior,cast=("沈砚","唐蜃"))
+            source_path=str(first),prose=prior,
+            chapter_source_parts=(prior,),
+            chapter_temporal_checkpoints=(checkpoint,))
         resume=make_resume(
             project_id=self.assist.project_id,
             scene_id=self.assist.scene_id,chapter_index=1,
