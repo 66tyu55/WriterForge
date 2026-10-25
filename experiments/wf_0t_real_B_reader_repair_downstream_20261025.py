@@ -304,7 +304,8 @@ def main():
             ask_model=ask("source-reader"),
             directory=OUT/"source-only-reader",
             earlier_source=one["prose"],
-            earlier_source_sha256=sha(one["prose"]))
+            earlier_source_sha256=sha(one["prose"]),
+            compact_source_review=True)
         status["independent_same_author_reader_status"]=reader["status"]
         status["reader_inferred_current_links"]=len(
             (reader.get("report") or {}).get("inferred_links",[]))
