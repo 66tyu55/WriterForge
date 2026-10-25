@@ -1604,7 +1604,7 @@ def _ask_same_writer_for_source_trace_only(
         +("如果父事件仅有来源锁定的决定而无实际后果，"
           "parent_effect_quote 必须为 JSON null，不可强行补一个结果。"
           if parent_pending else
-          "如果有父事件，只能引用下面逐字来源的真正前一段结果。")
+          "如果有父事件，只能引用下面逐字来源的真正前一段结果。")+
         "只返回恰好一个 JSON 对象 {\"trace\":"
         "{\"action_quote\":... ,\"effect_quote\":... ,"
         "\"parent_effect_quote\":...}}，不得加文学评分。"
