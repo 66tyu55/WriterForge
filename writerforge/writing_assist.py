@@ -2682,6 +2682,16 @@ class AutonomousWriting:
                     resume_story_checkpoint,
                     project_id=self.assist.project_id,
                     scene_id=self.assist.scene_id)
+                if active_narrative_core is not None:
+                    from .v117_continuity_trace import (
+                        _verify_unified_temporal_source_link)
+                    # Old V117 files remain READABLE for forensic recovery,
+                    # but an unbound old FULL chapter + unrelated LAST turn
+                    # may NEVER become a trusted parent of NEW model prose.
+                    _verify_unified_temporal_source_link(
+                        active_narrative_core,earlier_external,
+                        resume_story_checkpoint["chapter_index"],
+                        require_strong_for_new=True)
             except (ContinuityTraceError,LongArcError,NarrativeCoreError) as exc:
                 raise WritingExecutionError(str(exc)) from None
         if long_arc_checkpoint is not None:
