@@ -22,6 +22,7 @@ on:
       - tests/test_wf_three_real_writer_models_bounded.py
       - tests/test_wf_source_only_original_reread.py
       - tests/test_wf_reader_first_original_author.py
+      - tests/test_wf_writer_source_identity_binding.py
       - experiments/wf_real_new_scene_reader_first_control_20261025.py
       - tests/test_wf_real_new_scene_reader_first_control.py
       - experiments/wf_real_deepseek_blind_source_replay_20261024.py
