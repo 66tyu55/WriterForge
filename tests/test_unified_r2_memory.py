@@ -126,6 +126,8 @@ class DurableR2StoryMemory(unittest.TestCase):
         original_state=external_temporal_step(START,cast=("沈砚","唐蜃"))
         for i in range(2,29):
             prose=f"第{i}章，叶青梧抬头听风，远处钟鸣渐低。"
+            original_state=external_temporal_step(
+                prose,cast=("沈砚","唐蜃"),prior=original_state)
             graph=advance_graph(
                 graph,project_id=P,scene_id=S,
                 chapter_index=i,prose=prose)
