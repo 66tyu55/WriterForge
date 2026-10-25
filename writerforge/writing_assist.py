@@ -2252,6 +2252,18 @@ def _prepare_unaccepted_chapter_fork(*,source_job_dir,writer_decision_reply,
             latest["source_path"].startswith("r2://") or
             Path(latest["source_path"]).resolve()!=candidate_path):
             raise WritingExecutionError("WF_CHAPTER_FORK_MANUSCRIPT_CHANGED")
+        # Each individual signature can be authentic while the pair points
+        # at DIFFERENT novel drafts. New cross-chapter forks require the
+        # signed whole-chapter to ALL turn-level V114 source assembly proof.
+        link=graph.get("source_temporal_link")
+        if (type(link) is not dict or
+            link.get("chapter_index")!=first+position or
+            link.get("whole_chapter_sha256")!=original_sha or
+            link.get("last_v114_checkpoint_sha256")!=
+                state["receipt_sha256"] or
+            link.get("source_assembly_verified") is not True):
+            raise WritingExecutionError(
+                "WF_CHAPTER_FORK_UNVERIFIED_SOURCE_ASSEMBLY")
         affected.append({
             "chapter_index":first+position,
             "source_sha256":original_sha,
