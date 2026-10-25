@@ -166,8 +166,7 @@ class SourceDeletionDoesNotRecreateFacts(unittest.TestCase):
         self.assertEqual(buffered["memory"]["hot"][-1]["source_sha256"],
                          digest(revised))
         # Signed resume must still point only to the retained graph.
-        checkpoint=external_temporal_step(
-            "沈砚在空院里等待叶青梧，没有取走任何物件。")
+        checkpoint=external_temporal_step(revised)
         signed=make_resume(project_id=P,scene_id=S,chapter_index=4,
                            checkpoint=checkpoint,
                            unified_narrative_core=buffered)
