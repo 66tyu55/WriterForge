@@ -48,6 +48,7 @@ on:
       - tests/test_wf_0u_source_attachment_relations.py
       - tests/test_wf_0w_container_multi_chapter_source.py
       - tests/test_wf_0x_bug_hunt_state_repair.py
+      - tests/test_wf_0y_cross_chapter_temporal_graph_binding.py
       - experiments/wf_0w_new_original_autonomous_repair_once_20261025.py
       - tests/test_wf_0w_fresh_original_real_probe_protocol.py
       - experiments/wf_0v_real_B_physical_source_replay_20261025.py
