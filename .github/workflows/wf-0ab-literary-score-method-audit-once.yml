@@ -1,0 +1,61 @@
+name: WF 0.AB Read-Only Audit of Actual Literary Score Method
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_0AB_METHOD_VALIDITY_READONLY_ONCE_20261025.txt
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wf-0ab-one-score-method-audit-no-provider-calls
+  cancel-in-progress: false
+jobs:
+  verify-existing-score-not-literary-progress:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 11
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fetch source-locked original A/B/reference rating receipts only, no book text
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40182718487
+          name: WF-0AA-Source-Pinned-Two-Stage-Reference-Literary-Scores
+          github-token: ${{ github.token }}
+          path: wf0aa_frozen_ratings
+      - name: No model key, no R2 access, no creative prose generation
+        run: python -c 'import os; assert not any(os.getenv(x) for x in ("DEEPSEEK_API_KEY","DISCOVERY_API_KEY","OPENAI_API_KEY","WRITERFORGE_R2_ACCESS_KEY_ID"))'
+      - name: Validate frozen actual scores and correct measured bias
+        run: |
+          python -m unittest discover -s tests -p test_wf_0ab_literary_score_validity_gate.py -q
+          python -m experiments.wf_0ab_score_validity_gate
+      - name: Reject any claim of WF surpassing original or proven improvement from this raw experiment
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          v=json.loads(Path('wf0ab_rating_method_audit/STATUS.json').read_text('utf8'))
+          assert v['raw_local_excerpt_score_100']=={'R':62.0,'A':79.0,'B':76.0}
+          assert v['valid_progression_signal'] is False
+          assert v['proves_WF_improvement'] is False
+          assert v['proves_original_literary_level_surpassed'] is False
+          assert v['comparable_literary_level_score'] is None
+          assert v['new_model_calls']==v['R2_reads']==v['R2_writes']==v['canon_writes']==0
+          print('RAW LOCAL SCORE IS REAL:',v['raw_local_excerpt_score_100'])
+          print('COMPARABLE LITERARY LEVEL: UNPROVEN')
+          print('MEASUREMENT DEFECTS:',v['flags'])
+          PY
+      - name: Publish numeric scores plus experimental-validity flags, never original text
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AB-Actual-Literary-Score-Measurement-Audit-20261025
+          path: wf0ab_rating_method_audit/STATUS.json
+          retention-days: 21
+          if-no-files-found: warn
