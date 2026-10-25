@@ -1,0 +1,8 @@
+WriterForge 0.T — single recovery attempt on the already configured private R2 Fanren edition
+2026-10-25
+Previous HTTPS-source pilot: zero model requests; no new literary evidence.
+Use existing SingleWorkVault fanrenxiuxian (read-only), pinned exact original hash, two 230-character chapter windows.
+Do not add credentials, ask user to upload books, migrate/backup R2, publish original source, touch Canon, modify main, or deploy Railway.
+Only two small author-written consecutive segments per isolated A/B arm.
+One global budget: <=10 DeepSeek Flash requests, <=14200 reserved output tokens; no retries.
+Stop before any model call if original source cannot be proven.
