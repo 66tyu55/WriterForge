@@ -239,7 +239,8 @@ def prepare_source_repair_contract(
     # a model cannot treat omitted items/injuries as gone.
     source_rows=[]
     if previous_candidate_state is not None:
-        for key,value in sorted(previous_candidate_state.items()):
+        for key,value in sorted(previous_candidate_state.items(),
+                                key=lambda pair:str(pair[0])):
             try:
                 domain,entity,predicate,scope,_=json.loads(key)
             except (ValueError,TypeError):
@@ -275,7 +276,8 @@ def prepare_source_repair_contract(
             "V116_SOURCE_ONLY_NARROW" if source_before is not None
             else "NO_PREVIOUS_CANDIDATE_STATE"),
         "prior_source_candidate_state":source_rows[:8],
-        "prior_state_rows_not_loaded_or_omitted":max(0,len(source_rows)-8),
+        "prior_item_character_rows_omitted":max(0,len(source_rows)-8),
+        "other_prior_state_domains_not_in_this_small_view":True,
         "omission_does_not_mean_state_was_erased":True,
         "source_action_effect_required":beat["kind"] in (
             "action","decision","reversal"),
