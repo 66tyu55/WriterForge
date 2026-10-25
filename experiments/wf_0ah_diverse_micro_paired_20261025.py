@@ -20,6 +20,9 @@ import re
 from experiments.wf_0ad_multigenre_real_paired_writing_20261025 import (
     CRITERIA,JUDGEMENTS,parse_judge,normalize,
 )
+from experiments.wf_0ag_diverse_micro_paired_20261025 import (
+    parse_micro_judge as _shared_source_graded_parser,
+)
 from writerforge.deepseek_flash_model import DeepSeekFlashModel,FlashBudget
 from writerforge.v96_causal_turns import (
     check_turn,make_turn_instructions,normalize_model_source_citations,
@@ -209,81 +212,8 @@ def check_source(item,content):
     }
 
 def parse_micro_judge(answer):
-    """Accept ONLY lossless five-number positional scores in frozen order.
-
-    Actual 0.AG first-run DeepSeek Flash returned scores [N,N,N,N,N]
-    instead of the keyed object expected by 0.AD's existing parser.
-    The five criterion names and their order were explicitly frozen in
-    the blind prompt. This is an exact representation normalization, NOT
-    an invented grade, a prose edit, a literary judgment, or a retry.
-    """
-    original=normalize(answer,("ratings",))
-    scores=original["ratings"]
-    # Original 0.AG reverse paid rater provider emitted a {甲:{...},乙:{...}}
-    # keyed map for wuxia/horror; the third emitted [{id:甲,..},{id:乙,..}].
-    # Reconstruct the SAME two explicit anonymous labels without touching
-    # ratings, prose or reason. This is deterministic wire formatting only.
-    rows_rekeyed=0
-    if type(scores) is dict:
-        need(set(scores)=={"甲","乙"} and
-             all(type(scores[key]) is dict and
-                 "id" not in scores[key] for key in ("甲","乙")),
-             "WF0AG_RATER_LABELLED_TWO_ENTRY_MAP_INVALID")
-        scores=[{"id":key,**scores[key]} for key in ("甲","乙")]
-        rows_rekeyed=2
-    need(type(scores) is list and len(scores)==2,
-         "WF0AG_RATER_EXPECTED_TWO_ENTRIES")
-    normalized=[]
-    converted=0
-    for entry in scores:
-        need(type(entry) is dict and set(entry)=={
-            "id","scores","reason","weakness"},
-            "WF0AG_RATER_EXTRA_OR_MISSING_FIELDS")
-        row=dict(entry)
-        values=row["scores"]
-        if type(values) is list:
-            need(len(values)==len(CRITERIA) and all(
-                type(n) is int and 0<=n<=20 for n in values),
-                "WF0AG_RATER_FIVE_ORDERED_NUMBERS_INVALID")
-            row["scores"]=dict(zip(CRITERIA,values))
-            converted+=1
-        normalized.append(row)
-    # 0.AG genuine first provider wire also has a 164-character reason,
-    # beyond 0.AD's arbitrary 160 cap. Preserve the FULL original note,
-    # never clip it to get a fake green. Strictly bound types and 3,000 chars.
-    parsed={}
-    above_legacy_limit=0
-    for row in normalized:
-        name=row["id"]
-        need(type(name) is str,"WF0AG_RATER_LABEL_NOT_STRING")
-        label=name[2:] if name.startswith("匿名") else name
-        need(label in ("甲","乙") and label not in parsed,
-             "WF0AG_RATER_LABEL_NOT_UNIQUE")
-        score=row["scores"]
-        need(type(score) is dict and set(score)==set(CRITERIA) and
-             all(type(n) is int and 0<=n<=20 for n in score.values()),
-             "WF0AG_RATER_FIVE_CRITERIA_SCORE_INVALID")
-        for field in ("reason","weakness"):
-            note=row[field]
-            need(type(note) is str and 6<=len(note)<=3000,
-                 "WF0AG_RATER_EXPLANATION_INVALID")
-            if len(note)>160:
-                above_legacy_limit+=1
-        parsed[label]={**row,"id":label}
-    need(set(parsed)=={"甲","乙"},"WF0AG_RATER_BOTH_LABELS_REQUIRED")
-    return parsed,{
-        "format":"wf.0ag.judge-positional-five-lossless-v1",
-        "score_arrangement_recovered":converted,
-        "labelled_map_rows_losslessly_rekeyed":rows_rekeyed,
-        "frozen_criterion_order":list(CRITERIA),
-        "numeric_scores_unchanged":True,
-        "model_reason_and_weakness_unchanged":True,
-        "model_notes_exceeding_legacy_160_char_bound":
-            above_legacy_limit,
-        "prose_unchanged":True,
-        "human_literary_truth_verified":False,
-        "extra_model_calls":0,
-    }
+    """Reuse 0.AG's ORIGINAL scored-source parser; no separate grade truth."""
+    return _shared_source_graded_parser(answer)
 
 
 def judge_prompt_0ag(item,pair,order):
