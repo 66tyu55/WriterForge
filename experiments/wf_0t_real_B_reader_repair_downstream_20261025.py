@@ -415,8 +415,7 @@ def main():
             status["invalidated_downstream"]="new small following turn"
             status["rewrote_original_second_turn"]=False
         sign=signed_new_candidate(adopted)
-        status.update(
-            "xxx" if False else {
+        status.update({
                 "status":"REAL_AUTHOR_REPAIR_AND_NEW_DOWNSTREAM_CANDIDATE",
                 "changed_source_sha256":sha(changed["prose"]),
                 "source_rewrite_model_only":True,
