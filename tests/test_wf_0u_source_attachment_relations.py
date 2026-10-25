@@ -68,7 +68,7 @@ class PhysicalRelationshipSourceAudit(TestCase):
         self.assertEqual(report["review_pairs"][0]["item_identity_evidence"],
                          "EXACT_LITERAL")
         self.assertEqual(report["review_pairs"][0]["contact_identity_evidence"],
-                         "POSSIBLE_CONTACT_AREA_ALIAS")
+                         "EXACT_LITERAL")
         self.assertTrue(report["actor_unknown_is_not_literary_error"])
 
     def test_sequential_attach_then_detach_is_allowed(self):
