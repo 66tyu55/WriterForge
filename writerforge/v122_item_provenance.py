@@ -650,7 +650,7 @@ def _candidate_physical_source_question(prose,one,two,*,
     if adjacent_sentences:
         if (two["sentence_source_index"]!=
                 one["sentence_source_index"]+1 or
-            re.fullmatch(r"[。！？][ \\t]*",between) is None):
+            re.fullmatch(r"[。！？][ \t]*",between) is None):
             return None
     elif one["sentence_source_index"]!=two["sentence_source_index"]:
         return None
