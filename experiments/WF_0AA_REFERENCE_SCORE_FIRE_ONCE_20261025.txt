@@ -1,0 +1,8 @@
+WF 0.AA one-shot REAL literary quality scoring. Date 2026-10-25.
+USER INTENT: assess whether WriterForge-assisted original text approaches the local literary quality of authentic early '凡人修仙传' prose, NOT copying or manufacturing stories.
+PRECONDITIONS: existing original A/B provider zip from run #40163959949 verified, exact R2 source pinned sha2 2fc1698410418bf136448807335c6359bf515b75e6f9c1e1d1f443a1c928e6cc, private source stays in runner, no source text in scores or public artifacts.
+SAMPLE: two early chapter windows, three anonymous segments each: authentic original reference, A original writer no book exposure, B original writer 230-character per-step book exposure.
+SCORING: 100-point rubric five dimensions x20, same preexisting DeepSeek Flash used as an external-to-WF blinded rater, four counterbalanced ratings total, max 8000 reserved output tokens, no retry. Clearly disclose same-model judge bias, N=1, partial prose comparison only. Rater must NOT write any novel, modify WF author's earlier choices, or feed scores into WriterForge core.
+Only report actual results supported by provider response wires. If any source/score invalid, record failure, NEVER invent scores or silently replace broken JSON.
+No new WriterForge memory owner, training cycle, R2 write, Canon or Railway changes, no main branch modifications.
+This is the only scoring trigger. Ordinary code/doc edits will NOT spend model tokens.
