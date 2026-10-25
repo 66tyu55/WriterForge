@@ -507,7 +507,8 @@ def _check_arm_action_source(prose, prior, cast=()):
 
 
 def preflight_next_prose(next_prose, *, previous_candidate_state,
-                         previous_risks=(), cast=()):
+                         previous_risks=(), cast=(),
+                         previous_relation_receipt=None):
     """Reject demonstrable state jumps *before accepting* a generated turn.
 
     Called AFTER one model response, BEFORE accepted_turns.append. Never
@@ -532,6 +533,16 @@ def preflight_next_prose(next_prose, *, previous_candidate_state,
         cast=cast)
     findings.extend(item_audit["hard_findings"])
     review_findings.extend(item_audit["review_findings"])
+    # V122's physical attachment evidence is only a bounded, source-SHA
+    # review projection. A rope tied to a post is not a holder transfer.
+    from .v122_item_provenance import audit_physical_relation_sources
+    relations=audit_physical_relation_sources(
+        prose=next_prose,
+        previous_relation_receipt=previous_relation_receipt)
+    if relations["current_source_needs_review"]:
+        review_findings.insert(0,"NEEDS_SOURCE_RELATION_REVIEW")
+    if relations["previous_source_unresolved_review_count"]:
+        review_findings.insert(0,"PRIOR_SOURCE_RELATION_STILL_UNRESOLVED")
     # Remain conservative about unexplained mana recovery until a separately
     # anchored energy-state reducer exists. This was an older red-line.
     has_old_fruit=False
@@ -563,7 +574,15 @@ def preflight_next_prose(next_prose, *, previous_candidate_state,
         "blocked":bool(findings),
         "findings":findings[:12],
         "needs_review":bool(review_findings),
-        "review_findings":review_findings[:12],
+        "review_findings":list(dict.fromkeys(review_findings))[:12],
+        "physical_relation_receipt_sha256":relations["receipt_sha256"],
+        "physical_relation_review_pairs":relations["review_pairs"],
+        "physical_relation_current_review_needed":(
+            relations["current_source_needs_review"]),
+        "physical_relation_prior_review_unresolved_count":(
+            relations["previous_source_unresolved_review_count"]),
+        "physical_relation_cannot_promote_to_holder_or_canon":True,
+        "physical_relation_review_is_not_literary_error":True,
         "arm_actor_scope":"EXPLICIT_SOURCE_SUBJECT_ONLY",
         "v122_item_state_audit_sha256":item_audit["receipt_sha256"],
         "v122_item_actor_scope":"EXPLICIT_NARRATED_SOURCE_ONLY",
