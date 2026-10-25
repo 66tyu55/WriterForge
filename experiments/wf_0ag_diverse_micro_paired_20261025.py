@@ -18,7 +18,7 @@ import os
 import re
 
 from experiments.wf_0ad_multigenre_real_paired_writing_20261025 import (
-    CRITERIA,JUDGEMENTS,judge_prompt,parse_judge,
+    CRITERIA,JUDGEMENTS,parse_judge,normalize,
 )
 from writerforge.deepseek_flash_model import DeepSeekFlashModel,FlashBudget
 from writerforge.v96_causal_turns import (
@@ -208,11 +208,17 @@ def check_source(item,content):
     }
 
 def judge_one(model,item,pair,order,task):
-    # Reuses the 0.AD immutable, two-order five-dimension scoring rubric,
-    # but prompts only receive the NEW same-topic original paragraphs.
-    q=judge_prompt(item,{
-        "bare":{"prose":pair["bare"]["prose"]},
-        "WF":{"prose":pair["WF"]["prose"]}},order)
+    # Same unchanged 0.AD five criteria, but the new *200-350* goal, not
+    # 0.AD's older 260-340 prompt: no cross-protocol metric distortion.
+    q=("匿名阅读同一原创微段文学任务的两个正文，五项各给0至20整数分。"
+       "只根据实际文字，不猜哪篇来自WF，不把任何技术检测结果作为文学分数。"
+       "五项是："+ "、".join(CRITERIA) +"。"
+       "输出唯一JSON对象，ratings必须恰有甲乙，"
+       "每项包含id、scores（上列五项）、reason、weakness；"
+       "客观描述明显长短差异，不自行补写故事。"
+       "\n【原始同题目标】"+scene_prompt(item))
+    for arm,label in zip(order,("甲","乙")):
+        q+="\n【匿名"+label+"】"+pair["bare" if arm=="裸模型" else "WF"]["prose"]
     parsed=parse_judge(model.ask(item,task,"craft_analysis",q,
                                  RATER_OUTPUT_TOKENS))
     return {name:{
@@ -273,10 +279,9 @@ def main():
                 try:
                     answer=model.ask(item,task,"self_scene_writing",
                                      prompt(item,arm),AUTHOR_OUTPUT_TOKENS)
-                    need(type(answer) is dict and
-                         set(answer)==({"prose"} if arm=="bare" else
-                                       {"prose","trace"}) and
-                         type(answer["prose"]) is str,
+                    answer=normalize(answer,("prose",) if arm=="bare"
+                                     else ("prose","trace"))
+                    need(type(answer["prose"]) is str,
                          "WF0AG_AUTHOR_PROVIDER_SCHEMA_INVALID")
                     prose=answer["prose"].strip()
                     pair[arm]=dict(answer)
