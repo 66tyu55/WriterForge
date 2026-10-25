@@ -395,7 +395,7 @@ class CrossChapterUnacceptedSourceFork(TestCase):
         graph=new_graph(project_id=self.project,scene_id=self.scene)
         a=visible_prose(1,1)
         b=visible_prose(1,2)
-        whole=a+"\\n\\n"+b
+        whole=a+"\n\n"+b
         first=external_temporal_step(a,cast=ACTORS)
         last=external_temporal_step(b,cast=ACTORS,prior=first)
         path=self.root/"legacy-chapter.md"
