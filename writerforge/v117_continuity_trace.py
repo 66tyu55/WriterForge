@@ -291,6 +291,47 @@ def preflight_continuation(next_prose,checkpoint,*,project_id,chapter_index,
       "canon_writes":0,
     }
 
+def _verify_unified_temporal_source_link(graph, checkpoint, chapter_index,
+                                         *,require_strong_for_new=False):
+    """Couple TWO separately signed systems to the actual chapter bytes.
+
+    The unified graph stores the whole manuscript chapter. V114 stores
+    sequential short source turns. Their SHAs therefore often DIFFER,
+    legitimately. A properly bound graph links its complete original
+    chapter and each signed V114 turn instead of naively comparing hashes.
+    Old archived resumes without this link stay readable for historical
+    recovery; they are NOT certified for NEW mixed-source fork creation.
+    """
+    from .narrative_core import validate
+    validate(graph,project_id=graph["project_id"],scene_id=graph["scene_id"])
+    link=graph.get("source_temporal_link")
+    memory=graph.get("memory") or {}
+    archive_rows=[x for x in memory.get("hot",[])+memory.get("warm",[])
+                  if x.get("chapter")==chapter_index]
+    if link is None:
+        if require_strong_for_new and archive_rows:
+            need(checkpoint["source_sha256"]==
+                 archive_rows[-1]["source_sha256"],
+                 "WF117_GRAPH_TEMPORAL_SOURCE_UNBOUND")
+        return False
+    need(link["chapter_index"]==chapter_index and
+         link["last_v114_checkpoint_sha256"]==
+             checkpoint["receipt_sha256"] and
+         link["turn_prose_sha256s"][-1]==checkpoint["source_sha256"] and
+         link["previous_v114_checkpoint_sha256"]!=
+             checkpoint["receipt_sha256"] and
+         len(archive_rows)==1 and
+         archive_rows[0]["source_sha256"]==
+             link["whole_chapter_sha256"],
+         "WF117_GRAPH_TEMPORAL_SOURCE_MISMATCH")
+    inherited=graph.get("source_temporal_parent_sha256")
+    if inherited is not None:
+        need(link["previous_v114_checkpoint_sha256"]==inherited
+             and link["prior_link_verified"] is True,
+             "WF117_GRAPH_TEMPORAL_PARENT_MISMATCH")
+    return True
+
+
 def make_resume(*,project_id,scene_id,chapter_index,checkpoint,
                 long_arc_checkpoint=None,unified_narrative_core=None):
     _checkpoint(checkpoint)
@@ -303,6 +344,9 @@ def make_resume(*,project_id,scene_id,chapter_index,checkpoint,
                  scene_id=scene_id)
         need(unified_narrative_core["chapter_index"]==chapter_index,
              "WFCORE_RESUME_CHAPTER_MISMATCH")
+        _verify_unified_temporal_source_link(
+            unified_narrative_core,checkpoint,chapter_index,
+            require_strong_for_new=True)
     if long_arc_checkpoint is not None:
         from .v123_long_arc import verify_long_arc
         verify_long_arc(long_arc_checkpoint,project_id=project_id,
@@ -361,6 +405,11 @@ def read_resume(value,*,project_id,scene_id):
         need(core["chapter_index"]==value["chapter_index"] and
              "v123_open_character_arc" not in value,
              "WFCORE_RESUME_CHAPTER_OR_DUPLICATE_OWNER")
+        # Always verify a PRESENT signed link. Old archives without a link
+        # can be inspected, but must not be used to mint new mixed-source
+        # fork heads while claiming their assembly was certified.
+        _verify_unified_temporal_source_link(
+            core,old,value["chapter_index"])
     if "v123_open_character_arc" in value:
         from .v123_long_arc import verify_long_arc
         arc=verify_long_arc(value["v123_open_character_arc"],
