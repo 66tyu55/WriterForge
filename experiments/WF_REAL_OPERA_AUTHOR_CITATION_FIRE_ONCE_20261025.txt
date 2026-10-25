@@ -1,0 +1,6 @@
+USER AUTHORIZED "继续" AS NEXT WF STEP, 2026-10-25: ONE REAL SAME-ORIGINAL-AUTHOR SOURCE-ATTRIBUTION ATTEMPT.
+No new literary manuscript, no model reviewer, no R2, no Canon, main or Railway writes.
+Original actual G run #40110957161, 7 genuine model wires and signed V117; original signed cross-source reader/author run #40151857245 with 2 wires. Verify all byte-level identities first, no provider if any source invalid.
+One actual DeepSeek Flash original author request only, 1150 reserved completion-token cap, NO RETRY.
+The same original creative AI may independently choose MOVE_ON or LOOK_BACK_NOW, and should for each of the three existing reader questions say WRITTEN_WITH_QUOTE / UNWRITTEN_OR_UNKNOWN / INTENTIONAL_ELLIPSIS; if claiming earlier text actually wrote a transition it needs a uniquely sourced quote. Host never verifies literary semantics or writes the transition for the novelist.
+Archive raw provider response, missing/bad source claim, preserved old truth, and read-only receipt; do not repeat this sentinel trigger on future source changes.
