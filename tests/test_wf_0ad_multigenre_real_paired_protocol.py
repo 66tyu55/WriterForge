@@ -94,7 +94,7 @@ class DiversePairingProtocol(unittest.TestCase):
             "他把手机揣回衣兜，从工具包侧袋摸出一支记号笔，是白天在五金店买的。"
             "他没有马上写字，因为刚才那通电话里提到的药盒说明他仍不放心。"
             "父亲没有解释药瓶到底放在哪里，他也不打算替父亲臆测结论。"
-            "末班车驶进站台时，他站起来，把记号笔放进外套内袋，贴着胸口。")
+            "末班车驶进站台时，许临站起来，把记号笔放进外套内袋，贴着胸口。")
         doc={"prose":prose,"trace":{
             "action_quote":action,"effect_quote":effect,
             "parent_effect_quote":None}}
