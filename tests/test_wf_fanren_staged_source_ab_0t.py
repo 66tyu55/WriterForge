@@ -22,6 +22,13 @@ class ProgressiveSourceVisibility(unittest.TestCase):
         self.assertEqual(result,("初"*230,"继"*230))
         self.assertNotIn("终",result[0]+result[1])
 
+    def test_ebook_contents_list_cannot_masquerade_as_reference(self):
+        contents=("第1章 目录一\n第2章 目录二\n第3章 目录三\n")
+        real=("第一章 正文一\n"+"真"*320+"\n第二章 正文二\n"+
+              "实"*330+"\n第三章 正文三\n"+"章"*340)
+        self.assertEqual(exp.source_windows(contents+real),
+                         ("真"*230,"实"*230))
+
     def test_missing_real_chapters_fails_closed(self):
         with self.assertRaisesRegex(RuntimeError,"WF0T_CANNOT_VERIFY_TWO_CHAPTER_BOUNDS"):
             exp.source_windows("假"*1500)
