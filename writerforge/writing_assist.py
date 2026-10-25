@@ -1037,6 +1037,7 @@ def _validate_author_prior_source_claims(*,reader_report,earlier_source,
         "reader_link_count":len(links),
         "attributions":[],
         "claimed_written_links":0,
+        "prior_state_only_citations_needing_review":0,
         "author_declared_unwritten_or_unknown_links":0,
         "author_declared_intentional_ellipsis_links":0,
         "author_prose_edit_forced":False,
@@ -1100,6 +1101,8 @@ def _validate_author_prior_source_claims(*,reader_report,earlier_source,
                 "literal_quote_is_not_proof_of_claimed_transition":True,
             })
             receipt["claimed_written_links"]+=1
+            if record["quote_overlaps_questioned_prior_state"]:
+                receipt["prior_state_only_citations_needing_review"]+=1
         else:
             if quote is not None:
                 receipt["status"]="UNWRITTEN_BASIS_CANNOT_CITE_TRANSFER"
@@ -1111,7 +1114,10 @@ def _validate_author_prior_source_claims(*,reader_report,earlier_source,
             else:
                 receipt["author_declared_intentional_ellipsis_links"]+=1
         results.append(record)
-    receipt["status"]="SOURCE_ATTRIBUTIONS_RECORDED_LITERAL_ONLY"
+    receipt["status"]=(
+        "PRIOR_STATE_QUOTE_NOT_TRANSFER_PROOF"
+        if receipt["prior_state_only_citations_needing_review"]
+        else "SOURCE_ATTRIBUTIONS_RECORDED_LITERAL_ONLY")
     receipt["attributions"]=results
     receipt["original_manuscript_unchanged_by_source_audit"]=True
     return receipt
