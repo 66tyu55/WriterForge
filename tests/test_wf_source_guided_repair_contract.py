@@ -71,6 +71,22 @@ class GuardrailRequirements(TestCase):
         self.assertEqual(doc["receipt_sha256"],_digest_json({
             k:v for k,v in doc.items() if k!="receipt_sha256"}))
 
+    def test_guide_keeps_all_v96_causal_kinds_not_only_action(self):
+        for kind in ("action","decision","reversal"):
+            with self.subTest(kind=kind):
+                info=prepare_source_repair_contract(
+                    source=self.source,source_sha256=hashed(self.source),
+                    beat={**self.beat,"kind":kind},
+                    accepted=(),original_trace=self.trace)
+                self.assertTrue(info["source_action_effect_required"])
+        for kind in ("setup","quiet","dialogue","aftermath","transition"):
+            with self.subTest(kind=kind):
+                info=prepare_source_repair_contract(
+                    source=self.source,source_sha256=hashed(self.source),
+                    beat={**self.beat,"kind":kind},
+                    accepted=(),original_trace=self.trace)
+                self.assertFalse(info["source_action_effect_required"])
+
     def test_wrong_original_sha_or_missing_parent_is_rejected_before_llm(self):
         with self.assertRaisesRegex(
                 RevisionTransactionError,"WF119_REPAIR_ORIGINAL_SOURCE_INVALID"):
