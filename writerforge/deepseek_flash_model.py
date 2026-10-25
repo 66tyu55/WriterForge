@@ -55,6 +55,72 @@ class _NoRedirect(HTTPRedirectHandler):
         raise DeepSeekFlashError("WF_FLASH_REDIRECT_REFUSED")
 
 
+def recover_single_fullwidth_author_field_separator(content: str):
+    """Losslessly decode ONE confirmed provider formatting mistake.
+
+    Some genuine DeepSeek fiction wires contain a valid quoted prose JSON
+    string followed by U+FF0C instead of the single required ASCII comma
+    between top-level "prose" and "trace". Decode the COMPLETE quoted prose
+    first, then only replace that EXACT external separator. Never modify
+    any manuscript character, guess missing JSON, or normalize other fields.
+    The untouched raw provider response is saved before this function runs.
+    """
+    prefix='{"prose":'
+    if type(content) is not str or not content.startswith(prefix):
+        return None
+    try:
+        prose,consumed=json.JSONDecoder().raw_decode(content[len(prefix):])
+        if type(prose) is not str:
+            return None
+        pos=len(prefix)+consumed
+        if not content.startswith('，"trace":',pos):
+            return None
+
+        def unique_pairs(items):
+            obj={}
+            for key,value in items:
+                if key in obj:
+                    raise ValueError("WF_FLASH_RECOVERY_DUPLICATE_FIELD")
+                obj[key]=value
+            return obj
+
+        repaired=content[:pos]+","+content[pos+1:]
+        doc=json.loads(
+            repaired,object_pairs_hook=unique_pairs,
+            parse_constant=lambda _: (_ for _ in ()).throw(
+                ValueError("WF_FLASH_RECOVERY_NONFINITE_VALUE")),
+        )
+        if (type(doc) is not dict or set(doc)!={"prose","trace"} or
+            doc["prose"]!=prose or
+            type(doc["trace"]) is not dict or
+            set(doc["trace"])!={"action_quote","effect_quote",
+                                 "parent_effect_quote"} or
+            not all(type(v) is str or v is None
+                    for v in doc["trace"].values())):
+            return None
+        receipt={
+            "format":"wf.flash.single-external-fullwidth-separator-v1",
+            "original_content_sha256":sha256(
+                content.encode("utf8")).hexdigest(),
+            "original_prose_sha256":sha256(
+                prose.encode("utf8")).hexdigest(),
+            "repaired_envelope_sha256":sha256(
+                repaired.encode("utf8")).hexdigest(),
+            "single_external_separator_only":True,
+            "separator_codepoint_index":pos,
+            "original_prose_unchanged":True,
+            "trace_still_requires_wf_source_validation":True,
+            "causal_relation_verified":False,
+            "eligible_for_factjournal_KNOWN":False,
+            "canon_writes":0,
+            "extra_model_calls":0,
+            "no_provider_retry":True,
+        }
+        return doc,receipt
+    except (ValueError,TypeError,UnicodeError,OverflowError):
+        return None
+
+
 @dataclass
 class FlashBudget:
     max_calls: int = MAX_CALLS
@@ -280,41 +346,55 @@ class DeepSeekFlashModel:
             try:
                 result = json.loads(content)
             except json.JSONDecodeError as error:
-                # Observed DeepSeek Flash literary PROSE_1 wires ended in
-                # a fully valid JSON object followed by the exact 2-char
-                # provider/model tail '"}'.  Never guess a missing bracket,
-                # repair manuscript characters, or accept arbitrary suffix.
-                if (role != "self_scene_writing" or
-                    error.msg != "Extra data"):
-                    raise
-                def unique_pairs(items):
-                    out = {}
-                    for key,value in items:
-                        if key in out:
-                            raise ValueError("WF_FLASH_DUPLICATE_RECOVERY_FIELD")
-                        out[key] = value
-                    return out
-                candidate,end = json.JSONDecoder(
-                    object_pairs_hook=unique_pairs).raw_decode(content)
-                if (content[end:] != '"}' or
-                    type(candidate) is not dict or
-                    set(candidate) != {"prose","trace"} or
-                    type(candidate["prose"]) is not str or
-                    type(candidate["trace"]) is not dict):
-                    raise
-                result = candidate
-                self.last_response_format_recovery = {
-                    "format":"wf.flash.exact-extra-tail-recovery.v1",
-                    "original_content_sha256":sha256(
-                        content.encode("utf8")).hexdigest(),
-                    "decoded_object_sha256":sha256(
-                        content[:end].encode("utf8")).hexdigest(),
-                    "extra_suffix_codepoints":2,
-                    "recovered_only_complete_existing_json_object":True,
-                    "original_prose_unchanged":True,
-                    "trace_still_requires_wf_source_validation":True,
-                    "no_provider_retry":True,
-                }
+                # The first exact recovery is limited to a genuine
+                # top-level comma between a fully JSON-decoded manuscript
+                # string and its trace field. Any other corruption fails.
+                external=(
+                    recover_single_fullwidth_author_field_separator(content)
+                    if role=="self_scene_writing" else None
+                )
+                if external is not None:
+                    result,receipt=external
+                    self.last_response_format_recovery={
+                        **receipt,
+                        "original_provider_wire_preserved":
+                            self._on_response_wire is not None,
+                    }
+                else:
+                    # Preserve the older, exact two-codepoint extra-tail
+                    # recovery, which also never repairs novel characters.
+                    if (role != "self_scene_writing" or
+                        error.msg != "Extra data"):
+                        raise
+                    def unique_pairs(items):
+                        out = {}
+                        for key,value in items:
+                            if key in out:
+                                raise ValueError(
+                                    "WF_FLASH_DUPLICATE_RECOVERY_FIELD")
+                            out[key] = value
+                        return out
+                    candidate,end = json.JSONDecoder(
+                        object_pairs_hook=unique_pairs).raw_decode(content)
+                    if (content[end:] != '"}' or
+                        type(candidate) is not dict or
+                        set(candidate) != {"prose","trace"} or
+                        type(candidate["prose"]) is not str or
+                        type(candidate["trace"]) is not dict):
+                        raise
+                    result = candidate
+                    self.last_response_format_recovery = {
+                        "format":"wf.flash.exact-extra-tail-recovery.v1",
+                        "original_content_sha256":sha256(
+                            content.encode("utf8")).hexdigest(),
+                        "decoded_object_sha256":sha256(
+                            content[:end].encode("utf8")).hexdigest(),
+                        "extra_suffix_codepoints":2,
+                        "recovered_only_complete_existing_json_object":True,
+                        "original_prose_unchanged":True,
+                        "trace_still_requires_wf_source_validation":True,
+                        "no_provider_retry":True,
+                    }
             require(isinstance(result,dict) and len(result) <= 32,
                     "WF_FLASH_RESULT_NOT_BOUNDED_JSON_OBJECT")
             self.budget.add_usage(data.get("usage",{}))
