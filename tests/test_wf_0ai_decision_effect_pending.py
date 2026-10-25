@@ -119,14 +119,14 @@ class DecisionOutcomePendingSourceTests(unittest.TestCase):
                                beat(kind),mode="causal_guard",
                                max_prose_chars=1024)
         for invalid_action in (None,"凭空已经知道主帅的密令",
-                               "他把三处可疑的数目"):
+                               "没有任何来源的外部事件"):
             with self.subTest(action=invalid_action):
                 with self.assertRaises(V96CausalDraftError):
                     check_turn(reply(HISTORY_REAL,invalid_action,None),
                                beat(),mode="causal_guard",
                                max_prose_chars=1024)
         with self.assertRaisesRegex(V96CausalDraftError,
-                                    "PARTIAL_ACTION_EFFECT_NOT_ALLOWED"):
+                                    "ACTION_NEEDS_ACTUAL_ACTION_AND_EFFECT"):
             check_turn(reply(HISTORY_REAL,None,HISTORY_REAL_EFFECT),
                        beat(),mode="causal_guard",
                        max_prose_chars=1024)
