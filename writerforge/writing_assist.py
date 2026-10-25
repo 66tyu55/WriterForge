@@ -72,6 +72,7 @@ from .v118_lamp_scheduler import (
 )
 from .v119_revision_transaction import (
     preview_revision as preview_surgical_revision,
+    prepare_source_repair_contract,compare_source_repair_impact,
     RevisionTransactionError,
 )
 from .v120_plan_prose_gate import (
@@ -1497,15 +1498,29 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
     original_sha=sha256(doc["prose"].strip().encode("utf8")).hexdigest()
     rounds=[]
     calls=0
+    visited_source_hashes={original_sha}
     for i in range(min(round_limit,call_allowance)):
         if cancel_check is not None:
             cancel_check()
         previous=doc["prose"].strip()
         previous_sha=sha256(previous.encode("utf8")).hexdigest()
+        guide=prepare_source_repair_contract(
+            source=previous,source_sha256=previous_sha,
+            beat=beat,accepted=accepted,original_trace=doc["trace"],
+            writer_attention=writer_attention,
+            previous_candidate_state=previous_candidate_state,
+            cast=cast)
+        # Durable non-literary repair contract, not a secondary memory.
+        (directory/f"round-{i+1:02d}-source-repair-guide.json").write_text(
+            json.dumps(guide,ensure_ascii=False,sort_keys=True,indent=2),
+            encoding="utf8")
+        # Use actual source evidence and the author's existing objective.
+        # Model still chooses KEEP/DELETE/REVISE/REPLACE_SCENE and writes prose.
         details={
             "source_sha256":previous_sha,
             "prose":previous,
             "beat":beat,
+            "wf_source_repair_contract":guide,
             "writer_previous_self_decided_focus":(
                 writer_attention if type(writer_attention) is dict else None),
             "last_observed_effects":[
@@ -1586,6 +1601,7 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
             answer,encoding="utf8")
         wrapper_only_removed=False
         recovered_offset=False
+        repair_impact=None
         try:
             if type(answer) is not str or len(answer.encode("utf8"))>18000:
                 raise ValueError("WF_SELF_EDIT_REPLY_TOO_BIG")
@@ -1626,6 +1642,8 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                 rounds.append({
                     "round":i+1,"status":"KEEP_BY_WRITER",
                     "source_sha256":previous_sha,
+                    "source_repair_contract_sha256":guide["receipt_sha256"],
+                    "no_edit_means_no_new_downstream_invalidation":True,
                     "model_self_assessment_not_literary_proof":True})
                 break
             scope=choice["scope"]
@@ -1677,15 +1695,51 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                 replacement=replacement,
                 previous_candidate_state=previous_candidate_state,
                 cast=cast)
+            repair_impact=compare_source_repair_impact(
+                preview_receipt=preview["receipt"])
+            (directory/f"round-{i+1:02d}-before-after-impact.json"
+             ).write_text(json.dumps(
+                 repair_impact,ensure_ascii=False,sort_keys=True,indent=2),
+                 encoding="utf8")
             if (preview["status"]!="PROVISIONAL_REVIEW" or
                 type(preview["candidate_prose"]) is not str):
                 rounds.append({
                     "round":i+1,"status":"REJECTED_NEW_SOURCE_WARNING",
                     "old_sha256":previous_sha,
                     "model_decision":decision,
+                    "source_repair_contract_sha256":guide["receipt_sha256"],
+                    "repair_impact_status":repair_impact["status"],
+                    "new_hard_findings":repair_impact["new_hard_findings"],
                     "patch_receipt_sha256":preview["receipt"]["receipt_sha256"]})
                 break
             changed=preview["candidate_prose"]
+            if repair_impact["status"]=="HELD_NEW_UNVERIFIED_SOURCE_RISK":
+                # A new unknown actor/prop risk is NOT proof of a bad
+                # novel, yet must never be silently called "clean".
+                # Keep a private candidate for the original author to
+                # resolve rather than promoting it into downstream state.
+                (directory/f"round-{i+1:02d}-held-unverified-draft.md"
+                 ).write_text(changed,encoding="utf8")
+                rounds.append({
+                    "round":i+1,
+                    "status":"HELD_NEW_UNVERIFIED_SOURCE_RISK",
+                    "source_repair_contract_sha256":guide["receipt_sha256"],
+                    "repair_impact_sha256":repair_impact["receipt_sha256"],
+                    "new_review_findings":repair_impact[
+                        "new_unverified_review_findings"],
+                    "original_source_kept_for_continuation":True,
+                    "author_objective_fulfillment_unverified":True})
+                break
+            changed_sha=sha256(changed.encode("utf8")).hexdigest()
+            if changed_sha in visited_source_hashes:
+                rounds.append({
+                    "round":i+1,"status":"REJECTED_REVISION_OSCILLATION",
+                    "previously_seen_source_sha256":changed_sha,
+                    "source_repair_contract_sha256":guide["receipt_sha256"],
+                    "repair_impact_sha256":repair_impact["receipt_sha256"],
+                    "kept_last_valid_source_sha256":previous_sha,
+                    "author_cannot_loop_back_to_same_draft_automatically":True})
+                break
             # Do not accept a too-short deleted paragraph or forged
             # model-made trace; back out to the last valid draft.
             next_doc={"prose":changed,"trace":trace}
@@ -1720,6 +1774,7 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                 changed,encoding="utf8")
             current_raw=next_raw
             doc=next_doc
+            visited_source_hashes.add(changed_sha)
             rounds.append({
                 "round":i+1,"status":"PROVISIONALLY_REVISED",
                 "decision":decision,"scope":scope,
@@ -1727,6 +1782,13 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                 "original_sha256":previous_sha,
                 "candidate_sha256":sha256(changed.encode("utf8")).hexdigest(),
                 "patch_receipt_sha256":preview["receipt"]["receipt_sha256"],
+                "source_repair_contract_sha256":guide["receipt_sha256"],
+                "repair_impact_status":repair_impact["status"],
+                "repair_impact_sha256":repair_impact["receipt_sha256"],
+                "baseline_findings_remaining":repair_impact[
+                    "previously_existing_hard_findings_remain"],
+                "literary_intent_satisfied_still_unverified":True,
+                "subsequent_turns_require_regeneration":True,
                 "source_offset_recovered_exactly":recovered_offset,
                 "format_wrapper_only_removed":wrapper_only_removed,
                 "original_model_coordinates":[model_start,model_end],
@@ -1738,9 +1800,39 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
             error=str(exc)
             if not error.startswith(("WF_", "WF96_", "WF119_", "WFCORE_")):
                 error=type(exc).__name__+":SELF_EDIT_MODEL_OR_PATCH_INVALID"
+            # Actionable exact failure feedback; never mutate failed
+            # model prose/trace to fake an accepted literary revision.
+            next_action=(
+                "ORIGINAL_WRITER_MUST_QUOTE_TWO_DISTINCT_ORDERED_SOURCE_SPANS"
+                if error=="WF96_ACTION_EFFECT_OVERLAP_OR_REVERSED" else
+                "ORIGINAL_WRITER_MUST_PROVE_PRIOR_CAUSE_OR_USE_NULL"
+                if error.startswith(("WF96_UNDECLARED_PREVIOUS_CAUSE",
+                                     "WF96_PARENT_CAUSE_NOT_ANCHORED")) else
+                "KEEP_LAST_VALID_SOURCE_AND_REEXAMINE_REPAIR_SCOPE")
+            guidance={
+                "source_sha256":previous_sha,
+                "attempted_writer_focus_sha256":guide["receipt_sha256"],
+                "exact_validation_failure":error[:150],
+                "writer_next_safe_action":next_action,
+                "new_source_risk_delta_receipt":(
+                    repair_impact.get("receipt_sha256")
+                    if repair_impact is not None else None),
+                "cannot_claim_literary_problem_fixed":True,
+                "no_unbounded_repair_retries":True,
+                "no_host_authored_fiction_or_trace":True,
+                "old_source_preserved":True,
+            }
+            (directory/f"round-{i+1:02d}-actionable-failure.json"
+             ).write_text(json.dumps(guidance,ensure_ascii=False,
+                                    sort_keys=True,indent=2),encoding="utf8")
             rounds.append({
                 "round":i+1,"status":"REJECTED_AND_ROLLED_BACK",
                 "reason_code":error[:150],
+                "source_repair_contract_sha256":guide["receipt_sha256"],
+                "repair_impact_sha256":(
+                    repair_impact["receipt_sha256"]
+                    if repair_impact is not None else None),
+                "writer_next_safe_action":next_action,
                 "format_wrapper_only_removed":wrapper_only_removed,
                 "source_offset_recovered_exactly":recovered_offset,
                 "unmodified_candidate_sha256":previous_sha})
