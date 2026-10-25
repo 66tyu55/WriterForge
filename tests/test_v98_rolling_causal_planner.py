@@ -251,6 +251,77 @@ class V98ExistingWritingIntegrationTests(unittest.TestCase):
         self.assertIsNone(self.db.conn.execute(
             "SELECT 1 FROM accepted_prose").fetchone())
 
+    def test_pending_decision_real_writing_path_replans_without_fabricated_effect(self):
+        # 0.AI: protect the V26 -> V96 -> V98 -> V96 full writing path,
+        # not just standalone source tests. No author/reader network calls.
+        pending_action="少年决定在天亮以前先守住木桥入口"
+        first_prose=(
+            "雨中的桥面又晃了两下，少年发现身后的药箱已经湿透。"
+            +pending_action+"。"
+            "他仍不能知道对岸是不是已经封路，也不敢断言药箱能撑到天亮。"
+            "两名同行者暂时停在河边商量，没人报告守桥人已经撤去障碍。"
+        )
+        action2="女子走到河边重新检查木桩的裂痕"
+        effect2="她发现木桩只剩下一半埋在泥土里"
+        second_prose=(
+            "天色渐亮，女子听见河水拍击岸边，脚下的泥仍湿冷。"
+            +action2+"。"+effect2+"。"
+            "她请少年不要贸然过桥，两人先把药箱放到干燥的石头上。"
+            "虽然他们找到另一处可能绕行的岸坡，却还没确定路是否畅通。"
+        )
+        first_beat={
+            "id":"t01","kind":"decision","actor":"少年",
+            "goal":"少年决定守在木桥入口等待证据而不凭空宣称结果",
+            "causal_parent":None,"craft_focus":["detail"],
+        }
+        second_beat={
+            "id":"t02","kind":"decision","actor":"女子",
+            "goal":"女子沿河岸调查木桩状态并与少年决定如何继续送药",
+            "causal_parent":"t01","craft_focus":["detail"],
+        }
+        planned={"turns":[first_beat,second_beat]}
+        request={
+            "next_turn":second_beat,
+            # V98 keeps its legacy JSON key for API compatibility; this
+            # value is a SOURCE ACTION, never falsely an observed effect.
+            "basis_effect_quote":pending_action,
+            "pressure_quote":None,
+            "cost_quote":None,
+            "unresolved_question":"没人确认守桥人是否撤掉障碍，木桥仍可能无法通过。",
+            "reason_for_shift":"此前只是决定在桥头等待，下一步必须亲自查看桥边的变化。",
+        }
+        with patch("writerforge.writing_assist.local_chat_completion",
+                   side_effect=[
+                       PLAN,
+                       response(first_prose,pending_action,None),
+                       raw(request),
+                       response(second_prose,action2,effect2,None),
+                   ]) as model:
+            result=AutonomousWriting(self.assist).run(
+                outline=OUTLINE,chapter_goals=GOALS,
+                output_dir=self.root/"pending-decision",
+                draft_mode="rolling_causal",
+                frozen_turn_outlines=(raw(planned),),
+            )
+        self.assertEqual(model.call_count,4)
+        self.assertEqual(result["canonical_fact_writes"],0)
+        chapter=result["chapters"][0]
+        self.assertFalse(chapter["accepted"])
+        self.assertEqual(Path(chapter["candidate"]).read_text("utf8"),
+                         first_prose+"\n\n"+second_prose)
+        evidence=json.loads(Path(chapter["turn_evidence"]).read_text("utf8"))
+        self.assertTrue(evidence["turn_receipts"][0][
+            "outcome_pending_source_only"])
+        self.assertTrue(evidence["turn_receipts"][1]["parent_outcome_pending"])
+        self.assertFalse(evidence["semantic_causality_proven"])
+        self.assertEqual(len(evidence["rolling_proposal_receipts"]),1)
+        self.assertEqual(evidence["rolling_proposal_receipts"][0][
+            "source_basis_kind"],"DECISION_ACTION_ONLY_OUTCOME_PENDING")
+        self.assertFalse(evidence["rolling_proposal_receipts"][0][
+            "source_parent_causal_relation_verified"])
+        self.assertIsNone(self.db.conn.execute(
+            "SELECT 1 FROM accepted_prose").fetchone())
+
     def test_forged_replan_stops_without_second_prose_or_auto_retry(self):
         p=proposed(basis="先前已经捉住了不存在的幕后真凶")
         with patch("writerforge.writing_assist.local_chat_completion",
