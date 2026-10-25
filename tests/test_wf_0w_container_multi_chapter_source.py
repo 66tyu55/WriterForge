@@ -65,7 +65,7 @@ class ContainerSourceRelations(unittest.TestCase):
                     prose=p)["review_pairs"],[])
 
     def test_container_alias_not_assumed_to_be_identical_owner(self):
-        p="铜牌还在木匣里，只是铜牌已经被人从木匣中取出来。"
+        p="铜牌还在旧木匣里，只是铜牌已经被人从木匣中取出来。"
         out=audit_physical_relation_sources(prose=p)
         self.assertEqual(out["review_pairs"][0]["contact_identity_evidence"],
                          "POSSIBLE_CONTACT_AREA_ALIAS")
