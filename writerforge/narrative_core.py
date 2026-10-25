@@ -146,7 +146,13 @@ def validate(graph,*,project_id,scene_id):
                    "previous_v114_checkpoint_sha256",
                    "turn_prose_sha256s","turn_count",
                    "source_assembly_verified","prior_link_verified",
-                   "ancestry_fully_verified"}) and
+                   "ancestry_fully_verified"},
+                  {"chapter_index","whole_chapter_sha256",
+                   "last_v114_checkpoint_sha256",
+                   "previous_v114_checkpoint_sha256",
+                   "turn_prose_sha256s","turn_count",
+                   "source_assembly_verified","prior_link_verified",
+                   "ancestry_fully_verified","root_resume_anchor_sha256"}) and
               type(source_link["chapter_index"]) is int and
               1<=source_link["chapter_index"]<=graph["chapter_index"] and
               all(type(source_link[k]) is str and
@@ -165,9 +171,14 @@ def validate(graph,*,project_id,scene_id):
               type(source_link["prior_link_verified"]) is bool and
               ("ancestry_fully_verified" not in source_link or
                type(source_link["ancestry_fully_verified"]) is bool) and
+              (source_link.get("root_resume_anchor_sha256") is None or
+               (type(source_link["root_resume_anchor_sha256"]) is str and
+                SHA.fullmatch(source_link["root_resume_anchor_sha256"]))) and
               (source_link.get("ancestry_fully_verified") is not True or
                ((source_link["chapter_index"]==1 and
-                 source_link["previous_v114_checkpoint_sha256"] is None) or
+                 (source_link["previous_v114_checkpoint_sha256"] is None or
+                  (source_link.get("root_resume_anchor_sha256") is not None
+                   and source_link["prior_link_verified"] is False))) or
                 (source_link["chapter_index"]>1 and
                  source_link["prior_link_verified"] is True))),
               "WFCORE_SOURCE_TEMPORAL_BINDING_TAMPERED")
@@ -1053,7 +1064,8 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
                           archive_writer=None,source_writer=None,
                           source_reader=None,archive_reader=None,
                           chapter_source_parts=None,
-                          chapter_temporal_checkpoints=None):
+                          chapter_temporal_checkpoints=None,
+                          root_resume_anchor=None):
     """Delayed compaction: 3 hot chapters -> 8 warm capsules -> cold CAS.
 
     Must be called AFTER original candidate.md has been durably saved. The
@@ -1068,6 +1080,9 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
           "WFCORE_BUFFER_NOT_AT_SAVED_CHAPTER")
     source_sha=_hash(prose)
     temporal_link=None
+    _need(root_resume_anchor is None or
+          chapter_source_parts is not None,
+          "WFCORE_ROOT_ANCHOR_WITHOUT_SOURCE_ASSEMBLY")
     if chapter_source_parts is not None or chapter_temporal_checkpoints is not None:
         _need(type(chapter_source_parts) in (tuple,list) and
               type(chapter_temporal_checkpoints) in (tuple,list) and
@@ -1097,6 +1112,24 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
         # signed ancestry chain, not just an apparently matching last SHA.
         verified_root=(chapter_index==1 and inherited is None and
                        first.get("previous_checkpoint_sha256") is None)
+        sealed_origin=None
+        if root_resume_anchor is not None:
+            from .v117_continuity_trace import read_resume
+            _need(type(root_resume_anchor) is dict and
+                  root_resume_anchor.get("chapter_index")==0 and
+                  root_resume_anchor.get("unified_narrative_core",{}).get(
+                      "receipt_sha256")==graph["parent_sha256"] and
+                  chapter_index==1 and inherited is None,
+                  "WFCORE_ROOT_RESUME_NOT_THE_ACTUAL_GRAPH_PARENT")
+            root_checkpoint=read_resume(
+                root_resume_anchor,project_id=project_id,scene_id=scene_id)
+            _need(root_checkpoint["sequence"]==1 and
+                  root_checkpoint.get("previous_checkpoint_sha256") is None and
+                  first.get("previous_checkpoint_sha256")==
+                      root_checkpoint["receipt_sha256"],
+                  "WFCORE_ROOT_RESUME_WRONG_TEMPORAL_SOURCE")
+            sealed_origin=root_resume_anchor["receipt_sha256"]
+        verified_root=verified_root or sealed_origin is not None
         verified_parent=(chapter_index>1 and inherited is not None and
                          graph.get(
                              "source_temporal_parent_ancestry_verified") is True)
@@ -1111,6 +1144,7 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
             "prior_link_verified":inherited is not None,
             "ancestry_fully_verified":bool(
                 verified_root or verified_parent),
+            "root_resume_anchor_sha256":sealed_origin,
         }
     _need(_verify_source_file(source_path,source_sha)==prose,
           "WFCORE_SAVED_SOURCE_DIFFERENT_FROM_CANDIDATE")
