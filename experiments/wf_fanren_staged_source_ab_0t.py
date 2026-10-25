@@ -69,9 +69,10 @@ AUTHOR_SYSTEM = (
     "严格只输出当前协议规定的 JSON 对象。"
 )
 CHAPTER_RE = re.compile(
-    r"(?m)^[ \t]*第[ \t]*(?P<ordinal>[0-9零一二三四五六七八九十百千]{1,8})[ \t]*章[^\n\r]{0,45}$"
+    r"(?m)^[ \t]*(?:正文[ \t:：]*)?第[ \t]*"
+    r"(?P<ordinal>[0-9零〇○一二三四五六七八九十百千萬万兩两]{1,16})"
+    r"[ \t]*[章回][^\n\r]{0,90}$"
 )
-ORDINALS = {"一":1, "二":2, "三":3}
 
 
 def sha(value):
@@ -89,6 +90,7 @@ def write_json(path,value):
 def source_windows(text):
     """Use chapter 1 and 2, never a table of contents masquerading as prose."""
     require(type(text) is str and len(text)>1000, "WF0T_REAL_BOOK_SOURCE_NOT_PRESENT")
+    from writerforge.source_study import chapter_number
     matches=list(CHAPTER_RE.finditer(text))
     require(len(matches)>=FIRST_CHAPTERS+1, "WF0T_CANNOT_VERIFY_TWO_CHAPTER_BOUNDS")
     for i in range(len(matches)-2):
@@ -96,7 +98,10 @@ def source_windows(text):
         order=[]
         for hit in triad:
             value=hit.group("ordinal")
-            order.append(int(value) if value.isdigit() else ORDINALS.get(value))
+            try:
+                order.append(chapter_number(value))
+            except (ValueError,TypeError):
+                order.append(None)
         if order!=[1,2,3]:
             continue
         bodies=[
@@ -112,10 +117,48 @@ def source_windows(text):
             return windows
     raise RuntimeError("WF0T_CANNOT_FIND_AUTHENTIC_FIRST_TWO_CHAPTERS")
 
+def download_existing_pinned_r2():
+    """Reuse WriterForge's archived exact Fanren edition; READ calls only."""
+    from writerforge.r2_storage import R2Config, _digest
+    from writerforge.single_work_runner import SingleWorkVault
+    from scripts.learn_archived_modern_r2 import WORKS
+    spec=WORKS["fanrenxiuxian"]
+    config=R2Config.from_environment()
+    require(config.bucket=="writerforge-private-library",
+            "WF0T_EXISTING_R2_WRONG_BUCKET")
+    vault=SingleWorkVault(config,work_id="fanrenxiuxian")
+    old=vault.verify_existing_single_work()
+    require(type(old) is dict and old.get("source_integrity_verified") is True and
+            old.get("already_archived") is True and
+            old.get("utf8_sha256")==spec.source_sha256 and
+            old.get("utf8_bytes")==spec.source_bytes,
+            "WF0T_R2_ARCHIVED_PINNED_SOURCE_UNAVAILABLE")
+    with tempfile.TemporaryDirectory(prefix="wf0t-fanren-r2-readonly-") as tmp:
+        source=Path(tmp)/"pinned-source.txt"
+        key=vault._blob_key("fanrenxiuxian",spec.source_sha256)
+        # Download only, no put_object, source edits or backup writes.
+        vault.client.download_file(config.bucket,key,str(source))
+        require(_digest(source)==(spec.source_sha256,spec.source_bytes),
+                "WF0T_R2_FRESH_SOURCE_HASH_MISMATCH")
+        windows=source_windows(source.read_text("utf8"))
+    return windows,{
+        "reading_channel":"existing_single_work_R2_read_only",
+        "book_source_sha256":spec.source_sha256,
+        "whole_book_bytes_read_privately":spec.source_bytes,
+        "reference_window_sha256":[sha(x) for x in windows],
+        "reference_window_chars":[EXCERPT_CHARS]*FIRST_CHAPTERS,
+        "full_book_passed_to_any_model":False,
+        "source_uploaded_or_rewritten":False,
+    }
+
 def download_pinned_private_reference():
     """Private HTTPS read only. No book text enters logs or GitHub artifacts."""
     uri=os.getenv("WRITERFORGE_FANREN_SOURCE_URL","")
     expected=os.getenv("WRITERFORGE_FANREN_SOURCE_SHA256","").lower()
+    # The 2026 private R2 edition takes precedence when the legacy HTTPS
+    # URL/pin pair was never configured. Never ask for a re-upload.
+    if not uri and not expected:
+        return download_existing_pinned_r2()
     parsed=urlparse(uri)
     require(parsed.scheme=="https" and bool(parsed.netloc) and
             not parsed.username and not parsed.password and
