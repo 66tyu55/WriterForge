@@ -16,7 +16,8 @@ import os
 import re
 
 from writerforge.deepseek_flash_model import DeepSeekFlashModel,FlashBudget
-from writerforge.v96_causal_turns import check_turn,make_turn_instructions
+from writerforge.v96_causal_turns import (check_turn,make_turn_instructions,
+    normalize_model_source_citations,V96CausalDraftError)
 from writerforge.v116_state_delta import preflight_next_prose
 from writerforge.v114_external_story_state import external_temporal_step,require_external_runtime
 
@@ -132,20 +133,44 @@ def author_pair(writer,item):
     wf=assisted["prose"]
     guard(type(wf) is str and 130<=len(wf)<=1024,
           "WF0AD_WF_AUTHOR_PROSE_LENGTH_INVALID")
-    checked=check_turn(original,beat,mode="causal_guard",
-                       accepted=(),max_prose_chars=1024)
-    guard(checked["prose"]==wf.strip(),"WF0AD_V96_MODIFIED_NOVELIST_ORIGINAL")
+    # Real novelist prose is worth literary comparison EVEN IF its citation
+    # trace is malformed. It must NEVER silently become a valid WF source.
+    # Reuse the existing WF V96 exact-literal trace normalization instead
+    # of paying the author to regenerate the same original paragraph.
+    normalized,trace_receipt=normalize_model_source_citations(
+        original,beat,accepted=())
+    guard(json.loads(normalized)["prose"]==wf,
+          "WF0AD_TRACE_NORMALIZATION_ALTERED_AUTHOR_TEXT")
+    trace_status="HELD_SOURCE_TRACE_INVALID"
+    trace_error=None
+    receipt=None
+    try:
+        checked=check_turn(normalized,beat,mode="causal_guard",
+                           accepted=(),max_prose_chars=1024)
+        guard(checked["prose"]==wf.strip(),
+              "WF0AD_V96_MODIFIED_NOVELIST_ORIGINAL")
+        trace_status="EXACT_SOURCE_QUOTES_CONFIRMED"
+        receipt=checked["receipt"]["causal_check"]
+    except V96CausalDraftError as err:
+        trace_error=str(err)
+    # Independent SOURCE-level checks still run on genuine prose and may
+    # HOLD an unresolved state even if action/effect trace is invalid.
     preflight=preflight_next_prose(
-        checked["prose"],previous_candidate_state={},cast=(item["actor"],))
+        wf.strip(),previous_candidate_state={},cast=(item["actor"],))
     cp=external_temporal_step(
-        checked["prose"],cast=(item["actor"],))
-    guard(cp["source_sha256"]==h(checked["prose"]) and
+        wf.strip(),cast=(item["actor"],))
+    guard(cp["source_sha256"]==h(wf.strip()) and
           cp["v122_physical_relation_source_receipt"]["source_sha256"]==
-            h(checked["prose"]),"WF0AD_WRITER_SOURCE_LINEAGE_INVALID")
+            h(wf.strip()),"WF0AD_WRITER_SOURCE_LINEAGE_INVALID")
     return {
         "bare":{"source_sha256":h(raw),"prose":raw},
         "WF":{"source_sha256":h(wf.strip()),"prose":wf.strip(),
-              "V96":checked["receipt"]["causal_check"],
+              "V96":receipt,
+              "V96_status":trace_status,
+              "V96_failure_code":trace_error,
+              "V96_original_reply_sha256":h(original),
+              "V96_literal_citation_normalization":trace_receipt,
+              "candidate_not_accepted_if_trace_invalid":True,
               "V116_blocked":preflight["blocked"],
               "V116_hard_findings":preflight["findings"],
               "V116_needs_review":preflight["needs_review"],
@@ -179,14 +204,19 @@ def parse_judge(answer):
     seen={}
     for v in values:
         guard(type(v) is dict and set(v)=={"id","scores","reason","weakness"}
-              and v["id"] in ("甲","乙") and v["id"] not in seen,
+              and type(v["id"]) is str,
+              "WF0AD_JUDGE_ID_SCHEMA_INVALID")
+        # JSON-only DeepSeek sometimes returns the exact harmless UI
+        # prefix "匿名甲"/"匿名乙". Normalize LABEL only, never a score.
+        label=v["id"][2:] if v["id"].startswith("匿名") else v["id"]
+        guard(label in ("甲","乙") and label not in seen,
               "WF0AD_JUDGE_ID_SCHEMA_INVALID")
         score=v["scores"]
         guard(type(score) is dict and set(score)==set(CRITERIA) and
               all(type(n) is int and 0<=n<=20 for n in score.values()) and
               all(type(v[key]) is str and 6<=len(v[key])<=160 for key in ("reason","weakness")),
               "WF0AD_JUDGE_SCORE_OR_EXPLANATION_INVALID")
-        seen[v["id"]]=v
+        seen[label]={**v,"id":label}
     guard(set(seen)=={"甲","乙"},"WF0AD_JUDGE_MISSING_SAMPLE")
     return seen
 
