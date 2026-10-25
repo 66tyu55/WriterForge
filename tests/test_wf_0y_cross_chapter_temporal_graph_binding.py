@@ -123,6 +123,48 @@ class SignedSourceTemporalMismatch(unittest.TestCase):
             self.assertEqual(read_resume(
                 r2,project_id=PROJECT,scene_id=SCENE),cp2)
 
+    def test_unverified_legacy_parent_cannot_be_laundered_through_two_new_chapters(self):
+        with TemporaryDirectory() as td:
+            root=Path(td)
+            base=new_graph(project_id=PROJECT,scene_id=SCENE)
+            first=external_temporal_step(CH1_OLD,cast=CAST)
+            legacy=self.record(root,base,1,CH1_OLD)
+            second=external_temporal_step(CH2,cast=CAST,prior=first)
+            weak2=self.record(
+                root,legacy,2,CH2,
+                chapter_source_parts=(CH2,),
+                chapter_temporal_checkpoints=(second,))
+            third=external_temporal_step(PART2A,cast=CAST,prior=second)
+            apparent3=self.record(
+                root,weak2,3,PART2A,
+                chapter_source_parts=(PART2A,),
+                chapter_temporal_checkpoints=(third,))
+            # Even though chapter3 matches its immediate chapter2 temporal
+            # parent, chapter2 did NOT prove that its own parent belongs
+            # to this graph. "One green hop" must never launder ancestry.
+            with self.assertRaisesRegex(
+                Exception,"WF117_GRAPH_TEMPORAL_ANCESTRY_UNVERIFIED"):
+                make_resume(project_id=PROJECT,scene_id=SCENE,
+                            chapter_index=3,checkpoint=third,
+                            unified_narrative_core=apparent3)
+
+    def test_fresh_first_chapter_rejects_unrecorded_external_temporal_seed(self):
+        with TemporaryDirectory() as td:
+            root=Path(td)
+            base=new_graph(project_id=PROJECT,scene_id=SCENE)
+            orphan=external_temporal_step(
+                "没有写入新项目记忆的另一段故事。",cast=CAST)
+            injected=external_temporal_step(CH1_OLD,cast=CAST,prior=orphan)
+            graph=self.record(
+                root,base,1,CH1_OLD,
+                chapter_source_parts=(CH1_OLD,),
+                chapter_temporal_checkpoints=(injected,))
+            with self.assertRaisesRegex(
+                Exception,"WF117_GRAPH_TEMPORAL_ANCESTRY_UNVERIFIED"):
+                make_resume(project_id=PROJECT,scene_id=SCENE,
+                            chapter_index=1,checkpoint=injected,
+                            unified_narrative_core=graph)
+
     def test_old_graph_descendant_cannot_use_new_revised_temporal_parent(self):
         with TemporaryDirectory() as tmp:
             root=Path(tmp)
