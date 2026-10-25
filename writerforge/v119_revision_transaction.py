@@ -233,6 +233,29 @@ def prepare_source_repair_contract(
         source_before=preflight_next_prose(
             source,previous_candidate_state=previous_candidate_state,
             cast=cast)
+    # Bounded projection of already available V114/V116 state cells:
+    # not a new memory store and never a permanent fact assertion.
+    # If a long state was truncated, the omission is EXPLICIT so that
+    # a model cannot treat omitted items/injuries as gone.
+    source_rows=[]
+    if previous_candidate_state is not None:
+        for key,value in sorted(previous_candidate_state.items()):
+            try:
+                domain,entity,predicate,scope,_=json.loads(key)
+            except (ValueError,TypeError):
+                continue
+            if (scope!="author_plan" or
+                domain not in ("item","character") or
+                type(entity) is not str or type(predicate) is not str or
+                len(entity)>70 or len(predicate)>70 or
+                type(value) not in (str,int,bool)):
+                continue
+            source_rows.append({
+                "domain":domain,"entity":entity,
+                "predicate":predicate,
+                "previous_candidate_value":str(value)[:120],
+                "source_is_unaccepted_v114_candidate_not_canon":True,
+            })
     basic={
         "format":"wf.writing.v119.source-first-repair-guide.v1",
         "source_sha256":source_sha256,
@@ -251,6 +274,9 @@ def prepare_source_repair_contract(
         "baseline_state_coverage":(
             "V116_SOURCE_ONLY_NARROW" if source_before is not None
             else "NO_PREVIOUS_CANDIDATE_STATE"),
+        "prior_source_candidate_state":source_rows[:8],
+        "prior_state_rows_not_loaded_or_omitted":max(0,len(source_rows)-8),
+        "omission_does_not_mean_state_was_erased":True,
         "source_action_effect_required":beat["kind"] in (
             "action","decision","reversal"),
         "repair_paths_owned_by_author":[
