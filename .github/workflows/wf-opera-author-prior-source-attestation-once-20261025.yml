@@ -1,0 +1,88 @@
+name: WF One-Shot Original DeepSeek Author Prior-Source Attestation 20261025
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_REAL_OPERA_AUTHOR_CITATION_FIRE_ONCE_20261025.txt
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wf-one-real-author-source-attestation-20261025
+  cancel-in-progress: false
+jobs:
+  signed-source-then-one-real-novelist-response:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 19
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install original WriterForge runtime without provider credentials
+        run: python -m pip install -e '.[r2]'
+      - name: Run all source-attestation adversarial tests offline
+        run: PYTHONPATH=tests python -m unittest tests.test_wf_author_prior_source_attribution tests.test_wf_reader_source_attribution_G_integration -q
+      - name: Recover source novel and old 7 DeepSeek provider wires from genuine G run
+        uses: actions/download-artifact@v4
+        with:
+          name: WF-New-Actual-G-Author-Control-vs-Reader-First-20261025
+          run-id: 40110957161
+          github-token: ${{ github.token }}
+          path: wf_real_opera_previous_20261025
+      - name: Recover exact earlier 2 real reader and original author source replies
+        uses: actions/download-artifact@v4
+        with:
+          name: WF-Real-Opera-Signed-Prior-Chapter-Reader-Originals-20261025
+          run-id: 40151857245
+          github-token: ${{ github.token }}
+          path: wf_prior_opera_cross_source_20261025
+      - name: Check unchanged nine old provider wires and signed V117 before inference
+        run: |
+          python - <<'PY'
+          from experiments.wf_real_opera_cross_source_zero_model_receipt_20261025 import provenance
+          old,previous,reader,author=provenance()
+          assert old['status']['actual_provider_calls']==7
+          assert previous['actual_new_provider_calls']==2
+          assert previous['author_original_decision']=='MOVE_ON'
+          assert old['source'].count('票据还压在箱底一件戏服底下')==1
+          assert old['seed'].count('衣袖里藏着一张尚未交出去的赎身票据')==1
+          print('REAL PRIOR SHA, V117 AND NINE ORIGINAL DEEPSEEK RESPONSES VERIFIED')
+          PY
+      - name: ONE same existing DeepSeek writer literary choice with attributed actual earlier-source excerpts
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: python -m experiments.wf_real_opera_author_source_attribution_once_20261025
+      - name: Require bounded honest results, whether valid or rejected
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          s=json.loads(Path('wf_real_opera_author_evidence_20261025/STATUS.json').read_text('utf8'))
+          assert 0<=s['new_real_provider_calls']<=1
+          assert s['maximum_real_provider_calls']==1
+          assert s['maximum_requested_output_tokens']==1150
+          assert s['no_network_retries'] and s['V119_called'] is False
+          assert s['new_fiction_generated'] is False
+          assert s['R2_writes']==s['Canon_writes']==s['model_training_runs']==0
+          assert s['literary_quality_verified'] is False
+          print('SAME AUTHOR DECISION:',s.get('new_author_literary_decision'))
+          print('EARLIER SOURCE CLAIM:',s.get('author_source_attribution_status'))
+          print('WRITTEN CLAIMS:',s.get('claimed_earlier_written_quote_count'))
+          print('UNWRITTEN/UNKNOWN:',s.get('author_unwritten_unknown_count'))
+          print('REAL MODEL REQUESTS:',s['new_real_provider_calls'])
+          PY
+      - name: Keep original provider wire and both source texts, original writer answer and source-citation failures
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WF-Real-DeepSeek-Prior-Source-Author-Attestation-20261025
+          path: wf_real_opera_author_evidence_20261025/
+          retention-days: 30
+          if-no-files-found: warn
