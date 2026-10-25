@@ -3,6 +3,7 @@
 Tests are evaluator-tool tests, not judging a novelist's worth or training WF.
 """
 import unittest
+from copy import deepcopy
 from experiments.wf_0ab_score_validity_gate import audit_comparability
 
 SOURCE_SHA="2fc1698410418bf136448807335c6359bf515b75e6f9c1e1d1f443a1c928e6cc"
@@ -29,7 +30,7 @@ def synthetic_reference_score():
         "sample_character_counts":{
             "1":{"R":208,"A":223,"B":223},
             "2":{"R":230,"A":224,"B":183}},
-        "selected_window_sha256":EXPECTED_SHA,
+        "selected_window_sha256":deepcopy(EXPECTED_SHA),
         "same_judge_model_family_as_original_writer":True,
         "this_is_not_human_blind_review":True,
         "cannot_attribute_change_to_WF_in_this_AB_design":True,
