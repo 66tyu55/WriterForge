@@ -463,7 +463,7 @@ def audit_item_provenance(*, prose,previous_candidate_state,cast=()):
 # It never writes the Novel Studio reducer's "holder" cell, since attachment
 # of a rope end to a post is not possession of the entire rope.
 _PHYSICAL_SPLIT=re.compile(r"[，,；;。！？\n]")
-_PHYSICAL_DISCOURSE=("只是","然而","但是","不过","却","可","而","原来")
+_PHYSICAL_DISCOURSE=("只是","然而","但是","不过","但","却","可","而","原来")
 _PHYSICAL_TEMPORAL=("随后","后来","接着","然后","过了","片刻后","此后",
                     "第二天","次日","先","再","之后","不久后")
 _PHYSICAL_NONFACT=("猜","以为","觉得","听说","据说","可能","似乎","仿佛",
@@ -627,6 +627,67 @@ def _physical_relation_clause(prose,start,end,clause,spoken):
         "candidate_not_item_holder_or_canon":True,
     }
 
+def _candidate_physical_source_question(prose,one,two,*,
+                                       adjacent_sentences):
+    """One SOURCE-ONLY uncertain state relationship across literary genres.
+
+    Never pronounce contradiction, assign a new owner, infer the invisible
+    action, or demand that an author reveal a suspenseful cause. Exactly
+    adjacent narrated sentences can supply conflicting SOURCE evidence,
+    but they do not prove simultaneity.
+    """
+    if (one["relation_family"]!=two["relation_family"] or
+        one["relation"]==two["relation"]):
+        return None
+    if (one["source_form"],two["source_form"]) in (
+        ("ATTACH_ACTION","DETACH_ACTION"),
+        ("PLACE_ACTION","REMOVE_ACTION")):
+        return None
+    if not (one["continuing_state_words"] or
+            two["continuing_state_words"]):
+        return None
+    between=prose[one["source_end"]:two["source_start"]]
+    if adjacent_sentences:
+        if (two["sentence_source_index"]!=
+                one["sentence_source_index"]+1 or
+            re.fullmatch(r"[。！？][ \\t]*",between) is None):
+            return None
+    elif one["sentence_source_index"]!=two["sentence_source_index"]:
+        return None
+    # Word '后来' at the beginning of a clause is a narratively
+    # sufficient explicit ordering; leave it alone. No keyword blacklist
+    # for object types or genres.
+    if (any(x in between for x in _PHYSICAL_TEMPORAL) or
+        two["source_quote"].startswith(_PHYSICAL_TEMPORAL)):
+        return None
+    item_match=_physical_identity(
+        one["item_literal"],two["item_literal"])
+    contact_match=_physical_identity(
+        one["contact_literal"],two["contact_literal"],site=True)
+    if item_match is None or contact_match is None:
+        return None
+    return {
+        "reason_code":"NEEDS_SOURCE_RELATION_REVIEW",
+        "first_source_start":one["source_start"],
+        "first_source_quote":one["source_quote"],
+        "first_source_quote_sha256":one["source_quote_sha256"],
+        "second_source_start":two["source_start"],
+        "second_source_quote":two["source_quote"],
+        "second_source_quote_sha256":two["source_quote_sha256"],
+        "item_identity_evidence":item_match,
+        "contact_identity_evidence":contact_match,
+        "first_item_literal":one["item_literal"],
+        "second_item_literal":two["item_literal"],
+        "relation_family":one["relation_family"],
+        "first_contact_literal":one["contact_literal"],
+        "second_contact_literal":two["contact_literal"],
+        "unresolved_question":"SAME_REFERENT_AND_CONTACT_STATUS_NOT_PROVEN",
+        "unknown_actor_may_remain_unknown":True,
+        "literary_ellipsis_not_a_physical_state_proof":True,
+        "writer_must_choose_whether_and_where_to_edit":True,
+        "adjacent_sentence_not_proven_same_time":adjacent_sentences,
+    }
+
 def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
     """Bounded evidence-first relation review within V122; zero model calls.
 
@@ -683,50 +744,25 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
                 sentence_claims.append(candidate)
         for i,one in enumerate(sentence_claims):
             for two in sentence_claims[i+1:]:
-                if (one["relation_family"]!=two["relation_family"] or
-                    one["relation"]==two["relation"]):
-                    continue
-                if (one["source_form"],two["source_form"]) in (
-                    ("ATTACH_ACTION","DETACH_ACTION"),
-                    ("PLACE_ACTION","REMOVE_ACTION")):
-                    continue
-                if not (one["continuing_state_words"] or
-                        two["continuing_state_words"]):
-                    continue
-                between=prose[one["source_end"]:two["source_start"]]
-                # A temporal transition may start the second clause itself,
-                # not appear in the punctuation separating the clauses.
-                if (any(x in between for x in _PHYSICAL_TEMPORAL) or
-                    two["source_quote"].startswith(_PHYSICAL_TEMPORAL)):
-                    continue
-                item_match=_physical_identity(
-                    one["item_literal"],two["item_literal"])
-                contact_match=_physical_identity(
-                    one["contact_literal"],two["contact_literal"],site=True)
-                if item_match is None or contact_match is None:
+                review=_candidate_physical_source_question(
+                    prose,one,two,adjacent_sentences=False)
+                if review is None:
                     continue
                 _need(len(reviews)<MAX_OPEN_PHYSICAL_RELATIONS,
                       "WF122_PHYSICAL_CONFLICT_SOURCE_BUDGET_EXCEEDED")
-                reviews.append({
-                    "reason_code":"NEEDS_SOURCE_RELATION_REVIEW",
-                    "first_source_start":one["source_start"],
-                    "first_source_quote":one["source_quote"],
-                    "first_source_quote_sha256":one["source_quote_sha256"],
-                    "second_source_start":two["source_start"],
-                    "second_source_quote":two["source_quote"],
-                    "second_source_quote_sha256":two["source_quote_sha256"],
-                    "item_identity_evidence":item_match,
-                    "contact_identity_evidence":contact_match,
-                    "first_item_literal":one["item_literal"],
-                    "second_item_literal":two["item_literal"],
-                    "relation_family":one["relation_family"],
-                    "first_contact_literal":one["contact_literal"],
-                    "second_contact_literal":two["contact_literal"],
-                    "unresolved_question":"SAME_REFERENT_AND_CONTACT_STATUS_NOT_PROVEN",
-                    "unknown_actor_may_remain_unknown":True,
-                    "literary_ellipsis_not_a_physical_state_proof":True,
-                    "writer_must_choose_whether_and_where_to_edit":True,
-                })
+                reviews.append(review)
+    # Distinct genres show the same source bug: a continuing state in one
+    # sentence and its unexplained contrary status in the NEXT sentence.
+    # We do not equate different paragraphs, dialogue or a visible
+    # intervening action/time lapse with an unambiguous same-time event.
+    for one,two in zip(claims,claims[1:]):
+        review=_candidate_physical_source_question(
+            prose,one,two,adjacent_sentences=True)
+        if review is None:
+            continue
+        _need(len(reviews)<MAX_OPEN_PHYSICAL_RELATIONS,
+              "WF122_PHYSICAL_CONFLICT_SOURCE_BUDGET_EXCEEDED")
+        reviews.append(review)
     # Provenance debt is carried INSIDE the existing signed V114 receipt
     # through QUIET chapters. Otherwise a 3-chapter story would lose the
     # original question as soon as a chapter did not mention the object.
