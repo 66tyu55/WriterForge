@@ -39,8 +39,8 @@ class ProgressiveSourceVisibility(unittest.TestCase):
         self.assertEqual(pinned.source_bytes,15079878)
         self.assertEqual(pinned.source_sha256,
             "2fc1698410418bf136448807335c6359bf515b75e6f9c1e1d1f443a1c928e6cc")
-        source=("第一章 开端\n"+"甲"*300+"\n第二章 转机\n"+
-                "乙"*300+"\n第三章 前行\n"+"丙"*350)
+        source=("第一章 开端\n"+"甲"*380+"\n第二章 转机\n"+
+                "乙"*380+"\n第三章 前行\n"+"丙"*380)
         calls=[]
         class FakeVault:
             def __init__(self):
