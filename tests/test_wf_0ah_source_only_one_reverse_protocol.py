@@ -34,7 +34,8 @@ class OnlySourceLockedComedicGradeContinuation(unittest.TestCase):
         replay=inspect.getsource(e.replay_original_eleven)
         self.assertLess(code.index("replay_original_eleven()"),
                         code.index("require_external_runtime()"))
-        self.assertIn("original_provider_response",replay)
+        self.assertIn("original_call(events,name)",replay)
+        self.assertIn("original_provider_response",inspect.getsource(e.original_call))
         self.assertIn("event",replay)
         self.assertIn('"WF0AH_REPLAY_AUTHOR_PROMPT_SHA_MISMATCH"',replay)
         self.assertIn('"WF0AH_REPLAY_AUTHOR_ORIGINAL_PROSE_CHANGED"',replay)
