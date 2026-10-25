@@ -665,6 +665,10 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
                     "second_source_quote_sha256":two["source_quote_sha256"],
                     "item_identity_evidence":item_match,
                     "contact_identity_evidence":contact_match,
+                    "first_item_literal":one["item_literal"],
+                    "second_item_literal":two["item_literal"],
+                    "first_contact_literal":one["contact_literal"],
+                    "second_contact_literal":two["contact_literal"],
                     "unresolved_question":"SAME_REFERENT_AND_CONTACT_STATUS_NOT_PROVEN",
                     "unknown_actor_may_remain_unknown":True,
                     "literary_ellipsis_not_a_physical_state_proof":True,
@@ -672,6 +676,35 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
                 })
     old_unresolved=(len(previous_relation_receipt.get("review_pairs",()))
                     if previous_relation_receipt is not None else 0)
+    source_dependents=[]
+    if old_unresolved:
+        # An unresolved older physical relation cannot become the necessary
+        # premise of a new unqualified statement. Unrelated story events
+        # remain free to proceed; do NOT block a whole book on old questions.
+        for now in claims:
+            if (now["source_form"] not in ("ATTACHED_STATE","DETACH_ACTION")
+                or len(source_dependents)>=8):
+                continue
+            for former in previous_relation_receipt["review_pairs"]:
+                prior_item=former.get("first_item_literal")
+                prior_site=former.get("first_contact_literal")
+                if (type(prior_item) is not str or type(prior_site) is not str):
+                    continue  # old signed reports need not contain new fields
+                if (_physical_identity(now["item_literal"],prior_item) and
+                    _physical_identity(now["contact_literal"],prior_site,site=True)):
+                    source_dependents.append({
+                        "reason_code":"PRIOR_SOURCE_RELATION_CLAIM_NEEDS_REVIEW",
+                        "current_source_quote":now["source_quote"],
+                        "current_source_start":now["source_start"],
+                        "current_source_quote_sha256":now["source_quote_sha256"],
+                        "prior_source_quote":former["first_source_quote"],
+                        "prior_source_quote_sha256":former["first_source_quote_sha256"],
+                        "prior_relation_source_sha256":(
+                            previous_relation_receipt["source_sha256"]),
+                        "prior_relation_claim_not_a_confirmed_world_fact":True,
+                        "writer_can_continue_unrelated_scenes":True,
+                    })
+                    break
     payload={
         "format":"wf.v122.source-physical-relation-review.v1",
         "source_sha256":_digest(prose),
@@ -680,6 +713,7 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
             if previous_relation_receipt is not None else None),
         "claims":claims,
         "review_pairs":reviews,
+        "dependent_on_unresolved_previous_relation":source_dependents,
         "current_source_needs_review":bool(reviews),
         "previous_source_unresolved_review_count":old_unresolved,
         "previous_source_uncertainty_cannot_become_new_fact":True,
