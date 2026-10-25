@@ -123,9 +123,56 @@ def latest_observed_effect(accepted):
     raise V98RollingPlanError("WF98_NO_ACTUAL_PRIOR_EFFECT_TO_REPLAN_FROM")
 
 
+def latest_source_basis_for_replan(accepted):
+    """Prefer the latest literal decision when its effect is still UNKNOWN.
+
+    Never turn a pending action into an observed outcome. Validate the old
+    V96 provenance and its complete receipt before a writer sees the text.
+    Legacy effect-only paths retain latest_observed_effect's strict gate.
+    """
+    require(type(accepted) in (list,tuple) and
+            1<=len(accepted)<=12,
+            "WF98_NO_PRIOR_ACCEPTED_TURN")
+    for turn in reversed(accepted):
+        if type(turn) is not dict or type(turn.get("prose")) is not str:
+            continue
+        receipt=turn.get("receipt")
+        if (type(receipt) is dict and
+            receipt.get("outcome_pending_source_only") is True):
+            anchor=receipt.get("action_anchor")
+            prose=turn["prose"]
+            valid=(
+                receipt.get("kind")=="decision" and
+                receipt.get("causal_check")=="EXACT_OBSERVABLE_ANCHORS_ONLY" and
+                receipt.get("source_causal_review_reason")==
+                    "DECISION_EFFECT_UNOBSERVED" and
+                receipt.get("turn_id")==turn.get("beat_id") and
+                receipt.get("prose_sha256")==digest(prose.encode("utf8")) and
+                receipt.get("receipt_sha256")==digest(canonical({
+                    k:v for k,v in receipt.items() if k!="receipt_sha256"})) and
+                turn.get("effect_quote") is None and
+                type(anchor) is dict and
+                type(anchor.get("start")) is int and
+                type(anchor.get("end")) is int and
+                0<=anchor["start"]<anchor["end"]<=len(prose)
+            )
+            require(valid,"WF98_PARENT_PENDING_SOURCE_RECEIPT_NOT_INTACT")
+            text=prose[anchor["start"]:anchor["end"]]
+            require(6<=len(text)<=96 and
+                    digest(text.encode("utf8"))==anchor.get("quote_sha256") and
+                    len(_occurrences(prose,text))==1,
+                    "WF98_PARENT_PENDING_ACTION_SOURCE_NOT_UNIQUE")
+            return turn,text,"DECISION_ACTION_ONLY_OUTCOME_PENDING"
+        if type(turn.get("effect_quote")) is str and turn["effect_quote"]:
+            previous=latest_observed_effect((turn,))
+            return previous,previous["effect_quote"],"EFFECT_SOURCE_ONLY"
+    raise V98RollingPlanError("WF98_NO_ACTUAL_PRIOR_SOURCE_TO_REPLAN_FROM")
+
+
 def prepare_replan_instructions(*,accepted,seed_next_beat,
                                 allowed_actor_names):
-    previous=latest_observed_effect(accepted)
+    previous,basis_quote,basis_kind=latest_source_basis_for_replan(accepted)
+    pending=basis_kind=="DECISION_ACTION_ONLY_OUTCOME_PENDING"
     source_review=previous["receipt"].get("source_causal_review_reason")
     require(type(seed_next_beat) is dict and
             set(seed_next_beat)==BEAT_FIELDS,
@@ -137,8 +184,14 @@ def prepare_replan_instructions(*,accepted,seed_next_beat,
     context=(
        "\n【刚刚真正写出的情节，而非计划中的情节】\n"
        +accepted[-1]["prose"][-760:]
-       +"\n【前一项仅被确认在正文中出现的引句（未证明由先前动作造成）】\n"
-       +previous["effect_quote"]
+       +("\n【前一段确实写出的决定/尝试；后果尚未观察或尚未发生】\n"
+          if pending else
+          "\n【前一项仅被确认在正文中出现的引句（未证明由先前动作造成）】\n")
+       +basis_quote
+       +("\n【旧字段兼容说明】本次 JSON 的 basis_effect_quote "
+         "必须引用上面已写出的决定/行动原句，只是旧字段名；"
+         "它不是 effect，不代表决定已产生结果。后果尚未发生时请继续保留未知。"
+         if pending else "")
        +"\n【原来的下一事件建议，可根据实际变化改写，但不是已成立事实】\n"
        +json.dumps(seed_next_beat,ensure_ascii=False,separators=(",",":"))
        +"\n【已登场可选视角人物，不可虚构未出场的新身份】"
@@ -191,7 +244,7 @@ def validate_replan(raw,*,accepted,accepted_beats,seed_next_beat,
     for t,beat in zip(accepted,accepted_beats):
         require(t.get("beat_id")==beat.get("id"),
                 "WF98_HISTORY_BEAT_ID_CHANGED")
-    parent=latest_observed_effect(accepted)
+    parent,basis_quote,basis_kind=latest_source_basis_for_replan(accepted)
     doc=_decode(raw)
     proposal=doc["next_turn"]
     require(type(proposal) is dict and set(proposal)==BEAT_FIELDS and
@@ -202,7 +255,9 @@ def validate_replan(raw,*,accepted,accepted_beats,seed_next_beat,
     require(_bounded(doc["unresolved_question"],8,200) and
             _bounded(doc["reason_for_shift"],8,220),
             "WF98_ROLLING_MOTIVATION_OR_UNCERTAINTY_MISSING")
-    require(doc["basis_effect_quote"]==parent["effect_quote"],
+    require(doc["basis_effect_quote"]==basis_quote,
+            "WF98_REPLAN_NOT_ANCHORED_TO_ACTUAL_SOURCE_BASIS"
+            if basis_kind=="DECISION_ACTION_ONLY_OUTCOME_PENDING" else
             "WF98_REPLAN_NOT_ANCHORED_TO_ACTUAL_EFFECT")
     basis=_anchor(parent["prose"],doc["basis_effect_quote"],"BASIS")
     costs={}
@@ -236,6 +291,8 @@ def validate_replan(raw,*,accepted,accepted_beats,seed_next_beat,
     # silently upgrade the older, purely lexical V96 evidence to fact.
     if "source_causal_review_required" not in parent_receipt:
         review_reason="LEGACY_SOURCE_ONLY_UNVERIFIED"
+    if basis_kind=="DECISION_ACTION_ONLY_OUTCOME_PENDING":
+        review_reason="DECISION_EFFECT_UNOBSERVED"
     candidate={
         "format":"wf.writing.rolling-proposal.v98",
         "beat_id":proposal["id"],
@@ -246,6 +303,8 @@ def validate_replan(raw,*,accepted,accepted_beats,seed_next_beat,
         "source_parent_relation_review_required":review_reason is not None,
         "source_parent_relation_review_reason":review_reason,
         "source_parent_causal_relation_verified":False,
+        "source_basis_kind":basis_kind,
+        "source_basis_is_observed_effect":basis_kind=="EFFECT_SOURCE_ONLY",
         "source_basis_anchor":basis,
         "cost_anchor":costs["cost_quote"],
         "pressure_anchor":costs["pressure_quote"],
