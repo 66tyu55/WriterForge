@@ -292,7 +292,8 @@ def preflight_continuation(next_prose,checkpoint,*,project_id,chapter_index,
     }
 
 def _verify_unified_temporal_source_link(graph, checkpoint, chapter_index,
-                                         *,require_strong_for_new=False):
+                                         *,require_strong_for_new=False,
+                                         require_verified_ancestry=False):
     """Couple TWO separately signed systems to the actual chapter bytes.
 
     The unified graph stores the whole manuscript chapter. V114 stores
@@ -309,6 +310,12 @@ def _verify_unified_temporal_source_link(graph, checkpoint, chapter_index,
     archive_rows=[x for x in memory.get("hot",[])+memory.get("warm",[])
                   if x.get("chapter")==chapter_index]
     if link is None:
+        # Same LAST chapter source is insufficient when an earlier chapter
+        # was rewritten. Archival readers may still inspect older signed
+        # snapshots, but a writer creating a NEW chapter must have verified
+        # ancestry, not just matching last-page bytes.
+        if require_verified_ancestry and archive_rows:
+            need(False,"WF117_GRAPH_TEMPORAL_SOURCE_UNBOUND")
         if require_strong_for_new and archive_rows:
             need(checkpoint["source_sha256"]==
                  archive_rows[-1]["source_sha256"],
