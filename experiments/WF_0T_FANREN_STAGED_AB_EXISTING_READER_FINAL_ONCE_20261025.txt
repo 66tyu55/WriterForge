@@ -1,0 +1,6 @@
+WriterForge 0.T final pinned-source real pilot using EXISTING modern_source._encoding and _chapters
+All prior pilots did 0 paid model calls: old URL missing, synthetic-length CI fail, GB18030 Unicode decode failure after real private R2 download.
+No re-upload, no new key, no R2 write, no public original source.
+A no reference, B only 230 characters per now-unlocked verified chapter; same DeepSeek Flash novelist and same novel outline.
+Two model-authored turns per arm, author chooses self-edit, actual V119/V96/V114/V117 continuity and postedit next-turn regeneration.
+At most 10 actual paid requests globally, hard token cap 14,200, no automatic retries. Never touch main, Canon, or Railway.
