@@ -1070,12 +1070,24 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
         "\n【当前原文字节身份】"+original_sha
     )
     content=turn_packet.prompt+reminder
+    if source_identity_contract=="bind_null_current":
+        content+=(
+            "\n【来源 SHA 为宿主机械字段，并非文学判断】"
+            "如果本次只审阅 target_turn=current，"
+            "source_sha256 可以返回 JSON null；"
+            "工作台只会把 null 绑定到刚才实际提供的当前原文 SHA，"
+            "绝不修正你主动提交的错误 SHA 或更改任何文学决定。"
+            "若选择 previous，则必须提供前段真实来源 SHA。")
     reader_note=_reader_report_for_author(reader_report,original_sha)
     reader_provided=False
     if reader_note and len(content)+len(reader_note)<=MAX_PROMPT_CHARS:
         # Hard story-state context ALWAYS outranks optional reader notes.
         content+=reader_note
         reader_provided=True
+    cross_source_unproven_count=(
+        len(reader_report.get("cross_source_links",[]))
+        if reader_provided and type(reader_report) is dict and
+        type(reader_report.get("cross_source_links",[])) is list else 0)
     if len(content)>MAX_PROMPT_CHARS:
         return {"decision":"CONTEXT_TOO_FULL","model_calls":0,
                 "reason":None,"risk":None,"desired_effect":None,
@@ -1102,6 +1114,9 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
         "source_identity_contract":source_identity_contract,
         "source_sha256_original_model_value_not_changed":True,
         "unverified_reader_input_delivered":reader_provided,
+        "cross_source_reader_hypotheses_unverified_count":
+            cross_source_unproven_count,
+        "reader_hypotheses_not_source_facts":True,
         "reader_did_not_preselect_literary_decision":True,
         "code_has_not_scored_literary_quality":True,
         "no_canon_writes":True,
@@ -1187,6 +1202,10 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
                     raise ValueError("WF_AI_WRITER_WHY_OR_EFFECT_MISSING")
         receipt.update({
             "decision":fields["decision"],
+            "author_kept_unresolved_cross_source_hypotheses":(
+                fields["decision"]=="MOVE_ON" and
+                cross_source_unproven_count>0),
+            "cross_source_reader_review_did_not_confirm_fact":True,
             "format_wrapper_type_only_removed":wrapper_only_removed,
             "target_turn":target_turn,
             "target_prose_sha256":target_sha,
@@ -3329,6 +3348,13 @@ class AutonomousWriting:
                         turn_evidence["wf_self_edit_timing"]=self_edit_timing
                         turn_evidence["wf_ai_self_review_moment_receipts"]=(
                             self_edit_moment_receipts)
+                        turn_evidence["wf_reader_unresolved_cross_source_count"]=sum(
+                            x.get("cross_source_reader_hypotheses_unverified_count",0)
+                            for x in self_edit_moment_receipts)
+                        turn_evidence["wf_author_kept_unresolved_source_hypotheses"]=any(
+                            x.get("author_kept_unresolved_cross_source_hypotheses",False)
+                            for x in self_edit_moment_receipts)
+                        turn_evidence["wf_cross_source_reader_report_not_canon"]=True
                         turn_evidence["wf_reader_first_self_review_enabled"]=(
                             reader_first_self_review)
                         turn_evidence["wf_source_reader_receipts"]=(
@@ -3543,6 +3569,14 @@ class AutonomousWriting:
                     "wf_reader_first_self_review_enabled":(
                         reader_first_self_review
                         if draft_mode=="continuity_guard" else False),
+                    "wf_cross_source_unreviewed_reader_hypotheses":sum(
+                        x.get("cross_source_reader_hypotheses_unverified_count",0)
+                        for x in self_edit_moment_receipts)
+                        if draft_mode=="continuity_guard" else 0,
+                    "wf_cross_source_authored_prose_unmodified_on_move_on":any(
+                        x.get("author_kept_unresolved_cross_source_hypotheses",False)
+                        for x in self_edit_moment_receipts)
+                        if draft_mode=="continuity_guard" else False,
                     "wf_source_reader_model_calls":sum(
                         x.get("model_calls",0)
                         for x in self_edit_reader_receipts)
