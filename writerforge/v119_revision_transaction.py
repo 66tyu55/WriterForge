@@ -6,6 +6,7 @@ not certify narrative quality, intent satisfaction, or unrestricted semantics.
 from __future__ import annotations
 
 from hashlib import sha256
+from collections import Counter
 import json
 import re
 
@@ -121,6 +122,20 @@ def preview_revision(*, project_id: str, scene_id: str, source: str,
         review_introduced = sorted(
             set(revised_report.get("review_findings",[]))
             - set(prior_report.get("review_findings",[])))
+    # Distinguish RELATION IDENTITY from a generic risk CODE. Otherwise a
+    # V119 rewrite that exchanges a bad copper-box relation for a NEW bad
+    # silver-box relation would show the same review warning and pass as if
+    # no new problem was introduced.
+    from .v122_item_provenance import (
+        audit_physical_relation_sources,physical_relation_issue_keys)
+    baseline_relation=audit_physical_relation_sources(prose=source)
+    candidate_relation=audit_physical_relation_sources(prose=candidate)
+    old_relation_keys=physical_relation_issue_keys(baseline_relation)
+    new_relation_keys=physical_relation_issue_keys(candidate_relation)
+    new_relation_issue_keys=sorted(
+        (Counter(new_relation_keys)-Counter(old_relation_keys)).elements())
+    retired_relation_issue_keys=sorted(
+        (Counter(old_relation_keys)-Counter(new_relation_keys)).elements())
     status = "BLOCKED_NEW_STATE_WARNING" if introduced else "PROVISIONAL_REVIEW"
     receipt = {
         "format": FORMAT, "project_id": project_id, "scene_id": scene_id,
@@ -145,6 +160,13 @@ def preview_revision(*, project_id: str, scene_id: str, source: str,
             prior_report["findings"] if prior_report else []),
         "baseline_review_findings": (
             prior_report["review_findings"] if prior_report else []),
+        "baseline_physical_relation_source_sha256":baseline_relation["source_sha256"],
+        "candidate_physical_relation_source_sha256":candidate_relation["source_sha256"],
+        "baseline_source_relation_issue_keys":old_relation_keys,
+        "candidate_source_relation_issue_keys":new_relation_keys,
+        "new_source_relation_issue_keys":new_relation_issue_keys,
+        "retired_source_relation_issue_keys":retired_relation_issue_keys,
+        "relationship_identity_checked_independently_of_warning_code":True,
         "revision_preflight_warnings": (
             revised_report["findings"] if revised_report else []),
         "revision_review_findings": (
@@ -357,15 +379,31 @@ def compare_source_repair_impact(*,preview_receipt:dict) -> dict:
     _need(introduced==new_hard-old_hard,
           "WF119_REPAIR_IMPACT_DELTA_INCONSISTENT")
     review_introduced=arr("new_preflight_review_flags")
-    remaining_relation=(
-        "NEEDS_SOURCE_RELATION_REVIEW" in
-        arr("revision_review_findings"))
+    def issue_keys(field):
+        value=preview_receipt.get(field)
+        _need(type(value) is list and len(value)<=MAX_LOCKS and
+              all(type(x) is str and SHA.fullmatch(x) is not None
+                  for x in value),
+              "WF119_RELATION_ISSUE_IDENTITY_MISSING_OR_INVALID")
+        return Counter(value)
+    old_relation_keys=issue_keys("baseline_source_relation_issue_keys")
+    new_relation_keys=issue_keys("candidate_source_relation_issue_keys")
+    introduced_relation=issue_keys("new_source_relation_issue_keys")
+    retired_relation=issue_keys("retired_source_relation_issue_keys")
+    _need(introduced_relation==new_relation_keys-old_relation_keys and
+          retired_relation==old_relation_keys-new_relation_keys and
+          preview_receipt.get("baseline_physical_relation_source_sha256")==
+              preview_receipt["source_sha256"] and
+          preview_receipt.get("candidate_physical_relation_source_sha256")==
+              preview_receipt["candidate_sha256"],
+          "WF119_RELATION_ISSUE_DELTA_SOURCE_INCONSISTENT")
+    remaining_relation=bool(new_relation_keys)
     _need(review_introduced.issubset(
         arr("revision_review_findings")),
           "WF119_REPAIR_IMPACT_REVIEW_DELTA_INCONSISTENT")
     if introduced:
         status="BLOCKED_NEW_HARD_SOURCE_RISK"
-    elif review_introduced:
+    elif review_introduced or introduced_relation:
         status="HELD_NEW_UNVERIFIED_SOURCE_RISK"
     elif remaining_relation:
         # A model cannot make its own contradictory position claims valid
@@ -385,6 +423,12 @@ def compare_source_repair_impact(*,preview_receipt:dict) -> dict:
         "candidate_review_only_findings":sorted(
             arr("revision_review_findings")),
         "new_unverified_review_findings":sorted(review_introduced),
+        "new_source_relation_issue_keys":sorted(
+            introduced_relation.elements()),
+        "retired_source_relation_issue_keys":sorted(
+            retired_relation.elements()),
+        "still_open_source_relation_issue_keys":sorted(
+            (new_relation_keys & old_relation_keys).elements()),
         "existing_physical_relation_review_remaining":remaining_relation,
         "source_relation_risk_cannot_be_cleared_by_prose_without_evidence":True,
         "previously_existing_hard_findings_remain":sorted(
