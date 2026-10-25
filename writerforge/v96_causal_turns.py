@@ -239,8 +239,11 @@ def check_turn(raw,beat, *, mode, accepted=(),
         "source_causal_review_reason":None,
         "source_causal_review_required":False,
         "causal_relation_verified":False,
+        "outcome_pending_source_only":False,
         "action_anchor":None,"effect_anchor":None,
         "parent_effect_sha256":None,
+        "parent_outcome_pending":False,
+        "parent_source_action_sha256":None,
         "inherited_canon_facts_written":False,
         "literary_causality_independently_verified":False,
         "eligible_for_factjournal_KNOWN":False,
@@ -264,17 +267,73 @@ def check_turn(raw,beat, *, mode, accepted=(),
             need(trace["parent_effect_quote"] is None,
                  "WF96_UNDECLARED_PREVIOUS_CAUSE")
         else:
-            required=old[parent].get("effect_quote")
-            need(type(required) is str and required and
-                 trace["parent_effect_quote"]==required and
-                 len(_occurrences(old[parent]["prose"],required))==1,
-                 "WF96_PARENT_CAUSE_NOT_ANCHORED_IN_PREVIOUS_PROSE")
-            recorded["parent_effect_sha256"]=digest(
-                required.encode("utf8"))
+            prior=old[parent]
+            required=prior.get("effect_quote")
+            if type(required) is str and required:
+                need(trace["parent_effect_quote"]==required and
+                     len(_occurrences(prior["prose"],required))==1,
+                     "WF96_PARENT_CAUSE_NOT_ANCHORED_IN_PREVIOUS_PROSE")
+                recorded["parent_effect_sha256"]=digest(
+                    required.encode("utf8"))
+            else:
+                # An actual authored decision may not have an observed
+                # consequence yet. The later turn can follow the literal
+                # decision as an UNRESOLVED candidate, never as a proved
+                # result. The previous source and anchor MUST still match
+                # its self-contained integrity receipt. Quiet prose, fake
+                # effects or an altered previous source cannot substitute.
+                old_receipt=prior.get("receipt")
+                old_prose=prior.get("prose")
+                prior_anchor=(old_receipt.get("action_anchor")
+                              if type(old_receipt) is dict else None)
+                valid_source=(
+                    type(old_prose) is str and type(old_receipt) is dict and
+                    old_receipt.get("kind")=="decision" and
+                    old_receipt.get("outcome_pending_source_only") is True and
+                    old_receipt.get("source_causal_review_reason")==
+                        "DECISION_EFFECT_UNOBSERVED" and
+                    old_receipt.get("turn_id")==prior.get("beat_id") and
+                    old_receipt.get("prose_sha256")==
+                        digest(old_prose.encode("utf8")) and
+                    old_receipt.get("receipt_sha256")==
+                        digest(canonical({k:v for k,v in old_receipt.items()
+                                          if k!="receipt_sha256"})) and
+                    type(prior_anchor) is dict and
+                    type(prior_anchor.get("start")) is int and
+                    type(prior_anchor.get("end")) is int and
+                    0<=prior_anchor["start"]<prior_anchor["end"]<=len(old_prose)
+                )
+                need(valid_source,
+                     "WF96_PARENT_PENDING_DECISION_SOURCE_INVALID")
+                parent_action=old_prose[
+                    prior_anchor["start"]:prior_anchor["end"]]
+                need(digest(parent_action.encode("utf8"))==
+                        prior_anchor.get("quote_sha256") and
+                     len(_occurrences(old_prose,parent_action))==1,
+                     "WF96_PARENT_PENDING_ACTION_ANCHOR_INVALID")
+                need(trace["parent_effect_quote"] is None,
+                     "WF96_PARENT_PENDING_MUST_NOT_CLAIM_EFFECT")
+                recorded["parent_outcome_pending"]=True
+                recorded["parent_source_action_sha256"]=
+                    prior_anchor["quote_sha256"]
+        # A decision can be genuinely made without an OBSERVED effect in
+        # this paragraph. Force the action to exist in the original prose,
+        # but do not force a later unrelated event into effect_quote.
+        # This is a SOURCE-only pending candidate, never source-certified
+        # literary causation or world-state promotion.
+        decision_pending=(beat["kind"]=="decision" and
+                          action is not None and effect_quote is None)
         if beat["kind"] in CAUSAL_KINDS:
-            need(action is not None and effect_quote is not None,
+            need(action is not None and
+                 (effect_quote is not None or decision_pending),
                  "WF96_ACTION_NEEDS_ACTUAL_ACTION_AND_EFFECT")
-        if action is None or effect_quote is None:
+        if decision_pending:
+            recorded["action_anchor"]=_quote_anchor(prose,action,"ACTION")
+            recorded["source_causal_review_reason"]=
+                "DECISION_EFFECT_UNOBSERVED"
+            recorded["source_causal_review_required"]=True
+            recorded["outcome_pending_source_only"]=True
+        elif action is None or effect_quote is None:
             need(action is None and effect_quote is None,
                  "WF96_PARTIAL_ACTION_EFFECT_NOT_ALLOWED")
         else:
@@ -318,6 +377,9 @@ def make_turn_instructions(beat,*,mode,accepted=(),
         '"parent_effect_quote":null或先前真实后果短句}}。'
         "所有引用必须与实际正文完全一致；action先于effect；"
         "action/effect各6到96字。对安静场景可全部为null。"
+        "【决策可合法未完成】decision 场景若正文确实写出决定或尝试，"
+        "但后果尚未观察或尚未发生，必须引用真实 action_quote，"
+        "effect_quote 可填 JSON null，不能为了填满引用而编造结果。"
     )
     if mode=="causal_guard":
         note+=(
@@ -337,9 +399,19 @@ def make_turn_instructions(beat,*,mode,accepted=(),
                    'trace.parent_effect_quote 必须是JSON null。'
                    "不可把规划里的目标、章节概括或未发生的选择当作引用。")
         else:
-            note+=("\n【承接真实已写前因】trace.parent_effect_quote"
-                   "必须逐字引用前文已实际出现的后果，"
-                   "不能凭计划概括、虚构或自行改写。")
+            predecessor=next((v for v in accepted
+                if type(v) is dict and v.get("beat_id")==beat["causal_parent"]),None)
+            if (type(predecessor) is dict and
+                type(predecessor.get("receipt")) is dict and
+                predecessor["receipt"].get("outcome_pending_source_only") is True):
+                note+=("\n【承接一个尚未产生可证后果的决定】"
+                       "前文 action 真实写出但没有 effect；"
+                       "trace.parent_effect_quote 必须为 JSON null。"
+                       "下一场可调查、等待或推进，不可宣称已经发生未写出的结果。")
+            else:
+                note+=("\n【承接真实已写前因】trace.parent_effect_quote"
+                       "必须逐字引用前文已实际出现的后果，"
+                       "不能凭计划概括、虚构或自行改写。")
     output=(
         "\n【滚动场景目标（候选大纲，不是已知事实）】"
         +json.dumps(beat,ensure_ascii=False,separators=(",",":"))
