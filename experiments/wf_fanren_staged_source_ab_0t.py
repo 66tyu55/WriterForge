@@ -90,6 +90,9 @@ def write_json(path,value):
 def source_windows(text):
     """Use chapter 1 and 2, never a table of contents masquerading as prose."""
     require(type(text) is str and len(text)>1000, "WF0T_REAL_BOOK_SOURCE_NOT_PRESENT")
+    # Private originals may retain Windows CRLF; do not mistake line endings
+    # for missing actual chapter headings.
+    text=text.replace("\r\n","\n").replace("\r","\n")
     from writerforge.source_study import chapter_number
     matches=list(CHAPTER_RE.finditer(text))
     require(len(matches)>=FIRST_CHAPTERS+1, "WF0T_CANNOT_VERIFY_TWO_CHAPTER_BOUNDS")
