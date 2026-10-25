@@ -108,6 +108,78 @@ class SignedSourceTemporalMismatch(unittest.TestCase):
                     chapter_source_parts=(CH2,),
                     chapter_temporal_checkpoints=(mixed2,))
 
+    def test_chapter2_rewrite_invalidates_chapter3_and_4_even_if_their_words_match(self):
+        with TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            base=new_graph(project_id=PROJECT,scene_id=SCENE)
+            cp1=external_temporal_step(CH1_OLD,cast=CAST)
+            graph1=self.record(
+                root,base,1,CH1_OLD,
+                chapter_source_parts=(CH1_OLD,),
+                chapter_temporal_checkpoints=(cp1,))
+            cp2_old=external_temporal_step(CH2,prior=cp1,cast=CAST)
+            g2_old=self.record(
+                root,graph1,2,CH2,
+                chapter_source_parts=(CH2,),
+                chapter_temporal_checkpoints=(cp2_old,))
+            cp3_old=external_temporal_step(PART2A,prior=cp2_old,cast=CAST)
+            g3_old=self.record(
+                root,g2_old,3,PART2A,
+                chapter_source_parts=(PART2A,),
+                chapter_temporal_checkpoints=(cp3_old,))
+            cp4_old=external_temporal_step(PART2B,prior=cp3_old,cast=CAST)
+            g4_old=self.record(
+                root,g3_old,4,PART2B,
+                chapter_source_parts=(PART2B,),
+                chapter_temporal_checkpoints=(cp4_old,))
+            old_resume=make_resume(
+                project_id=PROJECT,scene_id=SCENE,
+                chapter_index=4,checkpoint=cp4_old,
+                unified_narrative_core=g4_old)
+            self.assertEqual(read_resume(
+                old_resume,project_id=PROJECT,scene_id=SCENE),cp4_old)
+            # Same chapters 3/4 prose, DIFFERENT chapter 2 candidate.
+            revised2=external_temporal_step(CH1_NEW,prior=cp1,cast=CAST)
+            fresh3=external_temporal_step(PART2A,prior=revised2,cast=CAST)
+            fresh4=external_temporal_step(PART2B,prior=fresh3,cast=CAST)
+            self.assertEqual(fresh4["source_sha256"],cp4_old["source_sha256"])
+            self.assertNotEqual(fresh4["receipt_sha256"],cp4_old["receipt_sha256"])
+            with self.assertRaisesRegex(
+                    Exception,"WF117_GRAPH_TEMPORAL_SOURCE_MISMATCH"):
+                make_resume(project_id=PROJECT,scene_id=SCENE,
+                            chapter_index=4,checkpoint=fresh4,
+                            unified_narrative_core=g4_old)
+            with self.assertRaisesRegex(
+                    Exception,"WFCORE_CROSS_CHAPTER_TEMPORAL_PARENT_MISMATCH"):
+                self.record(
+                    root,g3_old,4,PART2B,
+                    chapter_source_parts=(PART2B,),
+                    chapter_temporal_checkpoints=(fresh4,))
+            # Build from signed ORIGINAL prefix, never g2_old/g3_old.
+            g2_new=self.record(
+                root,graph1,2,CH1_NEW,
+                chapter_source_parts=(CH1_NEW,),
+                chapter_temporal_checkpoints=(revised2,))
+            g3_new=self.record(
+                root,g2_new,3,PART2A,
+                chapter_source_parts=(PART2A,),
+                chapter_temporal_checkpoints=(fresh3,))
+            g4_new=self.record(
+                root,g3_new,4,PART2B,
+                chapter_source_parts=(PART2B,),
+                chapter_temporal_checkpoints=(fresh4,))
+            new_resume=make_resume(
+                project_id=PROJECT,scene_id=SCENE,
+                chapter_index=4,checkpoint=fresh4,
+                unified_narrative_core=g4_new)
+            self.assertEqual(read_resume(
+                new_resume,project_id=PROJECT,scene_id=SCENE),fresh4)
+            self.assertNotEqual(
+                g4_old["receipt_sha256"],g4_new["receipt_sha256"])
+            self.assertNotEqual(
+                g4_old["parent_sha256"],g4_new["parent_sha256"])
+            self.assertTrue(g4_new["source_temporal_link"]["prior_link_verified"])
+
     def test_right_parent_can_build_fresh_descendant_not_reuse_old_ones(self):
         with TemporaryDirectory() as tmp:
             root=Path(tmp)
