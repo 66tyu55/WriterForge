@@ -28,6 +28,8 @@ on:
       - tests/test_wf_real_opera_cross_source_writer.py
       - tests/test_wf_author_prior_source_attribution.py
       - tests/test_wf_reader_source_attribution_G_integration.py
+      - experiments/wf_real_opera_author_selected_v119_once_20261025.py
+      - tests/test_wf_real_opera_author_chosen_v119.py
       - experiments/wf_real_new_scene_reader_first_control_20261025.py
       - tests/test_wf_real_new_scene_reader_first_control.py
       - experiments/wf_real_deepseek_blind_source_replay_20261024.py
