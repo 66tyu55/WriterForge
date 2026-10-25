@@ -647,11 +647,11 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
               "WF122_PREVIOUS_RELATION_RECEIPT_UNTRUSTED")
     claims=[]
     reviews=[]
-    max_scan=200
+    max_scan=512
     fragments_examined=0
     for sentence_id, (sstart,send,sentence,spoken) in enumerate(_segments(prose)):
-        if sentence_id>=max_scan:
-            break
+        _need(sentence_id<max_scan,
+              "WF122_PHYSICAL_SCAN_COVERAGE_BUDGET_EXCEEDED")
         if spoken:
             continue
         offset=sstart
@@ -669,14 +669,15 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
             offset=end
             fragments_examined+=1
             candidate=_physical_relation_clause(prose,start,end,frag,False)
-            if candidate is not None and len(claims)<20:
+            if candidate is not None:
+                _need(len(claims)<20,
+                      "WF122_PHYSICAL_SOURCE_CLAIM_BUDGET_EXCEEDED")
                 candidate["sentence_source_index"]=sentence_id
                 candidate["same_narrated_sentence_not_story_time"]=True
                 claims.append(candidate)
                 sentence_claims.append(candidate)
         for i,one in enumerate(sentence_claims):
             for two in sentence_claims[i+1:]:
-                if len(reviews)>=8:break
                 if (one["relation_family"]!=two["relation_family"] or
                     one["relation"]==two["relation"]):
                     continue
@@ -699,6 +700,8 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
                     one["contact_literal"],two["contact_literal"],site=True)
                 if item_match is None or contact_match is None:
                     continue
+                _need(len(reviews)<MAX_OPEN_PHYSICAL_RELATIONS,
+                      "WF122_PHYSICAL_CONFLICT_SOURCE_BUDGET_EXCEEDED")
                 reviews.append({
                     "reason_code":"NEEDS_SOURCE_RELATION_REVIEW",
                     "first_source_start":one["source_start"],
