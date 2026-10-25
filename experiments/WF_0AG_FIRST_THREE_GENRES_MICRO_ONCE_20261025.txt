@@ -1,0 +1,8 @@
+0.AG FIRST AND ONLY PAID MICRO BATCH OF THREE PREREGISTERED ORIGINAL GENRES
+
+Verified offline before firing: https://github.com/66tyu55/WriterForge/actions/runs/40198646100
+Source regression: 1718 tests, 9 skipped, zero failures.
+Three preregistered scenes only: wuxia_bridge, horror_flashlight, strategy_ledger.
+Same DeepSeek Flash with author max_output_tokens=1400 for each arm; each micro prose target 200–350 characters; 12 calls maximum including six blind scoring orders; immutable provider original before parse; no autoretries.
+No R2 originals or Canon; no Railway; no modification to main; no previously billed 0.AD/0.AE writer replays.
+Do not re-trigger this marker or repeat the real prompts.
