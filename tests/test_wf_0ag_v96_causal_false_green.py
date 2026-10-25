@@ -112,7 +112,8 @@ class FailureFirstRealV96(unittest.TestCase):
         self.assertFalse(o["receipt"]["causal_relation_verified"])
         quiet=("小雪贴在窗上，屋檐滴水，没人追问离开的人究竟去了哪里。"
                "她把茶壶挪到火旁，望着门框上旧旧的刻痕。"
-               "过了好一会儿，一盏灯在对岸亮起，房里仍然没有人说话。")
+               "过了好一会儿，一盏灯在对岸亮起，房里仍然没有人说话。"
+               "炉火慢慢熄了，她合上书，把茶杯留在桌边，没有急着解释。")
         q=checked(quiet,None,None,b=beat("她","quiet"))
         self.assertIsNone(q["receipt"]["source_causal_review_reason"])
         self.assertFalse(q["receipt"]["source_causal_review_required"])
