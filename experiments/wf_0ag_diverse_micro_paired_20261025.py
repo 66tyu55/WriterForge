@@ -207,6 +207,48 @@ def check_source(item,content):
         "human_semantic_review_still_required":True,
     }
 
+def parse_micro_judge(answer):
+    """Accept ONLY lossless five-number positional scores in frozen order.
+
+    Actual 0.AG first-run DeepSeek Flash returned scores [N,N,N,N,N]
+    instead of the keyed object expected by 0.AD's existing parser.
+    The five criterion names and their order were explicitly frozen in
+    the blind prompt. This is an exact representation normalization, NOT
+    an invented grade, a prose edit, a literary judgment, or a retry.
+    """
+    original=normalize(answer,("ratings",))
+    scores=original["ratings"]
+    need(type(scores) is list and len(scores)==2,
+         "WF0AG_RATER_EXPECTED_TWO_ENTRIES")
+    normalized=[]
+    converted=0
+    for entry in scores:
+        need(type(entry) is dict and set(entry)=={
+            "id","scores","reason","weakness"},
+            "WF0AG_RATER_EXTRA_OR_MISSING_FIELDS")
+        row=dict(entry)
+        values=row["scores"]
+        if type(values) is list:
+            need(len(values)==len(CRITERIA) and all(
+                type(n) is int and 0<=n<=20 for n in values),
+                "WF0AG_RATER_FIVE_ORDERED_NUMBERS_INVALID")
+            row["scores"]=dict(zip(CRITERIA,values))
+            converted+=1
+        normalized.append(row)
+    # Re-apply the original strict shared parser, including IDs, five
+    # integer bounds and bounded written reasons. Never change values.
+    parsed=parse_judge({"ratings":normalized})
+    return parsed,{
+        "format":"wf.0ag.judge-positional-five-lossless-v1",
+        "score_arrangement_recovered":converted,
+        "frozen_criterion_order":list(CRITERIA),
+        "numeric_scores_unchanged":True,
+        "prose_unchanged":True,
+        "human_literary_truth_verified":False,
+        "extra_model_calls":0,
+    }
+
+
 def judge_one(model,item,pair,order,task):
     # Same unchanged 0.AD five criteria, but the new *200-350* goal, not
     # 0.AD's older 260-340 prompt: no cross-protocol metric distortion.
@@ -219,9 +261,10 @@ def judge_one(model,item,pair,order,task):
        "\n【原始同题目标】"+scene_prompt(item))
     for arm,label in zip(order,("甲","乙")):
         q+="\n【匿名"+label+"】"+pair["bare" if arm=="裸模型" else "WF"]["prose"]
-    parsed=parse_judge(model.ask(item,task,"craft_analysis",q,
-                                 RATER_OUTPUT_TOKENS))
+    parsed,representation_receipt=parse_micro_judge(
+        model.ask(item,task,"craft_analysis",q,RATER_OUTPUT_TOKENS))
     return {name:{
+        "score_representation_receipt":representation_receipt,
         "score":sum(parsed[label]["scores"].values()),
         "dimensions":parsed[label]["scores"],
         "model_reason":parsed[label]["reason"],
