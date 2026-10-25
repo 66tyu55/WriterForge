@@ -1,0 +1,86 @@
+name: WF One-Time Source-Verified Rejected DeepSeek V119 Private Preview No Model 20261025
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_OPERA_OLD_REJECTED_V119_PREVIEW_ONCE_20261025.txt
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wf-opera-original-real-unchanged-proposal-V96-negative-20261025
+  cancel-in-progress: false
+jobs:
+  source-audit-for-model-proposed-but-V96-rejected-first-turn:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Use original source-only V96 V114 V117 and V119 modules, no LLM secrets
+        run: python -m pip install -e '.[r2]'
+      - name: Verify old model's trace overlap is rejected and source-unique offsets do not create Canon
+        run: PYTHONPATH=tests python -m unittest tests.test_wf_real_opera_author_chosen_v119 tests.test_wf_writer_self_revision_loop -q
+      - name: Recover genuine G fiction and complete original model source from old first run
+        uses: actions/download-artifact@v4
+        with:
+          name: WF-New-Actual-G-Author-Control-vs-Reader-First-20261025
+          run-id: 40110957161
+          github-token: ${{ github.token }}
+          path: wf_real_opera_previous_20261025
+      - name: Recover genuine source-anchored reader and model's earlier MOVE_ON
+        uses: actions/download-artifact@v4
+        with:
+          name: WF-Real-Opera-Signed-Prior-Chapter-Reader-Originals-20261025
+          run-id: 40151857245
+          github-token: ${{ github.token }}
+          path: wf_prior_opera_cross_source_20261025
+      - name: Recover model's true confirmed LOOK_BACK_NOW and three source attributions
+        uses: actions/download-artifact@v4
+        with:
+          name: WF-Real-DeepSeek-Prior-Source-Author-Attestation-20261025
+          run-id: 40153456601
+          github-token: ${{ github.token }}
+          path: wf_real_opera_prior_attestation_20261025
+      - name: Recover exactly one true DeepSeek V119 reply and original rejected V96 receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: WF-Opera-One-True-DeepSeek-Author-Selected-V119-Original-Wire-20261025
+          run-id: 40155863914
+          github-token: ${{ github.token }}
+          path: wf_prior_opera_author_selected_v119_20261025
+      - name: Reproduce genuine original V119 literal patch without a model, keep STRICT V96 rejection
+        run: python -m experiments.wf_real_opera_v119_rejected_preview_zero_model_20261025
+      - name: Require actual model authored patch NOT equal accepted fiction, no source trick
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('wf_real_opera_v119_model_rejected_literal_preview_20261025/STATUS.json').read_text('utf8'))
+          assert d['extra_model_calls']==0
+          assert d['V96_unchanged_model_trace_rejected']=='WF96_ACTION_EFFECT_OVERLAP_OR_REVERSED'
+          assert d['V119_preview_status']=='PROVISIONAL_REVIEW'
+          assert d['genuine_model_private_preview_not_canon']
+          assert d['V117_no_new_full_chapter_resume']
+          assert d['old_second_turn_reused'] is False
+          assert d['first_turn_author_accepted'] is False
+          assert d['R2_writes']==0 and d['Canon_writes']==0
+          assert d['literary_improvement_verified'] is False
+          print('GENUINE PRIVATE PREVIEW, ORIGINAL V96 FAILURE PRESERVED, NEW MODEL CALLS=0')
+          PY
+      - name: Preserve exact old source, model-written revised prose private, V96 failure and full provider provenance
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WF-Opera-Genuine-Model-V119-Source-Preview-V96-Rejected-20261025
+          path: wf_real_opera_v119_model_rejected_literal_preview_20261025/
+          retention-days: 30
+          if-no-files-found: warn
