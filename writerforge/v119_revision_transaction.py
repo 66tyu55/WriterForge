@@ -163,6 +163,185 @@ def preview_revision(*, project_id: str, scene_id: str, source: str,
     }
 
 
+
+def prepare_source_repair_contract(
+        *, source: str, source_sha256: str, beat: dict,
+        accepted=(), original_trace=None, writer_attention=None,
+        previous_candidate_state=None, cast=()) -> dict:
+    """WF helps the original novelist through FACTS and constraints, not prose.
+
+    This is the bounded, source-backed plan for a ONE-TURN edit. Existing
+    V116 provides hard/review findings; V96 provides causal parent and
+    model-authored exact action/effect quotes. Literary dissatisfaction is
+    the same author's own unverified reason, never invented by WF.
+    Returns a deterministic, inspectable repair contract that can be sent
+    to that same writer without any extra model calls.
+    """
+    _need(type(source) is str and 80<=len(source)<=MAX_DOCUMENT and
+          type(source_sha256) is str and
+          SHA.fullmatch(source_sha256) is not None and
+          _hash(source)==source_sha256,
+          "WF119_REPAIR_ORIGINAL_SOURCE_INVALID")
+    _need(type(beat) is dict and
+          type(beat.get("id")) is str and
+          beat.get("kind") in ("quiet","action","dialogue","revelation","transition")
+          and "causal_parent" in beat,
+          "WF119_REPAIR_BEAT_INVALID")
+    _need(type(accepted) in (list,tuple) and len(accepted)<=16 and
+          all(type(x) is dict for x in accepted),
+          "WF119_REPAIR_PREVIOUS_TURNS_INVALID")
+    _need(original_trace is None or
+          (type(original_trace) is dict and
+           set(original_trace)=={
+               "action_quote","effect_quote","parent_effect_quote"}),
+          "WF119_REPAIR_OLD_TRACE_INVALID")
+    _need(writer_attention is None or type(writer_attention) is dict,
+          "WF119_REPAIR_WRITER_INTENT_INVALID")
+    _need(type(cast) in (tuple,list) and len(cast)<=10 and
+          all(type(x) is str and 1<=len(x)<=70 for x in cast),
+          "WF119_REPAIR_CHARACTER_SCOPE_INVALID")
+    _need(previous_candidate_state is None or
+          (type(previous_candidate_state) is dict and
+           len(previous_candidate_state)<=36),
+          "WF119_REPAIR_PRIOR_STATE_UNTRUSTED")
+    parent=beat["causal_parent"]
+    previous_effect=None
+    if parent is not None:
+        matches=[x for x in accepted if x.get("beat_id")==parent]
+        _need(len(matches)==1 and
+              type(matches[0].get("effect_quote")) is str and
+              matches[0]["effect_quote"] and
+              type(matches[0].get("prose")) is str and
+              matches[0]["prose"].count(matches[0]["effect_quote"])==1,
+              "WF119_REPAIR_PARENT_SOURCE_MISSING")
+        previous_effect=matches[0]["effect_quote"]
+    raw_focus=(writer_attention or {}).get("source_quote")
+    focus=raw_focus if (type(raw_focus) is str and
+                        6<=len(raw_focus)<=160 and
+                        source.count(raw_focus)==1) else None
+    intent={}
+    for key in ("reason","risk","desired_effect","focus"):
+        value=(writer_attention or {}).get(key)
+        if type(value) is str and 1<=len(value)<=260:
+            intent[key]=value
+    source_before=None
+    if previous_candidate_state is not None:
+        # Use the EXISTING reducer's source-only risks, not a new semantic
+        # literary validator. An uncertain finding does not prove an error.
+        from .v116_state_delta import preflight_next_prose
+        source_before=preflight_next_prose(
+            source,previous_candidate_state=previous_candidate_state,
+            cast=cast)
+    basic={
+        "format":"wf.writing.v119.source-first-repair-guide.v1",
+        "source_sha256":source_sha256,
+        "beat_id":beat["id"],"beat_kind":beat["kind"],
+        "author_model_selected_focus_quote":focus,
+        "author_model_selected_focus_offset":(
+            source.index(focus) if focus is not None else None),
+        "author_intent_not_a_verified_fact":intent,
+        "previous_causal_parent_id":parent,
+        "actual_previous_effect_quote":previous_effect,
+        "original_model_trace":original_trace,
+        "baseline_hard_findings":(
+            source_before["findings"] if source_before is not None else []),
+        "baseline_review_only_findings":(
+            source_before["review_findings"] if source_before is not None else []),
+        "baseline_state_coverage":(
+            "V116_SOURCE_ONLY_NARROW" if source_before is not None
+            else "NO_PREVIOUS_CANDIDATE_STATE"),
+        "source_action_effect_required":beat["kind"] in (
+            "action","revelation","transition"),
+        "repair_paths_owned_by_author":[
+            "KEEP_IF_THIS_IS_DELIVERATELY_UNWRITTEN_AND_COHERENT",
+            "REVISE_EXACT_SOURCE_SPAN_AND_REVIEW_CAUSE_AND_EFFECT",
+            "DELETE_SOURCE_SPAN_ONLY_IF_CAUSAL_LINKS_STILL_HOLD",
+            "REPLACE_SCENE_IF_SOURCE_ONLY_LOCAL_REPAIR_IS_INADEQUATE",
+        ],
+        "must_preserve":[
+            "UNEDITED_SOURCE_PREFIX_AND_SUFFIX",
+            "PREVIOUS_AUTHENTIC_CAUSAL_PARENT_OR_NULL",
+            "ONLY_STORY_ACTIONS_ACTUALLY_WRITTEN",
+            "NO_UNPROVEN_ITEM_TRANSFER_OR_NEW_CHARACTER_KNOWLEDGE",
+            "TWO_DISTINCT_ORDERED_ACTION_EFFECT_QUOTES_WHEN_REQUIRED",
+        ],
+        "evaluation_after_revision":[
+            "V119_EXACT_SELECTION_AND_LOCKED_SURROUNDINGS",
+            "V96_SEPARATE_ORDERED_SOURCE_CAUSAL_QUOTES",
+            "V116_PREVIOUS_VS_NEW_STRUCTURAL_RISKS",
+            "V114_V117_TEMPORAL_AND_SOURCE_REPLAY",
+            "DOWNSTREAM_DERIVED_TURNS_INVALIDATED_UNTIL_REGENERATED",
+        ],
+        "downstream_after_change":"MUST_REGENERATE_FROM_REVISED_SOURCE",
+        "no_literary_grade_or_host_authored_text":True,
+        "any_author_intent_fulfillment_still_unproven":True,
+        "new_model_calls":0,"canon_writes":0,
+    }
+    basic["receipt_sha256"]=_digest_json(basic)
+    return basic
+
+
+def compare_source_repair_impact(*,preview_receipt:dict) -> dict:
+    """Compare known state WARNINGS before/after a V119 edit.
+
+    A smaller warning list does not prove literary merit or that the
+    author's own problem was fixed. New REVIEW flags cannot silently be
+    dismissed as clean; hold the candidate privately for author/source
+    reconsideration rather than progressing downstream on mere optimism.
+    """
+    _need(type(preview_receipt) is dict and
+          preview_receipt.get("format")==FORMAT and
+          type(preview_receipt.get("receipt_sha256")) is str and
+          preview_receipt["receipt_sha256"]==_digest_json({
+              k:v for k,v in preview_receipt.items()
+              if k!="receipt_sha256"}),
+          "WF119_REPAIR_IMPACT_RECEIPT_TAMPERED")
+    def arr(key):
+        val=preview_receipt.get(key)
+        _need(type(val) is list and len(val)<=32 and
+              all(type(x) is str for x in val),
+              "WF119_REPAIR_IMPACT_WARNINGS_INVALID")
+        return set(val)
+    old_hard=arr("baseline_preflight_warnings")
+    new_hard=arr("revision_preflight_warnings")
+    introduced=set(arr("new_preflight_warnings"))
+    _need(introduced==new_hard-old_hard,
+          "WF119_REPAIR_IMPACT_DELTA_INCONSISTENT")
+    review_introduced=arr("new_preflight_review_flags")
+    _need(review_introduced.issubset(
+        arr("revision_review_findings")),
+          "WF119_REPAIR_IMPACT_REVIEW_DELTA_INCONSISTENT")
+    if introduced:
+        status="BLOCKED_NEW_HARD_SOURCE_RISK"
+    elif review_introduced:
+        status="HELD_NEW_UNVERIFIED_SOURCE_RISK"
+    else:
+        status="NO_NEW_DETECTED_STRUCTURAL_RISK_ONLY"
+    impact={
+        "format":"wf.writing.v119.before-after-guarded-impact.v1",
+        "source_sha256":preview_receipt["source_sha256"],
+        "candidate_sha256":preview_receipt["candidate_sha256"],
+        "status":status,
+        "baseline_hard_findings":sorted(old_hard),
+        "candidate_hard_findings":sorted(new_hard),
+        "removed_hard_findings":sorted(old_hard-new_hard),
+        "new_hard_findings":sorted(introduced),
+        "candidate_review_only_findings":sorted(
+            arr("revision_review_findings")),
+        "new_unverified_review_findings":sorted(review_introduced),
+        "previously_existing_hard_findings_remain":sorted(
+            old_hard & new_hard),
+        "one_fix_may_create_another_error":True,
+        "author_literary_goal_satisfied":"UNVERIFIED",
+        "verified_code_only_not_complete_story_truth":True,
+        "subsequent_turns_require_new_source_prose":True,
+        "never_automatically_repair_or_promote_to_canon":True,
+        "new_model_calls":0,"canon_writes":0,
+    }
+    impact["receipt_sha256"]=_digest_json(impact)
+    return impact
+
+
 def inspect_whole_rewrite(*, proposed_whole_text: str, project_id: str,
                           scene_id: str, source: str, source_sha256: str,
                           start: int, end: int, expected_original: str,
