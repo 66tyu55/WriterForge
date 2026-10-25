@@ -87,11 +87,13 @@ class SignedGAuthorCitationFlow(TestCase):
             core=advance_graph(core,project_id=writer.project_id,
                                scene_id=writer.scene_id,
                                chapter_index=1,prose=EARLIER,events=())
-            core=record_chapter_memory(
-                core,project_id=writer.project_id,scene_id=writer.scene_id,
-                chapter_index=1,prose=EARLIER,source_path=str(prior_path))
             temporal=external_temporal_step(
                 EARLIER,cast=("沈砚","唐蜃"))
+            core=record_chapter_memory(
+                core,project_id=writer.project_id,scene_id=writer.scene_id,
+                chapter_index=1,prose=EARLIER,source_path=str(prior_path),
+                chapter_source_parts=(EARLIER,),
+                chapter_temporal_checkpoints=(temporal,))
             resume=make_resume(
                 project_id=writer.project_id,scene_id=writer.scene_id,
                 chapter_index=1,checkpoint=temporal,
