@@ -1,6 +1,17 @@
 # WF 跨窗口精简交接｜2026-10-24｜AI 自己决定何时及为何删稿
 
-**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.P**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.Q**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+
+## 最新 0.Q：新戏楼真实 G 前后原文核查与作者仍 MOVE_ON 的跨章负例（2026-10-25）
+
+**详情**：[WF_REAL_OPERA_SOURCE_IDENTITY_CROSS_CHAPTER_REVIEW_20261025.md](WF_REAL_OPERA_SOURCE_IDENTITY_CROSS_CHAPTER_REVIEW_20261025.md)；原真实戏楼 G 七次调用 [#40110957161](https://github.com/66tyu55/WriterForge/actions/runs/40110957161)，本轮新跨章 DeepSeek **2 次** [#40151857245](https://github.com/66tyu55/WriterForge/actions/runs/40151857245)，实际模型原字节+审稿收据均保留。依然仅开发分支，不改 main、Railway、R2 用户原书、被接受 Canon 或独立文学记忆。
+
+- **真正小说最值得修的地方**：旧合法签名第1章初始事实是“江遥衣袖里藏着一张尚未交出去的赎身票据”，新 G 正文却写“票据还压在箱底一件戏服底下”，没写任何转移。先前单段读者自审只看当前正文，忽略与前史矛盾；直接作者说 `MOVE_ON`。G 的 V114/V122 在目前通用普通票据位置的自然语言下不能证明这种移动已有来源，绝不能说 G 回归绿就等于文学连续性过关。
+- **机械来源错误已解决，文学选择未被伪造**：前次真实读者先行原作者实际仍选择 `MOVE_ON` 却给 `source_sha256:null`。只有明确启用的 `bind_null_current` 才由软件用**当前已经提供的字节源码 SHA**补上**缺失**的机械身份；任何主动给的错误非 null SHA、伪造引句和旧段 null 均不可恢复。原回包、历史 INVALID_SIGNAL 永久保留。[同七次真实供应商回包与 V117 的零模型复核 #40151464649](https://github.com/66tyu55/WriterForge/actions/runs/40151464649) 旧严格 INVALID、新显式 source-bound 原模型 `MOVE_ON`，新增真实费用0。
+- **本次新真实跨章阅读**：[DeepSeek #40151857245](https://github.com/66tyu55/WriterForge/actions/runs/40151857245) 读取旧 GH 真实提供商原件和 V117 的已签名前章来源；独立读者真正返回**3 条**来源引句配对的跨章推测，首条明确发现袖内票据和戏服箱底票据之间没有明写过渡；另有宋易钥匙持有状态和第三下鼓的接续推测。随后**同一真实原作者合法选择 `MOVE_ON`，没有触发 V119、没有新正文**。它仍宣称“票据藏处在上一章末尾已有交代”，但旧章只证明票据在衣袖里。这是保留决定和**自我合理化未证先前动作**之间的核心问题，不能靠又一次强制劝删伪装进步。
+- **保留未证的读者审查问题，不做文学审判**：原 G `self_edit_moment_receipts` 和 `turn_evidence` 增源联想数量及 `author_kept_unresolved_cross_source_hypotheses`；读者猜测只用于私人审阅，不晋级 Canon、物件所有权或长期经验，也不自动触发重新写作。[零新模型重放 #40152137576](https://github.com/66tyu55/WriterForge/actions/runs/40152137576) 验证新旧真实 wire 和原作者 `MOVE_ON` 均无变化，留下3条未证审阅记录。
+- **工程验收**：[最终全量 #40152033480](https://github.com/66tyu55/WriterForge/actions/runs/40152033480)：**1,576 tests executed，4 skipped，0 failed**。首轮离线重放合法 PosixPath 类型检查错误 [#40151345236](https://github.com/66tyu55/WriterForge/actions/runs/40151345236)，新增单测漏 `unittest` 引入 [#40151682340](https://github.com/66tyu55/WriterForge/actions/runs/40151682340)，分别只修路径类型、测试导入，并未取消严格原句 SHA 或父因果检查。不能用全绿宣布文学自审提升。
+- **下一步**：停止重复付费要求同一小说认错。在**不强迫修改、不新增审稿 AI**的前提下，构建作者对每条未证前史推测的来源归因：声称“明写过”则交原文唯一过渡引句；未明写时明确 `UNWRITTEN_OR_UNKNOWN`，仍可基于真正审美理由 MOVE_ON，但不能把想象动作当历史事实。下一轮应换全新题型、真实 V119 完整落稿、独立匿名读者比较。只有用户再次明确要求才继续付费。
 
 ## 最新 0.P：同一 AI 先独立读者重建实际正文，再作家式决定，首次真实 LOOK_BACK_NOW（2026-10-24）
 
