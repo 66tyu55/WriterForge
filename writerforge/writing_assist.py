@@ -2945,7 +2945,8 @@ class AutonomousWriting:
                                     if max_tokens not in (
                                         SELF_EDIT_MODEL_MAX_TOKENS,
                                         SELF_EDIT_MOMENT_TOKENS,
-                                        SELF_EDIT_READER_MAX_TOKENS):
+                                        SELF_EDIT_READER_MAX_TOKENS,
+                                        SELF_EDIT_ATTRIBUTION_TOKENS):
                                         raise WritingExecutionError(
                                             "WF_SELF_EDIT_MODEL_BUDGET_CHANGED")
                                     return ask_model(
@@ -3038,7 +3039,15 @@ class AutonomousWriting:
                                             source_identity_contract=(
                                                 "bind_null_current"
                                                 if reader_first_self_review
-                                                else "model_sha"))
+                                                else "model_sha"),
+                                            earlier_source_for_attribution=(
+                                                prior_reader_source
+                                                if (reader_first_self_review
+                                                    and reader_result is not None
+                                                    and reader_result.get("report")
+                                                    and reader_result["report"].get(
+                                                        "cross_source_links"))
+                                                else None))
                                         self_edit_model_calls+=moment["model_calls"]
                                     else:
                                         moment={
@@ -3550,6 +3559,23 @@ class AutonomousWriting:
                             x.get("author_kept_unresolved_cross_source_hypotheses",False)
                             for x in self_edit_moment_receipts)
                         turn_evidence["wf_cross_source_reader_report_not_canon"]=True
+                        turn_evidence["wf_author_attribution_source_anchored_count"]=sum(
+                            x.get("cross_source_author_attribution",{}).get(
+                                "claimed_written_links",0)
+                            for x in self_edit_moment_receipts)
+                        turn_evidence["wf_author_declared_unwritten_or_unknown_count"]=sum(
+                            x.get("cross_source_author_attribution",{}).get(
+                                "author_declared_unwritten_or_unknown_links",0)
+                            for x in self_edit_moment_receipts)
+                        turn_evidence["wf_author_intentional_ellipsis_count"]=sum(
+                            x.get("cross_source_author_attribution",{}).get(
+                                "author_declared_intentional_ellipsis_links",0)
+                            for x in self_edit_moment_receipts)
+                        turn_evidence["wf_author_source_claim_evidence_statuses"]=[
+                            x["cross_source_author_attribution_status"]
+                            for x in self_edit_moment_receipts
+                            if "cross_source_author_attribution_status" in x]
+                        turn_evidence["wf_source_quote_is_not_transfer_proof"]=True
                         turn_evidence["wf_reader_first_self_review_enabled"]=(
                             reader_first_self_review)
                         turn_evidence["wf_source_reader_receipts"]=(
@@ -3772,6 +3798,11 @@ class AutonomousWriting:
                         x.get("author_kept_unresolved_cross_source_hypotheses",False)
                         for x in self_edit_moment_receipts)
                         if draft_mode=="continuity_guard" else False,
+                    "wf_author_source_attribution_receipts":[
+                        x.get("cross_source_author_attribution")
+                        for x in self_edit_moment_receipts
+                        if x.get("cross_source_author_attribution") is not None]
+                        if draft_mode=="continuity_guard" else [],
                     "wf_source_reader_model_calls":sum(
                         x.get("model_calls",0)
                         for x in self_edit_reader_receipts)
