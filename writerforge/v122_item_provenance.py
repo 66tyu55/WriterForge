@@ -821,3 +821,44 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
     }
     payload["receipt_sha256"]=_digest(payload)
     return payload
+
+def physical_relation_issue_keys(source_audit):
+    """Bounded MULTISET of particular unresolved source relationships.
+
+    Comparing a code such as NEEDS_SOURCE_RELATION_REVIEW alone is unsound:
+    one erroneous object can be replaced by a DIFFERENT erroneous object
+    without changing the list of issue codes. Relation identity is anchored
+    to the literal items/contact locations and family; it is NOT a literary
+    grade or a claim that these referents truly match.
+    """
+    _need(type(source_audit) is dict and
+          source_audit.get("format")==
+              "wf.v122.source-physical-relation-review.v1" and
+          source_audit.get("receipt_sha256")==_digest({
+              k:v for k,v in source_audit.items()
+              if k!="receipt_sha256"}),
+          "WF122_PHYSICAL_ISSUE_SOURCE_RECEIPT_NOT_VERIFIED")
+    pairs=source_audit.get("review_pairs")
+    _need(type(pairs) is list and len(pairs)<=MAX_OPEN_PHYSICAL_RELATIONS,
+          "WF122_PHYSICAL_ISSUE_LIST_BOUNDS")
+    keys=[]
+    for p in pairs:
+        _need(type(p) is dict and all(
+            type(p.get(field)) is str and p[field] for field in (
+                "first_item_literal","second_item_literal",
+                "first_contact_literal","second_contact_literal",
+                "item_identity_evidence","contact_identity_evidence",
+                "relation_family")),
+            "WF122_PHYSICAL_ISSUE_IDENTITY_NOT_SOURCE_BACKED")
+        identity={
+            "family":p["relation_family"],
+            "item_literals":[p["first_item_literal"],
+                             p["second_item_literal"]],
+            "contact_literals":[p["first_contact_literal"],
+                                p["second_contact_literal"]],
+            "item_identity_scope":p["item_identity_evidence"],
+            "contact_identity_scope":p["contact_identity_evidence"],
+        }
+        # Never turn equal numeric issue codes into equal source events.
+        keys.append(_digest(identity))
+    return sorted(keys)
