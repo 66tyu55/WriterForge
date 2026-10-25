@@ -1,6 +1,18 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.AG 上限中断交接：多种文本/内容/场景/类型才可发现 WF 真缺陷，继续先红后绿（2026-10-25，最新）
+
+**下一会话从这里开始**：[WF_0AG_DIVERSE_LITERARY_FAILURE_FIRST_HANDOFF_20261025.md](WF_0AG_DIVERSE_LITERARY_FAILURE_FIRST_HANDOFF_20261025.md) → [WF_0AF_DIVERSE_GENRE_FAILURE_DISCOVERY_20261025.md](WF_0AF_DIVERSE_GENRE_FAILURE_DISCOVERY_20261025.md) → [WF_0AA_0AB_REAL_LITERARY_SCORECARD_20261025.md](WF_0AA_0AB_REAL_LITERARY_SCORECARD_20261025.md)。用户强调：**不要反复同一场景劝 AI 修改；用不同文本、内容、场景和文学类型产生真实反例，暴露 WF 本身误报、漏报和无法提升写作质量的具体原因，再修复原底层**。本次用户说“上限了——交接”，只保存文档，尚未启动新的测试任务或付费模型调用。
+
+- 最新已经存在的 0.AF **四种真实类型裸模型 vs WF**：[0.AD 原始生成 #40190602528](https://github.com/66tyu55/WriterForge/actions/runs/40190602528)、[0.AE 原件 SHA 只读复核与缺失盲评 #40191877126](https://github.com/66tyu55/WriterForge/actions/runs/40191877126)。现实人物心理 84/80.5（WF−3.5）；玄幻打斗 82/79（WF−3）；悬疑证据 75/82.5（WF＋7.5）；硬科幻 82/83.5（WF＋1.5），**都是同族评委、单题、不能证明长期文学增益**。悬疑 WF 高文学分仍因模型 `action_quote` 后于 `effect_quote` 被 V96 正确拒绝，不可为高分放宽因果。
+- **新十类型还没有执行真实模型测试**，只是 0.AF 预登记：武侠伤者悬桥、仙侠灵植、历史军令、恐怖限视角、喜剧错单、言情信息差、日常钥匙、科幻压差、盐商计谋、初雪抒情。0.AC 的 18 条正反例是合成源验证，不是 18 篇真实作品。不得重复 0.AD/AE 的旧付费生成。
+- **下一阶段第一个真正软件攻击点**：构造 V96 行动/后果引句**确实存在、顺序正确、不重叠**，但二者没有真实因果的不同题材反例，看 WF 是否假绿色；同测合法省略、人物不知道来源、真实因果与正常误会，防止修成假红色。先保存 RED，再修已有 V96/114/117，不改文学评分去迎合 AI。
+- **评分同时保留百分制且不造假**：同题同模型同预算的裸模型/WF 对照，微段 200～350 字，不一次输出整章；匿名双顺序分数、评分不稳定/长度不齐必须标注；独立记录世界状态、来源错误和假红/假绿，不能让高文学分洗白因果。原著只是相同**叙事功能**的技法参照，不能复制原文字句/人物/情节。旧《凡人》 R62/A79/B76 只是不公平匹配的局部基线，**绝不能宣称 WF 胜过原著**。
+- **当前无模型工程基线**：[Actions #40191655858](https://github.com/66tyu55/WriterForge/actions/runs/40191655858) **1,708 tests run，9 skipped，0 failed**，尚未加入新十场景的真实付费验收。本次交接没有更改 WF 代码、没有新评分或训练、没有付费模型。保持 V26/V98/V119、唯一 NarrativeCore 及原始失败证据；只用开发分支 `refactor-unified-scene-delivery-audit`，**main、Railway、用户 R2 原著、正式 Canon 一律不动**。
+
+---
+
 ## 0.AF 不重复文学题：多类型真实裸模型/WF对照与悬疑 V96 真因果拒绝（2026-10-25，最新）
 
 **优先阅读**：[WF_0AF_DIVERSE_GENRE_FAILURE_DISCOVERY_20261025.md](WF_0AF_DIVERSE_GENRE_FAILURE_DISCOVERY_20261025.md) → [WF_0AA_0AB_REAL_LITERARY_SCORECARD_20261025.md](WF_0AA_0AB_REAL_LITERARY_SCORECARD_20261025.md) → 0.Z/0.X 原来源回滚。用户明确要求**不同文本、不同内容、不同场景、不同类型，真正暴露WF本身问题然后修代码**。不可用相同情节的反复 MODEL 自审获得“进步”假象。
