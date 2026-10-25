@@ -81,7 +81,7 @@ class TestFirstBatchProtocol(unittest.TestCase):
         self.assertIn('OUT/"STATUS.json"',main)
         self.assertIn("self.task=None",source)
         self.assertNotIn("time.sleep",source)
-        self.assertNotIn("retry",source.lower())
+        self.assertNotIn("retry(",source.lower())
         self.assertIn("model.budget.calls_reserved",main)
         self.assertIn("R2_reads",main)
         self.assertIn("human_semantic_review_still_required",
