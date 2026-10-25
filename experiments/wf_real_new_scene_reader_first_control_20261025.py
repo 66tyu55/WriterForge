@@ -343,12 +343,14 @@ def run():
             graph=advance_graph(graph,project_id=PROJECT,
                                 scene_id=SCENE,chapter_index=1,
                                 prose=SEED,events=())
+            previous=external_temporal_step(SEED,cast=CAST)
             graph=record_chapter_memory(
                 graph,project_id=PROJECT,scene_id=SCENE,
                 chapter_index=1,
                 source_path=str(OUT/"SYNTHETIC_SEED_NOT_REAL_NOVEL.md"),
-                prose=SEED)
-            previous=external_temporal_step(SEED,cast=CAST)
+                prose=SEED,
+                chapter_source_parts=(SEED,),
+                chapter_temporal_checkpoints=(previous,))
             resume=make_resume(
                 project_id=PROJECT,scene_id=SCENE,
                 chapter_index=1,checkpoint=previous,
