@@ -36,3 +36,12 @@
 
 - 工程测试：`tests/test_wf_0y_cross_chapter_temporal_graph_binding.py`；现有 `tests/test_wf_cross_chapter_candidate_fork.py` 补强，不引入新的付费模型或存储模块。
 - 正式验收以 GitHub Actions 的**最新** `WF Unified Scene Delivery and Progression Audit` 全量输出为准；中途 CANCELLED 和 RED 均为历史证据，不应改写为通过。
+
+## 6. 最终 0.Y 验收结果（真实工程，不是模型文学结果）
+
+- [四章节源链全量 #40179359301](https://github.com/66tyu55/WriterForge/actions/runs/40179359301)：**1,671 项执行、7 项跳过、0 失败**。第 2 章修订后，第 3/4 章哪怕字节不变也必须经新 V114 父链重新构建，并绑定新 NarrativeCore 父链。
+- [旧归档相同末章、不同祖先的 RED #40179563512](https://github.com/66tyu55/WriterForge/actions/runs/40179563512)：**1 个失败**。旧版 G 曾从一个分别签名合法、且最后章节正文一致、但前一章并非同一故事源的 V114/graph 组合进入模型调用。这是 WF 的真实错误，而不是用户或 AI 未按提示改稿。
+- [引入严格来源续写门槛后的回归 #40179695324](https://github.com/66tyu55/WriterForge/actions/runs/40179695324)：4 个旧样例失败。原因是旧测试/试验入口自己未提供真正 V114 与 NarrativeCore 的同章绑定，却期望其可作为新 G 续写源。**没有放宽门槛**，而是检查并修正三个确实缺少来源凭证的构造入口：`test_wf_reader_first_original_author.py`、`test_wf_reader_source_attribution_G_integration.py`、`experiments/wf_real_new_scene_reader_first_control_20261025.py`。对应模拟章节须将真实原文 CP 作为 `chapter_temporal_checkpoints` 写进**唯一原图**；未补造旧模型文学回复。
+- [最终完整回归 #40179955242](https://github.com/66tyu55/WriterForge/actions/runs/40179955242)：**1,672 tests run，7 skipped，0 failed**，Studio Node 脚本检查也通过；包含所有来源攻防、旧多章 fork、R2 模拟 CAS、原始候选存储和 legacy 兼容边界。
+- 新的 legacy 来源限制：`read_resume` 可只读查看未录下完整源装配信息的旧签名归档；但当 `AutonomousWriting.run` 用其继续生成新正文时，`require_verified_ancestry=True` 在任何新模型调用之前拒绝。`WF117_GRAPH_TEMPORAL_SOURCE_UNBOUND` 绝不能被“最后一章恰好字节相同”洗白。若旧归档确需续写，必须离线从**真实源原文和历史签名**重建可信链，不能直接强迫 AI 重写旧书，不能补造来源。
+- 当前保证范围是**新开发分支候选来源的 G/V117/NarrativeCore 绑定和新的分支重建**，不是已部署生产服务替用户删除了所有远端旧分支或“长期所有上下文语义正确”。旧副本保留为不可变档案，不误作当前新分支事实；新的模型作者自主文学修订/实际读者文笔改进依然**没有被本轮测试证明**。本轮新增付费模型0、Canon0、R2用户原著读写0、Railway部署0，`main` 不动。
