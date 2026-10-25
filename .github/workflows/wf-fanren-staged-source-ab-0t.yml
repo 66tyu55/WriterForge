@@ -6,6 +6,7 @@ on:
     branches: [refactor-unified-scene-delivery-audit]
     paths:
       - experiments/WF_0T_FANREN_STAGED_AB_FIRE_ONCE_20261025.txt
+      - experiments/WF_0T_FANREN_STAGED_AB_R2_READONLY_ONCE_20261025.txt
 
 permissions:
   contents: read
@@ -41,6 +42,11 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
           WRITERFORGE_FANREN_SOURCE_URL: ${{ secrets.WRITERFORGE_FANREN_SOURCE_URL }}
           WRITERFORGE_FANREN_SOURCE_SHA256: ${{ secrets.WRITERFORGE_FANREN_SOURCE_SHA256 }}
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
         run: python -m experiments.wf_fanren_staged_source_ab_0t
       - name: Report actual outcome, never count a simulated or incomplete pair as success
         run: |
