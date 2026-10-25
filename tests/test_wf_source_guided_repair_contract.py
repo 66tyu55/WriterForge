@@ -256,6 +256,164 @@ class SourceGuideIntegratedIntoOriginalWriter(TestCase):
         self.assertFalse((self.root/"test-edit"/
                           "round-02-selected-draft.md").exists())
 
+    def test_source_locked_new_prose_gets_one_same_writer_trace_only_rescue(self):
+        selected=self.focus
+        replacement="山风先吹到桥头，少年收住脚步试探石阶时，"
+        start=self.source.index(selected)
+        first=advice(
+            self.source,decision="REVISE",scope="sentence",
+            start=start,end=start+len(selected),
+            replacement=replacement,
+            trace={"action_quote":ACTION1,"effect_quote":ACTION1,
+                   "parent_effect_quote":None})
+        # Model's SECOND allowed call only supplies exact references in
+        # the frozen first model-authored candidate. No prose at all.
+        meta=json.dumps({
+            "trace":{"action_quote":ACTION1,"effect_quote":EFFECT1,
+                     "parent_effect_quote":None},
+        },ensure_ascii=False)
+        seen=[]
+        def same_original_writer(packet,*,model,api_base,max_tokens):
+            self.assertIsNone(model)
+            self.assertIsNone(api_base)
+            self.assertEqual(max_tokens,1800)
+            seen.append(packet.prompt)
+            if len(seen)==1:
+                self.assertIn('"wf_source_repair_contract"',packet.prompt)
+                return first
+            if len(seen)==2:
+                self.assertIn("本次只允许更正引用元数据",packet.prompt)
+                self.assertIn("原作者已经写出的冻结候选",packet.prompt)
+                self.assertIn(replacement,packet.prompt)
+                self.assertIn("WF96_ACTION_EFFECT_OVERLAP_OR_REVERSED",
+                              packet.prompt)
+                return meta
+            self.fail("Never allow a third automatic literary retry")
+        with TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            result,receipt=_self_edit_one_turn(
+                raw=self.raw,beat=self.beat,accepted=(),
+                project_id=self.packet.project_id,scene_id=self.packet.scene_id,
+                turn_packet=self.packet,ask_model=same_original_writer,
+                round_limit=2,call_allowance=2,
+                directory=root/"author-help",
+                writer_attention=self.intention)
+            self.assertEqual(receipt["model_calls"],2)
+            self.assertEqual(len(seen),2)
+            self.assertEqual(receipt["rounds"][0]["status"],
+                             "PROVISIONALLY_REVISED")
+            round=receipt["rounds"][0]
+            self.assertTrue(round["source_trace_reattributed_by_same_author_model"])
+            self.assertEqual(round["initial_model_V96_trace_failure"],
+                             "WF96_ACTION_EFFECT_OVERLAP_OR_REVERSED")
+            self.assertEqual(round["additional_trace_only_model_call"],1)
+            self.assertTrue(round["novelist_prose_never_changed_by_trace_repair"])
+            fiction=json.loads(result)
+            self.assertEqual(fiction["prose"],
+                             self.source.replace(selected,replacement,1))
+            self.assertEqual(fiction["trace"],json.loads(meta)["trace"])
+            self.assertTrue((root/"author-help"/
+                             "round-01-invalid-model-trace.json").is_file())
+            self.assertEqual((root/"author-help"/
+                "same-writer-source-trace-only-original.json").read_text("utf8"),
+                meta)
+            self.assertFalse((root/"author-help"/
+                              "round-02-model-proposal.json").exists())
+
+    def test_second_trace_attempt_that_still_fails_never_changes_original(self):
+        anchor=self.focus
+        start=self.source.index(anchor)
+        first=advice(
+            self.source,decision="REVISE",scope="sentence",
+            start=start,end=start+len(anchor),
+            replacement="黄昏时桥边又起风了，",
+            trace={"action_quote":ACTION1,"effect_quote":ACTION1,
+                   "parent_effect_quote":None})
+        broken=json.dumps({
+            "trace":{"action_quote":ACTION1,"effect_quote":ACTION1,
+                     "parent_effect_quote":None}},ensure_ascii=False)
+        outputs=[first,broken]
+        with TemporaryDirectory() as temp:
+            path=Path(temp)/"failed-repair"
+            def fake_model(packet,*,model,api_base,max_tokens):
+                self.assertEqual(max_tokens,1800)
+                return outputs.pop(0)
+            actual,r=_self_edit_one_turn(
+                raw=self.raw,beat=self.beat,accepted=(),
+                project_id=self.packet.project_id,scene_id=self.packet.scene_id,
+                turn_packet=self.packet,ask_model=fake_model,
+                round_limit=2,call_allowance=2,directory=path)
+            self.assertEqual(actual,self.raw)
+            self.assertEqual(r["model_calls"],2)
+            self.assertEqual(outputs,[])
+            self.assertEqual(r["rounds"][0]["status"],
+                             "REJECTED_AND_ROLLED_BACK")
+            self.assertEqual(r["rounds"][0]["reason_code"],
+                             "WF96_ACTION_EFFECT_OVERLAP_OR_REVERSED")
+            self.assertTrue(r["rounds"][0]["metadata_only_trace_attempted"])
+            self.assertTrue((path/
+                             "same-writer-source-trace-only-original.json").exists())
+            self.assertFalse((path/"round-01-selected-draft.md").exists())
+
+    def test_malformed_trace_only_model_response_consumes_second_budget_and_rolls_back(self):
+        anchor=self.focus
+        start=self.source.index(anchor)
+        first=advice(
+            self.source,decision="REVISE",scope="sentence",
+            start=start,end=start+len(anchor),
+            replacement="夜色下桥头的风更紧了，",
+            trace={"action_quote":ACTION1,"effect_quote":ACTION1,
+                   "parent_effect_quote":None})
+        responses=[first,'{"prose":"偷偷代写整个新故事"}']
+        with TemporaryDirectory() as temp:
+            path=Path(temp)/"malformed"
+            final,receipt=_self_edit_one_turn(
+                raw=self.raw,beat=self.beat,accepted=(),
+                project_id=self.packet.project_id,scene_id=self.packet.scene_id,
+                turn_packet=self.packet,
+                ask_model=lambda *a,**kw:responses.pop(0),
+                round_limit=2,call_allowance=2,directory=path)
+            self.assertEqual(final,self.raw)
+            self.assertEqual(receipt["model_calls"],2)
+            self.assertEqual(receipt["rounds"][0]["reason_code"],
+                             "WF_TRACE_ONLY_REPLY_SCHEMA_INVALID")
+            self.assertTrue(receipt["rounds"][0]["metadata_only_trace_attempted"])
+            self.assertFalse(responses)
+            self.assertTrue((path/"same-writer-source-trace-only-original.json"
+                             ).is_file())
+
+    def test_user_cancel_is_not_swallowed_by_reattribution_recovery(self):
+        from writerforge.writing_assist import WriterDraftCancelled
+        anchor=self.focus
+        start=self.source.index(anchor)
+        first=advice(
+            self.source,decision="REVISE",scope="sentence",
+            start=start,end=start+len(anchor),
+            replacement="山雨落在桥头时，",
+            trace={"action_quote":ACTION1,"effect_quote":ACTION1,
+                   "parent_effect_quote":None})
+        count=0
+        def same_writer(packet,*,model,api_base,max_tokens):
+            nonlocal count
+            count+=1
+            return first
+        def cancel_check():
+            if count==1:
+                raise WriterDraftCancelled("WF_STUDIO_DRAFT_CANCELLED")
+        with TemporaryDirectory() as temp:
+            with self.assertRaises(WriterDraftCancelled):
+                _self_edit_one_turn(
+                    raw=self.raw,beat=self.beat,accepted=(),
+                    project_id=self.packet.project_id,
+                    scene_id=self.packet.scene_id,
+                    turn_packet=self.packet,ask_model=same_writer,
+                    round_limit=2,call_allowance=2,
+                    directory=Path(temp)/"canceled",
+                    cancel_check=cancel_check)
+            self.assertEqual(count,1)
+            self.assertFalse((Path(temp)/"canceled"/
+                              "same-writer-source-trace-only-original.json").exists())
+
     def test_new_unproven_state_flag_stays_private_and_does_not_cause_new_turn(self):
         anchor=self.focus
         start=self.source.index(anchor)
