@@ -103,6 +103,13 @@ class PhysicalRelationshipSourceAudit(TestCase):
                     audit_physical_relation_sources(
                         prose=prose)["current_source_needs_review"])
 
+    def test_relation_parser_not_hardcoded_to_rope_nouns(self):
+        text="铜牌还挂在门钩上，只是铜牌被人从门钩上摘下来。"
+        receipt=audit_physical_relation_sources(prose=text)
+        self.assertEqual(receipt["review_status"],"NEEDS_SOURCE_RELATION_REVIEW")
+        self.assertEqual(receipt["review_pairs"][0]["first_item_literal"],"铜牌")
+        self.assertEqual(receipt["review_pairs"][0]["second_item_literal"],"铜牌")
+
     def test_forged_previous_review_receipt_rejected(self):
         earlier=audit_physical_relation_sources(prose=REAL_B_SENTENCE)
         fake={**earlier,"source_sha256":"f"*64}
@@ -138,13 +145,48 @@ class RelationExistingTransactionalPath(TestCase):
             next_prose,cp,project_id="wf-0u-source",
             chapter_index=2,cast=CAST)
         self.assertFalse(second["blocked"])
-        self.assertTrue(second["needs_review"])
         self.assertGreater(second["physical_relation_previous_unresolved"],0)
-        self.assertTrue(second["physical_relation_must_not_be_fact_or_downstream_parent"])
+        # Purely unrelated continuation may proceed without assigning a
+        # fictional rope location; old uncertainty stays in signed source.
+        self.assertFalse(second["physical_relation_must_not_be_fact_or_downstream_parent"])
+        self.assertEqual(second["physical_relation_dependent_on_unresolved_source"],[])
+        dependent=preflight_continuation(
+            "绳结还系在木桩上。林栖继续观察堤坝，不肯把昨日没有写明的动作当作眼前已证的事实。",
+            cp,project_id="wf-0u-source",chapter_index=2,cast=CAST)
+        self.assertTrue(dependent["needs_review"])
+        self.assertTrue(dependent[
+            "physical_relation_must_not_be_fact_or_downstream_parent"])
+        self.assertEqual(len(dependent[
+            "physical_relation_dependent_on_unresolved_source"]),1)
         signed=make_resume(project_id="wf-0u-source",scene_id="river",
                            chapter_index=1,checkpoint=cp)
         reread=read_resume(signed,project_id="wf-0u-source",scene_id="river")
         self.assertEqual(reread["receipt_sha256"],cp["receipt_sha256"])
+
+    def test_source_relation_hold_is_not_a_model_literary_rewrite(self):
+        from writerforge.writing_assist import _physical_relation_source_hold
+        preflight=preflight_next_prose(
+            REAL_B_SENTENCE,previous_candidate_state={},cast=CAST)
+        hold=_physical_relation_source_hold(
+            prose=REAL_B_SENTENCE,preflight=preflight)
+        self.assertEqual(hold["status"],"HELD_NEEDS_SOURCE_RELATION_REVIEW")
+        self.assertEqual(hold["prose_sha256"],h(REAL_B_SENTENCE))
+        self.assertEqual(len(hold["current_conflicting_source_quote_pairs"]),1)
+        self.assertTrue(hold["actor_unknown_may_remain_literary_mystery"])
+        self.assertTrue(hold["writer_owns_edit_and_literary_choice"])
+        self.assertEqual(hold["new_model_calls"],0)
+        self.assertEqual(hold["canon_writes"],0)
+        self.assertFalse(hold["automatic_author_decision_or_fiction_generation"])
+        self.assertTrue(hold["downstream_relation_dependent_scene_must_not_reuse_old_state"])
+        self.assertIsNone(_physical_relation_source_hold(
+            prose="林栖走到桥上，仍谨慎记下每个潮位标记。",
+            preflight=preflight_next_prose(
+                "林栖走到桥上，仍谨慎记下每个潮位标记。",
+                previous_candidate_state={},cast=CAST)))
+        with self.assertRaisesRegex(
+                Exception,"WF122_RELATION_HOLD_WRONG_SOURCE_SHA"):
+            _physical_relation_source_hold(
+                prose=REAL_B_SENTENCE+"伪",preflight=preflight)
 
     def test_v119_contract_contains_actual_two_source_quotes(self):
         guide=prepare_source_repair_contract(
