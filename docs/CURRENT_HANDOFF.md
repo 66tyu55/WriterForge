@@ -1,6 +1,20 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.V 《潮簿》绳结世界状态底层纠偏：V122 有源系解关系、G 私有 HOLD、V119 旧风险守门及零付费原始模型重放（2026-10-25，最新）
+
+**下一窗口依次读取**：[WF_0V_SOURCE_RELATION_REPAIR_20261025.md](WF_0V_SOURCE_RELATION_REPAIR_20261025.md) → [WF_0T_REAL_FANREN_SENTENCE_EVIDENCE_20261025.md](WF_0T_REAL_FANREN_SENTENCE_EVIDENCE_20261025.md) → [WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md](WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md)，再看下方 0.U/0.T。代码仅开发分支 `refactor-unified-scene-delivery-audit`；**不改 main、Railway、用户 R2 原小说或正式 Canon**，不重复旧15章训练、不添加独立文学记忆或审稿模型、不对同一旧稿再付费劝改。
+
+- **真实缺口**：0.U 的 B T2 同句“绳结还系在木桩上／只是绳子被人从桩头解下来”在旧 V96/114/117 通过，却没有证明同一物件/同刻接触状态可以共存。真实原作者 [#40165586323](https://github.com/66tyu55/WriterForge/actions/runs/40165586323) 选择 `MOVE_ON` 保留悬念。**不能把“谁动绳子未知”的艺术理由当作“绳是否系着”的物理来源证明**。历史原件、负例一字未改。
+- **在原核心实现来源审查**：原 `v122_item_provenance.py` 新增 `audit_physical_relation_sources`，只识别字面可定位、唯一引句/SHA 的 `ATTACHED/DETACHED` 接触状态，标记指称为 `EXACT_LITERAL` 或 `POSSIBLE_ALIAS`，区分先后、自由端、不同绳和猜测。**不是关键词文学裁判也不是普适物理语义引擎**：不确定时只是 `NEEDS_SOURCE_RELATION_REVIEW`，绝不自动认定小说错。
+- **从报错变成可执行修复和有限 HOLD**：V116 出实际来源对；V114 将来源收据放入**同一签名候选快照**，不创建第二记忆或写入 item holder；V117 只针对**依赖旧未证关系的新句**继续标 HOLD，无关剧情不受阻。V119 给作者原句、SHA、前因、修改与保留路径，`compare_source_repair_impact` 会将无关文字修改但旧关系仍未解决的稿标 `HELD_EXISTING_SOURCE_RELATION_RISK`。原 G `writing_assist` 私有保存 HOL​​D JSON 和未接受正文、拦下依赖旧未证物理状态的后文；**绝不替 AI 删句写句或强行揭示谜底**。
+- **真提供商原件零成本重放**：[原双轨 #40163959949](https://github.com/66tyu55/WriterForge/actions/runs/40163959949) 的 B T1/T2 官方 DeepSeek provider wire/SHA 经 GitHub artifact 独立验证，然后由新 V96/V114/V116/V117/V119 完整只读再检。[实际新证据 #40167612081](https://github.com/66tyu55/WriterForge/actions/runs/40167612081) **SUCCESS**：旧已通过但未接受的 B 文字被当前代码识别为 `HELD_NEEDS_SOURCE_RELATION_REVIEW`，原句 SHA/时态签名均成立。原文没有改、作者旧 `MOVE_ON` 没重问，**新模型调用0，R2读写0，Canon0**。
+- **软件工程验收**：[最新完整回归 #40167561524](https://github.com/66tyu55/WriterForge/actions/runs/40167561524) **1,639 tests run，7 skipped，0 failed**，Studio JS 检查成功。涵盖真 B 两段锚点、先系后解、后来才解、不同绳、自由端、猜测、非绳物件、伪 SHA、跨段匹配依赖、无关故事不被连坐、同模型模拟改无关句不能绕过 V119。均为**不扣费的结构测试，不是文学训练成绩**。
+- **不能夸大的地方**：真正新场景的“写作 AI 自己选改→AI 写出新正文→V119/V96/V114/V117安全通过→依赖后文由AI亲自重写→匿名读者验证语言和人物因果”**成功样本仍0**。这轮没有新增收费模型、没有新的完整修订章节，也未进行人类盲评。不允许用一次成功 HOLD 旧样本冒充模型已经会写好小说。
+- **下一步**：先从来源可证的系/解关系谨慎走向更多物品的容器、空间和长篇跨章债务；研究如何用原 NarrativeCore 和现有 V114/V122 查询真实状态，避免新增第二事实主人或无限扩词表。若需下轮付费文学实验必须**换新的原创题**、用同作者逐小段写作与严格预算，不重问旧《潮簿》。V26、V98、V119、统一热暖冷叙事记忆及用户停止/保存废稿均保留。
+
+---
+
 ## 0.U 《凡人》前两章逐步阅读真实 A/B 与最后 B 原作家自主复读：读者看见物件疑问，作者仍选择 MOVE_ON；必须补源锁物理关系而非重复提醒（2026-10-25，最新）
 
 **下窗口优先读**：[WF_0T_REAL_FANREN_SENTENCE_EVIDENCE_20261025.md](WF_0T_REAL_FANREN_SENTENCE_EVIDENCE_20261025.md) → [WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md](WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md) → 本文 0.T/0.S 原始失败。所有变更仅 `refactor-unified-scene-delivery-audit`，不改 main、Railway、用户 R2 原著、正式 Canon，不重复旧 15 章训练，不增加第二文学记忆和外部文学裁判。
