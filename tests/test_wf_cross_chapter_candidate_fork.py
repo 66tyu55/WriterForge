@@ -432,6 +432,53 @@ class CrossChapterUnacceptedSourceFork(TestCase):
             model.assert_not_called()
         self.assertFalse(dest.exists())
 
+    def test_matching_final_text_is_not_proof_of_legacy_ancestor_chain(self):
+        # This is a false-green source chain: chapter2 has identical bytes,
+        # but comes from a DIFFERENT chapter1. All signatures individually
+        # check out. Without per-turn ancestor binding it is unsafe to write
+        # a third chapter as if this source was reconciled.
+        graph=new_graph(project_id=self.project,scene_id=self.scene)
+        first_old="沈砚在旧院留下账簿，唐蜃尚未看清纸上的墨痕。"
+        first_new="沈砚在桥畔找到账簿，唐蜃已经看清纸上的墨痕。"
+        second="姜岚不敢给尚未确认的证据盖章，许槐也没有说出那天的实情。"
+        graph1=advance_graph(
+            graph,project_id=self.project,scene_id=self.scene,
+            chapter_index=1,prose=first_old,events=())
+        p1=self.root/"legacy1.md"
+        p1.write_text(first_old,encoding="utf8")
+        graph1=record_chapter_memory(
+            graph1,project_id=self.project,scene_id=self.scene,
+            chapter_index=1,source_path=str(p1),prose=first_old)
+        graph2=advance_graph(
+            graph1,project_id=self.project,scene_id=self.scene,
+            chapter_index=2,prose=second,events=())
+        p2=self.root/"legacy2.md"
+        p2.write_text(second,encoding="utf8")
+        graph2=record_chapter_memory(
+            graph2,project_id=self.project,scene_id=self.scene,
+            chapter_index=2,source_path=str(p2),prose=second)
+        parent_new=external_temporal_step(first_new,cast=ACTORS)
+        cp_new=external_temporal_step(second,cast=ACTORS,prior=parent_new)
+        legacy=make_resume(
+            project_id=self.project,scene_id=self.scene,
+            chapter_index=2,checkpoint=cp_new,
+            unified_narrative_core=graph2)
+        self.assertEqual(
+            read_resume(legacy,project_id=self.project,
+                        scene_id=self.scene),cp_new)
+        self.assertEqual(graph2["memory"]["hot"][-1]["source_sha256"],
+                         cp_new["source_sha256"])
+        with patch("writerforge.writing_assist.local_chat_completion") as model:
+            with self.assertRaisesRegex(
+                WritingExecutionError,"WF117_GRAPH_TEMPORAL_SOURCE_UNBOUND"):
+                AutonomousWriting(self.assist).run(
+                    outline=self.outline,
+                    chapter_goals=["这次只能继承被证明属于同一真实前史的下一章。"],
+                    draft_mode="continuity_guard",
+                    resume_story_checkpoint=legacy,
+                    output_dir=self.root/"unsafe-same-final-text")
+            model.assert_not_called()
+
     def test_tampered_branch_selection_receipt_rejected(self):
         old,head,prose=self.old_branch()
         rebuilt=self.run_writer(out="new",answer_list=replies(1,alternate=True),
