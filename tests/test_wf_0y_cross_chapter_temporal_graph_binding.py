@@ -243,6 +243,43 @@ class SignedSourceTemporalMismatch(unittest.TestCase):
                             chapter_index=14,checkpoint=cp14_new,
                             unified_narrative_core=g14_old)
 
+    def test_only_explicit_signed_chapter_zero_resume_can_seed_first_story_chapter(self):
+        with TemporaryDirectory() as td:
+            root=Path(td)
+            graph0=new_graph(project_id=PROJECT,scene_id=SCENE)
+            seed=external_temporal_step(
+                "书还没有开始写第一章，姜岚只在原有记事簿上看见旧潮位。",
+                cast=CAST)
+            actual_root=make_resume(
+                project_id=PROJECT,scene_id=SCENE,chapter_index=0,
+                checkpoint=seed,unified_narrative_core=graph0)
+            prose_state=external_temporal_step(CH1_OLD,prior=seed,cast=CAST)
+            # This was a legitimate explicit G root prior to the 0.Y fix;
+            # it is not equivalent to an orphan unproved prior V114 blob.
+            valid=self.record(
+                root,graph0,1,CH1_OLD,
+                chapter_source_parts=(CH1_OLD,),
+                chapter_temporal_checkpoints=(prose_state,),
+                root_resume_anchor=actual_root)
+            self.assertTrue(valid["source_temporal_link"][
+                "ancestry_fully_verified"])
+            self.assertEqual(valid["source_temporal_link"][
+                "root_resume_anchor_sha256"],
+                actual_root["receipt_sha256"])
+            final=make_resume(
+                project_id=PROJECT,scene_id=SCENE,chapter_index=1,
+                checkpoint=prose_state,unified_narrative_core=valid)
+            self.assertEqual(read_resume(
+                final,project_id=PROJECT,scene_id=SCENE),prose_state)
+            with self.assertRaisesRegex(
+                Exception,"WFCORE_ROOT_RESUME_WRONG_TEMPORAL_SOURCE"):
+                self.record(
+                    root,graph0,1,CH1_OLD,
+                    chapter_source_parts=(CH1_OLD,),
+                    chapter_temporal_checkpoints=(
+                        external_temporal_step(CH1_OLD,cast=CAST),),
+                    root_resume_anchor=actual_root)
+
     def test_old_graph_descendant_cannot_use_new_revised_temporal_parent(self):
         with TemporaryDirectory() as tmp:
             root=Path(tmp)
