@@ -219,6 +219,57 @@ class RelationExistingTransactionalPath(TestCase):
         self.assertTrue(report["existing_physical_relation_review_remaining"])
         self.assertTrue(report["source_relation_risk_cannot_be_cleared_by_prose_without_evidence"])
 
+    def test_simulated_same_writer_edit_unrelated_sentence_is_held_not_committed(self):
+        # One synthetic novelist reply exercises real V119 transaction code.
+        # It is not a paid provider proof or an author-quality success.
+        old_text="天亮前林栖已经到了堤上"
+        replacement="天光未亮林栖就赶到堤坝"
+        action="他蹲着看了很久"
+        effect="底面用炭画了个歪斜的叉"
+        original_raw=json.dumps({
+            "prose":REAL_B_SENTENCE,
+            "trace":{"action_quote":action,"effect_quote":effect,
+                     "parent_effect_quote":None}},ensure_ascii=False)
+        self.assertEqual(check_turn(
+            original_raw,BEAT,mode="causal_guard")["prose"],REAL_B_SENTENCE)
+        request=json.dumps({
+            "decision":"REVISE","scope":"sentence",
+            "source_sha256":h(REAL_B_SENTENCE),
+            "start":0,"end":len(old_text),
+            "expected_original":old_text,"replacement":replacement,
+            "trace":{"action_quote":action,"effect_quote":effect,
+                     "parent_effect_quote":None},
+            "reason":"这里的开场可以更简洁，但绳索的真实状态仍需要有来源的叙述。"
+        },ensure_ascii=False)
+        prompt="前一段的真人选择由同一创作模型负责，WF仅供应实际已有证据。"
+        packet=GroundedDraftPacket(
+            project_id="wf0u-hold",scene_id="river",snapshot_id=0,
+            evidence=(),craft_ids=(),prompt=prompt,prompt_sha256=h(prompt))
+        with TemporaryDirectory() as temp:
+            root=Path(temp)/"writer-draft"
+            seen=[]
+            def same_writer(*args,**kwargs):
+                seen.append((args,kwargs))
+                return request
+            accepted,receipt=_self_edit_one_turn(
+                raw=original_raw,beat=BEAT,accepted=(),
+                project_id="wf0u-hold",scene_id="river",
+                turn_packet=packet,ask_model=same_writer,
+                round_limit=1,call_allowance=1,directory=root,
+                previous_candidate_state={},cast=CAST)
+            self.assertEqual(accepted,original_raw)
+            self.assertEqual(len(seen),1)
+            self.assertEqual(receipt["rounds"][0]["status"],
+                             "HELD_EXISTING_SOURCE_RELATION_RISK")
+            self.assertEqual(receipt["model_calls"],1)
+            self.assertEqual(receipt["rounds"][0][
+                "existing_physical_relation_review_remaining"],True)
+            guide=json.loads((root/"round-01-source-repair-guide.json").read_text("utf8"))
+            self.assertEqual(len(guide[
+                "physical_relation_source_evidence"]["source_quote_pairs"]),1)
+            self.assertTrue((root/"round-01-held-unverified-draft.md").exists())
+            self.assertFalse((root/"round-01-selected-draft.md").exists())
+
     def test_only_author_generated_mock_revision_can_remove_dilemma(self):
         # Synthetic test patch: NEVER an actual model literary result.
         old="只是绳子被人从桩头解下来"
