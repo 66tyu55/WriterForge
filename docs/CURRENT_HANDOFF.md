@@ -1,6 +1,19 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.Q 新戏楼 G 真模型跨章来源复读：读者独立发现票据位置变化，原作者仍依据未写出的转移决定保留；只记录未证来源，不强制改稿（2026-10-25，本轮最新）
+
+**务必继续从事实原件开始**：[WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md](WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md) → [WF_REAL_OPERA_SOURCE_IDENTITY_CROSS_CHAPTER_REVIEW_20261025.md](WF_REAL_OPERA_SOURCE_IDENTITY_CROSS_CHAPTER_REVIEW_20261025.md)。只修改开发分支 `refactor-unified-scene-delivery-audit`，main、Railway、用户 R2 书库、正式接受 Canon 不动，不重复旧 15 章训练、不建第二记忆／审稿模型、无 WF 自己编小说正文。
+
+- **原 G 真写作和来源证据**：前次 [Actions #40110957161](https://github.com/66tyu55/WriterForge/actions/runs/40110957161) 七次真实 DeepSeek，完整 G 章规划／事件规划／两个真实事件段、直接原作者自审、单段读者先行及作者自审，完整旧 provider wire、原稿、未接受候选均在旧附件。源 SHA `2a0d2827d51dc1197065cd21126e091a3fd44c4db3bb7d92048c3167d24f4dbd`。旧合法签名初始章写江遥“衣袖里藏着一张尚未交出去的赎身票据”，模型后续真正文却写“票据还压在箱底一件戏服底下”，**正文没有明写转移动作**。这是一对可源定位的事实疑问，不能只因为 G 绿灯就宣称广义普通物品状态皆已检验；但审美省略是否可接受仍归真正创作 AI 和人类读者判断。
+- **机械哈希与文学意图必须分离**：上轮 reader-first 原作者真正回复 `MOVE_ON` 但把机械 `source_sha256` 返回 `null`，旧严格规则报 `INVALID_SIGNAL`，不能改写历史。新 `writing_assist._ai_decides_when_to_revisit(source_identity_contract="bind_null_current")` 仅当**明确启用且模型未填写当前原文 SHA**，才由 WF 用自己真正已验证的**当前 SHA**绑定返回值，源引句／文学 `decision` 和原始 JSON 字节不修改；提供了错误 SHA、旧段 SHA 为 null、引句伪造或重复则完全拒绝。G reader-first opt-in 独立开启；旧基线不受影响。[零新模型的完整七次 provider 源回放 #40151464649](https://github.com/66tyu55/WriterForge/actions/runs/40151464649) 保留旧 INVALID，验证只补漏填 SHA 后原文学结果仍真实为 `MOVE_ON`。
+- **本轮新实测，不能擦掉红灯**：[DeepSeek 官方 #40151857245](https://github.com/66tyu55/WriterForge/actions/runs/40151857245)，付费前从 #40110957161 回读七次真实 wire、当章 V96、V117 唯一 graph 和更早源 SHA。相同 DeepSeek 先纯读者视角接收**真实前章全文＋当前第一段小说全文**，自己产出有真实原句配对的 **3 条跨文本阅读推测**；首条明确指出赎身票据袖内→戏服箱底没有明写转移，另两条为钥匙状态及第三下鼓接续的未证含义。然后同模型切回原作者身份，**合法选择了 `MOVE_ON`**，也声称“票据藏处与宋易持钥匙的状态在上一章末尾已有交代”，但更早原文只写票据藏在衣袖里。小说里可以留白，不可把没有写过的转移当已证前史。新增**2 次真实 DeepSeek provider 请求**，没有 V119 调用、没有修订成功、没有改写原稿；旧所有模型结果均独立保存。
+- **保留三个未证，而非程序认定三处错误**：`reader_report.cross_source_links` 的 SHA 和唯一原句从真实源码核对，WF 不把其解释当已确认的角色行动；原 `self_edit_moment_receipts`／`turn_evidence`／chapter data 追加 `cross_source_reader_hypotheses_unverified_count` 和 `author_kept_unresolved_cross_source_hypotheses` 这些**仅审阅元数据**。既有 V96/V114/V117/唯一 NarrativeCore 仍负责来源/恢复；不会因 AI `MOVE_ON` 晋级编造的物件持有状态。旧作者真实原答复的 [0 新付费来源重放 #40152137576](https://github.com/66tyu55/WriterForge/actions/runs/40152137576) 成功，三条读者未证审阅债务与其 `MOVE_ON` 同时可追溯，不生成新小说。
+- **如实记录工程红灯及绿灯**：本轮初始无模型真实来源回放 [#40151345236](https://github.com/66tyu55/WriterForge/actions/runs/40151345236) 是脚本错误拒绝合法 `PosixPath`；首次新增两段来源单测 [#40151682340](https://github.com/66tyu55/WriterForge/actions/runs/40151682340) 只是漏 `import unittest`。均仅修机械源和测试导入，**没有**取消来源 SHA 绑定、虚假引用/非唯一引用、V96 因果父节点检验。最新无模型完整回归 [#40152033480](https://github.com/66tyu55/WriterForge/actions/runs/40152033480) **1,576 tests run，4 skipped，0 failures**，包含 Studio JS 语法检查；不可用软件回归绿色证明小说自然度改善。
+- **下一阶段文学重点**：**不能靠第四次第五次提示同模型认错来作弊**。应要求小说原作者针对独立读者的来源疑问明确区分“真正有原文引句证明的转换”和“没有写出来但故意留白”，若自称前章已交代则必须给唯一原句，WF 只做机械核对；如果无对应原句可以 `UNWRITTEN_OR_UNKNOWN` 并继续保持 `MOVE_ON`，但不得成为物理状态/人物知识的正典事实。不增加文学打分器、不自动补台词或剧情，也不把模型的主观自评当文学进步。后续要换新题目且独立读者盲评，新的付费模型请求需用户另行指示。本轮已经结束。
+
+---
+
 ## 0.P 真正让同一写作 AI 先像独立读者寻找“原文 vs 推测”，再作为作家自主取舍：真实 LOOK_BACK_NOW，但严格 V119/V96 最终仍拒稿（2026-10-24，本轮最新）
 
 **正确下一阶段入口**：[WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md](WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md) → [WF_READER_FIRST_SAME_AI_LITERARY_REAL_PILOT_20261024.md](WF_READER_FIRST_SAME_AI_LITERARY_REAL_PILOT_20261024.md)。旧 0.O 三次对**同一篇真实 DeepSeek 451 字候选**读回都选 `MOVE_ON`，所有原始供应商回包与这次新结果一起存档，不能覆盖老反例或冒称模型训练。仅开发分支 `refactor-unified-scene-delivery-audit`，不改 main / Railway / R2 原著 / Canon，不重新训练已做 15 章，不另建文学记忆或审稿 AI。
