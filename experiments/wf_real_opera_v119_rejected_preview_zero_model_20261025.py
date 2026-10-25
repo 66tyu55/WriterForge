@@ -53,8 +53,7 @@ def verified_model_proposal():
     if (response!=private or digest(response)!=proof.get("decoded_sha256") or
         digest(wire)!=proof.get("original_wire_sha256") or
         proof.get("wire_saved_before_parsing") is not True or
-        original_source!=entry.get("old_source_sha256") and
-            digest(original_source)!=old.TARGET_SOURCE_SHA):
+        digest(original_source)!=old.TARGET_SOURCE_SHA):
         raise ValueError("WF_REAL_V119_ARCHIVED_WIRE_TAMPERED")
     if (digest(original_source)!=old.TARGET_SOURCE_SHA or
         receipt.get("rounds",[{}])[0].get("reason_code")!=RECEIPT_PROBLEM or
