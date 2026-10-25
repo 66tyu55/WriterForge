@@ -278,3 +278,139 @@ def temporal_prompt(checkpoint):
     parts.append("法器、武器和法力用掉后必须有来源才能再使用。"
                  "未知、幻术、倒叙可明说，不为了修补牺牲小说自然度。")
     return "\n".join(parts)[:1450]
+
+
+
+def replay_revised_source_checkpoint(
+        *,source_before,checkpoint_before,v119_preview_receipt,
+        corrected_source,parent_checkpoint=None,cast=()):
+    """Rebuild a NEW, signed V114 candidate from a real V119 text edit.
+
+    Do not append the edited prose to the OLD candidate state. The old
+    checkpoint and every derived later checkpoint remain a DIFFERENT draft
+    branch and must not be reused as descendants of this revised source.
+    The V119 preview's surgical source proof is checked *before* re-running
+    the original pinned reducer; neither the host nor a model can erase
+    unresolved debt by declaring a rewrite successful. No Canon/R2 calls.
+    """
+    from collections import Counter
+    from .v119_revision_transaction import (
+        FORMAT as REVISION_FORMAT,_digest_json,
+    )
+    from .v122_item_provenance import (
+        audit_physical_relation_sources,physical_relation_issue_keys,
+    )
+    need(type(source_before) is str and
+         type(corrected_source) is str and
+         1<=len(source_before)<=20000 and
+         1<=len(corrected_source)<=20000 and
+         type(v119_preview_receipt) is dict and
+         v119_preview_receipt.get("format")==REVISION_FORMAT and
+         v119_preview_receipt.get("status")=="PROVISIONAL_REVIEW" and
+         v119_preview_receipt.get("receipt_sha256")==_digest_json({
+             k:v for k,v in v119_preview_receipt.items()
+             if k!="receipt_sha256"}),
+         "WF114_REVISION_TRANSACTION_NOT_PROVEN")
+    original_sha=hashb(source_before.encode("utf8"))
+    revised_sha=hashb(corrected_source.encode("utf8"))
+    need(type(checkpoint_before) is dict and
+         checkpoint_before.get("format")==
+             "wf.writing.external-temporal-checkpoint.v114" and
+         checkpoint_before.get("receipt_sha256")==hashb(packed({
+             k:v for k,v in checkpoint_before.items()
+             if k!="receipt_sha256"}) ) and
+         checkpoint_before.get("source_sha256")==original_sha and
+         v119_preview_receipt.get("source_sha256")==original_sha and
+         v119_preview_receipt.get("candidate_sha256")==revised_sha and
+         v119_preview_receipt.get("only_declared_selection_changed") is True,
+         "WF114_REVISION_WRONG_SOURCE_OR_SIGNED_CHECKPOINT")
+    selection=v119_preview_receipt.get("selection")
+    need(type(selection) is list and len(selection)==2 and
+         all(type(n) is int for n in selection) and
+         0<=selection[0]<selection[1]<=len(source_before),
+         "WF114_REVISION_INVALID_SELECTED_SPAN")
+    start,end=selection
+    prefix,selected,suffix=(
+        source_before[:start],source_before[start:end],source_before[end:])
+    need(corrected_source.startswith(prefix) and
+         corrected_source.endswith(suffix) and
+         len(corrected_source)>=len(prefix)+len(suffix),
+         "WF114_REVISION_UNRELATED_TEXT_CHANGED")
+    new_end=(len(corrected_source)-len(suffix)
+             if suffix else len(corrected_source))
+    replacement=corrected_source[start:new_end]
+    need(hashb(selected.encode("utf8"))==
+             v119_preview_receipt.get("expected_selection_sha256") and
+         hashb(replacement.encode("utf8"))==
+             v119_preview_receipt.get("replacement_sha256") and
+         hashb(prefix.encode("utf8"))==
+             v119_preview_receipt.get("untouched_prefix_sha256") and
+         hashb(suffix.encode("utf8"))==
+             v119_preview_receipt.get("untouched_suffix_sha256"),
+         "WF114_REVISION_SELECTED_TEXT_NOT_SOURCE_LOCKED")
+    if parent_checkpoint is None:
+        need(checkpoint_before.get("sequence")==1 and
+             checkpoint_before.get("previous_checkpoint_sha256") is None,
+             "WF114_REVISION_MISSING_OR_WRONG_PARENT")
+    else:
+        need(type(parent_checkpoint) is dict and
+             parent_checkpoint.get("receipt_sha256")==hashb(packed({
+                 k:v for k,v in parent_checkpoint.items()
+                 if k!="receipt_sha256"}) ) and
+             checkpoint_before.get("previous_checkpoint_sha256")==
+                 parent_checkpoint.get("receipt_sha256") and
+             checkpoint_before.get("sequence")==
+                 parent_checkpoint.get("sequence",0)+1,
+             "WF114_REVISION_MISSING_OR_WRONG_PARENT")
+    old_physical=checkpoint_before.get(
+        "v122_physical_relation_source_receipt")
+    need(type(old_physical) is dict and
+         old_physical.get("source_sha256")==original_sha and
+         old_physical.get("receipt_sha256")==
+             hashb(packed({
+                 k:v for k,v in old_physical.items()
+                 if k!="receipt_sha256"})),
+         "WF114_REVISION_OLD_RELATION_SOURCE_UNTRUSTED")
+    # A generic warning "NEEDS_SOURCE_RELATION_REVIEW" is not a
+    # per-object identity; use source-key multiplicities instead.
+    old_keys=physical_relation_issue_keys(old_physical)
+    rebuilt=external_temporal_step(
+        corrected_source,cast=cast,prior=parent_checkpoint)
+    fresh_physical=rebuilt["v122_physical_relation_source_receipt"]
+    new_keys=physical_relation_issue_keys(fresh_physical)
+    retired=sorted((Counter(old_keys)-Counter(new_keys)).elements())
+    newly_detected=sorted((Counter(new_keys)-Counter(old_keys)).elements())
+    old_prior=[
+        x for x in old_physical.get("open_relation_reviews",[])
+        if x.get("origin_source_sha256")!=original_sha]
+    fresh_open=fresh_physical["open_relation_reviews"]
+    def identity(row):
+        return (row["origin_source_sha256"],
+                row["first_source_quote_sha256"],
+                row["second_source_quote_sha256"])
+    # Older chapters are immutable: editing the current chapter must not
+    # magically cancel a prior unrelated source debt.
+    need(all(any(identity(p)==identity(row) for p in fresh_open)
+                 for row in old_prior),
+         "WF114_REVISION_DROPPED_PREVIOUS_SOURCE_DEBT")
+    return {
+        "format":"wf.v114.v119-signed-revised-source-replay.v1",
+        "status":"SOURCE_CHANGED_REQUIRES_DOWNSTREAM_REPLAY",
+        "old_source_sha256":original_sha,
+        "revised_source_sha256":revised_sha,
+        "original_checkpoint_sha256":checkpoint_before["receipt_sha256"],
+        "rebuilt_checkpoint_sha256":rebuilt["receipt_sha256"],
+        "author_v119_preview_sha256":v119_preview_receipt["receipt_sha256"],
+        "retired_old_source_relation_count":len(retired),
+        "new_source_relation_count":len(fresh_open),
+        "new_relation_issues_from_edit":newly_detected,
+        "remaining_relation_review_count":len(fresh_open),
+        "all_old_derived_downstream_invalidated":True,
+        "no_old_downstream_may_be_reused_on_revised_branch":True,
+        "existing_parent_source_debt_kept":True,
+        "recomputed_unaccepted_v114_checkpoint":rebuilt,
+        "source_state_semantics_not_fully_verified":True,
+        "author_accepted":False,"literary_improvement_verified":False,
+        "automatic_story_generation":False,
+        "model_calls":0,"R2_writes":0,"canon_writes":0,
+    }
