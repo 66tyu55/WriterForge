@@ -7,6 +7,7 @@ All original wire SHA and original prompt SHA must match before scoring.
 """
 from __future__ import annotations
 from pathlib import Path
+from shutil import copytree
 import json
 
 from experiments.wf_0ag_diverse_micro_paired_20261025 import (
@@ -136,6 +137,15 @@ def main():
     try:
         cases,first,second=replay_twelve()
         summary["cases"]=cases
+        # Consolidate the twelve already-verified *original* envelopes,
+        # including the failed grader's authentic response formatting.
+        # Files are copied after SHA verification; no source rewriting.
+        copytree(
+            "wf0ag_first_three_provider_artifact/provider-originals",
+            OUT/"provider-originals"/"first-paid-run")
+        copytree(
+            "wf0ag_paid_reverse_three_artifact/reverse-provider-originals",
+            OUT/"provider-originals"/"reverse-paid-run")
         summary["status"]="TWELVE_TRUE_SHA_LOCKED_WIRES_THREE_DOUBLE_BLIND_SCORES_RECOVERED"
     except Exception as e:
         summary["status"]="FORENSIC_HOLD_NO_APPROXIMATE_SCORES"
