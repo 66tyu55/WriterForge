@@ -1,6 +1,18 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.X 测试本来是爆出 WF 自身缺陷，不能让 WF 迎合 AI：三项实测红→绿修复（2026-10-25，最新）
+
+**优先阅读**：[WF_0X_FAILURE_FIRST_WF_DEFECT_REPAIR_20261025.md](WF_0X_FAILURE_FIRST_WF_DEFECT_REPAIR_20261025.md) → [WF_0W_CONTAINER_CROSS_CHAPTER_REAL_WRITER_20261025.md](WF_0W_CONTAINER_CROSS_CHAPTER_REAL_WRITER_20261025.md) → [WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md](WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md)。用户明确纠偏：**测试是为了发现 WF 底层的错误，再修 WF；不是让 WF 迁就 AI 的 `MOVE_ON` 或不断提问逼 AI 修改。** 此阶段新文学模型调用0次，仅开发分支 `refactor-unified-scene-delivery-audit`；主线 main、Railway、R2 原小说、正式 Canon、旧模型回包和已完成的15章训练都不动。
+
+- **WF 错误 1：V119 只比较风险码，可能漏检“改完旧错，产生另一个同码新错”**。原 `v122_item_provenance.physical_relation_issue_keys` 现给不同物件/接触对象/关系类别建立具体 SHA 风险身份（重复风险按多重集保留）；原 `v119_revision_transaction.preview_revision/compare_source_repair_impact` 返回旧/新增/消失/仍存风险身份，不能用同一个 `NEEDS_SOURCE_RELATION_REVIEW` 掩盖新错误。严格只是软件来源归类，不是文学评分。
+- **WF 错误 2：合法 V119 修了原文，旧 V114 未证债务不能安全结案**。原 `v114_external_story_state.replay_revised_source_checkpoint` 新增源锁重放入口，逐字段校验 V119 签名、原/新原文 SHA、被改字符范围、未改前后缀和正确的上一版本，再调用原 Novel Studio reducer 建新的非 Canon V114 签名候选；仅这次原文真正消失的冲突能退役，前章仍未证状态必须保留。**这是可调用的显式重建事务，并未证明所有 G 长篇旧章节的派生图自动回滚/重写完成；下游新版本链仍要实测。**
+- **WF 错误 3：重复物理状态引句会被全文唯一性校验直接丢弃，造成误放行**。V122 现在按原文 SHA + 出现位置 + 引句 SHA 区分同样的两次句子；原 G `_physical_relation_source_hold` 同样用位置验证。仅同句重复不自动判错；与相反状态发生时不会静默跳过待核。
+- **先红再绿的工程证据**：[缺少修订重建接口的红灯 #40174663965](https://github.com/66tyu55/WriterForge/actions/runs/40174663965)，[重复引句两项失败 #40175124198](https://github.com/66tyu55/WriterForge/actions/runs/40175124198)，[最终全量 #40175372260](https://github.com/66tyu55/WriterForge/actions/runs/40175372260) **1,665 tests run、7 skipped、0 failed**。三个真实 WF 缺陷已落成原 `tests/test_wf_0x_bug_hunt_state_repair.py` 的对抗回归，不使用原模型代写/模拟文学进步、无需新模型或第二记忆。
+- **后续验收重点**：继续找假绿色/假红色、状态丢失、未授权“清债”、跨章老派生状态复用和过度正则覆盖问题。采用“失败原稿→红灯复现→精确模块级修复→原样正反例绿色”的顺序；**KEEP/MOVE_ON 是作者选择，绝不取代 WF 世界状态真值边界**。系统真实不确定时保留 UNKNOWN、不能晋级确定前因；AI 不想改稿也不能让 WF 报 SAFE。真正同作者文学改稿 + 重新写下游 + 实际文学质量提升仍**未证明**，不能再重复付费劝旧《潮簿》或《雨册》作者。
+
+---
+
 ## 0.W 容器/多物件/跨章来源债务不断链 + 全新《雨册》同作者逐段真写：工程1,656通过，但作者又选 MOVE_ON、真实改稿仍0（2026-10-25，最新）
 
 **下一窗口先读**：[WF_0W_CONTAINER_CROSS_CHAPTER_REAL_WRITER_20261025.md](WF_0W_CONTAINER_CROSS_CHAPTER_REAL_WRITER_20261025.md) → [WF_0V_SOURCE_RELATION_REPAIR_20261025.md](WF_0V_SOURCE_RELATION_REPAIR_20261025.md) → [WF_0T_REAL_FANREN_SENTENCE_EVIDENCE_20261025.md](WF_0T_REAL_FANREN_SENTENCE_EVIDENCE_20261025.md) → [WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md](WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md)。**仅开发分支 `refactor-unified-scene-delivery-audit`；不修改 main、Railway、私有 R2 原小说、正式 Canon。不能因为 CI 绿灯宣称文学变好。**
