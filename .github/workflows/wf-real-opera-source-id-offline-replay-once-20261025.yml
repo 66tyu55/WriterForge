@@ -4,6 +4,7 @@ on:
     branches: [refactor-unified-scene-delivery-audit]
     paths:
       - experiments/WF_REAL_OPERA_SOURCE_ID_REPLAY_ONCE_20261025.txt
+      - experiments/WF_REAL_OPERA_SOURCE_ID_PATHLIB_FIX_ONCE_20261025.txt
 permissions:
   contents: read
   actions: read
