@@ -1908,7 +1908,7 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                  ).write_text(changed,encoding="utf8")
                 rounds.append({
                     "round":i+1,
-                    "status":"HELD_NEW_UNVERIFIED_SOURCE_RISK",
+                    "status":repair_impact["status"],
                     "source_repair_contract_sha256":guide["receipt_sha256"],
                     "repair_impact_sha256":repair_impact["receipt_sha256"],
                     "new_review_findings":repair_impact[
