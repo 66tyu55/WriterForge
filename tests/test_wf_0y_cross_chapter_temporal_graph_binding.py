@@ -165,6 +165,84 @@ class SignedSourceTemporalMismatch(unittest.TestCase):
                             chapter_index=1,checkpoint=injected,
                             unified_narrative_core=graph)
 
+    def test_signed_branch_rewrite_keeps_hot_warm_cold_prefix_but_not_obsolete_tail(self):
+        # More than eleven chapters force OLD original history into the
+        # existing hot/warm/cold memory lanes. Chapter 13 is then replaced;
+        # chapter 14 may contain the SAME text but must get a new parent.
+        from writerforge.writing_assist import _save_unified_cold_capsule
+        from writerforge.narrative_core import recall_original
+        with TemporaryDirectory() as td:
+            root=Path(td)
+            g=new_graph(project_id=PROJECT,scene_id=SCENE)
+            cp=None
+            prefix_sources={}
+            def store(parent,chapter,text,state):
+                advanced=advance_graph(
+                    parent,project_id=PROJECT,scene_id=SCENE,
+                    chapter_index=chapter,prose=text,events=())
+                file=root/f"chapter-{chapter}-{state['source_sha256'][:9]}.md"
+                file.write_text(text,encoding="utf8")
+                return record_chapter_memory(
+                    advanced,project_id=PROJECT,scene_id=SCENE,
+                    chapter_index=chapter,prose=text,source_path=str(file),
+                    chapter_source_parts=(text,),
+                    chapter_temporal_checkpoints=(state,),
+                    archive_writer=lambda packet:_save_unified_cold_capsule(
+                        root,packet))
+            for chapter in range(1,13):
+                txt=(f"第{chapter}章，姜岚只把亲眼见到的水位写在账簿里。"
+                     "许槐仍不知道堤坝外面是谁移动了木船。")
+                cp=external_temporal_step(txt,prior=cp,cast=CAST)
+                g=store(g,chapter,txt,cp)
+                prefix_sources[chapter]=txt
+            self.assertGreater(g["memory"]["cold_count"],0)
+            self.assertEqual(len(g["memory"]["hot"]),3)
+            self.assertEqual(len(g["memory"]["warm"]),8)
+            self.assertTrue(g["source_temporal_link"]["ancestry_fully_verified"])
+            head=g["memory"]["cold_head"]
+            self.assertIsNotNone(head)
+            chapter13_old="第13章，姜岚将青铜牌交给许槐。许槐接过后先把物件锁进木匣。"
+            chapter13_new="第13章，姜岚没有交出青铜牌。她转身把物件留在自己的衣袋里。"
+            same14="第14章，雨在午夜再次变大，城外的人谨慎观察河道而没有交换消息。"
+            cp13_old=external_temporal_step(chapter13_old,prior=cp,cast=CAST)
+            g13_old=store(g,13,chapter13_old,cp13_old)
+            cp14_old=external_temporal_step(same14,prior=cp13_old,cast=CAST)
+            g14_old=store(g13_old,14,same14,cp14_old)
+            cp13_new=external_temporal_step(chapter13_new,prior=cp,cast=CAST)
+            g13_new=store(g,13,chapter13_new,cp13_new)
+            cp14_new=external_temporal_step(same14,prior=cp13_new,cast=CAST)
+            g14_new=store(g13_new,14,same14,cp14_new)
+            self.assertEqual(g["memory"]["cold_head"],head)
+            self.assertEqual(g["memory"]["cold_count"],1)
+            self.assertNotEqual(g14_new["receipt_sha256"],g14_old["receipt_sha256"])
+            self.assertNotEqual(g14_new["parent_sha256"],g14_old["parent_sha256"])
+            self.assertEqual(
+                g14_new["source_temporal_link"]["previous_v114_checkpoint_sha256"],
+                cp13_new["receipt_sha256"])
+            self.assertTrue(g14_new["source_temporal_link"]["ancestry_fully_verified"])
+            self.assertEqual(g14_new["memory"]["last_recorded_chapter"],14)
+            self.assertFalse(any(
+                x["source_sha256"]==cp13_old["source_sha256"]
+                for x in g14_new["memory"]["hot"]+g14_new["memory"]["warm"]))
+            self.assertTrue(any(
+                x["source_sha256"]==cp13_new["source_sha256"]
+                for x in g14_new["memory"]["hot"]))
+            for chapter in (1,4,8,11,12):
+                self.assertEqual(
+                    recall_original(g14_new,project_id=PROJECT,scene_id=SCENE,
+                                    chapter_index=chapter),
+                    prefix_sources[chapter])
+            valid=make_resume(
+                project_id=PROJECT,scene_id=SCENE,chapter_index=14,
+                checkpoint=cp14_new,unified_narrative_core=g14_new)
+            self.assertEqual(read_resume(
+                valid,project_id=PROJECT,scene_id=SCENE),cp14_new)
+            with self.assertRaisesRegex(
+                Exception,"WF117_GRAPH_TEMPORAL_SOURCE_MISMATCH"):
+                make_resume(project_id=PROJECT,scene_id=SCENE,
+                            chapter_index=14,checkpoint=cp14_new,
+                            unified_narrative_core=g14_old)
+
     def test_old_graph_descendant_cannot_use_new_revised_temporal_parent(self):
         with TemporaryDirectory() as tmp:
             root=Path(tmp)
