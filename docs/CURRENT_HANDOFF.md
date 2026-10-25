@@ -1,6 +1,21 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.AG 最新真实文学实测及评分底层 RED→GREEN（2026-10-25）
+
+**最新第一入口：** [WF_0AG_THREE_REAL_ORIGINALS_CAUSAL_AND_RATER_FORENSICS_20261025.md](WF_0AG_THREE_REAL_ORIGINALS_CAUSAL_AND_RATER_FORENSICS_20261025.md) → [原始六份文学作者与三次首评分 #40198761026](https://github.com/66tyu55/WriterForge/actions/runs/40198761026) → [仅补三次逆序评分的原始第二轮 #40199709409](https://github.com/66tyu55/WriterForge/actions/runs/40199709409) → **[全部12份原始回包零模型复核 #40200160702](https://github.com/66tyu55/WriterForge/actions/runs/40200160702)**（SUCCESS）。
+
+- **新十类型已真实完成首批 3 类，不是“全部还没开始”**：武侠护伤者过桥、断电老屋恐怖、盐商两张借据计谋。DeepSeek Flash 同题同上限 1400 author tokens，200～350字，每类裸/WF 各一份，共 **6 份不可修改的原作者正文**；第一次实际 9 次调用（6 作者 + 3 顺序甲/乙盲评），第二次只有 3 次逆序评分，**没有新增作者、没有重复旧0.AD/0.AE写作**。合并零模型验证 **12/12 provider wire SHA、6/6原稿 SHA、原始 prompt SHA**。本次最终汇总额外模型调用 **0**。
+- **真实双顺序分数（裸 / WF / 差值，百分制）**：武侠 **80.5 / 82.5 / +2.0**，长度比 1.121，仍只算单题同族模型探索；恐怖 **78.0 / 83.5 / +5.5**，长度比1.257、裸组换序波动16分，**NOT_COMPARABLE**；计谋 **69.5 / 78.5 / +9.0**，长度比1.204，**NOT_COMPARABLE**。绝不把+5.5或+9写成文学提升证据，原书参照也未达匹配条件。
+- **真实评分接口软件错误执行 RED→FIX→GREEN**：真实 DeepSeek 首评分返回预登记五项顺序的整数数组，原旧 parser 只认五个具名键；武侠首评分164字评语又超过旧160字符上限；逆序评分的武侠/恐怖把ratings返回甲乙键名的字典而不是数组。修补既有 experiments/wf_0ag_diverse_micro_paired_20261025.py 中 parse_micro_judge 的**输入结构无损归一化**，保留全量原评语、五项数字和原件SHA，不更改评分/小说、不再次付费重问。12真实wire全量回放 #40200160702 为 GREEN，三个评分完整恢复。
+- **因果边界不夸大**：武侠“抽绳失败→改试歪板”是合法连贯的防假红对照；恐怖 action 引远方异响，但 effect 引踩到茶杯后蹲下，存在中间事件导致的**可疑错配**；计谋 action 引抄回单，effect 引“谁也没压住谁”是难以核实为实际转折的修辞性结果。三份 V96 字面引句顺序均通过，但其回执 causal_relation_verified **均为 false**，没有写入 Canon，故尚不能据此断言系统已把假因果升为事实，也不能因高分自动放行。需用 source-first 正反例确认真正下游漏检后再改 V96/V98/V114，不可为省略和限知视角造假红。
+- **十类中还有 7 类未执行真实模型**：仙侠灵植、历史传令、喜剧错单、言情旧照片、日常钥匙、科幻压差、初雪抒情。下一批优先按原 0.AF/0.AG 冻结题目跑仙侠、历史、喜剧；每次200～350字、同模型同题同输出上限、记录原始wire、双顺序评分及来源/逻辑问题。不得再对已完成的首批三题重复作者或评委收费；须先处理明确软件 RED，再进入下一批。
+- **严格禁令**：唯一工作分支 refactor-unified-scene-delivery-audit；main、Railway、用户 R2 原著、正式 Canon 零修改/部署；保留 V26/V98/V119 和唯一 NarrativeCore，不新增独立文学记忆、不重复旧15章训练、WF 不生成文学正文或代 AI 决定艺术删改。零模型全量[CI #40199929236](https://github.com/66tyu55/WriterForge/actions/runs/40199929236) 成功；12-wire源回放 #40200160702 成功。
+
+---
+
+
+
 ## 0.AG 上限中断交接：多种文本/内容/场景/类型才可发现 WF 真缺陷，继续先红后绿（2026-10-25，最新）
 
 **下一会话从这里开始**：[WF_0AG_DIVERSE_LITERARY_FAILURE_FIRST_HANDOFF_20261025.md](WF_0AG_DIVERSE_LITERARY_FAILURE_FIRST_HANDOFF_20261025.md) → [WF_0AF_DIVERSE_GENRE_FAILURE_DISCOVERY_20261025.md](WF_0AF_DIVERSE_GENRE_FAILURE_DISCOVERY_20261025.md) → [WF_0AA_0AB_REAL_LITERARY_SCORECARD_20261025.md](WF_0AA_0AB_REAL_LITERARY_SCORECARD_20261025.md)。用户强调：**不要反复同一场景劝 AI 修改；用不同文本、内容、场景和文学类型产生真实反例，暴露 WF 本身误报、漏报和无法提升写作质量的具体原因，再修复原底层**。本次用户说“上限了——交接”，只保存文档，尚未启动新的测试任务或付费模型调用。
