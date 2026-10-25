@@ -81,6 +81,73 @@ class OfflineNovelist:
         return fake
 
 
+EDIT_OLD="姜岚没有替他编造借口"
+EDIT_NEW="姜岚依旧没有替他编造借口"
+EDITED_PROSE2=PROSE2.replace(EDIT_OLD,EDIT_NEW,1)
+PROSE3=(
+    "凌晨的石桥上，姜岚仍记得许槐在交接簿上签下的名字。"
+    "她决定先把旧表抄成两份，自己留下一份，再把另一份交给真正负责查水位的人。"
+    "薄纸被河风吹得直响，城门尚未打开，她只能靠站在檐下等待天明。"
+    "她还不知道旧账是谁改过，也不打算把传闻当成已经核对过的结果。"
+)
+
+
+class OfflineNovelistSelfReviser(OfflineNovelist):
+    def ask(self,name,content,limit):
+        if name=="author-self-decision":
+            self.calls.append((name,content,limit))
+            self.budget.calls_reserved+=1
+            return json.dumps({
+                "decision":"LOOK_BACK_NOW","target_turn":"current",
+                "source_sha256":None,
+                "evidence_quote":EDIT_OLD,"focus":"sentence",
+                "why_now":"人物在签字后应表现更稳定的疑虑，当前语气突然下定论。",
+                "what_goes_wrong_if_unchanged":"后续人物可能把没有证据的签字当作已知真相。",
+                "intended_reader_effect":"让读者感受到谨慎但不失去继续追索的动力。"
+            },ensure_ascii=False)
+        if name=="author-source-V119-edit":
+            self.calls.append((name,content,limit))
+            self.budget.calls_reserved+=1
+            if sum(row[0]=="author-source-V119-edit" for row in self.calls)==1:
+                return json.dumps({
+                    "decision":"REVISE","scope":"sentence",
+                    "source_sha256":exp.digest(PROSE2),
+                    "start":PROSE2.index(EDIT_OLD),
+                    "end":PROSE2.index(EDIT_OLD)+len(EDIT_OLD),
+                    "expected_original":EDIT_OLD,
+                    "replacement":EDIT_NEW,
+                    "trace":{
+                        "action_quote":"她把潮汛表递到许槐面前",
+                        "effect_quote":"许槐皱着眉在交接簿上签了字",
+                        "parent_effect_quote":EFFECT1,
+                    },
+                    "reason":"保留已有代价，局部处理人物的判断态度。"
+                },ensure_ascii=False)
+            return json.dumps({
+                "decision":"KEEP","scope":None,
+                "source_sha256":exp.digest(EDITED_PROSE2),
+                "start":None,"end":None,"expected_original":None,
+                "replacement":None,"trace":None,
+                "reason":"修订后的前因后果已经足够清晰，无须反复修改。"
+            },ensure_ascii=False)
+        if name=="author-next-beat":
+            self.calls.append((name,content,limit))
+            self.budget.calls_reserved+=1
+            return json.dumps({"turn":{
+                "id":"t03","kind":"quiet","actor":"姜岚",
+                "goal":"谨慎保存已经交接的真实记录，继续调查来源而不预支未证秘密",
+                "causal_parent":"t02","craft_focus":[]}},
+                ensure_ascii=False)
+        if name=="new-downstream-from-repaired-source":
+            self.calls.append((name,content,limit))
+            self.budget.calls_reserved+=1
+            assert EDIT_NEW in content
+            return raw(PROSE3,None,None,
+                       "许槐皱着眉在交接簿上签了字")
+        return super().ask(name,content,limit)
+
+
+
 class NewOriginalPilotBoundary(unittest.TestCase):
     def test_budget_and_independent_story_identity(self):
         self.assertEqual(exp.MAX_NEW_CALLS,8)
@@ -113,6 +180,33 @@ class NewOriginalPilotBoundary(unittest.TestCase):
             self.assertTrue((root/"first-author-original.md").is_file())
             self.assertTrue((root/"second-author-original.md").is_file())
             self.assertFalse((root/"REAL_AUTHOR_UNACCEPTED_STAGED_STORY.md").exists())
+
+    def test_synthetic_v119_author_revises_and_new_downstream_is_actually_regenerated(self):
+        # No model is called; this ONLY proves the exact transaction wiring.
+        with TemporaryDirectory() as d:
+            root=Path(d)/"one-synthetic-revision"
+            root.mkdir()
+            with patch.object(exp,"OUT",root),patch.object(
+                exp,"OneNovelist",OfflineNovelistSelfReviser),patch.dict(
+                os.environ,{"DEEPSEEK_API_KEY":"test-only-long-fake-api-key"}):
+                result,writer=exp.execute()
+            self.assertEqual(result["status"],
+                             "GENUINE_SAME_AUTHOR_SOURCE_EDIT_AND_FRESH_DOWNSTREAM",
+                             result)
+            self.assertEqual(result["actual_author_choice"],"LOOK_BACK_NOW")
+            self.assertTrue(result["actually_safe_revised_prose_and_new_downstream"])
+            self.assertFalse(
+                result["new_prose_literary_improvement_independently_verified"])
+            self.assertEqual(len(writer.calls),8,writer.calls)
+            self.assertTrue((root/"REAL_AUTHOR_UNACCEPTED_STAGED_STORY.md").exists())
+            manuscript=(root/"REAL_AUTHOR_UNACCEPTED_STAGED_STORY.md").read_text("utf8")
+            self.assertIn(EDIT_NEW,manuscript)
+            self.assertNotIn(EDIT_OLD,manuscript)
+            self.assertIn(PROSE3,manuscript)
+            self.assertEqual(result["new_downstream_prose_sha256"],exp.digest(PROSE3))
+            edit=json.loads((root/"author-V119-result.json").read_text("utf8"))
+            self.assertEqual(edit["rounds"][0]["status"],"PROVISIONALLY_REVISED")
+            self.assertEqual(edit["rounds"][1]["status"],"KEEP_BY_WRITER")
 
     def test_source_only_relation_hold_does_not_write_fiction(self):
         scene=("铜牌还在木匣里，只是铜牌已经被人从木匣里取出来。"
