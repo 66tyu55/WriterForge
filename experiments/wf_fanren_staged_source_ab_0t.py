@@ -69,7 +69,7 @@ AUTHOR_SYSTEM = (
     "严格只输出当前协议规定的 JSON 对象。"
 )
 CHAPTER_RE = re.compile(
-    r"(?m)^[ \\t]*第[0-9零一二三四五六七八九十百千]{1,8}章[^\\n\\r]{0,45}$"
+    r"(?m)^[ \t]*第[0-9零一二三四五六七八九十百千]{1,8}章[^\n\r]{0,45}$"
 )
 
 def sha(value):
@@ -92,7 +92,7 @@ def source_windows(text):
     result=[]
     for i in range(FIRST_CHAPTERS):
         span=text[matches[i].end():matches[i+1].start()]
-        span=re.sub(r"\\s+","",span)[:EXCERPT_CHARS]
+        span=re.sub(r"\s+","",span)[:EXCERPT_CHARS]
         require(len(span)>=EXCERPT_CHARS and
                 "\ufffd" not in span, "WF0T_BOOK_CHAPTER_TOO_SHORT_OR_CORRUPT")
         result.append(span)
