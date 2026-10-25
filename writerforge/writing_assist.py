@@ -1864,13 +1864,20 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                 # If this extra same-model call still gets citation wrong,
                 # V96 rejects, the source is rolled back, and no third
                 # automatic request occurs.
+                def counted_source_trace_model(packet,*,model,api_base,
+                                               max_tokens):
+                    nonlocal calls
+                    # Count the call even if its reply is malformed:
+                    # parsing failure must never silently refund tokens.
+                    calls+=1
+                    return ask_model(packet,model=model,
+                                     api_base=api_base,max_tokens=max_tokens)
                 updated_trace=_ask_same_writer_for_source_trace_only(
                     candidate_prose=changed,invalid_trace=trace,
                     failure_code=original_trace_error,
                     beat=beat,accepted=accepted,
-                    turn_packet=turn_packet,ask_model=ask_model,
+                    turn_packet=turn_packet,ask_model=counted_source_trace_model,
                     directory=directory,cancel_check=cancel_check)
-                calls+=1
                 next_doc={"prose":changed,"trace":updated_trace}
                 next_raw=json.dumps(next_doc,ensure_ascii=False,
                                     separators=(",",":"))
