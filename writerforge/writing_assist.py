@@ -4299,6 +4299,18 @@ class AutonomousWriting:
                             turn["prose"] for turn in accepted_turns),
                         chapter_temporal_checkpoints=tuple(
                             turn_external_checkpoints),
+                        # A chapter-zero ROOT can carry an explicit,
+                        # separately signed V117 initial story state. It
+                        # must be supplied in FULL and match the graph's
+                        # actual parent receipt; a bare V114 seed never
+                        # proves that all ancestry is trustworthy.
+                        root_resume_anchor=(
+                            resume_story_checkpoint
+                            if (resume_story_checkpoint is not None and
+                                type(resume_story_checkpoint) is dict and
+                                resume_story_checkpoint["chapter_index"]==0 and
+                                first_story_chapter_index+index-1==1)
+                            else None),
                         source_writer=(narrative_store.put_original
                                        if narrative_store else None),
                         source_reader=(narrative_store.read_original
