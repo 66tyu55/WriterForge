@@ -1,6 +1,20 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.U 《凡人》前两章逐步阅读真实 A/B 与最后 B 原作家自主复读：读者看见物件疑问，作者仍选择 MOVE_ON；必须补源锁物理关系而非重复提醒（2026-10-25，最新）
+
+**下窗口优先读**：[WF_0T_REAL_FANREN_SENTENCE_EVIDENCE_20261025.md](WF_0T_REAL_FANREN_SENTENCE_EVIDENCE_20261025.md) → [WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md](WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md) → 本文 0.T/0.S 原始失败。所有变更仅 `refactor-unified-scene-delivery-audit`，不改 main、Railway、用户 R2 原著、正式 Canon，不重复旧 15 章训练，不增加第二文学记忆和外部文学裁判。
+
+- **真正从 0→1 的双轨**：[A/B 真实 #40163959949](https://github.com/66tyu55/WriterForge/actions/runs/40163959949)。同一个 DeepSeek Flash + WF V96/V114/V117、同一原创《潮簿》大纲和两段事件计划；A 不获原文，B 依次只获《凡人修仙传》前两章各 230 字私有 R2 阅读窗口，绝不一次灌整章或全书。6 次真实模型调用；A 两段 268/340 汉字，B 两段 226/421 汉字。A 更突出修堤责任代价，B 铺绳结/瓦片悬念；**样本不支持“读原著更好”结论**，人类匿名盲评未做。第一段后两位原作者均真实 `MOVE_ON`，**真实 V119 修订0**。
+- **决定性真物件反例**：B 第二段同一时刻写“绳结还系在木桩上”，又写“绳子被人从桩头解下来”，后文再“重新系回木桩”。老 V96/V114/V117 全部放行，因为绑定关系不是目前严格可证的 item holder 事件；这不是文学评价，而是**普通物件位置/系解关系未覆盖**。A 第二段也用了先前未写明的“照程满教的法子”，属不确定前史，不得自动认定错误或升级事实。
+- **真实自主复读第一轮红灯**：[原件 #40165076370](https://github.com/66tyu55/WriterForge/actions/runs/40165076370)，旧六次 provider SHA 只读回放确认，新增真实读者1次 `finish_reason=length`，1000 completion tokens 截断。其未完成原答确实提出绳结/解下缺少实际转场，但严格保留 `WF_FLASH_OUTPUT_TRUNCATED`，没有补齐坏 JSON、没有作者决定或改稿。
+- **最小结构修复及最终测试**：原 `writing_assist._reader_separates_written_and_inferred` 新增**默认关闭** `compact_source_review=True`，3条实际观察/1段内推测/1跨段推测，保持1000 token、不改原来源 SHA 唯一检验、不新增外部模型。全量 [#40165499368](https://github.com/66tyu55/WriterForge/actions/runs/40165499368) **1,621 tests，6 skipped，0 failures**。最终真正 [#40165586323](https://github.com/66tyu55/WriterForge/actions/runs/40165586323) 又新增2次同一 DeepSeek 模型：读者合法输出 3/1/1，有唯一来源跨段引句指向绳结状态；原作者却 **`MOVE_ON`**，称不揭示谁动绳/瓦片谜底是合理留白，并**没有**辨明目前是否仍系在桩上的物理状态。回执 `author_kept_unresolved_cross_source_hypotheses=true`。**新 V119改稿0、新下游0，文学质量改进未获证实**；旧作品、旧 provider wire 皆未修改。
+- **不能第三次付费劝同一小说原作者**：本案例新跟进实付费共3次（首个读者截断1次 + 紧凑读者和作者决定2次），历史 A/B 6次；不以模拟成功、签名绿灯或 AI 的 `MOVE_ON` 擦掉反例。所有流程运行前先核对原始 SHA／证据，已明确**停止重复付费重问**。
+- **新工程重点**：WF 不能只把 untyped 的 `reader_imagined_step` 文本提示给小说 AI，让它将物理状态与艺术悬念混为一谈。应在**现有唯一 NarrativeCore / V114 / V116 / V122 / V117** 内构造源锁、时态绑定的物理关系候选（物品/位置/系或解/谁见证/source quote/SHA/证实还是角色猜测），把**不知道谁动绳**（可合理留白）和**同刻仍系/已解**（需状态来源核对）分开。冲突证据不足时 `NEEDS_SOURCE_RELATION_REVIEW`，作者可自主选择留白/删改，但**未证物件关系不可晋级事实或作为下游确定前因**。不得用“绳子关键词检测器”冒充普适文学理解；必须有反例（先系后解、两个绳、自由端解绑、人物猜测）。真正有源的改稿仍由同一写作 AI 完成，WF 提供 source-first 契约，修后经过 V119/V96/V114/V117、风险比较和真正下游重新写作验收；新实付费测试必须换原创题。
+- **验收边界**：源追溯、分段原创、有限回头机会已实证；“WF 可帮助真实 AI 完成一次完整合法文学修订 + 重新生成受影响下游 + 读者公正评价”依然 **未完成**。保留 V26 选择续写、V98 文本滚动构思、V119 精确修订、唯一热暖冷叙事记忆、用户取消/废稿隔离，不回退成“红灯提醒一下”的旧方案。
+
+---
+
 ## 0.T WF 不能停在“发现错误，提醒 AI”：已加入有来源的改稿指导、修订影响比较、抗 A→B→A 反复改错和同作者只补引句的有限救援（2026-10-25，本轮最新）
 
 **下一窗口先按此顺序读**：[WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md](WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md) → [WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md](WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md) → 下方 0.S 真 DeepSeek 自主改句却填错 action/effect 的历史原始失败。此次为用户“WF 应自身正确引导和帮助，不是提醒完就算”的**架构纠偏**，不是另一个增加训练样本／堆模块的任务。所有变更仅开发分支 `refactor-unified-scene-delivery-audit`；绝不改 main / Railway / 用户 R2 原著 / 已接受作品 Canon，不重复 15 章训练、不加第二文学记忆或额外模型文学裁判。
