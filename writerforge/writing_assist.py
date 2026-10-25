@@ -991,7 +991,8 @@ def _reader_report_for_author(report,source_sha):
 
 def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
                                 ask_model,directory,cancel_check=None,
-                                reader_report=None):
+                                reader_report=None,
+                                source_identity_contract="model_sha"):
     """Ask the ACTUAL author model whether THIS visible draft needs revision.
 
     The code schedules a chance to reflect after an observable story turn.
@@ -1000,6 +1001,10 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
     dissatisfaction is a private, source-bounded hypothesis, never a
     literary PASS or permission to change Canon.
     """
+    if (source_identity_contract not in ("model_sha","bind_null_current") or
+        type(source_identity_contract) is not str):
+        raise WritingExecutionError(
+            "WF_AI_WRITER_SOURCE_IDENTITY_MODE_INVALID")
     if not callable(ask_model) or not isinstance(directory,Path):
         raise WritingExecutionError("WF_AI_WRITER_MOMENT_INPUT_INVALID")
     try:
@@ -1094,6 +1099,8 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
         "original_decision_sha256":sha256(
             response.encode("utf8")).hexdigest(),
         "only_ai_can_choose_revisit":True,
+        "source_identity_contract":source_identity_contract,
+        "source_sha256_original_model_value_not_changed":True,
         "unverified_reader_input_delivered":reader_provided,
         "reader_did_not_preselect_literary_decision":True,
         "code_has_not_scored_literary_quality":True,
@@ -1140,8 +1147,20 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
             raise ValueError("WF_AI_WRITER_INVALID_LOOKBACK_TARGET")
         target_prose=(preceding_prose if target_turn=="previous" else prose)
         target_sha=(preceding_sha if target_turn=="previous" else original_sha)
+        # The genuine new-scene DeepSeek reader-first answer chose MOVE_ON
+        # but returned source_sha256:null. In explicitly opted-in mode only,
+        # bind this ABSENT mechanical identity to the CURRENT source that
+        # the host had already supplied with exact SHA. This never changes
+        # a model's choice, source quote, reasoning, fiction or original wire.
+        # Non-null mismatches and null PREVIOUS-turn targets fail closed.
+        bound_null_current=(
+            source_identity_contract=="bind_null_current" and
+            target_turn=="current" and
+            fields["source_sha256"] is None)
+        source_claim=(target_sha if bound_null_current
+                      else fields["source_sha256"])
         if (fields["decision"] not in ("MOVE_ON","LOOK_BACK_NOW") or
-            fields["source_sha256"]!=target_sha or
+            source_claim!=target_sha or
             type(fields["why_now"]) is not str or
             not 8<=len(fields["why_now"])<=260):
             raise ValueError("WF_AI_WRITER_SIGNAL_SCHEMA_OR_SOURCE")
@@ -1171,6 +1190,10 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
             "format_wrapper_type_only_removed":wrapper_only_removed,
             "target_turn":target_turn,
             "target_prose_sha256":target_sha,
+            "null_source_sha256_bound_from_current_source":bound_null_current,
+            "model_original_source_sha256_was_null":(
+                fields["source_sha256"] is None),
+            "model_supplied_nonmatching_sha_never_repaired":True,
             "focus":fields["focus"],
             "has_exact_model_quote":fields["evidence_quote"] is not None,
             "quoted_prose_sha256":(
@@ -2797,7 +2820,11 @@ class AutonomousWriting:
                                             reader_report=(
                                                 reader_result.get("report")
                                                 if reader_result is not None
-                                                else None))
+                                                else None),
+                                            source_identity_contract=(
+                                                "bind_null_current"
+                                                if reader_first_self_review
+                                                else "model_sha"))
                                         self_edit_model_calls+=moment["model_calls"]
                                     else:
                                         moment={
