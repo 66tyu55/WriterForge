@@ -41,7 +41,7 @@ def save(path,info):
                                indent=2),encoding="utf8")
 
 def _private_file(root,rel,*,limit=150000):
-    if type(root) is not Path or not root.is_dir():
+    if not isinstance(root,Path) or not root.is_dir():
         raise ValueError("WF_OPERA_REAL_ARTIFACT_ROOT_MISSING")
     target=root/rel
     if (target.is_symlink() or not target.is_file() or
