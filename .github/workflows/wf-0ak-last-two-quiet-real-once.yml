@@ -1,0 +1,91 @@
+name: WF 0.AK Final Daily and Lyrical Original Micro Pair Batch ONCE
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_0AK_DAILY_LYRIC_LAST_TWO_FIRE_ONCE_20261025.txt
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf-0ak-last-two-quiet-original-prose-pairs-only-once
+  cancel-in-progress: false
+
+jobs:
+  final-two-quiet-scene-authors:
+    if: >-
+      github.repository == '66tyu55/WriterForge' &&
+      github.ref_name == 'refactor-unified-scene-delivery-audit' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'experiment(0.AK): FIRE LAST TWO ORIGINAL GENRES ONCE'
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing WriterForge only
+        run: python -m pip install -e '.[r2]'
+      - name: Strict one-shot and prohibit original R2, Canon or any extra model credentials
+        run: |
+          test "$(cat experiments/WF_0AK_DAILY_LYRIC_LAST_TWO_FIRE_ONCE_20261025.txt)" = "WF0AK_LAST_DAILY_KEYS_AND_LYRICAL_SNOW_ONLY_NO_RETRY"
+          python - <<'PY'
+          import os
+          assert not any(os.getenv(k) for k in (
+              'WRITERFORGE_R2_ACCOUNT_ID','WRITERFORGE_R2_ACCESS_KEY_ID',
+              'DISCOVERY_API_KEY','OPENAI_API_KEY','OPENROUTER_API_KEY'))
+          PY
+      - name: Complete full no-model tests including 0.AI pending and 0.AL source recovery
+        run: python -m unittest discover -s tests -q
+      - name: Only 2 NEW quiet literary genres, DeepSeek Flash same author and max-output budget
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: python -m experiments.wf_0ak_diverse_micro_paired_20261025
+      - name: Verify source SHA, both order scores, truthful length variance and zero cross-stage writes
+        run: |
+          python - <<'PY'
+          from hashlib import sha256
+          from pathlib import Path
+          import json
+          folder=Path('wf_0ak_diverse_micro_batch4_20261025')
+          data=json.loads((folder/'STATUS.json').read_text('utf8'))
+          assert data['format']=='wf.0ak.fourth-new-diverse-micro-two-paired.v1'
+          assert data['first_batch']==['daily_keys','lyrical_snow']
+          assert len(data['frozen_ten_task_ids'])==10
+          assert data['same_model']=='deepseek-flash'
+          assert data['same_author_max_tokens']==1400
+          assert data['reserved_output_cap']==12000
+          assert 0<data['actual_model_calls']<=8
+          assert data['R2_reads']==data['R2_writes']==data['Canon_writes']==0
+          assert data['Railway_deployments']==0 and not data['main_modified']
+          assert data['prior_0AD_0AE_author_calls_repeated']==0
+          assert data['no_second_author_call_or_retries']
+          for event in data['provider_calls']:
+              if event.get('original_wire_preserved'):
+                  file=folder/'provider-originals'/(event['task']+'.json')
+                  assert sha256(file.read_bytes()).hexdigest()==event['raw_provider_sha256']
+          for k,v in data['cases'].items():
+              print('NEW',k,'status',v.get('status'),
+                    'chars',v.get('bare_codepoints'),v.get('WF_codepoints'),
+                    'bare/WF grade delta',v.get('WF_minus_bare'),
+                    'length balance',v.get('comparison_confidence'),
+                    'V96',v.get('WF_source_checks',{}).get('V96_status'))
+          assert len(data['cases'])==2
+          assert all(c['original_writer_ready'] for c in data['cases'].values()), \
+              'Preserve real originals, no author retry'
+          assert all(c['scores_ready'] for c in data['cases'].values()), \
+              'Preserve real judge failure in artifact, do not retry author'
+          PY
+      - name: Save real source and full rater wires even after malformed response or low scores
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AK-Last-Daily-Lyrical-Real-Original-Author-Provider-Wires-Scores
+          path: wf_0ak_diverse_micro_batch4_20261025/
+          retention-days: 90
+          if-no-files-found: warn
