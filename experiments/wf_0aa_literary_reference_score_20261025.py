@@ -104,6 +104,12 @@ def load_prior_originals():
     return samples
 
 def parse_ratings(obj,expected_labels):
+    # DeepSeek's own json_object response_format may add this wrapper.
+    # Removing only this literal transport marker is not editing any
+    # scoring judgment or inventing incomplete data.
+    if (type(obj) is dict and set(obj)=={"type","ratings"}
+        and obj["type"]=="json_object"):
+        obj={"ratings":obj["ratings"]}
     require(type(obj) is dict and set(obj)=={"ratings"} and
             type(obj["ratings"]) is list and
             len(obj["ratings"])==3,"WF0AA_JUDGE_SCHEMA_NOT_THREE")
