@@ -184,7 +184,8 @@ def prepare_source_repair_contract(
           "WF119_REPAIR_ORIGINAL_SOURCE_INVALID")
     _need(type(beat) is dict and
           type(beat.get("id")) is str and
-          beat.get("kind") in ("quiet","action","dialogue","revelation","transition")
+          beat.get("kind") in ("quiet","action","decision","reversal",
+                              "setup","dialogue","aftermath","transition")
           and "causal_parent" in beat,
           "WF119_REPAIR_BEAT_INVALID")
     _need(type(accepted) in (list,tuple) and len(accepted)<=16 and
@@ -253,7 +254,7 @@ def prepare_source_repair_contract(
         "source_action_effect_required":beat["kind"] in (
             "action","revelation","transition"),
         "repair_paths_owned_by_author":[
-            "KEEP_IF_THIS_IS_DELIVERATELY_UNWRITTEN_AND_COHERENT",
+            "KEEP_IF_THIS_IS_DELIBERATELY_UNWRITTEN_AND_COHERENT",
             "REVISE_EXACT_SOURCE_SPAN_AND_REVIEW_CAUSE_AND_EFFECT",
             "DELETE_SOURCE_SPAN_ONLY_IF_CAUSAL_LINKS_STILL_HOLD",
             "REPLACE_SCENE_IF_SOURCE_ONLY_LOCAL_REPAIR_IS_INADEQUATE",
