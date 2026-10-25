@@ -94,6 +94,7 @@ class NewOriginalPilotBoundary(unittest.TestCase):
     def test_two_real_v96_fragments_mock_Author_move_on_never_counts_as_repair(self):
         with TemporaryDirectory() as d:
             root=Path(d)/"new-original"
+            root.mkdir()
             with patch.object(exp,"OUT",root),patch.object(
                 exp,"OneNovelist",OfflineNovelist),patch.dict(
                 os.environ,{"DEEPSEEK_API_KEY":"test-only-long-fake-api-key"}):
