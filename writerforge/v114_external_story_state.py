@@ -169,6 +169,13 @@ def external_temporal_step(prose,*,cast=(),prior=None):
         audit_item_provenance,supplemental_reducer_events)
     multi_item=audit_item_provenance(
         prose=prose,previous_candidate_state=old,cast=cast)
+    # Same V114 signed checkpoint carries V122's source-only relation review.
+    # No relation is written into the reducer's item holder/knowledge cells.
+    from .v122_item_provenance import audit_physical_relation_sources
+    prior_relation=(prior.get("v122_physical_relation_source_receipt")
+                    if prior is not None else None)
+    relation_review=audit_physical_relation_sources(
+        prose=prose,previous_relation_receipt=prior_relation)
     supplemental=supplemental_reducer_events(
         prose=prose,audit=multi_item,
         earlier_events=events+dynamic_delta["source_anchored_events"])
@@ -220,6 +227,8 @@ def external_temporal_step(prose,*,cast=(),prior=None):
         "dynamic_source_entity_candidates":named_candidates,
         "v116_anchored_state_delta":dynamic_delta,
         "v122_item_provenance_audit":multi_item,
+        "v122_physical_relation_source_receipt":relation_review,
+        "v122_relation_review_not_a_reducer_cell":True,
         "v122_extra_reducer_source_events":supplemental,
         "v122_extra_reducer_events_count":len(supplemental),
         "v122_model_guess_not_source_evidence":True,
