@@ -748,7 +748,8 @@ SELF_EDIT_READER_MAX_SOURCE_CHARS=5000
 def _reader_separates_written_and_inferred(*,raw,turn_packet,ask_model,
                                            directory,cancel_check=None,
                                            earlier_source=None,
-                                           earlier_source_sha256=None):
+                                           earlier_source_sha256=None,
+                                           compact_source_review=False):
     """Separate AI-as-unbiased-reader from AI-as-novelist on real prose.
 
     The SAME author model is asked once, in a NEW context with manuscript
@@ -761,7 +762,8 @@ def _reader_separates_written_and_inferred(*,raw,turn_packet,ask_model,
     reply remains immutable in the private job before parsing.
     """
     if (type(raw) is not str or not callable(ask_model) or
-        not isinstance(directory,Path)):
+        not isinstance(directory,Path) or
+        type(compact_source_review) is not bool):
         raise WritingExecutionError("WF_READER_SOURCE_BOUNDARY_INVALID")
     try:
         doc=_decode_json(raw)
@@ -788,6 +790,10 @@ def _reader_separates_written_and_inferred(*,raw,turn_packet,ask_model,
                 earlier_source_sha256):
             raise WritingExecutionError(
                 "WF_READER_EARLIER_SOURCE_HASH_OR_BOUNDS")
+    max_observed,max_inferred,max_cross=(
+        (3,1,1) if compact_source_review else (8,3,3))
+    observed_cn=("三" if compact_source_review else "八")
+    inferred_cn=("一" if compact_source_review else "三")
     # This request purposefully does NOT include turn_packet.prompt, plan,
     # system-made craft or last writer's justification. Source-only view.
     prompt=(
@@ -795,21 +801,21 @@ def _reader_separates_written_and_inferred(*,raw,turn_packet,ask_model,
         "你现在作为第一次读到这段小说的读者阅读。"
         "不要假装记得任何作者构思或过去自己对作品的肯定。"
         "不要润色、续写、下文学分数或替作者决定删稿。"
-        "先写出最多八处你确实从原文字面读到的动作，"
+        f"先写出最多{observed_cn}处你确实从原文字面读到的动作，"
         "每一处附上唯一真实原文引句；"
         "如你为了理解人物行动或位置必须自行补充文字没有明写"
-        "的转换，请最多列出三处可能的推测，并用前后两条"
+        f"的转换，请最多列出{inferred_cn}处可能的推测，并用前后两条"
         "真实原句解释依据。没有就返回空数组。"
         "省略动作可能是合理的小说技法，你不负责判断作品好坏。"
         "严格区分“原句确实写出来”与“我作为读者补出的推测”。"
         "只返回严格 JSON 对象，恰好三个键："
         "observed、inferred_links、reader_uncertainty。"
-        "observed 是列表（可空，最多8个），每项恰好含"
+        f"observed 是列表（可空，最多{max_observed}个），每项恰好含"
         "quote、actor、visible_action 三项。"
         "quote 是字面唯一出现的6至160字原文连续子串，"
         "actor 是原文人物或叙述主体（1至40字），"
         "visible_action 是4至160字的读者描述，并不是证实事件。"
-        "inferred_links 是列表（可空，最多3个），每项恰好含"
+        f"inferred_links 是列表（可空，最多{max_inferred}个），每项恰好含"
         "before_quote、after_quote、reader_imagined_step 三项。"
         "before_quote 与 after_quote 必须分别来自前后不同位置，"
         "都是原文唯一出现的6至160字子串；"
@@ -818,6 +824,12 @@ def _reader_separates_written_and_inferred(*,raw,turn_packet,ask_model,
         "（没有问题时也可填“没有明显未写连接”）。"
         "\n【当前唯一实际原文，无大纲也无作者自评】"+prose
     )
+    if compact_source_review:
+        prompt+=(
+            "\n【紧凑读源，不是新审稿模型】"
+            "只选最重要的原句、必要推测，不凑满数组。"
+            "visible_action 与 reader_imagined_step 分别尽量不超过45字。"
+            "一句话说明尚不确定处；不写正文，不强迫作者删改。")
     if earlier_source is not None:
         prompt+=(
             "\n【按真实创作顺序更早写出的紧邻前史原文】"
@@ -826,7 +838,7 @@ def _reader_separates_written_and_inferred(*,raw,turn_packet,ask_model,
             "里面未发生的角色行为也不许凭你想象当作已写事实。"
             "可以指出跨这两份文本需要读者自行补足的物件转移、"
             "人物认知、时间或动作等变化，但不要替作者决定是否有错。"
-            "此时 JSON 必须多一个 cross_source_links 键（可空，最多3项），"
+            f"此时 JSON 必须多一个 cross_source_links 键（可空，最多{max_cross}项），"
             "每一项恰好有 previous_quote、current_quote、"
             "reader_imagined_step，previous_quote 必须唯一存在于前史，"
             "current_quote 必须唯一存在于当前，均为6到160字连续原句，"
@@ -860,11 +872,11 @@ def _reader_separates_written_and_inferred(*,raw,turn_packet,ask_model,
             reply={key:val for key,val in reply.items() if key!="type"}
         if (set(reply)!=keys or type(reply["observed"]) is not list or
             type(reply["inferred_links"]) is not list or
-            len(reply["observed"])>8 or
-            len(reply["inferred_links"])>3 or
+            len(reply["observed"])>max_observed or
+            len(reply["inferred_links"])>max_inferred or
             (earlier_source is not None and (
                 type(reply["cross_source_links"]) is not list or
-                len(reply["cross_source_links"])>3)) or
+                len(reply["cross_source_links"])>max_cross)) or
             type(reply["reader_uncertainty"]) is not str or
             len(reply["reader_uncertainty"])>260):
             raise WritingExecutionError("WF_READER_SCHEMA_INVALID")
@@ -942,7 +954,11 @@ def _reader_separates_written_and_inferred(*,raw,turn_packet,ask_model,
         "format":"wf.writer.reader-source-before-self-judgment.v1",
         "status":status,"source_sha256":source_sha,
         "raw_reader_reply_sha256":sha256(response.encode("utf8")).hexdigest(),
-        "model_calls":1,"observed_count":(
+        "model_calls":1,"compact_source_review":compact_source_review,
+        "max_observations":max_observed,
+        "max_inferred_links":max_inferred,
+        "max_cross_source_links":max_cross,
+        "observed_count":(
             len(report["observed"]) if report is not None else 0),
         "hypothesized_gap_count":(
             len(report["inferred_links"]) if report is not None else 0),
