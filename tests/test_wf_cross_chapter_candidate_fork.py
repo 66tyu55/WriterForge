@@ -192,6 +192,29 @@ class CrossChapterUnacceptedSourceFork(TestCase):
                          parent_graph["receipt_sha256"])
         self.assertEqual(new_graph["parent_sha256"],
                          new_first_graph["receipt_sha256"])
+        # A graph parent SHA alone is not sufficient: each G chapter
+        # also binds its archived FULL prose to every V114 short-turn SHA.
+        self.assertTrue(new_first_graph["source_temporal_link"][
+            "source_assembly_verified"])
+        self.assertEqual(new_first_graph["source_temporal_link"][
+            "turn_count"],2)
+        self.assertEqual(new_graph["source_temporal_link"][
+            "turn_count"],2)
+        self.assertEqual(new_graph["source_temporal_link"][
+            "previous_v114_checkpoint_sha256"],
+            first_new["source_checkpoint_sha256"])
+        self.assertTrue(new_graph["source_temporal_link"][
+            "prior_link_verified"])
+        for row,snapshot in ((new["chapters"][0],first_new),
+                             (new["chapters"][1],new_head)):
+            body=Path(row["candidate"]).read_text("utf8")
+            bound=read_core_from_resume(
+                snapshot,project_id=self.project,scene_id=self.scene)
+            self.assertEqual(bound["source_temporal_link"][
+                "whole_chapter_sha256"],sha(body))
+            self.assertEqual(bound["source_temporal_link"][
+                "last_v114_checkpoint_sha256"],
+                snapshot["source_checkpoint_sha256"])
         old_sources={x["source_sha256"] for x in
                      fork["obsolete_only_in_this_fork"]}
         for entry in new_graph["memory"]["hot"]+new_graph["memory"]["warm"]:
