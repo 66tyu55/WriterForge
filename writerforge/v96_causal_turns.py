@@ -314,8 +314,8 @@ def check_turn(raw,beat, *, mode, accepted=(),
                 need(trace["parent_effect_quote"] is None,
                      "WF96_PARENT_PENDING_MUST_NOT_CLAIM_EFFECT")
                 recorded["parent_outcome_pending"]=True
-                recorded["parent_source_action_sha256"]=
-                    prior_anchor["quote_sha256"]
+                recorded["parent_source_action_sha256"]=(
+                    prior_anchor["quote_sha256"])
         # A decision can be genuinely made without an OBSERVED effect in
         # this paragraph. Force the action to exist in the original prose,
         # but do not force a later unrelated event into effect_quote.
