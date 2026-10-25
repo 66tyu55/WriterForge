@@ -125,6 +125,37 @@ class SourceLockedV114RebaseAfterV119(unittest.TestCase):
         self.assertEqual(quiet["previous_checkpoint_sha256"],
                          revised["receipt_sha256"])
 
+    def test_replaying_one_revised_chapter_preserves_older_unresolved_debt(self):
+        prior_source=OTHER+CALM
+        parent=external_temporal_step(prior_source,cast=("姜岚",))
+        second_source=OLD+CALM
+        old_second=external_temporal_step(
+            second_source,cast=("姜岚",),prior=parent)
+        self.assertEqual(len(old_second[
+            "v122_physical_relation_source_receipt"]["open_relation_reviews"]),2)
+        patch=edit(second_source,OLD,GOOD)
+        rewritten=replay_revised_source_checkpoint(
+            source_before=second_source,
+            checkpoint_before=old_second,
+            v119_preview_receipt=patch["receipt"],
+            corrected_source=patch["candidate_prose"],
+            parent_checkpoint=parent,cast=("姜岚",))
+        self.assertEqual(rewritten["retired_old_source_relation_count"],1)
+        self.assertEqual(rewritten["new_source_relation_count"],1)
+        fresh=rewritten["recomputed_unaccepted_v114_checkpoint"]
+        self.assertEqual(fresh["previous_checkpoint_sha256"],
+                         parent["receipt_sha256"])
+        entry=fresh["v122_physical_relation_source_receipt"]["open_relation_reviews"][0]
+        self.assertEqual(entry["origin_source_sha256"],parent["source_sha256"])
+        self.assertEqual(entry["first_item_literal"],"银牌")
+        with self.assertRaisesRegex(Exception,"WF114_REVISION_MISSING_OR_WRONG_PARENT"):
+            replay_revised_source_checkpoint(
+                source_before=second_source,
+                checkpoint_before=old_second,
+                v119_preview_receipt=patch["receipt"],
+                corrected_source=patch["candidate_prose"],
+                parent_checkpoint=None,cast=("姜岚",))
+
     def test_edit_outside_source_risk_does_not_retire_it(self):
         old=OLD+CALM
         cp=external_temporal_step(old,cast=("姜岚",))
