@@ -83,6 +83,48 @@ class DiversePairingProtocol(unittest.TestCase):
         self.assertEqual(scoring["裸模型"]["per_order_scores"],[60,65])
         self.assertEqual(len(fake.calls),4)
 
+    def test_realistic_partial_attribution_can_be_normalized_without_rewriting_prose(self):
+        from writerforge.v96_causal_turns import (
+            normalize_model_source_citations,check_turn)
+        item=exp.GENRES[0]
+        action="他从工具包侧袋摸出一支记号笔，是白天在五金店买的"
+        effect="他把记号笔放进外套内袋，贴着胸口"
+        prose=(
+            "夜班站台上，许临停在钟下，等父亲把电话里的话说完。"
+            "他把手机揣回衣兜，从工具包侧袋摸出一支记号笔，是白天在五金店买的。"
+            "他没有马上写字，因为刚才那通电话里提到的药盒说明他仍不放心。"
+            "父亲没有解释药瓶到底放在哪里，他也不打算替父亲臆测结论。"
+            "末班车驶进站台时，他站起来，把记号笔放进外套内袋，贴着胸口。")
+        doc={"prose":prose,"trace":{
+            "action_quote":action,"effect_quote":effect,
+            "parent_effect_quote":None}}
+        beat={"id":"t01","kind":item["kind"],"actor":item["actor"],
+              "goal":item["literary_task"]+"人物在已有场景中自行决定语言与行动",
+              "causal_parent":None,"craft_focus":[]}
+        raw=json.dumps(doc,ensure_ascii=False)
+        normalized,receipt=normalize_model_source_citations(
+            raw,beat,accepted=())
+        self.assertIsNotNone(receipt)
+        after=json.loads(normalized)
+        self.assertEqual(after["prose"],prose)
+        self.assertNotEqual(after["trace"]["action_quote"],action)
+        self.assertNotEqual(after["trace"]["effect_quote"],effect)
+        actual=check_turn(normalized,beat,mode="causal_guard")
+        self.assertEqual(actual["receipt"]["causal_check"],
+                         "EXACT_OBSERVABLE_ANCHORS_ONLY")
+
+    def test_anonymous_prefix_rating_is_not_a_literary_score_change(self):
+        original={"ratings":[{
+            "id":label,"scores":{key:value for key in exp.CRITERIA},
+            "reason":"可见动作关联人物选择，但没有说明全部前史。",
+            "weakness":"场面所展示的阻力可以更自然。"}
+            for label,value in (("匿名甲",12),("匿名乙",15))]}
+        parsed=exp.parse_judge(original)
+        self.assertEqual(parsed["甲"]["scores"]["语言自然与节制"],12)
+        self.assertEqual(parsed["乙"]["scores"]["语言自然与节制"],15)
+        self.assertEqual(original["ratings"][0]["id"],"匿名甲")
+        self.assertEqual(original["ratings"][1]["id"],"匿名乙")
+
     def test_invalid_model_grades_are_not_completed_scores(self):
         valid={"ratings":[{"id":"甲","scores":{x:12 for x in exp.CRITERIA},
                            "reason":"当前片段动作自然但缺少进一步后果。",
