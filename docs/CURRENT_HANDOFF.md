@@ -1,6 +1,17 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.AF 不重复文学题：多类型真实裸模型/WF对照与悬疑 V96 真因果拒绝（2026-10-25，最新）
+
+**优先阅读**：[WF_0AF_DIVERSE_GENRE_FAILURE_DISCOVERY_20261025.md](WF_0AF_DIVERSE_GENRE_FAILURE_DISCOVERY_20261025.md) → [WF_0AA_0AB_REAL_LITERARY_SCORECARD_20261025.md](WF_0AA_0AB_REAL_LITERARY_SCORECARD_20261025.md) → 0.Z/0.X 原来源回滚。用户明确要求**不同文本、不同内容、不同场景、不同类型，真正暴露WF本身问题然后修代码**。不可用相同情节的反复 MODEL 自审获得“进步”假象。
+
+- 实际 [0.AD 多类型真实写作 #40190602528](https://github.com/66tyu55/WriterForge/actions/runs/40190602528)、[0.AE 真实原文SHA重放补完整匿名评分 #40191877126](https://github.com/66tyu55/WriterForge/actions/runs/40191877126)：现实人物心理、玄幻打斗、悬疑证据、硬科幻选择四组各由裸模型与WF辅助同一DeepSeek写；分数裸/WF依次是 **84/80.5、82/79、75/82.5、82/83.5**，差值 **-3.5/-3/+7.5/+1.5**。都是模型家族内匿名两序复评，N=1，不能证明稳定文学提升。现实组篇幅比1.469不够可比，玄幻分数顺序波动14。
+- **悬疑文学82.5高分不能洗白WF源验收失败**：从旧原始 `mystery_WF-author` provider wire核实：`action_quote` 引末尾“回头望向客房”，`effect_quote` 引前面走廊鞋印，顺序颠倒。因此 V96 `WF96_ACTION_EFFECT_OVERLAP_OR_REVERSED` 是**合法拒绝，不是WF假阳性**。下一个真实软件攻击点是“引用顺序正确，文学/故事因果实际上不成立”，找 V96 可能出现的**假绿色**，不能强迫AI重填引句后宣称文学学习成功。
+- 已预登记 **10类不同原创场景**：武侠护伤者、仙侠灵植归属、历史军令时差、恐怖有限视角、喜剧错单、言情信息差、日常钥匙、科幻压差通讯、盐商计谋、初雪抒情。每类用裸模型对 WF 同题同预算、200–350字微段，单独记录100分、来源错误/假红/假绿与 V114/117/119 连续性；不同叙事目的不可混比。论文式分数只是**读者工具**不是WF写作机制或惩罚型奖励。
+- 本轮**没有启动新的付费模型任务**；复用了已有0.AD/0.AE真实供应商原件，新增0.AF发现报告。保留 V26/V98/V119/唯一NarrativeCore，main/Railway/R2/正式Canon不动。不重复旧十五章训练。
+
+---
+
 ## 0.AB 文学质量必须有分数，但评分也得接受故障测试：真实原著62、A79、B76仅是未匹配片段的局部偏好（2026-10-25，最新）
 
 **下窗口先读**：[WF_0AA_0AB_REAL_LITERARY_SCORECARD_20261025.md](WF_0AA_0AB_REAL_LITERARY_SCORECARD_20261025.md) → [WF_0Z_SIGNED_ANCESTRY_PROVENANCE_20261025.md](WF_0Z_SIGNED_ANCESTRY_PROVENANCE_20261025.md) → [WF_0X_FAILURE_FIRST_WF_DEFECT_REPAIR_20261025.md](WF_0X_FAILURE_FIRST_WF_DEFECT_REPAIR_20261025.md)。用户新的明确方向：**逐段对照《凡人》前几章的真实文学技巧，让 WF 辅助 AI 靠近文学水平而不复制/编造，必须有直观的分数**。测试仍以暴露和修复 WF 自身真实错误为目的，绝不因为高分迁就 AI 或偷改文学判断。
