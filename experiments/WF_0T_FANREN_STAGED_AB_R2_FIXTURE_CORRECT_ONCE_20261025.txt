@@ -1,0 +1,6 @@
+WF 0.T same-source A/B; final source recovery launch after model-free mock fixture correction.
+At 2026-10-25, original URL run made zero model calls; first R2 run was blocked by dummy-source test before any paid request.
+Use already-archived fanrenxiuxian R2 with pinned SHA, NO uploads, no mutations, no user reconfiguration.
+Same original story, two small writer-created turns per arm, source B progressively revealed only.
+Global budget at most ten DeepSeek API calls / 14,200 reserved output tokens. No hidden retries.
+No Railway, main or R2 writes. Preserve evidence honestly.
