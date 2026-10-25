@@ -541,8 +541,8 @@ def preflight_next_prose(next_prose, *, previous_candidate_state,
         previous_relation_receipt=previous_relation_receipt)
     if relations["current_source_needs_review"]:
         review_findings.insert(0,"NEEDS_SOURCE_RELATION_REVIEW")
-    if relations["previous_source_unresolved_review_count"]:
-        review_findings.insert(0,"PRIOR_SOURCE_RELATION_STILL_UNRESOLVED")
+    if relations["dependent_on_unresolved_previous_relation"]:
+        review_findings.insert(0,"PRIOR_SOURCE_RELATION_CLAIM_NEEDS_REVIEW")
     # Remain conservative about unexplained mana recovery until a separately
     # anchored energy-state reducer exists. This was an older red-line.
     has_old_fruit=False
@@ -577,6 +577,8 @@ def preflight_next_prose(next_prose, *, previous_candidate_state,
         "review_findings":list(dict.fromkeys(review_findings))[:12],
         "physical_relation_receipt_sha256":relations["receipt_sha256"],
         "physical_relation_review_pairs":relations["review_pairs"],
+        "physical_relation_dependent_on_previous_source":(
+            relations["dependent_on_unresolved_previous_relation"]),
         "physical_relation_current_review_needed":(
             relations["current_source_needs_review"]),
         "physical_relation_prior_review_unresolved_count":(
