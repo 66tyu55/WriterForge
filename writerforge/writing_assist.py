@@ -989,10 +989,140 @@ def _reader_report_for_author(report,source_sha):
         +payload)
 
 
+
+SELF_EDIT_ATTRIBUTION_TOKENS=1150
+
+
+def _validate_author_prior_source_claims(*,reader_report,earlier_source,
+                                         current_source,claims):
+    """A prose-source citation contract, NOT validation of what happened.
+
+    The SAME writing AI reports its interpretation of each reader question.
+    All the host can prove is that a cited quote occurs in the SHA-matched
+    original chapter. A quote alone NEVER proves transfer, causality or
+    literary quality. Missing/bad attributions do not rewrite the author's
+    independently valid KEEP decision; they become reviewable source debt.
+    """
+    if (type(reader_report) is not dict or
+        type(earlier_source) is not str or
+        not 1<=len(earlier_source)<=5000 or
+        type(current_source) is not str or
+        reader_report.get("earlier_source_sha256")!=sha256(
+            earlier_source.encode("utf8")).hexdigest() or
+        reader_report.get("source_sha256")!=sha256(
+            current_source.encode("utf8")).hexdigest() or
+        reader_report.get("all_semantics_are_model_generated_not_verified")
+            is not True or
+        reader_report.get("no_host_literary_error_decision") is not True):
+        raise WritingExecutionError(
+            "WF_AUTHOR_PRIOR_SOURCE_ATTRIBUTION_MISMATCH")
+    links=reader_report.get("cross_source_links")
+    if (type(links) is not list or
+        not 1<=len(links)<=3):
+        raise WritingExecutionError(
+            "WF_AUTHOR_PRIOR_SOURCE_LINKS_MISSING")
+    for link in links:
+        if (type(link) is not dict or
+            type(link.get("previous_quote")) is not str or
+            type(link.get("current_quote")) is not str or
+            earlier_source.count(link["previous_quote"])!=1 or
+            current_source.count(link["current_quote"])!=1):
+            raise WritingExecutionError(
+                "WF_AUTHOR_PRIOR_SOURCE_QUOTE_UNTRUSTED")
+    receipt={
+        "format":"wf.writer.prior-source-claim-attribution.v1",
+        "status":"MISSING_SOURCE_ATTRIBUTIONS",
+        "earlier_source_sha256":reader_report["earlier_source_sha256"],
+        "current_source_sha256":reader_report["source_sha256"],
+        "reader_link_count":len(links),
+        "attributions":[],
+        "claimed_written_links":0,
+        "author_declared_unwritten_or_unknown_links":0,
+        "author_declared_intentional_ellipsis_links":0,
+        "author_prose_edit_forced":False,
+        "quoted_text_identity_only_not_event_proof":True,
+        "all_literary_meanings_still_unverified":True,
+        "source_claims_not_promoted_to_canon":True,
+        "model_calls_for_validation":0,
+    }
+    if claims is None:
+        return receipt
+    if type(claims) is not list or len(claims)!=len(links):
+        receipt["status"]="MALFORMED_SOURCE_ATTRIBUTIONS"
+        return receipt
+    results=[]
+    kinds={"WRITTEN_WITH_QUOTE","UNWRITTEN_OR_UNKNOWN",
+           "INTENTIONAL_ELLIPSIS"}
+    for position,(item,link) in enumerate(zip(claims,links)):
+        if (type(item) is not dict or
+            set(item)!={"link_index","basis","prior_transition_quote",
+                       "literary_reason"} or
+            type(item["link_index"]) is not int or
+            item["link_index"]!=position or
+            type(item["basis"]) is not str or
+            item["basis"] not in kinds or
+            type(item["literary_reason"]) is not str or
+            not 8<=len(item["literary_reason"])<=220):
+            receipt["status"]="MALFORMED_SOURCE_ATTRIBUTIONS"
+            return receipt
+        quote=item["prior_transition_quote"]
+        record={
+            "link_index":position,
+            "model_selected_basis":item["basis"],
+            "model_reason_sha256":sha256(
+                item["literary_reason"].encode("utf8")).hexdigest(),
+            "source_excerpt_mechanically_verified":False,
+            "model_semantic_transition_never_automatically_verified":True,
+            "fiction_event_state_changed":False,
+            "canonical_fact_created":False,
+        }
+        if item["basis"]=="WRITTEN_WITH_QUOTE":
+            if (type(quote) is not str or
+                not 6<=len(quote)<=160 or
+                earlier_source.count(quote)!=1):
+                receipt["status"]="UNSUPPORTED_WRITTEN_SOURCE_QUOTE"
+                receipt["attributions"]=results+[record]
+                return receipt
+            loc=earlier_source.index(quote)
+            # Quoting the questioned state itself does not prove a MOVE
+            # between two states. We can test this overlap mechanically,
+            # but must NOT decide what the sentence means.
+            state=link["previous_quote"]
+            state_start=earlier_source.index(state)
+            record.update({
+                "source_excerpt_mechanically_verified":True,
+                "prior_quote_sha256":sha256(
+                    quote.encode("utf8")).hexdigest(),
+                "prior_quote_offset":loc,
+                "quote_overlaps_questioned_prior_state":not (
+                    loc+len(quote)<=state_start or
+                    loc>=state_start+len(state)),
+                "literal_quote_is_not_proof_of_claimed_transition":True,
+            })
+            receipt["claimed_written_links"]+=1
+        else:
+            if quote is not None:
+                receipt["status"]="UNWRITTEN_BASIS_CANNOT_CITE_TRANSFER"
+                receipt["attributions"]=results+[record]
+                return receipt
+            record["prior_transition_quote_is_null"]=True
+            if item["basis"]=="UNWRITTEN_OR_UNKNOWN":
+                receipt["author_declared_unwritten_or_unknown_links"]+=1
+            else:
+                receipt["author_declared_intentional_ellipsis_links"]+=1
+        results.append(record)
+    receipt["status"]="SOURCE_ATTRIBUTIONS_RECORDED_LITERAL_ONLY"
+    receipt["attributions"]=results
+    receipt["original_manuscript_unchanged_by_source_audit"]=True
+    return receipt
+
+
+
 def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
                                 ask_model,directory,cancel_check=None,
                                 reader_report=None,
-                                source_identity_contract="model_sha"):
+                                source_identity_contract="model_sha",
+                                earlier_source_for_attribution=None):
     """Ask the ACTUAL author model whether THIS visible draft needs revision.
 
     The code schedules a chance to reflect after an observable story turn.
@@ -1079,6 +1209,21 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
             "绝不修正你主动提交的错误 SHA 或更改任何文学决定。"
             "若选择 previous，则必须提供前段真实来源 SHA。")
     reader_note=_reader_report_for_author(reader_report,original_sha)
+    attribution_possible=(
+        earlier_source_for_attribution is not None and
+        type(reader_report) is dict and
+        type(reader_report.get("cross_source_links")) is list and
+        bool(reader_report["cross_source_links"]))
+    if earlier_source_for_attribution is not None:
+        if not attribution_possible:
+            raise WritingExecutionError(
+                "WF_AUTHOR_PRIOR_SOURCE_ATTRIBUTION_NOT_READY")
+        # Fail BEFORE provider call if G did not supply the actual source
+        # corresponding to the reader's SHA-verified citation report.
+        _validate_author_prior_source_claims(
+            reader_report=reader_report,
+            earlier_source=earlier_source_for_attribution,
+            current_source=prose,claims=None)
     reader_provided=False
     if reader_note and len(content)+len(reader_note)<=MAX_PROMPT_CHARS:
         # Hard story-state context ALWAYS outranks optional reader notes.
@@ -1088,6 +1233,32 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
         len(reader_report.get("cross_source_links",[]))
         if reader_provided and type(reader_report) is dict and
         type(reader_report.get("cross_source_links",[])) is list else 0)
+    attribution_requested=False
+    if attribution_possible and reader_provided:
+        instruction=(
+            "\n【原作者对读者跨章疑问的原文归因，非自动文学裁决】"
+            "以下是刚刚核验过字节身份的更早一章全文，不是故事计划："+
+            earlier_source_for_attribution+
+            "\n请你对 reader_cross_source_links 中的每一项"
+            "另填 source_attributions 数组（严格按0开始的 link_index 顺序）。"
+            "每项必须恰好包含 link_index、basis、prior_transition_quote、"
+            "literary_reason 四字段。"
+            "basis 三选一："
+            "WRITTEN_WITH_QUOTE（你认为更早原文确实写出了所说的转换）、"
+            "UNWRITTEN_OR_UNKNOWN（原文没有明写或你无法确定）、"
+            "INTENTIONAL_ELLIPSIS（你有意让读者自行补足的文学留白）。"
+            "WRITTEN_WITH_QUOTE 时，prior_transition_quote 必须是"
+            "更早原文中唯一出现、6至160字的确切过渡原句；"
+            "不可仅复述它原先的持有状态来冒充实际转移。"
+            "另外两类必须设 prior_transition_quote=null。"
+            "literary_reason 必须是8至220字的你本人真实文学说明。"
+            "你仍可 MOVE_ON；无证据就不能说前文已经明写转换。"
+            "宿主只检查引句字面出现，不会替你判断它在语义上"
+            "是否真的证明了那个动作，也不因此强迫改稿。"
+        )
+        if len(content)+len(instruction)<=MAX_PROMPT_CHARS:
+            content+=instruction
+            attribution_requested=True
     if len(content)>MAX_PROMPT_CHARS:
         return {"decision":"CONTEXT_TOO_FULL","model_calls":0,
                 "reason":None,"risk":None,"desired_effect":None,
@@ -1099,7 +1270,9 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
     if cancel_check is not None:
         cancel_check()
     response=ask_model(pkt,model=None,api_base=None,
-                       max_tokens=SELF_EDIT_MOMENT_TOKENS)
+                       max_tokens=(SELF_EDIT_ATTRIBUTION_TOKENS
+                                   if attribution_requested
+                                   else SELF_EDIT_MOMENT_TOKENS))
     directory.mkdir(parents=True,exist_ok=True)
     (directory/"ai-when-and-why-original.json").write_text(
         response,encoding="utf8")
@@ -1112,6 +1285,7 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
             response.encode("utf8")).hexdigest(),
         "only_ai_can_choose_revisit":True,
         "source_identity_contract":source_identity_contract,
+        "earlier_author_source_attribution_requested":attribution_requested,
         "source_sha256_original_model_value_not_changed":True,
         "unverified_reader_input_delivered":reader_provided,
         "cross_source_reader_hypotheses_unverified_count":
@@ -1143,6 +1317,18 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
         # Old real answers have no target_turn. Keep their exact schema
         # compatible; new author decisions can explicitly choose previous.
         target_keys=keys|{"target_turn"}
+        claim_present=(
+            type(fields) is dict and
+            "source_attributions" in fields)
+        if attribution_requested and claim_present:
+            # Remove only the optional provenance array from the literary
+            # decision envelope. It is judged independently below;
+            # malformed SOURCE evidence cannot secretly change MOVE_ON.
+            literal_claims=fields["source_attributions"]
+            fields={k:v for k,v in fields.items()
+                    if k!="source_attributions"}
+        else:
+            literal_claims=None
         # Observed REAL DeepSeek returned the correct author decision
         # with ONE harmless envelope marker: "type":"json_object".
         # Strip only that literal wrapper, not actual source/reason text;
@@ -1200,6 +1386,15 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
                 if (type(fields[name]) is not str or
                     not 8<=len(fields[name])<=260):
                     raise ValueError("WF_AI_WRITER_WHY_OR_EFFECT_MISSING")
+        if attribution_requested:
+            attribution_receipt=_validate_author_prior_source_claims(
+                reader_report=reader_report,
+                earlier_source=earlier_source_for_attribution,
+                current_source=prose,claims=literal_claims)
+            attribution_receipt["author_literary_decision_unchanged"]=True
+            receipt["cross_source_author_attribution"]=attribution_receipt
+            receipt["cross_source_author_attribution_status"]=(
+                attribution_receipt["status"])
         receipt.update({
             "decision":fields["decision"],
             "author_kept_unresolved_cross_source_hypotheses":(
