@@ -456,3 +456,238 @@ def audit_item_provenance(*, prose,previous_candidate_state,cast=()):
     }
     payload["receipt_sha256"]=_digest(payload)
     return payload
+
+
+# Source-bound physical attachment evidence is a PROJECTION of the existing
+# V122/V114 provisional event boundary. It is not a second story memory owner.
+# It never writes the Novel Studio reducer's "holder" cell, since attachment
+# of a rope end to a post is not possession of the entire rope.
+_PHYSICAL_SPLIT=re.compile(r"[，,；;。！？\n]")
+_PHYSICAL_DISCOURSE=("只是","然而","但是","不过","却","可","而","原来")
+_PHYSICAL_TEMPORAL=("随后","后来","接着","然后","过了","片刻后","此后",
+                    "第二天","次日","先","再","之后","不久后")
+_PHYSICAL_NONFACT=("猜","以为","觉得","听说","据说","可能","似乎","仿佛",
+                   "如果","若是","梦见","想象","不确定","未必","不知道",
+                   "听见","说过")
+_PHYSICAL_BOUND=re.compile(
+    r"^(?P<item>[\u3400-\u9fff]{1,12}?)"
+    r"(?P<aspect>仍然|依然|一直|尚|仍|还|正|已经|已)?"
+    r"(?P<verb>系|绑|拴|栓|挂|锁|扣)(?:在|着|于)"
+    r"(?P<site>[\u3400-\u9fff]{1,12})$")
+_PHYSICAL_PASSIVE_FREE=re.compile(
+    r"^(?P<item>[\u3400-\u9fff]{1,14}?)(?:已经|早已|已)?"
+    r"被[\u3400-\u9fff]{1,8}?从"
+    r"(?P<site>[\u3400-\u9fff]{1,12}?)"
+    r"(?:解下|解开|拆下|卸下|摘下|取下|松开)(?:来|去)?$")
+_PHYSICAL_DIRECT_FREE=re.compile(
+    r"^(?:[\u3400-\u9fff]{1,8}?(?:把|将))?"
+    r"(?P<item>[\u3400-\u9fff]{1,14}?)从"
+    r"(?P<site>[\u3400-\u9fff]{1,12}?)"
+    r"(?:解下|解开|拆下|卸下|摘下|取下|松开)(?:来|去)?$")
+_PHYSICAL_ACTION_BIND=re.compile(
+    r"^(?:[\u3400-\u9fff]{1,10}?(?:把|将))?"
+    r"(?P<item>[\u3400-\u9fff]{1,14}?)"
+    r"(?:系|绑|拴|栓|挂|锁|扣)(?:在|到|于)"
+    r"(?P<site>[\u3400-\u9fff]{1,12})$")
+_PHYSICAL_COLORS=("红","蓝","黑","白","青","黄","绿","紫","金","银")
+_PHYSICAL_NUMBERS=("第一","第二","第三","两根","另一根","左边","右边","左侧","右侧")
+_PHYSICAL_PARTS=("自由端","另一端","绳头","锁扣的一侧","末端")
+
+def _physical_site_label(value):
+    # Retain the original text as evidence. This heuristic is for *possible*
+    # contact targets, never an identity assertion or novel-world state cell.
+    raw=value
+    for suffix in ("上面","上头","之上","顶端","上","头","边","旁","处"):
+        if raw.endswith(suffix) and len(raw)>len(suffix):
+            return raw[:-len(suffix)]
+    return raw
+
+def _physical_identity(a,b, *,site=False):
+    """EXACT or POSSIBLE_ALIAS only; different modifiers cannot be conflated."""
+    if a==b:
+        return "EXACT_LITERAL"
+    if any(x in a or x in b for x in _PHYSICAL_NUMBERS):
+        return None
+    if any(a.startswith(x) and b.startswith(y) and x!=y
+           for x in _PHYSICAL_COLORS for y in _PHYSICAL_COLORS):
+        return None
+    if site:
+        x,y=_physical_site_label(a),_physical_site_label(b)
+        if x==y:
+            return "POSSIBLE_CONTACT_AREA_ALIAS"
+        if min(len(x),len(y))>=1 and (x.endswith(y) or y.endswith(x)):
+            return "POSSIBLE_CONTACT_AREA_ALIAS"
+        return None
+    # A knot is part of a rope and "the rope" may refer to another rope:
+    # their lexical similarity is REVIEW evidence, never established sameness.
+    ends=("结","子","身","段")
+    x,y=a,b
+    for suffix in ends:
+        if x.endswith(suffix) and len(x)>len(suffix):
+            x=x[:-len(suffix)]
+        if y.endswith(suffix) and len(y)>len(suffix):
+            y=y[:-len(suffix)]
+    if x==y:
+        return "POSSIBLE_PART_OR_REFERENT_ALIAS"
+    if len(x)>=1 and len(y)>=1 and (x.endswith(y) or y.endswith(x)):
+        return "POSSIBLE_PART_OR_REFERENT_ALIAS"
+    return None
+
+def _physical_relation_clause(prose,start,end,clause,spoken):
+    """Parse narrowly observed attachment claims; never infer actions."""
+    if spoken or not _present(prose,start,end):
+        return None
+    raw=clause.strip()
+    if not 7<=len(raw)<=150 or prose.count(raw)!=1:
+        return None
+    offset=start+len(clause)-len(clause.lstrip())
+    inner=raw
+    for lead in _PHYSICAL_DISCOURSE+_PHYSICAL_TEMPORAL:
+        if inner.startswith(lead):
+            inner=inner[len(lead):]
+            break
+    if not inner or any(t in inner for t in _PHYSICAL_NONFACT):
+        return None
+    # No semantic overclaim when a pronoun, partial end, or explicitly
+    # qualified speculation could reverse which object is actually tied.
+    status=None
+    for kind,rx in (
+        ("ATTACHED_STATE",_PHYSICAL_BOUND),
+        ("DETACH_ACTION",_PHYSICAL_PASSIVE_FREE),
+        ("DETACH_ACTION",_PHYSICAL_DIRECT_FREE),
+        ("ATTACH_ACTION",_PHYSICAL_ACTION_BIND),
+    ):
+        m=rx.fullmatch(inner)
+        if m:
+            status,mapping=kind,m.groupdict()
+            break
+    if status is None:
+        return None
+    item,site=mapping["item"],mapping["site"]
+    if (not 1<=len(item)<=14 or not 1<=len(site)<=12 or
+        any(p in item for p in _PHYSICAL_PARTS) or
+        any(p in site for p in _PHYSICAL_PARTS) or
+        item.startswith(("他","她","它","他们","她们")) or
+        item in ("人","他人","某人","有人") or
+        "没" in inner or "不曾" in inner or "没有" in inner):
+        return None
+    return {
+        "source_start":offset,"source_end":offset+len(raw),
+        "source_quote":raw,"source_quote_sha256":_digest(raw),
+        "item_literal":item,"contact_literal":site,
+        "relation":("ATTACHED" if status.startswith("ATTACH") else "DETACHED"),
+        "source_form":status,
+        "continuing_state_words":bool(mapping.get("aspect") in
+                                     ("仍然","依然","一直","尚","仍","还")),
+        "narrator_claim_not_semantically_verified":True,
+        "candidate_not_item_holder_or_canon":True,
+    }
+
+def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
+    """Bounded evidence-first relation review within V122; zero model calls.
+
+    Only a SAME-SENTENCE, unresolved ATTACHED versus DETACH source pair
+    may become a review candidate, and even then an object/anchor may be an
+    alias, a partial end, or a narration choice. Never call it a proven
+    contradiction. Explicit sequential acts and different items are allowed.
+    """
+    _need(type(prose) is str and 0<len(prose)<=MAX_TEXT,
+          "WF122_PHYSICAL_SOURCE_BOUNDS")
+    if previous_relation_receipt is not None:
+        r=previous_relation_receipt
+        _need(type(r) is dict and
+              r.get("format")=="wf.v122.source-physical-relation-review.v1"
+              and r.get("receipt_sha256")==_digest({
+                  k:v for k,v in r.items() if k!="receipt_sha256"}) and
+              type(r.get("source_sha256")) is str and
+              len(r.get("claims",()))<=20 and
+              len(r.get("review_pairs",()))<=8,
+              "WF122_PREVIOUS_RELATION_RECEIPT_UNTRUSTED")
+    claims=[]
+    reviews=[]
+    max_scan=200
+    fragments_examined=0
+    for sentence_id, (sstart,send,sentence,spoken) in enumerate(_segments(prose)):
+        if sentence_id>=max_scan:
+            break
+        if spoken:
+            continue
+        offset=sstart
+        sentence_claims=[]
+        for frag in _PHYSICAL_SPLIT.split(sentence):
+            if not frag:
+                offset+=0
+                # Punctuation positions are located by searching the original
+                # sentence after each fragment, never by invented text.
+                continue
+            start=prose.find(frag,offset,send)
+            if start<offset:
+                break
+            end=start+len(frag)
+            offset=end
+            fragments_examined+=1
+            candidate=_physical_relation_clause(prose,start,end,frag,False)
+            if candidate is not None and len(claims)<20:
+                candidate["sentence_source_index"]=sentence_id
+                candidate["same_narrated_sentence_not_story_time"]=True
+                claims.append(candidate)
+                sentence_claims.append(candidate)
+        for i,one in enumerate(sentence_claims):
+            for two in sentence_claims[i+1:]:
+                if len(reviews)>=8:break
+                if one["relation"]==two["relation"]:
+                    continue
+                if (one["source_form"]=="ATTACH_ACTION" and
+                    two["source_form"]=="DETACH_ACTION"):
+                    continue
+                if not (one["continuing_state_words"] or
+                        two["continuing_state_words"]):
+                    continue
+                between=prose[one["source_end"]:two["source_start"]]
+                if any(x in between for x in _PHYSICAL_TEMPORAL):
+                    continue
+                item_match=_physical_identity(
+                    one["item_literal"],two["item_literal"])
+                contact_match=_physical_identity(
+                    one["contact_literal"],two["contact_literal"],site=True)
+                if item_match is None or contact_match is None:
+                    continue
+                reviews.append({
+                    "reason_code":"NEEDS_SOURCE_RELATION_REVIEW",
+                    "first_source_start":one["source_start"],
+                    "first_source_quote":one["source_quote"],
+                    "first_source_quote_sha256":one["source_quote_sha256"],
+                    "second_source_start":two["source_start"],
+                    "second_source_quote":two["source_quote"],
+                    "second_source_quote_sha256":two["source_quote_sha256"],
+                    "item_identity_evidence":item_match,
+                    "contact_identity_evidence":contact_match,
+                    "unresolved_question":"SAME_REFERENT_AND_CONTACT_STATUS_NOT_PROVEN",
+                    "unknown_actor_may_remain_unknown":True,
+                    "literary_ellipsis_not_a_physical_state_proof":True,
+                    "writer_must_choose_whether_and_where_to_edit":True,
+                })
+    old_unresolved=(len(previous_relation_receipt.get("review_pairs",()))
+                    if previous_relation_receipt is not None else 0)
+    payload={
+        "format":"wf.v122.source-physical-relation-review.v1",
+        "source_sha256":_digest(prose),
+        "previous_source_sha256":(
+            previous_relation_receipt["source_sha256"]
+            if previous_relation_receipt is not None else None),
+        "claims":claims,
+        "review_pairs":reviews,
+        "current_source_needs_review":bool(reviews),
+        "previous_source_unresolved_review_count":old_unresolved,
+        "previous_source_uncertainty_cannot_become_new_fact":True,
+        "review_status":("NEEDS_SOURCE_RELATION_REVIEW" if reviews else
+                         "NO_SAME_SENTENCE_RELATION_CONFLICT_DETECTED"),
+        "parsed_fragments":fragments_examined,
+        "source_coverage_is_partial_not_universal":True,
+        "identified_referents_are_hypotheses_not_state_cells":True,
+        "derived_from_existing_v122_source_without_new_memory_owner":True,
+        "actor_unknown_is_not_literary_error":True,
+        "model_calls":0,"R2_writes":0,"canon_writes":0,
+    }
+    payload["receipt_sha256"]=_digest(payload)
+    return payload
