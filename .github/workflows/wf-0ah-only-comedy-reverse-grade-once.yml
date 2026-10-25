@@ -1,0 +1,106 @@
+name: WF 0.AH Verify Eleven Originals and Only One Missing Comedy Grade ONCE
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_0AH_VERIFY_11_ORIGINALS_ONLY_COMEDY_REVERSE_ONCE_20261025.txt
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wf-0ah-eleven-real-provider-wires-comedy-last-blind-only-once
+  cancel-in-progress: false
+
+jobs:
+  source-locked-comedy-grade-continuation:
+    if: >-
+      github.repository == '66tyu55/WriterForge' &&
+      github.ref_name == 'refactor-unified-scene-delivery-audit' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'experiment(0.AH): FIRE ONLY ONE MISSING COMEDY REVERSE GRADE'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing WF dependencies only
+        run: python -m pip install -e '.[r2]'
+      - name: Freeze one-shot and stop R2 or additional model credentials
+        run: |
+          test "$(cat experiments/WF_0AH_VERIFY_11_ORIGINALS_ONLY_COMEDY_REVERSE_ONCE_20261025.txt)" = "WF0AH_REPLAY_11_REAL_ORIGINALS_COMEDY_REVERSE_ONLY_NO_AUTHOR"
+          python - <<'PY'
+          import os
+          assert not any(os.getenv(x) for x in (
+              'WRITERFORGE_R2_ACCOUNT_ID','WRITERFORGE_R2_ACCESS_KEY_ID',
+              'DISCOVERY_API_KEY','OPENAI_API_KEY','OPENROUTER_API_KEY'))
+          PY
+      - name: Run all zero-model tests before any fresh rating request
+        run: python -m unittest discover -s tests -q
+      - name: Fetch previous real six writers and five judges, NEVER regenerate
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40201458798
+          name: WF-0AH-Second-Three-Xianxia-History-Comedy-Real-Pairs-Wires-and-Ratings
+          github-token: ${{ github.token }}
+          path: wf0ah_second_three_original_artifact
+      - name: Check all eleven original provider SHA and one extra-score-note recovery OFFLINE
+        run: |
+          python - <<'PY'
+          from experiments.wf_0ah_replay_second_three_source_first_20261025 import replay_original_eleven
+          cases,old,events=replay_original_eleven()
+          assert len(cases)==3 and len(events)==11
+          assert cases['comedy_breakfast']['reverse'] is None
+          assert cases['xianxia_plant']['reverse'] is not None
+          assert cases['history_message']['reverse'] is not None
+          assert cases['comedy_breakfast']['first']['裸模型']['score']==76
+          assert cases['comedy_breakfast']['first']['WF辅助']['score']==72
+          print('ELEVEN ORIGINAL SHA VERIFIED. ZERO NEW AUTHORS. ONLY COMEDY BLIND-2 MISSING.')
+          PY
+      - name: Pay at most ONE new DeepSeek score for frozen comedy originals only
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: python -m experiments.wf_0ah_replay_second_three_source_first_20261025
+      - name: Full 12-source rating checksum and no author retries
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from hashlib import sha256
+          import json
+          d=Path('wf_0ah_only_comedy_reverse_source_20261025')
+          s=json.loads((d/'STATUS.json').read_text('utf8'))
+          assert s['format']=='wf.0ah.original-eleven-replay-only-one-missing-grade.v1'
+          assert s['status']=='THREE_GENRES_ALL_TWO_ORDERS_WITH_NOT_COMPARABLE_FLAGS'
+          assert s['old_actual_provider_wires_verified']==11
+          assert s['old_author_calls_replayed_without_billing']==6
+          assert s['old_grade_calls_replayed_without_billing']==5
+          assert s['new_writer_calls']==0 and s['new_grade_calls']==1
+          assert s['R2_reads']==s['R2_writes']==s['Canon_writes']==0
+          assert s['Railway_deployments']==0 and not s['main_modified']
+          assert all('ratings' in c for c in s['cases'].values())
+          event=s['new_provider_events'][0]
+          assert event['task']=='comedy_breakfast_blind-2'
+          assert event['original_wire_preserved']
+          p=d/'reverse-provider-originals'/'comedy_breakfast_blind-2.json'
+          assert sha256(p.read_bytes()).hexdigest()==event['raw_provider_sha256']
+          for key,c in s['cases'].items():
+              print(key, 'bare/WF /100:',
+                    c['ratings']['裸模型']['score_100'],
+                    c['ratings']['WF辅助']['score_100'],
+                    'delta:',c['WF_minus_bare'],
+                    'confidence:',c['comparison_confidence'])
+          PY
+      - name: Preserve prior eleven and newest original grade envelopes on every outcome
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AH-12-Real-Provider-Wires-3-Genre-Both-Order-Scores-and-Causal-Evidence
+          path: wf_0ah_only_comedy_reverse_source_20261025/
+          retention-days: 90
+          if-no-files-found: warn
