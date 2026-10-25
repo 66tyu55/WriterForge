@@ -1,6 +1,16 @@
 # WF 跨窗口精简交接｜2026-10-24｜AI 自己决定何时及为何删稿
 
-**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.Q**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.R**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+
+## 最新 0.R：模型自己区分前章“已写事实、没有写出、有意留白”（2026-10-25）
+
+**首要完整记录**：[WF_AUTHOR_SOURCE_EVIDENCE_REAL_20261025.md](WF_AUTHOR_SOURCE_EVIDENCE_REAL_20261025.md)。真实官方 DeepSeek 本轮 **仅新增1次原作者决定模型请求**：[GitHub Actions #40153456601](https://github.com/66tyu55/WriterForge/actions/runs/40153456601)，[原始 wire / 完整原答复 #12583830221](https://github.com/66tyu55/WriterForge/actions/runs/40153456601/artifacts/12583830221)。仅开发分支，不动 main、Railway、R2 用户原著和正式 Canon，也不新增审稿模型或文学记忆模块。
+
+- **为什么做**：上轮 0.Q 真双原文读者指出“江遥袖中票据 → 当前票据压在戏服箱底”缺少实际写出的转移，但真正原作者仍选择 `MOVE_ON`，还称“前章已经交代”。小说留白可能合理；然而不能把作者希望读者想象的动作冒称已经写在前章。这两种必须由**作者自己**明确区分，WF 不创造转移也不以关键词判断文学错误。
+- **原后端新功能**：`writing_assist._validate_author_prior_source_claims` 和原 `_ai_decides_when_to_revisit(...,earlier_source_for_attribution=...)` 在签名上一章或已校验上一段可用，且已有唯一引句定位的跨源读者问题时启用。小说原作者同一次 JSON 回答每个真实跨文本问题：`WRITTEN_WITH_QUOTE`（提供前章唯一字面引句）、`UNWRITTEN_OR_UNKNOWN`（无明确原文或不知）、`INTENTIONAL_ELLIPSIS`（刻意省略）。**WF 只验 quote 身份，不证明它真的表示物件转移。** 如果它仅引用“票据原来藏在衣袖里”，回执 `PRIOR_STATE_QUOTE_NOT_TRANSFER_PROOF`；假引句、漏填归因、错误 SHA 不会获得来源资格。即使模型作了没有字面证明的 KEEP，文学决定仍归模型，未证实事实不会晋级 Canon。
+- **真实单次结果**：原作者 DeepSeek 将**票据袖内→箱底、三声鼓→第四声鼓**归为 **2 条 `INTENTIONAL_ELLIPSIS`**（本人声称文学留白），将**宋易钥匙从手里变腰间**归为 **1 条 `UNWRITTEN_OR_UNKNOWN`**；**0 条 `WRITTEN_WITH_QUOTE`**。这次模型**合法自主选 `LOOK_BACK_NOW`**，但想改的不是票据，而是江遥明知裂板却突然把重心压上去、撞向栏杆的动作太莽撞，削弱谨慎性格。它给了原文唯一引句和正确 SHA。**本轮没调用 V119、没有一字新小说、没有文学盲评；只能说真实模型自主审稿的来源区分变清晰，不得说改稿成功。**
+- **工程核验**：[测试 #40153005020](https://github.com/66tyu55/WriterForge/actions/runs/40153005020) 1,585 项、4跳过、0失败；[补充完整签名 G 模拟闭环 #40153219104](https://github.com/66tyu55/WriterForge/actions/runs/40153219104) **1,586 项执行、4跳过、0失败**。保留历史坏例、原回复和类型错误，未重算先前已经支付的模型。新来源归因**仍属原八次自主审稿调用额度**；仅在需说明至多三条跨源原句时，原作者单次输出 cap 从600调整到1150 token，Studio 原有“独立读者先行”明确默认关闭。
+- **下一步文学核心**：取得真正**由同一模型生成并通过 V119/V96/V114/V117 的局部修订作品**，再安排匿名人类读者对比。更要防止为补一个动作制造新的人物知识/道具空间错误。当前真实 LOOK_BACK 是一次候选作者判断，**尚无有效源锁改稿和泛化能力证明**；避免对同一旧稿无止境付费劝改。
 
 ## 最新 0.Q：新戏楼真实 G 前后原文核查与作者仍 MOVE_ON 的跨章负例（2026-10-25）
 
