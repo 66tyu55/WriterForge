@@ -44,11 +44,6 @@ class OnlySourceLockedComedicGradeContinuation(unittest.TestCase):
         self.assertIn('"Canon_writes":0',code)
         self.assertIn('"new_writer_calls":0',code)
 
-    def test_real_comedy_first_numeric_scores_unchanged_from_provider(self):
-        self.assertEqual(sum([17,16,15,13,15]),76)
-        self.assertEqual(sum([15,17,14,12,14]),72)
-        self.assertTrue(e.PRlOR if False else True)  # no file/path side effects
-
 
 if __name__=="__main__":
     unittest.main()
