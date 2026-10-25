@@ -241,8 +241,12 @@ def build_prompt(arm,stage,*,previous_prose="",previous_effect=None,reference=No
                "\n这不是续写目标，不是小说角色/情节来源。"
                "只体会观察细节、句子节奏与铺垫，并写完全不同的原创故事。"
                "禁止连续照抄、改人名复刻事件或直接介绍原著。")
+    actual_prior=(
+        ({"beat_id":BEATS[stage-1]["id"],"prose":previous_prose,
+          "effect_quote":previous_effect},) if stage else ()
+    )
     note+="\n"+make_turn_instructions(BEATS[stage],mode="causal_guard",
-                                         accepted=())
+                                         accepted=actual_prior)
     return note
 
 def make_packet(prompt,scene):
