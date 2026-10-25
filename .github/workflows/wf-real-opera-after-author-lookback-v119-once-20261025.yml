@@ -1,0 +1,112 @@
+name: WF One-Shot Genuine DeepSeek Opera Author-Selected V119 Source Edit 20261025
+on:
+  # User asked "继续" after authentic same-author LOOK_BACK_NOW.
+  # Only a unique sentinel triggers the one real model call; code/docs
+  # and GitHub's initial workflow creation never call providers.
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_OPERA_TRUE_AUTHOR_SELECTED_V119_FIRE_ONCE_20261025.txt
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wf-genuine-same-author-V119-one-call-after-source-attestation-20261025
+  cancel-in-progress: false
+jobs:
+  validate-three-source-chains-before-one-writer-proposal:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install only already declared WF local source requirements
+        run: python -m pip install -e '.[r2]'
+      - name: Offline prove one authorized edit request and rejected forged causal trace
+        run: |
+          PYTHONPATH=tests python -m unittest tests.test_wf_real_opera_author_chosen_v119 tests.test_wf_writer_self_revision_loop tests.test_wf_author_prior_source_attribution -q
+      - name: Download original real WriterForge G manuscript, signed V117 and all seven original provider wires
+        uses: actions/download-artifact@v4
+        with:
+          name: WF-New-Actual-G-Author-Control-vs-Reader-First-20261025
+          run-id: 40110957161
+          github-token: ${{ github.token }}
+          path: wf_real_opera_previous_20261025
+      - name: Download actual independent reader and earlier author source reply
+        uses: actions/download-artifact@v4
+        with:
+          name: WF-Real-Opera-Signed-Prior-Chapter-Reader-Originals-20261025
+          run-id: 40151857245
+          github-token: ${{ github.token }}
+          path: wf_prior_opera_cross_source_20261025
+      - name: Download actual same-author source citations and valid LOOK_BACK_NOW including original provider wire
+        uses: actions/download-artifact@v4
+        with:
+          name: WF-Real-DeepSeek-Prior-Source-Author-Attestation-20261025
+          run-id: 40153456601
+          github-token: ${{ github.token }}
+          path: wf_real_opera_prior_attestation_20261025
+      - name: No-cost complete SOURCE provenance and author's actual anchored LOOK_BACK_NOW preflight
+        run: |
+          python - <<'PY'
+          from tempfile import TemporaryDirectory
+          from pathlib import Path
+          import experiments.wf_real_opera_author_selected_v119_once_20261025 as x
+          with TemporaryDirectory() as tmp:
+              x.OUTPUT=Path(tmp)/"offline-before-live"
+              x.OUTPUT.mkdir()
+              original,choice,history,raw,pkt=x.prior_real_writer_decision()
+              assert choice['decision']=='LOOK_BACK_NOW'
+              assert choice['focus']=='sentence'
+              assert original['source'].count(choice['source_quote'])==1
+              assert choice['target_prose_sha256']==x.TARGET_SOURCE_SHA
+              assert history['new_real_provider_calls']==1
+              assert len(original['status']['real_model_evidence'])==7
+              assert x.OLD_ATTEST_ARTIFACT==12583830221
+              print('AUTHENTIC SOURCE + 7 ORIGINAL G WIRE + 2 READER WIRE + 1 AUTHOR LOOK_BACK WIRE VERIFIED')
+          PY
+      - name: One same genuine DeepSeek novelist V119 proposal only, no retry or forced literature edit
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: python -m experiments.wf_real_opera_author_selected_v119_once_20261025
+      - name: Verify source first-turn changed only on proper V119/V96/V114/V117 preflight
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          p=Path('wf_real_opera_author_selected_v119_20261025/STATUS.json')
+          x=json.loads(p.read_text('utf8'))
+          assert x['new_real_provider_requests']<=1
+          assert x['new_provider_max_calls']==1
+          assert x['model_retry_count']==0
+          assert x['original_author_decision']=='LOOK_BACK_NOW'
+          assert x['old_source_sha256']=='2a0d2827d51dc1197065cd21126e091a3fd44c4db3bb7d92048c3167d24f4dbd'
+          assert x['old_complete_chapter_second_turn_not_reused_as_new_branch']
+          assert x['new_full_chapter_and_all_downstream_state_rebuilt'] is False
+          assert x['V117_full_new_chapter_signed'] is False
+          assert x['user_canon_writes']==0 and x['R2_writes']==0
+          assert not x['literary_quality_independently_verified']
+          if x.get('new_candidate_first_turn_source_changed'):
+              assert x['V96_revised_first_turn_passed']
+              assert x['V117_source_preflight_blocked'] is False
+              assert Path('wf_real_opera_author_selected_v119_20261025/NEW_PRIVATE_FIRST_TURN_AFTER_V119.md').exists()
+          print('TRUE SOURCE REVISE:',x.get('new_candidate_first_turn_source_changed',False))
+          print('RAW MODEL V119 STATUSES:',x.get('V119_round_statuses'))
+          print('REAL REQUESTS:',x['new_real_provider_requests'])
+          PY
+      - name: Save old and new true model fiction, exact source quote and original provider wire regardless of result
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WF-Opera-One-True-DeepSeek-Author-Selected-V119-Original-Wire-20261025
+          path: wf_real_opera_author_selected_v119_20261025/
+          retention-days: 30
+          if-no-files-found: warn
