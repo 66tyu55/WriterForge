@@ -69,8 +69,10 @@ AUTHOR_SYSTEM = (
     "严格只输出当前协议规定的 JSON 对象。"
 )
 CHAPTER_RE = re.compile(
-    r"(?m)^[ \t]*第[0-9零一二三四五六七八九十百千]{1,8}章[^\n\r]{0,45}$"
+    r"(?m)^[ \t]*第[ \t]*(?P<ordinal>[0-9零一二三四五六七八九十百千]{1,8})[ \t]*章[^\n\r]{0,45}$"
 )
+ORDINALS = {"一":1, "二":2, "三":3}
+
 
 def sha(value):
     raw = value.encode("utf8") if isinstance(value,str) else value
@@ -85,19 +87,30 @@ def write_json(path,value):
     path.write_text(json.dumps(value,ensure_ascii=False,sort_keys=True,indent=2),encoding="utf8")
 
 def source_windows(text):
-    """Choose only the opening of chapter 1 and chapter 2; no fake source."""
+    """Use chapter 1 and 2, never a table of contents masquerading as prose."""
     require(type(text) is str and len(text)>1000, "WF0T_REAL_BOOK_SOURCE_NOT_PRESENT")
     matches=list(CHAPTER_RE.finditer(text))
     require(len(matches)>=FIRST_CHAPTERS+1, "WF0T_CANNOT_VERIFY_TWO_CHAPTER_BOUNDS")
-    result=[]
-    for i in range(FIRST_CHAPTERS):
-        span=text[matches[i].end():matches[i+1].start()]
-        span=re.sub(r"\s+","",span)[:EXCERPT_CHARS]
-        require(len(span)>=EXCERPT_CHARS and
-                "\ufffd" not in span, "WF0T_BOOK_CHAPTER_TOO_SHORT_OR_CORRUPT")
-        result.append(span)
-    require(len(set(result))==FIRST_CHAPTERS, "WF0T_REFERENCE_EXCERPTS_NOT_DISTINCT")
-    return tuple(result)
+    for i in range(len(matches)-2):
+        triad=matches[i:i+3]
+        order=[]
+        for hit in triad:
+            value=hit.group("ordinal")
+            order.append(int(value) if value.isdigit() else ORDINALS.get(value))
+        if order!=[1,2,3]:
+            continue
+        bodies=[
+            re.sub(r"\s+","",text[triad[j].end():triad[j+1].start()])
+            for j in range(FIRST_CHAPTERS)
+        ]
+        # TOCs contain chapter headings but no 230-character narrative body.
+        if all(len(x)>=EXCERPT_CHARS for x in bodies):
+            windows=tuple(x[:EXCERPT_CHARS] for x in bodies)
+            require(len(set(windows))==FIRST_CHAPTERS and
+                    all("\ufffd" not in x for x in windows),
+                    "WF0T_REFERENCE_EXCERPTS_NOT_DISTINCT_OR_CORRUPT")
+            return windows
+    raise RuntimeError("WF0T_CANNOT_FIND_AUTHENTIC_FIRST_TWO_CHAPTERS")
 
 def download_pinned_private_reference():
     """Private HTTPS read only. No book text enters logs or GitHub artifacts."""
@@ -132,9 +145,10 @@ def download_pinned_private_reference():
         text=raw.decode("utf-8-sig","strict")
     except UnicodeError:
         raise RuntimeError("WF0T_PRIVATE_SOURCE_NOT_UTF8") from None
-    return source_windows(text), {"book_source_sha256":expected,
+    windows=source_windows(text)
+    return windows, {"book_source_sha256":expected,
                                    "whole_book_bytes_read_privately":total,
-                                   "reference_window_sha256":[sha(x) for x in source_windows(text)],
+                                   "reference_window_sha256":[sha(x) for x in windows],
                                    "reference_window_chars":[EXCERPT_CHARS]*FIRST_CHAPTERS,
                                    "full_book_passed_to_any_model":False,
                                    "source_uploaded_or_rewritten":False}
