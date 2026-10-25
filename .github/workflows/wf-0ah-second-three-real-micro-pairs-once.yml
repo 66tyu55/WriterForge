@@ -1,0 +1,88 @@
+name: WF 0.AH Three Different Real Xianxia History Comedy Micro Pairs ONCE
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_0AH_SECOND_THREE_FIRE_ONCE_20261025.txt
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf-0ah-second-three-deepseek-single-immutable-author-pair-run
+  cancel-in-progress: false
+
+jobs:
+  second-three-diverse-literary-samples:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit' && github.run_attempt == 1 && github.event.head_commit.message == 'experiment(0.AH): FIRE EXACTLY ONE NEW SECOND THREE-GENRE BATCH'
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Existing WF dependencies without extra vendors
+        run: python -m pip install -e '.[r2]'
+      - name: Exact one-shot marker and strict source/secret boundary
+        run: |
+          test "$(cat experiments/WF_0AH_SECOND_THREE_FIRE_ONCE_20261025.txt)" = "WF0AH_RUN_ONCE_XIANXIA_HISTORY_COMEDY_NO_RETRY"
+          python - <<'PY'
+          import os
+          assert not any(os.getenv(k) for k in (
+              'WRITERFORGE_R2_ACCOUNT_ID','WRITERFORGE_R2_ACCESS_KEY_ID',
+              'DISCOVERY_API_KEY','OPENAI_API_KEY','OPENROUTER_API_KEY'))
+          print('0.AH source boundary: R2 and other model source not configured')
+          PY
+      - name: Complete offline WF regression BEFORE all paid author calls
+        run: |
+          python -m unittest discover -s tests -q
+      - name: Three NEW originals only, each DeepSeek bare versus WF same author budget, zero retries
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: python -m experiments.wf_0ah_diverse_micro_paired_20261025
+      - name: Truthful original wire SHA and all three author-source and ratings statuses
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json,hashlib
+          d=Path('wf_0ah_diverse_micro_batch2_20261025')
+          x=json.loads((d/'STATUS.json').read_text('utf8'))
+          assert x['format']=='wf.0ah.second-new-diverse-micro-three-paired.v1'
+          assert x['first_batch']==['xianxia_plant','history_message','comedy_breakfast']
+          assert len(x['frozen_ten_task_ids'])==10
+          assert x['same_model']=='deepseek-flash'
+          assert x['same_author_max_tokens']==1400
+          assert x['reserved_output_cap']==18000
+          assert 0<x['actual_model_calls']<=12
+          assert x['R2_reads']==x['R2_writes']==x['Canon_writes']==0
+          assert x['Railway_deployments']==0 and not x['main_modified']
+          assert x['no_second_author_call_or_retries']
+          assert x['prior_0AD_0AE_author_calls_repeated']==0
+          for event in x['provider_calls']:
+              if event.get('original_wire_preserved'):
+                  p=d/'provider-originals'/(event['task']+'.json')
+                  assert hashlib.sha256(p.read_bytes()).hexdigest()==event['raw_provider_sha256']
+          for key,case in x['cases'].items():
+              print('0.AH',key,case.get('status'),
+                    'chars',case.get('bare_codepoints'),case.get('WF_codepoints'),
+                    'WF-diff',case.get('WF_minus_bare'),
+                    'comparison',case.get('comparison_confidence'),
+                    'source',case.get('WF_source_checks',{}).get('V96_status'))
+          assert len(x['cases'])==3 and all(
+              c['original_writer_ready'] for c in x['cases'].values()), \
+              'Partial author evidence preserved but missing source; no reruns'
+          assert all(c['scores_ready'] for c in x['cases'].values()), \
+              'Score missing; preserve original provider response and do not retry authors'
+          PY
+      - name: Save ORIGINAL provider envelopes and source audits even if any stage fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AH-Second-Three-Xianxia-History-Comedy-Real-Pairs-Wires-and-Ratings
+          path: wf_0ah_diverse_micro_batch2_20261025/
+          retention-days: 90
+          if-no-files-found: warn
