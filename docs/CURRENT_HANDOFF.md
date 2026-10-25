@@ -1,6 +1,20 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.T WF 不能停在“发现错误，提醒 AI”：已加入有来源的改稿指导、修订影响比较、抗 A→B→A 反复改错和同作者只补引句的有限救援（2026-10-25，本轮最新）
+
+**下一窗口先按此顺序读**：[WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md](WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md) → [WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md](WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md) → 下方 0.S 真 DeepSeek 自主改句却填错 action/effect 的历史原始失败。此次为用户“WF 应自身正确引导和帮助，不是提醒完就算”的**架构纠偏**，不是另一个增加训练样本／堆模块的任务。所有变更仅开发分支 `refactor-unified-scene-delivery-audit`；绝不改 main / Railway / 用户 R2 原著 / 已接受作品 Canon，不重复 15 章训练、不加第二文学记忆或额外模型文学裁判。
+
+- **职责重新划清**：小说创作 AI 仍必须自己想、自己选择要不要删、应该改哪里、什么样的文学节奏与人物动机才合适，也由它独立生成全部小说正文。WF **负责正确提供可核对的实际前因、人物/道具候选状态、源 SHA、修改范围、相互依赖的后续及真正差异，并管理能完成修复的有界事务**。WF 不能凭关键字断文学对错，也不能只返回红色错误码就把修复责任再次全甩给模型。
+- **每次真正出手前有一份源锁的“修复契约”**：原 `v119_revision_transaction.prepare_source_repair_contract` + `writing_assist._self_edit_one_turn` 会向同一小说 AI 传递它本人选定的真实原句及文学意图（标记为未经验证），原 V96 父事件有据的后果或 null、V114/V116 已有实际候选物件/人物伤势状态值、原来就有的风险，以及几个**由 AI 自选**的保留、局部修订、删除或整场重写路径。上一状态视图最多八项且明确其他域／余项可能没展示，不得因此假装物品丢失、伤势痊愈。源若对不上或完整必要信息超预算，不得悄悄舍弃硬约束然后发请求。该契约有独立 SHA，只是原 G 私有 job 文件，非新长期记忆。
+- **不再修完就假装完成**：`compare_source_repair_impact` 直接用原 V119 与 V116/122 的已有前后检查：旧硬风险消失多少、仍在多少、新硬风险是什么、出现哪些**尚无语义真相的**来源 review 风险。新硬风险按原 V119 拒稿；新增未证问题将新稿放在私有 `HELD_NEW_UNVERIFIED_SOURCE_RISK`，不写入原后续故事；既有未解风险不能因一处新词而自动清零。每段后续如果依赖被改事件必须重新生成，旧 G 第二段不能偷偷复用。文学目标是否解决**依然不由软件评分**。
+- **防循环及可执行失败反馈**：同一作者任务内已验过的原稿 SHA 组成有限来源账，A→B→A 再改回旧版直接 `REJECTED_REVISION_OSCILLATION` 且保留上一个有效版。每个因果红灯给出真实原因和下一次原作者**应当补什么来源证明**，不制造小说句子或替模型切割 action/effect。
+- **重点新能力：有界“只补来源引句”，不整段反复创作**：如果原作家第一次确实已经写出了 V119 来源合法的小说新句，而唯一失败是 V96 可核的动作/结果/父事件引用错误，且用户当前任务**此前已允许 self_edit_rounds=2** 并在原八次预算内，WF 可在原同一任务内最多再问**同一个写作模型1次，只返回 trace 三字段**。该请求冻结模型第一次亲写的候选 prose，不能返回新 prose/剧情；软件不代写 trace，只保存两次模型原 raw，并用旧 V96/V114/V117 重新严格验证。成功也仅为未接受候选；第二次仍错、格式异常、额度不足或用户取消，立即回滚或传播取消，**绝无第三次自动劝改**。默认 rounds=0/1 无新请求，所有已完成旧付费原回复仍保持历史失败。
+- **真实证据等级和最新测试**：[前半回归 #40157466289](https://github.com/66tyu55/WriterForge/actions/runs/40157466289) 1,598 tests、4 skipped、0 fail；[来源-only 一次补引用双模型结构测试 #40157703160](https://github.com/66tyu55/WriterForge/actions/runs/40157703160) 1,602 项；[最终无模型全量 #40158010084](https://github.com/66tyu55/WriterForge/actions/runs/40158010084) **1,604 tests executed、4 skipped、0 failures**，含正确 V96 action/decision/reversal、上文道具持有/受伤候选状态及截断说明、新 review HOLD、循环保护和 Studio JS 语法。**本轮新增真实付费模型调用是0次**；旧 #40155863914 模型亲写却因 `WF96_ACTION_EFFECT_OVERLAP_OR_REVERSED` 无效的原始样本没有被改写成功，不能用模拟成功补引句冒充模型文学水平提高。
+- **真正下一步**：先证明同一模型在不同原创题里使用这一闭环，真正完成一次经过全部 V119/V96/V114/V117 的安全改稿、重新写受影响下游，最后用匿名实际读者比较人物因果/时空/物件/情绪和语言效果；任何只是编出另一种错误的稿件均不得晋级创作经验。不要再走“报错→不分根因让 AI 整段重写→又报错”的旧路；新的实付费文学验证、部署生产或修改 Canon 需要独立授权。
+
+---
+
 ## 0.S 已签名戏楼原作者自主 LOOK_BACK 后，真正改写动作句但 V96 因果引句重叠严格拒绝；私有预览不得当成新完整章（2026-10-25，最新）
 
 **继续先读**：[WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md](WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md) → [WF_REAL_OPERA_AUTHOR_V119_SOURCE_ONLY_20261025.md](WF_REAL_OPERA_AUTHOR_V119_SOURCE_ONLY_20261025.md)。仅 `refactor-unified-scene-delivery-audit` 开发分支；禁止改 main、Railway、用户 R2 原小说或正式 Canon，不再重复旧15章训练、不得添加第二个文学记忆/审稿 AI。
