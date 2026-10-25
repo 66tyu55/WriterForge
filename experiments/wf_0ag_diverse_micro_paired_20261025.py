@@ -218,6 +218,18 @@ def parse_micro_judge(answer):
     """
     original=normalize(answer,("ratings",))
     scores=original["ratings"]
+    # Original 0.AG reverse paid rater provider emitted a {甲:{...},乙:{...}}
+    # keyed map for wuxia/horror; the third emitted [{id:甲,..},{id:乙,..}].
+    # Reconstruct the SAME two explicit anonymous labels without touching
+    # ratings, prose or reason. This is deterministic wire formatting only.
+    rows_rekeyed=0
+    if type(scores) is dict:
+        need(set(scores)=={"甲","乙"} and
+             all(type(scores[key]) is dict and
+                 "id" not in scores[key] for key in ("甲","乙")),
+             "WF0AG_RATER_LABELLED_TWO_ENTRY_MAP_INVALID")
+        scores=[{"id":key,**scores[key]} for key in ("甲","乙")]
+        rows_rekeyed=2
     need(type(scores) is list and len(scores)==2,
          "WF0AG_RATER_EXPECTED_TWO_ENTRIES")
     normalized=[]
@@ -261,6 +273,7 @@ def parse_micro_judge(answer):
     return parsed,{
         "format":"wf.0ag.judge-positional-five-lossless-v1",
         "score_arrangement_recovered":converted,
+        "labelled_map_rows_losslessly_rekeyed":rows_rekeyed,
         "frozen_criterion_order":list(CRITERIA),
         "numeric_scores_unchanged":True,
         "model_reason_and_weakness_unchanged":True,
