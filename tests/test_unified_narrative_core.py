@@ -543,11 +543,13 @@ class GraphWithPriorityAndKnowledge(unittest.TestCase):
     def test_real_resume_survives_delayed_hot_memory(self):
         with tempfile.TemporaryDirectory() as td:
             graph=new_graph(project_id=P,scene_id=S)
-            state=external_temporal_step(ORIGIN,cast=("沈砚","唐蜃"))
+            state=None
             for n in range(1,6):
                 prose=f"第{n}章，沈砚暂且隐忍，在边关结识了新友。"
                 file=Path(td)/f"chapter-{n:02}.md"
                 file.write_text(prose,encoding="utf8")
+                state=external_temporal_step(
+                    prose,cast=("沈砚","唐蜃"),prior=state)
                 graph=advance_graph(graph,project_id=P,scene_id=S,
                                     chapter_index=n,prose=prose)
                 graph=record_chapter_memory(
