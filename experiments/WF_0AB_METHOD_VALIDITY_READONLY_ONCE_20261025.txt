@@ -1,0 +1,3 @@
+WriterForge 0.AB read-only quality-control of one EXISTING frozen literary score.
+Source reference is original 0.T Fanren excerpt from R2 pinned SHA, but this run will NOT touch R2 or see novel text. Download score-only artifact from existing judge workflow #40182718487; verify source window SHA and score schema, preserve the raw 62/79/76 numbers, declare incomparable because passage narrative functions differ and stage2 sample sizes are unbalanced. Score is not WF improvement and must not be used as an automatic reward to force AI edits.
+No DeepSeek or any model calls, no R2/Canon/main/Railway modifications, no prompts to authors, no extra memory module. If score mismatched, fail closed. One-time sentinel, no hidden retries.
