@@ -337,22 +337,22 @@ def normalize_model_source_citations(raw,beat,accepted=()):
     changed=[]
     for label in ("action_quote","effect_quote"):
         quote=trace[label]
-        if type(quote) is not str or len(quote)<18 or len(quote)>MAX_QUOTE_CHARS:
+        if type(quote) is not str or len(quote)<13 or len(quote)>MAX_QUOTE_CHARS:
             continue
         if _occurrences(source,quote):
             continue
         possible=[]
         # Only drop a SINGLE demonstrably mismatched personal pronoun.
         # Never trim negation ("不", "没") or an event's substantive words.
-        if quote[0] in "他她它" and len(quote)>18:
+        if quote[0] in "他她它" and len(quote)>=13:
             possible.append(("STRIP_SOURCE_MISMATCHED_PRONOUN",quote[1:]))
         # Omitting the very last punctuation is a citation normalization,
         # not a new fictional event. No lexical/semantic guesswork.
-        if quote[-1] in "，；。！？" and len(quote)>19:
+        if quote[-1] in "，；。！？" and len(quote)>=13:
             possible.append(("STRIP_CITATION_END_PUNCTUATION",quote[:-1]))
         for operation,candidate in possible:
             if (len(_occurrences(source,candidate))==1 and
-                MIN_QUOTE_CHARS<=len(candidate)<=MAX_QUOTE_CHARS):
+                12<=len(candidate)<=MAX_QUOTE_CHARS):
                 try:
                     _quote_anchor(source,candidate,label.upper().replace("_QUOTE",""))
                 except V96CausalDraftError:
