@@ -71,6 +71,36 @@ class TestFirstBatchProtocol(unittest.TestCase):
         self.assertIn("不把任何技术检测结果作为文学分数",prompt)
         self.assertNotIn("原作家原文",prompt)
 
+    def test_real_deepseek_five_number_array_recovered_losslessly(self):
+        # 0.AG original, fixed-criterion order; only representation changes.
+        records={"ratings":[
+            {"id":"甲","scores":[17,18,17,16,16],
+             "reason":"动作位置与伤势相互牵制，叙事具体可信。",
+             "weakness":"结尾的动作负担可以再收束一点。"},
+            {"id":"乙","scores":[16,17,15,17,15],
+             "reason":"受伤角色的身体限制始终存在，没有凭空消除。",
+             "weakness":"绳子的处理过程仍可交代得更准确。"},
+        ],"type":"json_object"}
+        original=json.dumps(records,ensure_ascii=False)
+        parsed,receipt=e.parse_micro_judge(records)
+        self.assertEqual(sum(parsed["甲"]["scores"].values()),84)
+        self.assertEqual(sum(parsed["乙"]["scores"].values()),80)
+        self.assertEqual(list(parsed["甲"]["scores"].values()),
+                         [17,18,17,16,16])
+        self.assertEqual(receipt["score_arrangement_recovered"],2)
+        self.assertTrue(receipt["numeric_scores_unchanged"])
+        self.assertEqual(json.dumps(records,ensure_ascii=False),original)
+        # Unsupported array sizes and bool masquerading as int remain RED.
+        with self.assertRaises(RuntimeError):
+            e.parse_micro_judge({"ratings":[
+                {**records["ratings"][0],"scores":[17,18,17,16]},
+                records["ratings"][1]]})
+        with self.assertRaises(RuntimeError):
+            e.parse_micro_judge({"ratings":[
+                {**records["ratings"][0],
+                 "scores":[True,18,17,16,16]},
+                records["ratings"][1]]})
+
     def test_real_provider_original_saved_before_json_validation_and_no_retries(self):
         source=inspect.getsource(e.Model)
         main=inspect.getsource(e.main)
