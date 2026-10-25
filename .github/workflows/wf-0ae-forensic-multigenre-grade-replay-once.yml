@@ -1,0 +1,82 @@
+name: WF 0.AE Authenticate Old Four Genres and Fill ONLY Missing Blind Scores
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_0AE_SIX_JUDGE_REQUESTS_ONLY_FIRE_ONCE_20261025.txt
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wf-0ae-one-real-four-genres-forensic-score-continuation
+  cancel-in-progress: false
+jobs:
+  continue-scores-without-rewriting-stories:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 23
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing WF core and DeepSeek adapter only
+        run: python -m pip install -e '.[r2]'
+      - name: Recover untouched ten original provider wire hashes and eight author works
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40190602528
+          name: WF-0AD-MultiGenre-Original-Bare-vs-WF-Real-Four-Case-Evidence
+          github-token: ${{ github.token }}
+          path: wf0ad_real_first_pilot_artifact
+      - name: Offline verify every previous model response and actual WF source problems
+        run: |
+          PYTHONPATH=tests python -m unittest tests.test_wf_0ae_real_multigenre_wire_replay tests.test_wf_0ad_multigenre_real_paired_protocol tests.test_wf_0ac_multigenre_narrative_stress -q
+          python - <<'PY'
+          from experiments.wf_0ae_replay_original_multigenre_real_scores_20261025 import replay_first_real_run
+          genres,old_ratings,sha=replay_first_real_run()
+          assert len(genres)==4 and len(old_ratings)==2 and len(sha)==10
+          assert genres['realism']['WF_provenance']['V96_status']=='SOURCE_TRACE_VERIFIED'
+          assert genres['mystery']['WF_provenance']['V96_status']=='HELD_TRACE_UNVERIFIED'
+          print('TEN TRUE PROVIDER WIRES VERIFIED; NO NOVEL REGENERATED')
+          PY
+      - name: Never access user original R2 or a second literature source
+        run: python -c 'import os; assert not any(os.getenv(x) for x in ("WRITERFORGE_R2_ACCOUNT_ID","WRITERFORGE_R2_ACCESS_KEY_ID","DISCOVERY_API_KEY","OPENAI_API_KEY"))'
+      - name: Score only missing six blind orders with capped DeepSeek, preserve source HOLD
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: python -m experiments.wf_0ae_replay_original_multigenre_real_scores_20261025
+      - name: Publish actual pair grades and all WF source flags, never claim overall literary improvement
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          s=json.loads(Path('wf_0ae_paired_genre_repair_and_completion/STATUS.json').read_text('utf8'))
+          assert s['format']=='wf.0ae.forensic-replay-0ad-scores.v1'
+          assert s['old_author_model_calls_replayed_without_billing']==8
+          assert s['old_judge_wires_replayed_without_billing']==2
+          assert 0<=s['new_model_calls']<=6
+          assert not s['author_prose_changed']
+          assert s['R2_reads']==s['R2_writes']==s['Canon_writes']==0
+          assert s['Railway_deployments']==0 and not s['main_modified']
+          assert s['no_new_fiction_or_author_retries']
+          assert not s['no_independent_human_grades'] is False
+          assert s['scores_not_proof_of_literary_improvement']
+          print('STATUS:',s['status'],'NEW RATER CALLS:',s['new_model_calls'])
+          for key,item in s['cases'].items():
+              print(key,item.get('WF_provenance',{}).get('V96_status'),
+                    item.get('scores',{}).get('WF_minus_bare_points'))
+          PY
+      - name: Preserve original author fiction and numeric blind grades with all source SHA receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AE-Four-Diverse-Real-Sources-Paired-Literary-Scores-and-WF-Failures
+          path: wf_0ae_paired_genre_repair_and_completion/
+          retention-days: 30
+          if-no-files-found: warn
