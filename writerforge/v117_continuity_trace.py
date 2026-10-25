@@ -321,6 +321,13 @@ def _verify_unified_temporal_source_link(graph, checkpoint, chapter_index,
                  archive_rows[-1]["source_sha256"],
                  "WF117_GRAPH_TEMPORAL_SOURCE_UNBOUND")
         return False
+    # A signed link to the LAST turn is not enough. Provenance is only
+    # trusted for NEW artifacts if it was verified from the actual first
+    # source-root through every chapter. Old links without this extra bit
+    # remain READABLE but not certified for new writing.
+    if require_strong_for_new or require_verified_ancestry:
+        need(link.get("ancestry_fully_verified") is True,
+             "WF117_GRAPH_TEMPORAL_ANCESTRY_UNVERIFIED")
     need(link["chapter_index"]==chapter_index and
          link["last_v114_checkpoint_sha256"]==
              checkpoint["receipt_sha256"] and
