@@ -1,0 +1,64 @@
+name: WF One-Time Real Opera Author Null SHA and Item Source Zero-Model Replay 20261025
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_REAL_OPERA_SOURCE_ID_REPLAY_ONCE_20261025.txt
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wf-real-opera-original-g-source-identity-offline-replay-20261025
+  cancel-in-progress: false
+jobs:
+  true-seven-wires-source-identity-only:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Use existing local WF Node/G dependencies WITHOUT model keys
+        run: python -m pip install -e '.[r2]'
+      - name: Check strict current-source-only SHA binding adversarial fixtures
+        run: PYTHONPATH=tests python -m unittest tests.test_wf_writer_source_identity_binding -q
+      - name: Read immutable original real 7-call G experiment from GH with built-in read token
+        uses: actions/download-artifact@v4
+        with:
+          name: WF-New-Actual-G-Author-Control-vs-Reader-First-20261025
+          run-id: 40110957161
+          github-token: ${{ github.token }}
+          path: wf_real_opera_previous_20261025
+      - name: Verify all original wires/G V117/source and replay original author decision WITHOUT ANY MODEL
+        run: python -m experiments.wf_real_opera_source_sha_replay_20261025
+      - name: Never treat a missing model SHA as verified prose or missing item movement as story fact
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path("wf_real_opera_sha_zero_model_replay_20261025/STATUS.json").read_text("utf8"))
+          assert s['new_model_calls']==0
+          assert s['original_strict_wf_decision']=='INVALID_SIGNAL'
+          assert s['explicit_null_current_bound_decision']=='MOVE_ON'
+          assert s['source_bound_from_verified_G_original'] is True
+          assert s['wrong_supplied_source_sha_not_repaired'] is True
+          assert s['old_original_author_response_not_edited'] is True
+          assert s['unresolved_item_source_risk_is_a_hypothesis'] is True
+          assert s['canon_writes']==0 and s['user_R2_writes']==0
+          print('REAL AUTHOR CHOSE MOVE_ON; HOST BOUND NULL MECHANICAL SHA ONLY; 0 NEW MODEL REQUESTS')
+          PY
+      - name: Preserve genuine original model JSON and signed strictly mechanical replay
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WF-Real-Opera-Exact-Old-MOVE_ON-Null-SHA-Only-Replay-20261025
+          path: wf_real_opera_sha_zero_model_replay_20261025/
+          retention-days: 30
+          if-no-files-found: warn
