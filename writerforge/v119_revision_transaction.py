@@ -252,7 +252,7 @@ def prepare_source_repair_contract(
             "V116_SOURCE_ONLY_NARROW" if source_before is not None
             else "NO_PREVIOUS_CANDIDATE_STATE"),
         "source_action_effect_required":beat["kind"] in (
-            "action","revelation","transition"),
+            "action","decision","reversal"),
         "repair_paths_owned_by_author":[
             "KEEP_IF_THIS_IS_DELIBERATELY_UNWRITTEN_AND_COHERENT",
             "REVISE_EXACT_SOURCE_SPAN_AND_REVIEW_CAUSE_AND_EFFECT",
