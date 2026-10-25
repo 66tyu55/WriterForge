@@ -1,6 +1,16 @@
 # WF 跨窗口精简交接｜2026-10-24｜AI 自己决定何时及为何删稿
 
-**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.R**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+**接续顺序**：先读本文件，再读 [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) 的最新首节 **0.S**，然后按需读 [WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md](WF_AI_WRITER_JUDGMENT_AND_REVISION_ARCHITECTURE_20261024.md) 和 [WF_WRITER_SELF_EDIT_CORE_20261024.md](WF_WRITER_SELF_EDIT_CORE_20261024.md)。最后核验 GitHub 当前分支 HEAD 和 Actions，不从旧 V96–V123 训练或 API 配置重启。
+
+## 最新 0.S：真实同一 DeepSeek 首次 V119 改写了原句，但返回相同动作/后果引句，被 V96 严格拒绝（2026-10-25）
+
+**先看 [完整证据与文学分析](WF_REAL_OPERA_AUTHOR_V119_SOURCE_ONLY_20261025.md)**，再接 [0.R](WF_AUTHOR_SOURCE_EVIDENCE_REAL_20261025.md)。用户“继续”之后仅新增**1 次真实 DeepSeek V119 提案**：[真实模型 #40155863914](https://github.com/66tyu55/WriterForge/actions/runs/40155863914)。**没有**再劝模型 LOOK_BACK；提前完整校验原 G 七次供应商 wire、读者两次 wire、0.R 原作者一次 wire 和确切源 SHA、唯一原句。模型从以前已独立选的 `LOOK_BACK_NOW` 直接进入原 V119。
+
+- **模型真正改出了新小说句子，WF 没有代写**：将江遥莽撞“刚要把重心全压上去”改为“把重心一点点挪上去，心里早备好了往回撤的那口气；板缘还是猛地往上一翻……”；保留撞栏、膝头疼和揪布的后果。原 JSON 也有冗余 `type=json_object` 和错 Unicode 字符坐标，这两项已在此前源 SHA 唯一性规则里机械兼容，raw provider 一直留存。
+- **真正工程红灯不可删除**：模型却把同一**整个 replacement** 同时当作 `trace.action_quote` 与 `trace.effect_quote`。旧 V96 准确拒绝 `WF96_ACTION_EFFECT_OVERLAP_OR_REVERSED`，原 G 第一段/整个旧完整章一字未变，**V119 有效修订0、V117新完整章0、Canon写0**。不能通过 WF 偷偷替模型拆 trace 创造合法效果。
+- **零新增模型来源取证**：[全部旧真实 wire + 私有 V119 原句替换预览 #40156185580](https://github.com/66tyu55/WriterForge/actions/runs/40156185580)。V119 纯文本来源锁定 preview `PROVISIONAL_REVIEW`，只读 V117 preflight 对**模型提案新文字** `blocked=false`、`needs_review=false`，但 V96 原模型 trace **仍是红灯**。纯私有 model-authored 预览 SHA `653865dfc002e24493178773d4c90ec4c5b6dea1d57a05d3ba47eb714c696beb`，**不可把旧完整章第二段当成新分支的后续**；它未重新生成。没有任何匿名人类盲评或文学提升证据。
+- **代码修复仅提升源引用正确率**：原 `writing_assist._self_edit_one_turn` 的未来调用提示明确 V96 动作和结果必须是**两个不同、先动作后结果、互不重叠、6—96字的来源引句**，不能把整段双重引用；不要无证生成新后果。真实旧坏提案原字节和错误码均永久保留。原单一 NarrativeCore、V26/V98/V114/V117/V119、取消/回滚和 Studio 默认关闭的 reader-first 不变，不增加第三方评判模型或第二存储。
+- **真实测试量**：[最终 CI #40156031520](https://github.com/66tyu55/WriterForge/actions/runs/40156031520) **1,590 tests run、4 skipped、0 failures**。首次测试红灯 #40155679207 来自源码字符串断言与实际函数作用域不符，修断言未弱化来源规则。下一步要在**新的原创题**让原作家自己生成完整可 V96/V114/V117 通过的改稿，并重新写受影响的后一段，不能靠继续给这篇旧稿无穷补提示凑绿色。新付费试验需要用户下一次明确许可，禁止悄悄部署 main/Railway、读写原 R2 书库或重复训练。
 
 ## 最新 0.R：模型自己区分前章“已写事实、没有写出、有意留白”（2026-10-25）
 
