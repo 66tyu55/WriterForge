@@ -644,7 +644,10 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
                         two["continuing_state_words"]):
                     continue
                 between=prose[one["source_end"]:two["source_start"]]
-                if any(x in between for x in _PHYSICAL_TEMPORAL):
+                # A temporal transition may start the second clause itself,
+                # not appear in the punctuation separating the clauses.
+                if (any(x in between for x in _PHYSICAL_TEMPORAL) or
+                    two["source_quote"].startswith(_PHYSICAL_TEMPORAL)):
                     continue
                 item_match=_physical_identity(
                     one["item_literal"],two["item_literal"])
