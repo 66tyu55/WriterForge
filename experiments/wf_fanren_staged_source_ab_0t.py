@@ -143,9 +143,24 @@ def download_existing_pinned_r2():
         vault.client.download_file(config.bucket,key,str(source))
         require(_digest(source)==(spec.source_sha256,spec.source_bytes),
                 "WF0T_R2_FRESH_SOURCE_HASH_MISMATCH")
-        windows=source_windows(source.read_text("utf8"))
+        # The pinned 15 MB edition is not necessarily UTF-8. The existing
+        # modern-source reader verifies the entire encoding and sequential
+        # chapter ordinals. Reuse it; do not invent a second book parser.
+        from itertools import islice
+        from writerforge.modern_source import _encoding, _chapters
+        charset=_encoding(source)
+        first_two=list(islice(_chapters(source,charset),FIRST_CHAPTERS))
+        require(len(first_two)==2 and
+                [ch.number for ch in first_two]==[1,2],
+                "WF0T_R2_FIRST_TWO_VERIFIED_CHAPTERS_MISSING")
+        windows=tuple(re.sub(r"\\s+","",ch.text)[:EXCERPT_CHARS]
+                      for ch in first_two)
+        require(len(windows)==2 and len(set(windows))==2 and
+                all(len(x)==EXCERPT_CHARS and "\ufffd" not in x for x in windows),
+                "WF0T_R2_CHAPTER_WINDOWS_INVALID")
     return windows,{
         "reading_channel":"existing_single_work_R2_read_only",
+        "source_original_encoding":charset,
         "book_source_sha256":spec.source_sha256,
         "whole_book_bytes_read_privately":spec.source_bytes,
         "reference_window_sha256":[sha(x) for x in windows],
