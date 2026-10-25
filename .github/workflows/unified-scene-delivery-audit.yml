@@ -46,6 +46,7 @@ on:
       - writerforge/v119_revision_transaction.py
       - writerforge/v122_item_provenance.py
       - tests/test_wf_0u_source_attachment_relations.py
+      - tests/test_wf_0w_container_multi_chapter_source.py
       - experiments/wf_0v_real_B_physical_source_replay_20261025.py
       - tests/test_wf_0v_real_B_physical_replay.py
       - writerforge/v96_causal_turns.py
