@@ -329,8 +329,8 @@ def check_turn(raw,beat, *, mode, accepted=(),
                  "WF96_ACTION_NEEDS_ACTUAL_ACTION_AND_EFFECT")
         if decision_pending:
             recorded["action_anchor"]=_quote_anchor(prose,action,"ACTION")
-            recorded["source_causal_review_reason"]=
-                "DECISION_EFFECT_UNOBSERVED"
+            recorded["source_causal_review_reason"]=(
+                "DECISION_EFFECT_UNOBSERVED")
             recorded["source_causal_review_required"]=True
             recorded["outcome_pending_source_only"]=True
         elif action is None or effect_quote is None:
