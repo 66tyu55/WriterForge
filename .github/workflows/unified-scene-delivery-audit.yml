@@ -14,6 +14,7 @@ on:
       - tests/test_wf_writer_self_revision_loop.py
       - tests/test_wf_source_guided_repair_contract.py
       - experiments/wf_fanren_staged_source_ab_0t.py
+      - experiments/wf_0t_genuine_B2_repair_replay_20261025.py
       - tests/test_wf_fanren_staged_source_ab_0t.py
       - tests/test_wf_ai_writer_chooses_when_and_why.py
       - tests/test_wf_ai_writer_previous_turn_rewind.py
