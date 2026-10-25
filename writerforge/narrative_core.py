@@ -135,12 +135,18 @@ def validate(graph,*,project_id,scene_id):
     source_link=graph.get("source_temporal_link")
     if source_link is not None:
         _need(type(source_link) is dict and
-              set(source_link)=={
-                  "chapter_index","whole_chapter_sha256",
-                  "last_v114_checkpoint_sha256",
-                  "previous_v114_checkpoint_sha256",
-                  "turn_prose_sha256s","turn_count",
-                  "source_assembly_verified","prior_link_verified"} and
+              set(source_link) in (
+                  {"chapter_index","whole_chapter_sha256",
+                   "last_v114_checkpoint_sha256",
+                   "previous_v114_checkpoint_sha256",
+                   "turn_prose_sha256s","turn_count",
+                   "source_assembly_verified","prior_link_verified"},
+                  {"chapter_index","whole_chapter_sha256",
+                   "last_v114_checkpoint_sha256",
+                   "previous_v114_checkpoint_sha256",
+                   "turn_prose_sha256s","turn_count",
+                   "source_assembly_verified","prior_link_verified",
+                   "ancestry_fully_verified"}) and
               type(source_link["chapter_index"]) is int and
               1<=source_link["chapter_index"]<=graph["chapter_index"] and
               all(type(source_link[k]) is str and
@@ -156,13 +162,28 @@ def validate(graph,*,project_id,scene_id):
               all(type(x) is str and SHA.fullmatch(x)
                   for x in source_link["turn_prose_sha256s"]) and
               source_link["source_assembly_verified"] is True and
-              type(source_link["prior_link_verified"]) is bool,
+              type(source_link["prior_link_verified"]) is bool and
+              ("ancestry_fully_verified" not in source_link or
+               type(source_link["ancestry_fully_verified"]) is bool) and
+              (source_link.get("ancestry_fully_verified") is not True or
+               ((source_link["chapter_index"]==1 and
+                 source_link["previous_v114_checkpoint_sha256"] is None) or
+                (source_link["chapter_index"]>1 and
+                 source_link["prior_link_verified"] is True))),
               "WFCORE_SOURCE_TEMPORAL_BINDING_TAMPERED")
     inherited_temporal=graph.get("source_temporal_parent_sha256")
     _need(inherited_temporal is None or
           (type(inherited_temporal) is str and
            SHA.fullmatch(inherited_temporal)),
           "WFCORE_TEMPORAL_PARENT_SHA_INVALID")
+    inherited_ancestry=graph.get(
+        "source_temporal_parent_ancestry_verified")
+    _need(inherited_ancestry is None or
+          type(inherited_ancestry) is bool,
+          "WFCORE_PARENT_ANCESTRY_PROOF_SCHEMA_INVALID")
+    _need(inherited_ancestry is not True or
+          inherited_temporal is not None,
+          "WFCORE_PARENT_ANCESTRY_WITHOUT_SOURCE_ID")
     memory=graph.get("memory")
     if memory is not None:
         _need(type(memory) is dict and
@@ -500,6 +521,12 @@ def advance_graph(graph,*,project_id,scene_id,chapter_index,prose,events=()):
         "source_temporal_parent_sha256":(
             graph["source_temporal_link"]["last_v114_checkpoint_sha256"]
             if graph.get("source_temporal_link") is not None else None),
+        # A valid parent SHA is NOT proof that the parent itself had a
+        # verified ancestor. Pass the signed provenance bit recursively
+        # through the same NarrativeCore; no second memory owner.
+        "source_temporal_parent_ancestry_verified":(
+            graph["source_temporal_link"].get("ancestry_fully_verified") is True
+            if graph.get("source_temporal_link") is not None else False),
         "nodes":nodes,"edges":edges,
         "last_delta_flags":flags,"last_event_count":len(events),
         "memory":json.loads(json.dumps(graph.get("memory",{
@@ -1065,6 +1092,14 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
         if inherited is not None:
             _need(first.get("previous_checkpoint_sha256")==inherited,
                   "WFCORE_CROSS_CHAPTER_TEMPORAL_PARENT_MISMATCH")
+        # Chapter one may be a genuine SOURCE ROOT only with no hidden
+        # temporal parent. Later chapters MUST inherit a fully verified
+        # signed ancestry chain, not just an apparently matching last SHA.
+        verified_root=(chapter_index==1 and inherited is None and
+                       first.get("previous_checkpoint_sha256") is None)
+        verified_parent=(chapter_index>1 and inherited is not None and
+                         graph.get(
+                             "source_temporal_parent_ancestry_verified") is True)
         temporal_link={
             "chapter_index":chapter_index,"whole_chapter_sha256":source_sha,
             "last_v114_checkpoint_sha256":last["receipt_sha256"],
@@ -1074,6 +1109,8 @@ def record_chapter_memory(graph, *, project_id,scene_id,chapter_index,
             "turn_count":len(chapter_source_parts),
             "source_assembly_verified":True,
             "prior_link_verified":inherited is not None,
+            "ancestry_fully_verified":bool(
+                verified_root or verified_parent),
         }
     _need(_verify_source_file(source_path,source_sha)==prose,
           "WFCORE_SAVED_SOURCE_DIFFERENT_FROM_CANDIDATE")
