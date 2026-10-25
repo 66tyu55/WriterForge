@@ -1445,6 +1445,96 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
     return answer
 
 
+
+def _ask_same_writer_for_source_trace_only(
+        *,candidate_prose,invalid_trace,failure_code,beat,accepted,
+        turn_packet,ask_model,directory,cancel_check=None):
+    """One bounded SOURCE CITATION repair on already model-written fiction.
+
+    DO NOT let metadata issues trigger another whole-prose generation loop.
+    The same author may re-attribute its OWN unchanged candidate's action
+    and consequence; the host never writes either prose or trace values.
+    Caller must re-run V96/V114/V117 and decline the candidate if invalid.
+    """
+    if (type(candidate_prose) is not str or
+        not 80<=len(candidate_prose)<=_WF96_GUARDED_TURN_CHARS or
+        type(invalid_trace) is not dict or
+        set(invalid_trace)!={"action_quote","effect_quote",
+                             "parent_effect_quote"} or
+        type(failure_code) is not str or not failure_code.startswith("WF96_") or
+        type(beat) is not dict or
+        not callable(ask_model) or not isinstance(directory,Path)):
+        raise WritingExecutionError("WF_TRACE_ONLY_REPAIR_INPUT_INVALID")
+    previous=None
+    if beat.get("causal_parent") is not None:
+        parents=[a for a in accepted if a.get("beat_id")==beat["causal_parent"]]
+        if len(parents)!=1:
+            raise WritingExecutionError("WF_TRACE_ONLY_REPAIR_PARENT_INVALID")
+        previous=parents[0].get("effect_quote")
+        if type(previous) is not str:
+            raise WritingExecutionError("WF_TRACE_ONLY_REPAIR_PARENT_UNVERIFIED")
+    prompt=(
+        "【WriterForge 源引句订正：保留你已经自己创作的全部新小说正文】"
+        "你之前真正生成的这版小说正文现已冻结。"
+        "WF 不会替你写句子、拆分引句或修改剧情。"
+        "只有你本人可以重新为自己这一版既有正文给出"
+        " trace.action_quote、trace.effect_quote 和"
+        " trace.parent_effect_quote 三个字面引句。"
+        "本次只允许更正引用元数据，不许返回 prose、replacement、"
+        "reason、下一章或更多字段。"
+        "action_quote 与 effect_quote 引用必须是各6至96字的"
+        "两个不同的、在下面小说中唯一出现且不重叠的实际子串；"
+        "动作必须出现在后果之前。"
+        "若这个版本没有可见后果，引用不能假装它存在，"
+        "请输出真实能引用的文本，否则源校验仍会失败。"
+        "如果段落没有前一个依赖事件，parent_effect_quote 为 JSON null；"
+        "如果有父事件，只能引用下面逐字来源的真正前一段结果。"
+        "只返回恰好一个 JSON 对象 {\"trace\":"
+        "{\"action_quote\":... ,\"effect_quote\":... ,"
+        "\"parent_effect_quote\":...}}，不得加文学评分。"
+        "\n【旧引用失败码】"+failure_code+
+        "\n【旧引用（模型原错答保留，尚未采用）】"+
+        json.dumps(invalid_trace,ensure_ascii=False,separators=(",",":"))+
+        "\n【本段既有事件类别】"+str(beat.get("kind"))+
+        "\n【已存在的前段后果，未知则 null】"+
+        json.dumps(previous,ensure_ascii=False)+
+        "\n【原作者已经写出的冻结候选，必须逐字不变】"+
+        candidate_prose
+    )
+    if len(prompt)>MAX_PROMPT_CHARS:
+        raise WritingExecutionError("WF_TRACE_ONLY_REPAIR_CONTEXT_TOO_FULL")
+    packet=replace(turn_packet,prompt=prompt,
+                   prompt_sha256=sha256(prompt.encode("utf8")).hexdigest())
+    if cancel_check is not None:
+        cancel_check()
+    response=ask_model(packet,model=None,api_base=None,
+                       max_tokens=SELF_EDIT_MODEL_MAX_TOKENS)
+    (directory/"same-writer-source-trace-only-original.json").write_text(
+        response,encoding="utf8")
+    if cancel_check is not None:
+        cancel_check()
+    def reject_duplicates(pairs):
+        doc={}
+        for k,v in pairs:
+            if k in doc:
+                raise ValueError("WF_TRACE_ONLY_DUPLICATE_KEY")
+            doc[k]=v
+        return doc
+    if type(response) is not str or len(response.encode("utf8"))>12000:
+        raise WritingExecutionError("WF_TRACE_ONLY_REPLY_TOO_LARGE")
+    data=json.loads(response,object_pairs_hook=reject_duplicates)
+    if (type(data) is dict and set(data)=={"type","trace"} and
+        data["type"]=="json_object"):
+        data={"trace":data["trace"]}
+    if (type(data) is not dict or set(data)!={"trace"} or
+        type(data["trace"]) is not dict or
+        set(data["trace"])!={"action_quote","effect_quote",
+                             "parent_effect_quote"}):
+        raise WritingExecutionError("WF_TRACE_ONLY_REPLY_SCHEMA_INVALID")
+    return data["trace"]
+
+
+
 def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                         turn_packet,ask_model,round_limit,call_allowance,
                         directory,author_exclusions=(),
@@ -1602,6 +1692,8 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
         wrapper_only_removed=False
         recovered_offset=False
         repair_impact=None
+        source_trace_recovered_by_author=False
+        original_trace_error=None
         try:
             if type(answer) is not str or len(answer.encode("utf8"))>18000:
                 raise ValueError("WF_SELF_EDIT_REPLY_TOO_BIG")
@@ -1745,10 +1837,48 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
             next_doc={"prose":changed,"trace":trace}
             next_raw=json.dumps(next_doc,ensure_ascii=False,
                                 separators=(",",":"))
-            check_turn(next_raw,beat,mode="causal_guard",
-                       accepted=accepted,
-                       author_confirmed_forbidden_phrases=author_exclusions,
-                       max_prose_chars=_WF96_GUARDED_TURN_CHARS)
+            try:
+                check_turn(next_raw,beat,mode="causal_guard",
+                           accepted=accepted,
+                           author_confirmed_forbidden_phrases=author_exclusions,
+                           max_prose_chars=_WF96_GUARDED_TURN_CHARS)
+            except V96CausalDraftError as why:
+                # This is not a prose rewrite retry. Offer a SINGLE
+                # constrained citation-only response from the SAME AI
+                # only if the user already opted for a second self-edit
+                # round and the total source-authored call budget allows.
+                allowed={
+                    "WF96_ACTION_EFFECT_OVERLAP_OR_REVERSED",
+                    "WF96_ACTION_NEEDS_ACTUAL_ACTION_AND_EFFECT",
+                    "WF96_UNDECLARED_PREVIOUS_CAUSE",
+                    "WF96_PARENT_CAUSE_NOT_ANCHORED_IN_PREVIOUS_PROSE",
+                }
+                if (str(why) not in allowed or
+                    i+1>=min(round_limit,call_allowance) or
+                    calls>=call_allowance):
+                    raise
+                original_trace_error=str(why)
+                (directory/f"round-{i+1:02d}-invalid-model-trace.json"
+                 ).write_text(json.dumps(trace,ensure_ascii=False,indent=2),
+                              encoding="utf8")
+                # If this extra same-model call still gets citation wrong,
+                # V96 rejects, the source is rolled back, and no third
+                # automatic request occurs.
+                updated_trace=_ask_same_writer_for_source_trace_only(
+                    candidate_prose=changed,invalid_trace=trace,
+                    failure_code=original_trace_error,
+                    beat=beat,accepted=accepted,
+                    turn_packet=turn_packet,ask_model=ask_model,
+                    directory=directory,cancel_check=cancel_check)
+                calls+=1
+                next_doc={"prose":changed,"trace":updated_trace}
+                next_raw=json.dumps(next_doc,ensure_ascii=False,
+                                    separators=(",",":"))
+                check_turn(next_raw,beat,mode="causal_guard",
+                           accepted=accepted,
+                           author_confirmed_forbidden_phrases=author_exclusions,
+                           max_prose_chars=_WF96_GUARDED_TURN_CHARS)
+                source_trace_recovered_by_author=True
             if active_narrative_core is not None:
                 review=audit_narrative_candidate(
                     active_narrative_core,
@@ -1785,6 +1915,12 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                 "source_repair_contract_sha256":guide["receipt_sha256"],
                 "repair_impact_status":repair_impact["status"],
                 "repair_impact_sha256":repair_impact["receipt_sha256"],
+                "source_trace_reattributed_by_same_author_model":
+                    source_trace_recovered_by_author,
+                "initial_model_V96_trace_failure":original_trace_error,
+                "additional_trace_only_model_call":(
+                    1 if source_trace_recovered_by_author else 0),
+                "novelist_prose_never_changed_by_trace_repair":True,
                 "baseline_findings_remaining":repair_impact[
                     "previously_existing_hard_findings_remain"],
                 "literary_intent_satisfied_still_unverified":True,
@@ -1794,6 +1930,11 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                 "original_model_coordinates":[model_start,model_end],
                 "host_verified_coordinates":[start,end],
                 "literary_quality_not_proven":True})
+            if source_trace_recovered_by_author:
+                # Both allowed requests have been spent, the same author's
+                # source-quoted trace is verified; do NOT start another
+                # unrelated full rewrite in this single bounded cycle.
+                break
         except (ValueError,TypeError,KeyError,
                 RevisionTransactionError,V96CausalDraftError,
                 NarrativeCoreError,ContinuityTraceError) as exc:
@@ -1833,6 +1974,9 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                     repair_impact["receipt_sha256"]
                     if repair_impact is not None else None),
                 "writer_next_safe_action":next_action,
+                "metadata_only_trace_attempted":(
+                    original_trace_error is not None),
+                "model_written_prose_untouched_by_WF":True,
                 "format_wrapper_only_removed":wrapper_only_removed,
                 "source_offset_recovered_exactly":recovered_offset,
                 "unmodified_candidate_sha256":previous_sha})
