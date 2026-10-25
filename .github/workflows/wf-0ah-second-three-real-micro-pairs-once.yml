@@ -15,7 +15,11 @@ concurrency:
 
 jobs:
   second-three-diverse-literary-samples:
-    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit' && github.run_attempt == 1 && github.event.head_commit.message == 'experiment(0.AH): FIRE EXACTLY ONE NEW SECOND THREE-GENRE BATCH'
+    if: >-
+      github.repository == '66tyu55/WriterForge' &&
+      github.ref_name == 'refactor-unified-scene-delivery-audit' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'experiment(0.AH): FIRE EXACTLY ONE NEW SECOND THREE-GENRE BATCH'
     runs-on: ubuntu-latest
     timeout-minutes: 32
     steps:
