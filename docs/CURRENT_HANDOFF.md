@@ -1,6 +1,20 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.W 容器/多物件/跨章来源债务不断链 + 全新《雨册》同作者逐段真写：工程1,656通过，但作者又选 MOVE_ON、真实改稿仍0（2026-10-25，最新）
+
+**下一窗口先读**：[WF_0W_CONTAINER_CROSS_CHAPTER_REAL_WRITER_20261025.md](WF_0W_CONTAINER_CROSS_CHAPTER_REAL_WRITER_20261025.md) → [WF_0V_SOURCE_RELATION_REPAIR_20261025.md](WF_0V_SOURCE_RELATION_REPAIR_20261025.md) → [WF_0T_REAL_FANREN_SENTENCE_EVIDENCE_20261025.md](WF_0T_REAL_FANREN_SENTENCE_EVIDENCE_20261025.md) → [WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md](WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md)。**仅开发分支 `refactor-unified-scene-delivery-audit`；不修改 main、Railway、私有 R2 原小说、正式 Canon。不能因为 CI 绿灯宣称文学变好。**
+
+- **修复0.V的跨章隐蔽断链**：原 `v122_item_provenance.audit_physical_relation_sources` 过去只存上一章 `review_pairs`，一章不再提相同物品就会丢失最初的不确定关系。现在 `open_relation_reviews` 作为**旧 V114 签名候选快照中的有限来源投影**携原句/来源 SHA 穿过第二、第三章的无关文本，第四章真正依赖该物品状态时由旧 V117 标为 review，而无关场景照常推进。**没有第二个事实/文学记忆主人，旧候选状态不写入 Canon**。
+- **容器、多对象与时态**：旧 V122 新增非常受限的 `CONTAINMENT` 来源句式（还在容器里/已经从容器取出/明确放入）。和 `ATTACHMENT` 关系分域，不能误把两个不同物件或两个容器合并；“后来/随后才取出”“不同颜色的牌”“人物猜测/对话”正反例均校验，所有 ID 别名仍只是待证。还在木匣/已从木匣取出的同刻候选只标 `NEEDS_SOURCE_RELATION_REVIEW`，**不判文学错误**。旧 V116/V114/V117/G/V119 的来源契约与 HOLD 接线保持有效。
+- **有界不丢证据**：旧 V114 单一签名中最多8条未消债关系，新的第9条返回 `WF122_OPEN_RELATION_DEBT_BUDGET_EXCEEDED`，不是静默淘汰旧证据；场景扫描/审阅容量溢出也拒绝虚假的完整性。**尚非无限长篇的最终形态**，未来须通过旧统一 NarrativeCore 热暖冷归档与真正有双侧 SHA 的作者修订结案，不允许长期无限停在8条，也不许无凭据清债。
+- **最终工程回归**：[全量 #40172308706](https://github.com/66tyu55/WriterForge/actions/runs/40172308706) **1,656 tests executed、7 skipped、0 failures**，含跨多个安静章节、伪源、多个物件/容器、V114/V117 签名和模拟同作者 `MOVE_ON` / 模拟有效 V119→新段。模拟成功不等于真实写作 AI 成功。
+- **全新原创真实实验 #40172411065**：[Actions](https://github.com/66tyu55/WriterForge/actions/runs/40172411065)。真 DeepSeek Flash 作者在完全新原创《雨册》里写了两段真实小说：姜岚调查出现的铁皮盒、许槐抱走盒子、姜岚暗中留下半页纸。4次真实调用（两段小文/独立读者/同作者自己的决定），prompt tokens 5,039、completion 1,221，原始四份 provider wires+SHA 均留存，未读《凡人》或重写旧《潮簿》。独立读者发现“半页纸**不知何时从盒底滑到桌角下**”缺少明写移动，小说作者却合法选择 **`MOVE_ON`**，称有意留白。V119真正修订 **0**、重新生成下游 **0**、独立人类文学盲评 **0**，且当前物理关系探测未能证实该移动；**不能强迫作者改、不能自动判错、不能继续对同一篇小说付费重问以凑成功**。
+- **继续的实质方向**：研究在原 NarrativeCore/V114 来源签名内如何处理真实动作/容器移动的“已发生/由角色猜测/叙述有意省略”与有源明确结案。尤其“滑出、落下”等多义自然语言不能靠无边界增加正则关键词解决；先建有来源的候选事件身份与适用范围，才能使旧 V119 保证每次修改**不创造新错误**。用户的最终目标仍为真实小说 AI 自己决定何时不满意、删哪句、亲写新句，WF 帮它安全维护真实故事状态/废稿回滚而非文学代写；真正 **V119→下游成功、文学提升的真实样本仍0**。
+- **执行边界**：不增第二文学记忆、外部文学评论模型或新训练任务；不重复15章训练、旧《潮簿》与新《雨册》的付费劝改。保留 V26 选择续写、V98 滚动构思、V119 精修、原统一叙事记忆和用户停止废稿机制。
+
+---
+
 ## 0.V 《潮簿》绳结世界状态底层纠偏：V122 有源系解关系、G 私有 HOLD、V119 旧风险守门及零付费原始模型重放（2026-10-25，最新）
 
 **下一窗口依次读取**：[WF_0V_SOURCE_RELATION_REPAIR_20261025.md](WF_0V_SOURCE_RELATION_REPAIR_20261025.md) → [WF_0T_REAL_FANREN_SENTENCE_EVIDENCE_20261025.md](WF_0T_REAL_FANREN_SENTENCE_EVIDENCE_20261025.md) → [WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md](WF_SOURCE_FIRST_REPAIR_GUIDANCE_20261025.md)，再看下方 0.U/0.T。代码仅开发分支 `refactor-unified-scene-delivery-audit`；**不改 main、Railway、用户 R2 原小说或正式 Canon**，不重复旧15章训练、不添加独立文学记忆或审稿模型、不对同一旧稿再付费劝改。
