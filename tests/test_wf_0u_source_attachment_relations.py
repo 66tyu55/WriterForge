@@ -26,6 +26,7 @@ from writerforge.v96_causal_turns import check_turn
 REAL_B_SENTENCE=(
     "天亮前林栖已经到了堤上，手里攥着那截麻绳，绳结还系在木桩上，"
     "只是绳子被人从桩头解下来，绕在旁边一块石头上，石头下面压着片碎瓦。"
+    "他蹲着看了很久，把瓦片翻过来，底面用炭画了个歪斜的叉。"
 )
 CAST=("林栖","程满")
 BEAT={"id":"t01","kind":"action","actor":"林栖",
