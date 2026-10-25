@@ -717,7 +717,6 @@ def _physical_relation_source_hold(*,prose,preflight):
         start=item.get("current_source_start")
         if (type(quote) is not str or type(start) is not int or
             not 6<=len(quote)<=160 or
-            prose.count(quote)!=1 or
             prose[start:start+len(quote)]!=quote or
             item.get("current_source_quote_sha256")!=
                 sha256(quote.encode("utf8")).hexdigest()):
