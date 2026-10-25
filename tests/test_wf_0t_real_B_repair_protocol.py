@@ -113,7 +113,7 @@ class CompactSourceReaderBudget(TestCase):
             self.assertIsNone(api_base)
             self.assertEqual(max_tokens,1000)
             self.assertIn("最多三处",packet.prompt)
-            self.assertIn("最多一处",packet.prompt)
+            self.assertIn("最多列出一处",packet.prompt)
             self.assertNotIn("最多八处",packet.prompt)
             self.assertNotIn("PRIVATE AUTHOR OUTLINE",packet.prompt)
             prompts.append(packet.prompt)
