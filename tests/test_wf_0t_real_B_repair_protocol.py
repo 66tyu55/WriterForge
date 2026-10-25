@@ -91,7 +91,8 @@ class CompactSourceReaderBudget(TestCase):
                "他重新摸了一遍结，随后领人收工回镇。")
         now=("天亮前林栖重新登上潮堤，绳结仍系在木桩上。"
              "奇怪的是那条绳子已经被人解下来，绕在一块石头旁。"
-             "他查看留下的瓦片，并把所有细节记录在自己的潮簿里。")
+             "他查看留下的瓦片，并把所有细节记录在自己的潮簿里。"
+             "午后他准备带着这一页记录去询问测潮人程满。")
         self.assertGreaterEqual(len(now),80)
         first="绳结仍系在木桩上"
         second="那条绳子已经被人解下来"
@@ -146,7 +147,8 @@ class CompactSourceReaderBudget(TestCase):
         from writerforge.writing_assist import _reader_separates_written_and_inferred
         from writerforge.verified_flow import GroundedDraftPacket
         source=("林栖查看海堤的刻度，发现昨日留下的绳结已在另一个地方。"
-                "他看见有人从远处走来，却没有立刻走过去说出全部疑虑。")
+                "他看见有人从远处走来，却没有立刻走过去说出全部疑虑。"
+                "他决定先把亲眼所见的每一项刻度抄进潮簿，留作明日比照。")
         clause="林栖查看海堤的刻度"
         reply={"observed":[{"quote":clause,"actor":"林栖",
                           "visible_action":"记录自己的观察"}]*4,
