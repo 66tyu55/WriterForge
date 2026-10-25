@@ -29,6 +29,46 @@ class ProgressiveSourceVisibility(unittest.TestCase):
         self.assertEqual(exp.source_windows(contents+real),
                          ("真"*230,"实"*230))
 
+    def test_existing_private_r2_fallback_is_read_only(self):
+        """Fake R2 protocol only: no book source or paid provider in this test."""
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from scripts.learn_archived_modern_r2 import WORKS
+        pinned=WORKS["fanrenxiuxian"]
+        self.assertEqual(pinned.source_bytes,15079878)
+        self.assertEqual(pinned.source_sha256,
+            "2fc1698410418bf136448807335c6359bf515b75e6f9c1e1d1f443a1c928e6cc")
+        source=("第一章 开端\n"+"甲"*300+"\n第二章 转机\n"+
+                "乙"*300+"\n第三章 前行\n"+"丙"*350)
+        calls=[]
+        class FakeVault:
+            def __init__(self):
+                self.client=self
+            def verify_existing_single_work(self):
+                calls.append("verify")
+                return {"source_integrity_verified":True,
+                        "already_archived":True,
+                        "utf8_sha256":pinned.source_sha256,
+                        "utf8_bytes":pinned.source_bytes}
+            def _blob_key(self,work_id,digest):
+                calls.append("blob-key")
+                return "frozen/private/source"
+            def download_file(self,bucket,key,path):
+                calls.append("download")
+                Path(path).write_text(source,encoding="utf8")
+        with patch("writerforge.r2_storage.R2Config.from_environment",
+                   return_value=SimpleNamespace(bucket="writerforge-private-library")), \
+             patch("writerforge.single_work_runner.SingleWorkVault",
+                   return_value=FakeVault()), \
+             patch("writerforge.r2_storage._digest",
+                   return_value=(pinned.source_sha256,pinned.source_bytes)):
+            windows,info=exp.download_existing_pinned_r2()
+        self.assertEqual(windows,("甲"*230,"乙"*230))
+        self.assertEqual(calls,["verify","blob-key","download"])
+        self.assertEqual(info["reading_channel"],"existing_single_work_R2_read_only")
+        self.assertFalse(info["source_uploaded_or_rewritten"])
+
     def test_missing_real_chapters_fails_closed(self):
         with self.assertRaisesRegex(RuntimeError,"WF0T_CANNOT_VERIFY_TWO_CHAPTER_BOUNDS"):
             exp.source_windows("假"*1500)
