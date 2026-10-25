@@ -1822,9 +1822,12 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                     "patch_receipt_sha256":preview["receipt"]["receipt_sha256"]})
                 break
             changed=preview["candidate_prose"]
-            if repair_impact["status"]=="HELD_NEW_UNVERIFIED_SOURCE_RISK":
-                # A new unknown actor/prop risk is NOT proof of a bad
-                # novel, yet must never be silently called "clean".
+            if repair_impact["status"] in (
+                    "HELD_NEW_UNVERIFIED_SOURCE_RISK",
+                    "HELD_EXISTING_SOURCE_RELATION_RISK"):
+                # A newly introduced OR previously unresolved physical
+                # relation cannot be erased by editing unrelated prose.
+                # This is source uncertainty, not a literary verdict.
                 # Keep a private candidate for the original author to
                 # resolve rather than promoting it into downstream state.
                 (directory/f"round-{i+1:02d}-held-unverified-draft.md"
@@ -1836,6 +1839,8 @@ def _self_edit_one_turn(*,raw,beat,accepted,project_id,scene_id,
                     "repair_impact_sha256":repair_impact["receipt_sha256"],
                     "new_review_findings":repair_impact[
                         "new_unverified_review_findings"],
+                    "existing_physical_relation_review_remaining":(
+                        repair_impact["existing_physical_relation_review_remaining"]),
                     "original_source_kept_for_continuation":True,
                     "author_objective_fulfillment_unverified":True})
                 break
