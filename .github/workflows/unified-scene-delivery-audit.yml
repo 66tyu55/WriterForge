@@ -58,6 +58,8 @@ on:
       - tests/test_wf_0ac_multigenre_narrative_stress.py
       - experiments/wf_0ad_multigenre_real_paired_writing_20261025.py
       - tests/test_wf_0ad_multigenre_real_paired_protocol.py
+      - experiments/wf_0ae_replay_original_multigenre_real_scores_20261025.py
+      - tests/test_wf_0ae_real_multigenre_wire_replay.py
       - experiments/wf_0v_real_B_physical_source_replay_20261025.py
       - tests/test_wf_0v_real_B_physical_replay.py
       - writerforge/v96_causal_turns.py
