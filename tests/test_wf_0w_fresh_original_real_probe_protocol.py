@@ -98,7 +98,7 @@ class NewOriginalPilotBoundary(unittest.TestCase):
                 exp,"OneNovelist",OfflineNovelist),patch.dict(
                 os.environ,{"DEEPSEEK_API_KEY":"test-only-long-fake-api-key"}):
                 report,model=exp.execute()
-            self.assertEqual(len(model.calls),4)
+            self.assertEqual(len(model.calls),4,report)
             self.assertEqual([n for n,_,_ in model.calls],[
                 "first-original","second-original",
                 "independent-source-reader","author-self-decision"])
