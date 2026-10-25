@@ -222,5 +222,105 @@ class DecisionOutcomePendingSourceTests(unittest.TestCase):
                 allowed_actor_names=("秦渊",))
 
 
+
+class SameWriterMetadataOnlyRepairPendingTests(unittest.TestCase):
+    def test_parent_pending_decision_trace_only_repair_never_demands_fake_effect(self):
+        from dataclasses import dataclass
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+        from writerforge.writing_assist import (
+            _ask_same_writer_for_source_trace_only,
+        )
+
+        @dataclass(frozen=True)
+        class Packet:
+            prompt: str
+            prompt_sha256: str
+
+        prior=pending_history()
+        child=beat(parent="t01",id="t02",actor="秦渊")
+        action="秦渊决定先查验文书封泥有没有裂开"
+        next_prose=(
+            "清晨守军在驿站门外等待，秦渊还没有收到主帅的回令。"
+            +action+"。"
+            "他暂时没有打开封泥，也没宣称两封文书的内容一致。"
+            "桥边的水声持续了半日，屋里人只记录已经看见的事情。"
+            "直到午后，驿卒仍未带来确切消息，选择的后果尚未观察。"
+        )
+        prompt_receipts=[]
+        def author_only(packet,*,model,api_base,max_tokens):
+            prompt_receipts.append(packet.prompt)
+            return json.dumps({"trace":{
+                "action_quote":action,
+                "effect_quote":None,
+                "parent_effect_quote":None,
+            }},ensure_ascii=False)
+
+        with TemporaryDirectory() as root:
+            trace=_ask_same_writer_for_source_trace_only(
+                candidate_prose=next_prose,
+                invalid_trace={
+                    "action_quote":action,
+                    "effect_quote":"不存在的虚构后果",
+                    "parent_effect_quote":None,
+                },
+                failure_code="WF96_EFFECT_NOT_UNIQUE_IN_ACTUAL_PROSE",
+                beat=child,accepted=(prior,),
+                turn_packet=Packet(prompt="真实作家既有请求",
+                                   prompt_sha256="0"*64),
+                ask_model=author_only,directory=Path(root),
+            )
+            self.assertEqual(len(prompt_receipts),1)
+            self.assertIn("effect_quote",prompt_receipts[0])
+            self.assertIn("JSON null",prompt_receipts[0])
+            self.assertEqual(trace["effect_quote"],None)
+            self.assertEqual(trace["parent_effect_quote"],None)
+            output=check_turn(reply(next_prose,action,None,None),
+                              child,mode="causal_guard",accepted=(prior,))
+            self.assertTrue(output["receipt"]["parent_outcome_pending"])
+            self.assertTrue(output["receipt"]["outcome_pending_source_only"])
+            self.assertTrue(Path(root,"same-writer-source-trace-only-original.json")
+                            .is_file())
+
+    def test_tampered_pending_parent_cannot_receive_trace_only_author_request(self):
+        from dataclasses import dataclass
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+        from writerforge.writing_assist import (
+            _ask_same_writer_for_source_trace_only,WritingExecutionError,
+        )
+
+        @dataclass(frozen=True)
+        class Packet:
+            prompt:str
+            prompt_sha256:str
+
+        genuine=pending_history()
+        fake={**genuine,"receipt":{**genuine["receipt"],
+                                   "receipt_sha256":"0"*64}}
+        sent=[]
+        def never_call(*args,**kwargs):
+            sent.append(True)
+            raise AssertionError("Untrusted source should not reach a model")
+
+        with TemporaryDirectory() as root:
+            with self.assertRaises(WritingExecutionError):
+                _ask_same_writer_for_source_trace_only(
+                    candidate_prose=HISTORY_REAL,
+                    invalid_trace={
+                        "action_quote":HISTORY_ACTION,
+                        "effect_quote":None,
+                        "parent_effect_quote":None,
+                    },
+                    failure_code="WF96_PARENT_CAUSE_NOT_ANCHORED_IN_PREVIOUS_PROSE",
+                    beat=beat(actor="秦渊",parent="t01",id="t02"),
+                    accepted=(fake,),
+                    turn_packet=Packet(prompt="已固定的上一个请求",
+                                       prompt_sha256="0"*64),
+                    ask_model=never_call,directory=Path(root),
+                )
+            self.assertEqual(sent,[])
+
+
 if __name__=="__main__":
     unittest.main()
