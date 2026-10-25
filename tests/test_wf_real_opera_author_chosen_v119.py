@@ -57,7 +57,9 @@ class NoAutomaticApproval(TestCase):
 
     def test_genuine_author_lookback_required_before_any_new_model_run(self):
         program=inspect.getsource(task.prior_real_writer_decision)
-        self.assertIn("REAL_OLD_ATTEST_RUN",program)
+        self.assertEqual(task.REAL_OLD_ATTEST_RUN,40153456601)
+        self.assertIn('manifest.get("status")',program)
+        self.assertIn("WF_AUTHENTIC_AUTHOR_LOOK_BACK_WIRE_CHANGED",program)
         self.assertIn("source_decision[\"decision\"]!=\"LOOK_BACK_NOW\"",program)
         self.assertIn('manifest.get("V119_called") is not False',program)
         self.assertIn("WF_AUTHENTIC_AUTHOR_LOOK_BACK_WIRE_CHANGED",program)
