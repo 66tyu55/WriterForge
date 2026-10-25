@@ -364,6 +364,9 @@ def perform_arm(arm,author,windows):
         core=new_graph(project_id=PROJECT,scene_id=scene)
         core=advance_graph(core,project_id=PROJECT,scene_id=scene,
                            chapter_index=1,prose=joined,events=[])
+        # Unified memory must verify the original saved manuscript bytes.
+        # Archive the genuine model-authored candidate before memory indexing.
+        (directory/"composed-unaccepted.md").write_text(joined,encoding="utf8")
         core=record_chapter_memory(core,project_id=PROJECT,scene_id=scene,
                                    chapter_index=1,
                                    source_path=str(directory/"composed-unaccepted.md"),
