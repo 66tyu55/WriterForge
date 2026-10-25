@@ -255,7 +255,9 @@ def preflight_continuation(next_prose,checkpoint,*,project_id,chapter_index,
         previous_candidate_state=old["candidate_state"],
         previous_risks=old.get("risks",[])+
         checkpoint.get("original_native_candidate_report",{}).get("risks",[])+
-        old_debts,cast=cast)
+        old_debts,cast=cast,
+        previous_relation_receipt=checkpoint.get(
+            "v122_physical_relation_source_receipt"))
     frame=audit_continuity(checkpoint,project_id=project_id,
          chapter_index=chapter_index,boundary="before",
          reference=reference,next_prose=next_prose)
@@ -267,6 +269,13 @@ def preflight_continuation(next_prose,checkpoint,*,project_id,chapter_index,
       "hard_source_state_conflict":fast["blocked"],
       "state_findings":fast["findings"],
       "state_review_findings":fast["review_findings"],
+      "physical_relation_review_pairs":fast["physical_relation_review_pairs"],
+      "physical_relation_previous_unresolved":(
+          fast["physical_relation_prior_review_unresolved_count"]),
+      "physical_relation_must_not_be_fact_or_downstream_parent":(
+          bool(fast["physical_relation_review_pairs"] or
+               fast["physical_relation_prior_review_unresolved_count"])),
+      "physical_relation_receipt_sha256":fast["physical_relation_receipt_sha256"],
       "temporal_order_conflicts":frame["chronology"]["order_conflicts"],
       "knowledge_needs_review":frame["knowledge_warnings"],
       "prop_chain_findings":[x for x in frame["prop_verdicts"] if not x["ok"]],
