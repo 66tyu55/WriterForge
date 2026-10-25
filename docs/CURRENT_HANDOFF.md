@@ -1,6 +1,19 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.R 原作家“前章已经写过”必须提供原文：真实 DeepSeek 自主区分有意留白与未写动作，也真的决定 LOOK_BACK（2026-10-25，本轮最新）
+
+**接续顺序**：[WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md](WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md) → [WF_AUTHOR_SOURCE_EVIDENCE_REAL_20261025.md](WF_AUTHOR_SOURCE_EVIDENCE_REAL_20261025.md)。本节只代表**签名更早原文＋原作者同模型来源引用约束**的单阶段真模型实验，不能假装已有文学质量进步。所有变更仅 `refactor-unified-scene-delivery-audit`，不改 main / Railway / R2 原著 / 用户正式接受 Canon，勿重复旧书学习或添加第二文学记忆/审稿 AI。
+
+- **原问题仍然真实存在**：旧戏楼签名第1章写“江遥衣袖里藏着尚未交出去的赎身票据”，DeepSeek 自己在第2章写“票据还压在箱底一件戏服底下”，没有给出处；0.Q 双真实正文读者查到这组源句及两项额外疑问，原作者当时却选择 `MOVE_ON` 并声称“前章已交代”——实际此前只写了袖内状态。不能抹掉原模型旧答复或让程序擅自判文学错误。
+- **现在确实接入 G/Studio**：在原 `writing_assist.py`，有更早**真实已写文本和对应唯一读者源引句**时，原作者的**同一次**自审输出 `source_attributions`，为各条跨源读者疑问选择 `WRITTEN_WITH_QUOTE`、`UNWRITTEN_OR_UNKNOWN` 或 `INTENTIONAL_ELLIPSIS`，并提供归因理由。软件只查前史 SHA 和引句唯一存在，不查其文学含义、不以有引句等于动作合法。仅复述问题里旧状态原句者标记 `PRIOR_STATE_QUOTE_NOT_TRANSFER_PROOF`，不能晋级物件持有事实；伪造旧句、错误 SHA、错误 link_index、声称未写又附证明句都不能得到来源认证。**模型仍可自己选择 MOVE_ON**，不自动 V119。自动审稿调用原每作业 **8 次上限**不变；需要输出来源归因时本次模型单次输出 cap 从600提高到1150（默认 reader-first 仍关闭），原 raw 回复从不改写。
+- **真实文学证据**：[唯一新 DeepSeek 作者来源归因 #40153456601](https://github.com/66tyu55/WriterForge/actions/runs/40153456601) 这次只产生 **1 次真实提供商调用**，之前的七次 G 原写作和两次来源读者均通过旧 provider wire / V117 byte SHA 核验后**只读复用**。模型主动把“票据袖中→戏服箱底”及“三次鼓→第四次鼓”解释为 **2 个 INTENTIONAL_ELLIPSIS**；另把“宋易此前握钥匙→当前从腰间解下”列为 **1 个 UNWRITTEN_OR_UNKNOWN**；没有任何 `WRITTEN_WITH_QUOTE` 冒充旧章完成转移的引用。它也**真实自主选择 `LOOK_BACK_NOW`**，具体意图却是自己认为江遥已经看出裂板危险，后来贸然把全身重心压上去导致跌撞，和先前谨慎性格没有写出可信的预判联系。原文唯一引句、为什么不满意和期望读者效果均由同一个真写作模型生成，不是 WF 填答案。
+- **文学生成尚未结束，不得冒充已修复**：本次实验契约就是一次来源说明＋原作者决定，没有调用第二次 V119，**新小说文字0字、真正改稿成功0次、读者匿名盲评0次**。模型自己说“票据转移故意省略”是它的艺术理由，不能证明票据在世界事实中已经合法到旧箱。新选择原因也不一定让作品更好。所有真正历史 `MOVE_ON`、这次真 `LOOK_BACK_NOW` 及原始提供商 wire 按独立证据保留：[本次真答复附件 #12583830221](https://github.com/66tyu55/WriterForge/actions/runs/40153456601/artifacts/12583830221)。
+- **最新可信软件验收**：[0.R 来源归因及伪原文反例 #40153005020](https://github.com/66tyu55/WriterForge/actions/runs/40153005020) 1,585 tests run、4 skipped、0 failed；[原签名前章全文恢复＋真实 G 两段作者与读者闭环 #40153219104](https://github.com/66tyu55/WriterForge/actions/runs/40153219104) **1,586 tests run、4 skipped、0 failures**。不能用测试绿灯取代新稿自然度提升。界面 reader-first 选项已经更新预算/原句归因说明。
+- **下一步不要再靠 AI 自评堆成功率**：换新题，保持相同作者模型和大致公平 token，证明真正 `LOOK_BACK_NOW` 后能独立写成有效 V119/96/114/117 修订，再做原稿/修改稿匿名人类阅读比较；防止新补充的动作引入另外的物件、人物知识、因果和时间错误。不得让 WF 代写、自动改编原书、追加文学评判模型或忽略用户停止/放弃/保存旧候选能力。新付费/部署/正式接受要遵守新授权和调用上限。
+
+---
+
 ## 0.Q 新戏楼 G 真模型跨章来源复读：读者独立发现票据位置变化，原作者仍依据未写出的转移决定保留；只记录未证来源，不强制改稿（2026-10-25，本轮最新）
 
 **务必继续从事实原件开始**：[WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md](WF_NEXT_SESSION_AI_WRITER_HANDOFF_20261024.md) → [WF_REAL_OPERA_SOURCE_IDENTITY_CROSS_CHAPTER_REVIEW_20261025.md](WF_REAL_OPERA_SOURCE_IDENTITY_CROSS_CHAPTER_REVIEW_20261025.md)。只修改开发分支 `refactor-unified-scene-delivery-audit`，main、Railway、用户 R2 书库、正式接受 Canon 不动，不重复旧 15 章训练、不建第二记忆／审稿模型、无 WF 自己编小说正文。
