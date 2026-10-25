@@ -153,7 +153,7 @@ def download_existing_pinned_r2():
         require(len(first_two)==2 and
                 [ch.number for ch in first_two]==[1,2],
                 "WF0T_R2_FIRST_TWO_VERIFIED_CHAPTERS_MISSING")
-        windows=tuple(re.sub(r"\\s+","",ch.text)[:EXCERPT_CHARS]
+        windows=tuple(re.sub(r"\s+","",ch.text)[:EXCERPT_CHARS]
                       for ch in first_two)
         require(len(windows)==2 and len(set(windows))==2 and
                 all(len(x)==EXCERPT_CHARS and "\ufffd" not in x for x in windows),
