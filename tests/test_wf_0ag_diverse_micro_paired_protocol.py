@@ -101,6 +101,25 @@ class TestFirstBatchProtocol(unittest.TestCase):
                  "scores":[True,18,17,16,16]},
                 records["ratings"][1]]})
 
+    def test_original_reverse_paid_rater_labelled_map_not_new_graded_calls(self):
+        # 0.AG reverse real DeepSeek wire (wuxia/horror) used a labelled
+        # object rather than a ratings list. Preserve numbers and reasons.
+        row=lambda nums: {"scores":dict(zip(e.CRITERIA,nums)),
+            "reason":"对动作发生位置的判断有具体段内证据，也保留人物犹疑。",
+            "weakness":"有几处细节对主线推进仍显得不够集中。"}
+        data={"type":"json_object","ratings":{
+            "甲":row([17,18,17,15,18]),
+            "乙":row([15,16,16,14,16])}}
+        source=json.dumps(data,ensure_ascii=False)
+        parsed,receipt=e.parse_micro_judge(data)
+        self.assertEqual(sum(parsed["甲"]["scores"].values()),85)
+        self.assertEqual(sum(parsed["乙"]["scores"].values()),77)
+        self.assertEqual(receipt["labelled_map_rows_losslessly_rekeyed"],2)
+        self.assertTrue(receipt["model_reason_and_weakness_unchanged"])
+        self.assertEqual(json.dumps(data,ensure_ascii=False),source)
+        with self.assertRaises(RuntimeError):
+            e.parse_micro_judge({"ratings":{"甲":row([1]*5)}})
+
     def test_real_provider_original_saved_before_json_validation_and_no_retries(self):
         source=inspect.getsource(e.Model)
         main=inspect.getsource(e.main)
