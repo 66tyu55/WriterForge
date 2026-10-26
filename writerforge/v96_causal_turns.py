@@ -117,10 +117,13 @@ def parse_turn_outline(raw):
              len(set(beat["craft_focus"]))==len(beat["craft_focus"]),
              "WF96_TURN_PLAN_FIELDS_ID_OR_CRAFT_INVALID")
         parent=beat["causal_parent"]
+        # A model's provisional dependency plan is NOT an observed cause.
+        # Dialogue may provoke a decision, and a quiet passage may only be
+        # a temporal handoff. Check the ACTUAL prior prose when authored;
+        # never infer causality from this link alone.
         need(parent is None or (
-             type(parent) is str and parent in prior and
-             prior[parent] in CAUSAL_KINDS),
-             "WF96_CAUSAL_PARENT_NOT_PRIOR_EXPLICIT_ACTION")
+             type(parent) is str and parent in prior),
+             "WF96_CAUSAL_PARENT_NOT_PRIOR_TURN")
         prior[beat["id"]]=beat["kind"]
         approved.append(beat)
     need(len(canonical(obj))<=MAX_PLAN_JSON_BYTES,
@@ -155,6 +158,35 @@ def _quote_anchor(prose,quote,name):
          "WF96_POLARITY_UNCERTAIN_NEEDS_REVIEW")
     return {"start":start,"end":start+len(quote),
             "quote_sha256":digest(quote.encode("utf8"))}
+
+
+def _verified_noncausal_temporal_parent(prior):
+    """Verify a non-causal turn's actual source for temporal handoff ONLY.
+
+    Valid dialogue/quiet/setup/transition/aftermath prose may have no effect
+    quote. This permits later prose to FOLLOW it, but never to cite a made-up
+    result or mark the predecessor as a proven cause. No prose is rewritten.
+    """
+    need(type(prior) is dict and type(prior.get("prose")) is str,
+         "WF96_NONCAUSAL_PARENT_SOURCE_INVALID")
+    prose=prior["prose"]
+    receipt=prior.get("receipt")
+    need(type(receipt) is dict and
+         receipt.get("kind") in
+             ("setup","dialogue","quiet","aftermath","transition") and
+         receipt.get("causal_check")=="EXACT_OBSERVABLE_ANCHORS_ONLY" and
+         receipt.get("turn_id")==prior.get("beat_id") and
+         receipt.get("prose_sha256")==digest(prose.encode("utf8")) and
+         receipt.get("receipt_sha256")==digest(canonical({
+             k:v for k,v in receipt.items() if k!="receipt_sha256"})) and
+         prior.get("effect_quote") is None and
+         receipt.get("action_anchor") is None and
+         receipt.get("effect_anchor") is None and
+         receipt.get("causal_relation_verified") is False and
+         receipt.get("eligible_for_factjournal_KNOWN") is False and
+         receipt.get("candidate_requires_author_acceptance") is True,
+         "WF96_NONCAUSAL_PARENT_SOURCE_INVALID")
+    return receipt["prose_sha256"]
 
 
 def _source_causal_relation_review(prose, action, effect, action_quote,
@@ -244,6 +276,8 @@ def check_turn(raw,beat, *, mode, accepted=(),
         "parent_effect_sha256":None,
         "parent_outcome_pending":False,
         "parent_source_action_sha256":None,
+        "parent_temporal_link_unverified":False,
+        "parent_temporal_source_sha256":None,
         "inherited_canon_facts_written":False,
         "literary_causality_independently_verified":False,
         "eligible_for_factjournal_KNOWN":False,
@@ -275,13 +309,13 @@ def check_turn(raw,beat, *, mode, accepted=(),
                      "WF96_PARENT_CAUSE_NOT_ANCHORED_IN_PREVIOUS_PROSE")
                 recorded["parent_effect_sha256"]=digest(
                     required.encode("utf8"))
-            else:
+            elif (type(prior.get("receipt")) is dict and
+                  prior["receipt"].get("outcome_pending_source_only") is True):
                 # An actual authored decision may not have an observed
                 # consequence yet. The later turn can follow the literal
                 # decision as an UNRESOLVED candidate, never as a proved
                 # result. The previous source and anchor MUST still match
-                # its self-contained integrity receipt. Quiet prose, fake
-                # effects or an altered previous source cannot substitute.
+                # its self-contained integrity receipt.
                 old_receipt=prior.get("receipt")
                 old_prose=prior.get("prose")
                 prior_anchor=(old_receipt.get("action_anchor")
@@ -316,6 +350,19 @@ def check_turn(raw,beat, *, mode, accepted=(),
                 recorded["parent_outcome_pending"]=True
                 recorded["parent_source_action_sha256"]=(
                     prior_anchor["quote_sha256"])
+            else:
+                # A quiet or dialogue turn without an actual quoted effect
+                # may still be a legitimate temporal predecessor. Verify
+                # its signed literal prose and keep this as REVIEW only.
+                # Parent effects stay null; this is NEVER a proved cause.
+                temporal_source=_verified_noncausal_temporal_parent(prior)
+                need(trace["parent_effect_quote"] is None,
+                     "WF96_NONCAUSAL_PARENT_EFFECT_MUST_BE_NULL")
+                recorded["parent_temporal_source_sha256"]=temporal_source
+                recorded["parent_temporal_link_unverified"]=True
+                recorded["source_causal_review_reason"]=(
+                    "PARENT_UNOBSERVED_TEMPORAL_LINK")
+                recorded["source_causal_review_required"]=True
         # A decision can be genuinely made without an OBSERVED effect in
         # this paragraph. Force the action to exist in the original prose,
         # but do not force a later unrelated event into effect_quote.
@@ -408,6 +455,15 @@ def make_turn_instructions(beat,*,mode,accepted=(),
                        "前文 action 真实写出但没有 effect；"
                        "trace.parent_effect_quote 必须为 JSON null。"
                        "下一场可调查、等待或推进，不可宣称已经发生未写出的结果。")
+            elif (type(predecessor) is dict and
+                  predecessor.get("effect_quote") is None and
+                  type(predecessor.get("receipt")) is dict and
+                  predecessor["receipt"].get("kind") in
+                     ("setup","dialogue","quiet","aftermath","transition")):
+                note+=("\n【只承接前文已写的叙事顺序，因果仍未证实】"
+                       "前一场没有可引用的实际后果。"
+                       "trace.parent_effect_quote 必须是 JSON null。"
+                       "允许安静观察后自然续写，但不能编造前因或结果。")
             else:
                 note+=("\n【承接真实已写前因】trace.parent_effect_quote"
                        "必须逐字引用前文已实际出现的后果，"
