@@ -4168,6 +4168,14 @@ class AutonomousWriting:
                     turn_evidence["model_prompt_sha256s"]=prompt_shas
                     turn_evidence["source_free_unverified_scene_states"]=True
                     if draft_mode=="continuity_guard":
+                        turn_evidence["g_writer_v98_opt_in"]=g_rolling_author_planning
+                        turn_evidence["g_writer_source_only_replans"]=(
+                            rolling_receipts if g_rolling_author_planning else [])
+                        turn_evidence["g_writer_provisional_beat_choices"]=(
+                            rolling_goals if g_rolling_author_planning else [])
+                        turn_evidence["g_writer_review_only_replan_skips"]=(
+                            g_rolling_source_skips if g_rolling_author_planning else [])
+                        turn_evidence["g_writer_literary_progress_unproven"]=True
                         turn_evidence["v114_source_item_memory"]=(
                             current_continuity_checkpoint)
                         turn_evidence["v114_original_novel_studio_reducer"]=(
