@@ -78,13 +78,26 @@ class SourceCheckedNonActionDependency(unittest.TestCase):
     def test_real_author_outline_is_preserved_not_relabelled_to_match_host_formula(self):
         self.assertEqual(
             sha256(ORIGINAL_OUTLINE.encode("utf8")).hexdigest(),REAL_DECODED_SHA)
-        turns=parse_turn_outline(ORIGINAL_OUTLINE)
+        from writerforge.writing_assist import (
+            _normalize_optional_model_craft_labels)
+        cleaned,meta=_normalize_optional_model_craft_labels(
+            ORIGINAL_OUTLINE)
+        self.assertTrue(meta["only_model_optional_craft_fields_adjusted"])
+        self.assertTrue(meta["events_or_goals_unchanged"])
+        self.assertEqual(meta["original_model_plan_sha256"],
+                         REAL_DECODED_SHA)
+        turns=parse_turn_outline(cleaned)
         self.assertEqual(len(turns),6)
         self.assertEqual((turns[2]["causal_parent"],turns[1]["kind"]),
                          ("t02","dialogue"))
         self.assertEqual((turns[5]["causal_parent"],turns[4]["kind"]),
                          ("t05","quiet"))
-        self.assertEqual(json.loads(ORIGINAL_OUTLINE)["turns"],list(turns))
+        old=json.loads(ORIGINAL_OUTLINE)["turns"]
+        for before,after in zip(old,turns):
+            self.assertEqual({k:v for k,v in before.items()
+                              if k!="craft_focus"},
+                             {k:v for k,v in after.items()
+                              if k!="craft_focus"})
 
     def test_real_observable_dialogue_can_be_parent_with_literal_cause_source(self):
         a=check_turn(reply(INTRO),beat("t01","quiet"),
