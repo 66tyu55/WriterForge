@@ -270,7 +270,7 @@ def main():
                     "更不能证明主帅收到。旧人物心理与来源以旧文字为准。"
                     "\n【后续原创任务】只写接下来发生的短时段，每个小片段200到350字。"
                     "作者自行决定留白、人物动作、选择、是否回头修句；"
-                    "你可以不修改，无文学分数目标."),
+                    "你可以不修改，无文学分数目标。"),
                 chapter_goals=previous.GOALS,
                 draft_mode="continuity_guard",
                 resume_story_checkpoint=root,
