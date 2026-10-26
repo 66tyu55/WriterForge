@@ -87,7 +87,17 @@ jobs:
           turns=parse_turn_outline(normalized)
           assert len(turns)==5 and turns[3]["kind"]=="interiority"
           assert turns[0]["actor"]=="林槐/许照"
-          print("REAL PAID PREVIOUS DEEPSEEK JSON NOW PASSES ORIGINAL V96: NO MODEL CALL")
+          from writerforge.narrative_core import new_graph,schedule
+          graph=new_graph(project_id="0av-real-wire-actor-preflight",
+                          scene_id="nightvalve",chapter_index=0)
+          duet=schedule(graph,project_id="0av-real-wire-actor-preflight",
+                        scene_id="nightvalve",chapter_index=1,beat=turns[0])
+          inside=schedule(graph,project_id="0av-real-wire-actor-preflight",
+                          scene_id="nightvalve",chapter_index=1,beat=turns[3])
+          assert duet["ensemble_source_actor_labels"]==["林槐","许照"]
+          assert inside["model_calls"]==duet["model_calls"]==0
+          assert duet["canon_writes"]==inside["canon_writes"]==0
+          print("REAL PROVIDER AUTHOR PLAN V96 AND ONE CORE: NO REWRITE, NO MODEL CALL")
           PY
       - name: Same DeepSeek Flash authors two G paths with true source locked prefix
         env:
