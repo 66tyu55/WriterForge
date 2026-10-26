@@ -90,6 +90,50 @@ class OptInReviewOnlyWriterPerspective(unittest.TestCase):
                 seed_next_beat=plan()[1],allowed_actor_names=("少年","女子"),
                 allow_g_prose_only=True)
 
+    def test_recent_signed_prose_not_old_static_beats_must_inform_t04_choice(self):
+        """0.AV actual B+: t04 re-cut a signal already cut in t01.
+
+        The real t04 V98 prompt had only t03's actual prose and the
+        initial stale seed. The model couldn't see the literal t01 action.
+        Expose a small, source-SHA-verified prior prose window instead of
+        inventing an item state or enforcing 'no repeats' instructions.
+        """
+        from test_v96_causal_turns import prose2,ACTION2,EFFECT1,EFFECT2
+        beat1,beat2=plan()
+        a=check_turn(response(prose1(),ACTION1,EFFECT1),beat1,
+                     mode="causal_guard")
+        b=check_turn(response(prose2(),ACTION2,EFFECT2,EFFECT1),
+                     beat2,mode="causal_guard",accepted=(a,))
+        third_beat={"id":"t03","kind":"dialogue","actor":"少年",
+                    "goal":"人物暂时失去回话后，仍需记得先前已经做过的动作",
+                    "causal_parent":"t02","craft_focus":["dialogue"]}
+        third=review_only_model_turn(response(
+            "三更时女子已经停下与少年争论，驿站窗纸发出响声。"
+            "他们听见河边有人叫了一声，却没有看见到底是谁。",
+            ACTION1,None,EFFECT2),third_beat,
+            failure_code="WF96_PARTIAL_ACTION_EFFECT_NOT_ALLOWED",
+            accepted=(a,b))
+        next_seed={"id":"t04","kind":"decision","actor":"女子",
+                   "goal":"女子在当前失联与未知条件下决定下一步行动",
+                   "causal_parent":"t03","craft_focus":["detail"]}
+        prompt=prepare_replan_instructions(
+            accepted=(a,b,third),seed_next_beat=next_seed,
+            allowed_actor_names=("少年","女子"),
+            allow_g_prose_only=True)
+        self.assertIn(ACTION1,prompt)
+        self.assertIn(ACTION2,prompt)
+        self.assertIn('下一事件编号必须为 t04',prompt)
+        self.assertIn('不代表已确认因果',prompt)
+        self.assertLess(len(prompt),3101)
+
+        tampered=deepcopy(a)
+        tampered["prose"]+="伪造先前已经开阀成功"
+        with self.assertRaises(V98RollingPlanError):
+            prepare_replan_instructions(
+                accepted=(tampered,b,third),seed_next_beat=next_seed,
+                allowed_actor_names=("少年","女子"),
+                allow_g_prose_only=True)
+
     def test_tampered_old_original_hash_fail_closed(self):
         turn=invalid_trace_but_real_writer_prose()
         turn["prose"]+="假后果"
