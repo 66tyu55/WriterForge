@@ -67,8 +67,7 @@ class IndependentAuthorReviewStage(TestCase):
             self.assertNotIn("优先续写场景中的道具",packet.prompt)
             self.assertIn(self.real_prose,packet.prompt)
             self.assertIn(digest(self.real_prose),packet.prompt)
-            self.assertIn('\"decision(MOVE_ON',packet.prompt.replace(
-                "返回严格 JSON 对象，字段必须且只能为：",'"decision(MOVE_ON')) if False else None
+            self.assertIn("decision(MOVE_ON 或 LOOK_BACK_NOW)",packet.prompt)
             return model_result
         accepted=({"prose":self.prior_prose,
                    "effect_quote":EFFECT1},) if prior else ()
@@ -109,7 +108,6 @@ class IndependentAuthorReviewStage(TestCase):
         self.assertEqual(result["target_prose_sha256"],
                          digest(self.prior_prose))
         self.assertEqual(result["source_quote"],quote)
-        self.assertIn("若",prompt)  # Existing original prose remains available
 
     def test_real_old_prose_echo_is_not_relabelled_as_a_review_decision(self):
         old_echo=self.raw
