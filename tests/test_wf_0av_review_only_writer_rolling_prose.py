@@ -173,5 +173,90 @@ class OptInReviewOnlyWriterPerspective(unittest.TestCase):
         self.assertEqual(receipt["source_basis_kind"],"QUIET_PROSE_AUTHOR_ONLY")
         self.assertFalse(receipt["source_parent_causal_relation_verified"])
 
+
+    def test_real_bplusplus_t05_author_quotes_t03_not_t04_needs_signed_provenance(self):
+        """RED from REAL DeepSeek #40339756228 wire10 SHA 7de3f1bb829b... .
+
+        The author cites a still-open t03 question to choose t05 after t04.
+        V98 may locate that exact earlier signed source, but may never claim
+        that t03 quote was in t04 or that it proves a t04 causal effect.
+        """
+        from test_v96_causal_turns import prose2,ACTION2,EFFECT1,EFFECT2
+        beat1,beat2=plan()
+        a=check_turn(response(prose1(),ACTION1,EFFECT1),
+                     beat1,mode="causal_guard")
+        b=check_turn(response(prose2(),ACTION2,EFFECT2,EFFECT1),
+                     beat2,mode="causal_guard",accepted=(a,))
+        third_beat={"id":"t03","kind":"dialogue","actor":"少年",
+                    "goal":"少年在未获证实的失联之后重新核对真实响声",
+                    "causal_parent":"t02","craft_focus":["dialogue"]}
+        third_prose=(
+            "三更时女子已停止争论，屋檐的声音却越来越响。"
+            "两下短促的敲击之后，再没有新的回答。"
+            "少年仍无法确认河对面是不是有人在等着，"
+            "也不知道对方究竟想走还是想留。"
+            "他刚刚试图从雨中辨认声音，却连模糊的影子都没看见。"
+            "谁敲了两下，以及敲击与桥上的动静是否有关，都没人能证实。")
+        c=review_only_model_turn(
+            response(third_prose,ACTION1,None,EFFECT1),third_beat,
+            failure_code="WF96_PARTIAL_ACTION_EFFECT_NOT_ALLOWED",
+            accepted=(a,b))
+        fourth_beat={"id":"t04","kind":"setup","actor":"女子",
+                     "goal":"女子收起灯盏，尝试再核实桥下的消息",
+                     "causal_parent":"t03","craft_focus":["detail"]}
+        fourth_prose=(
+            "女子把灯罩放低，试着将灯口对向河边。"
+            "这一回河面没有给她任何线索，雨线重重落在石栏上。"
+            "少年仍站在门口，没有贸然走进看不见的水汽。"
+            "女子说现在只知道灯没有熄灭，至于河对面发生了什么，"
+            "他们都没有资格用传闻做决定。"
+            "她折好湿透的纸，放回屋里，等着新的确证。")
+        d=review_only_model_turn(
+            response(fourth_prose,ACTION1,None,EFFECT1),fourth_beat,
+            failure_code="WF96_PARTIAL_ACTION_EFFECT_NOT_ALLOWED",
+            accepted=(a,b,c))
+        fifth_beat={"id":"t05","kind":"setup","actor":"少年",
+                    "goal":"少年核实先前敲击究竟来自何处，并考虑下一步",
+                    "causal_parent":"t04","craft_focus":["restraint"]}
+        raw_json=json.dumps({
+            "next_turn":fifth_beat,
+            "basis_effect_quote":"两下短促的敲击之后，再没有新的回答。",
+            "pressure_quote":"也不知道对方究竟想走还是想留。",
+            "cost_quote":None,
+            "unresolved_question":"两下敲击究竟意味着什么还没有确切来源。",
+            "reason_for_shift":"刚刚的灯照没有获得新证据，先前的两下敲击仍是未知问题，原作者选择继续追问。",
+        },ensure_ascii=False)
+        prompt=prepare_replan_instructions(
+            accepted=(a,b,c,d),seed_next_beat=fifth_beat,
+            allowed_actor_names=("少年","女子"),allow_g_prose_only=True)
+        self.assertIn("两下短促的敲击之后，再没有新的回答。",prompt)
+        self.assertNotIn("两下短促的敲击之后，再没有新的回答。",d["prose"])
+        accepted=(a,b,c,d)
+        choice,receipt=validate_replan(
+            raw_json,accepted=accepted,
+            accepted_beats=(beat1,beat2,third_beat,fourth_beat),
+            seed_next_beat=fifth_beat,
+            allowed_actor_names=("少年","女子"),allow_g_prose_only=True)
+        self.assertEqual(choice["id"],"t05")
+        self.assertEqual(receipt["grounded_prior_beat_id"],"t03")
+        self.assertEqual(receipt["grounded_prior_prose_sha256"],
+                         digest(c["prose"].encode("utf8")))
+        self.assertEqual(receipt["source_parent_beat_id"],"t04")
+        self.assertEqual(receipt["source_basis_kind"],
+                         "EARLIER_SIGNED_PROSE_AUTHOR_ONLY")
+        self.assertTrue(receipt["source_basis_from_older_signed_prose"])
+        self.assertEqual(receipt["pressure_source_beat_id"],"t03")
+        self.assertFalse(receipt["source_parent_causal_relation_verified"])
+        self.assertFalse(receipt["character_knowledge_promoted_to_KNOWN"])
+        self.assertEqual(receipt["canon_or_factjournal_writes"],0)
+        corrupted=deepcopy(c)
+        corrupted["prose"]+="伪造的额外事件"
+        with self.assertRaises(V98RollingPlanError):
+            validate_replan(
+                raw_json,accepted=(a,b,corrupted,d),
+                accepted_beats=(beat1,beat2,third_beat,fourth_beat),
+                seed_next_beat=fifth_beat,
+                allowed_actor_names=("少年","女子"),allow_g_prose_only=True)
+
 if __name__=="__main__":
     unittest.main()
