@@ -4,7 +4,7 @@ on:
   push:
     branches: [refactor-unified-scene-delivery-audit]
     paths:
-      - experiments/WF_0AO_OFFLINE_PROMPT_IDENTITY_NO_MODEL_ONCE_20261026.txt
+      - experiments/WF_0AO_OFFLINE_PROMPT_IDENTITY_CHECKED_V2_ONCE_20261026.txt
 
 permissions:
   contents: read
@@ -16,7 +16,7 @@ jobs:
       github.repository == '66tyu55/WriterForge' &&
       github.ref_name == 'refactor-unified-scene-delivery-audit' &&
       github.run_attempt == 1 &&
-      github.event.head_commit.message == 'audit(0.AO): FIRE OFFLINE SOURCE ONLY ORIGINAL PLANNER PROMPT COMPARISON'
+      github.event.head_commit.message == 'audit(0.AO): FIRE CORRECTED OFFLINE FIRST PLAN PROMPT IDENTITY'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -32,7 +32,7 @@ jobs:
       - run: python -m pip install -e '.[r2]'
       - name: Prove opt-in forensic marker with NO production model credentials
         run: |
-          test "$(cat experiments/WF_0AO_OFFLINE_PROMPT_IDENTITY_NO_MODEL_ONCE_20261026.txt)" = "WF0AO_DIAGNOSE_SOURCE_SHA_NOT_WRITER_NO_PROVIDER"
+          test "$(cat experiments/WF_0AO_OFFLINE_PROMPT_IDENTITY_CHECKED_V2_ONCE_20261026.txt)" = "WF0AO_DIAGNOSE_TWO_PROMPTS_AFTER_ASSERTION_FIX_NO_MODEL"
           python - <<'PY'
           import os
           assert not any(os.getenv(k) for k in (
