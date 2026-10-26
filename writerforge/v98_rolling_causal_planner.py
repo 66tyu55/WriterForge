@@ -316,7 +316,7 @@ def prepare_replan_instructions(*,accepted,seed_next_beat,
        +("前段trace未能证明动作或后果；请引用真实原文而不把它写作既成因果。"
          if allow_g_prose_only else
          "尚未观察结果的决定则只能引用已校验的真实决定/行动原句。")
-       "pressure_quote与cost_quote只能是上一段原文唯一短引句或JSON null；"
+       +"pressure_quote与cost_quote只能是上一段原文唯一短引句或JSON null；"
        "代价未明确写出就填null，不得为了过测试伪造。"
        "只建议新情节，不能声明模型理解已被审核，也不能更改先前正文。"
     )
