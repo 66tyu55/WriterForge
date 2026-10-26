@@ -674,8 +674,53 @@ def main():
     if status["status"]=="REAL_AB_SAFE_PARTIAL_FAILURE_NOT_RETRIED":
         raise RuntimeError("WF0AV_SAFE_PARTIAL_EVIDENCE_RETAINED_NO_RETRY")
 
+def source_five_only_preflight():
+    """Execute exact saved first FIVE author replies through real G; zero APIs.
+
+    The sixth attempted call must be intercepted BEFORE any provider call,
+    proving repaired V96/NarrativeCore/V120/V118 all accept source progress.
+    """
+    global ROOT
+    ROOT=Path("wf0av_source_five_offline_validation_only")
+    require(not ROOT.exists(),"WF0AV_SOURCE_PREFLIGHT_NEVER_REPLAY_OVERWRITE")
+    ROOT.mkdir(parents=True)
+    first_two=load_first_two_original_replies()
+    third=load_third_original_response()
+    fourth_fifth=load_fourth_fifth_original_responses()
+    saved=first_two+(third,)+fourth_fifth
+    require(len(saved)==5,"WF0AV_FIVE_ORIGINAL_WIRES_NOT_ALL_LOADED")
+    cap=AggregateCap()
+    cap.calls=MAX_TOTAL_PAID_CALLS
+    dry=WireWriter("D","offline-no-network-key-valid-0123456789",
+                   cap,replay=saved)
+    try:
+        run_arm("D",dry)
+    except Exception as error:
+        msg=str(error)
+        require("WF0AV_HARD_GLOBAL_PROVIDER_BUDGET_EXHAUSTED" in msg
+                and len(dry.events)==6
+                and all(e.get("paid_call") is False
+                        for e in dry.events[:5]),
+                "WF0AV_FIVE_SOURCE_ONLY_DID_NOT_PASS_TO_NEXT_AUTHOR_TURN:"
+                    +type(error).__name__+":"+msg[:150])
+    else:
+        # Complete prose with just 3 turns is NOT allowed by the source plan.
+        raise RuntimeError("WF0AV_DRYRUN_FIVE_SOURCE_UNEXPECTED_FULL_COMPLETION")
+    save_json(ROOT/"OFFLINE_SOURCE_FIVE_PASS.json",{
+        "model_calls":0,"model_secret_used":False,
+        "original_provider_wires":5,
+        "all_original_prompt_SHA_validated":True,
+        "actual_author_prose_turns_retained":3,
+        "next_author_model_call_blocked_before_network":True,
+        "writer_V96_core_V120_V118_source_parse_passed":True,
+        "canon_writes":0,"r2_writes":0})
+    print("WF0AV_ACTUAL_SOURCE_ONLY_FIVE_WIRES_PASS_NO_NEW_MODEL_CALLS")
+
+
 if __name__=="__main__":
-    if "--preflight" in sys.argv:
+    if "--source-five-preflight" in sys.argv:
+        source_five_only_preflight()
+    elif "--preflight" in sys.argv:
         import inspect
         from writerforge.v98_rolling_causal_planner import (
             g_source_replan_eligibility)
