@@ -31,7 +31,7 @@ CONDITIONAL = re.compile(
     r"(?:如果|假如|若是|倘若|梦见|梦中|听说|据说|似乎|"
     r"想要|打算|计划|准备|试图|尝试|企图|假装|不曾|未能|尚未|不能|"
     r"没有|阻止|拒绝|是否|可能|考虑)")
-QUIET = frozenset(("quiet", "setup", "transition", "dialogue", "aftermath"))
+QUIET = frozenset(("quiet", "setup", "transition", "dialogue", "aftermath", "interiority"))
 
 
 class PlanExecutionError(ValueError):
@@ -51,6 +51,21 @@ def _hash(x):
                   .encode("utf8")).hexdigest()
 
 
+def _actor_is_signed_cast_member_or_duet(actor, cast):
+    """Do not mistake original author's two-person scene for one character.
+
+    No synthetic person, model prose rewrite, or fused knowledge state.
+    Each explicit speaker must already be in the scene cast.
+    """
+    if type(actor) is not str:
+        return False
+    if actor in cast:
+        return True
+    people=actor.split("/")
+    return (2<=len(people)<=3 and len(set(people))==len(people)
+            and all(person in cast for person in people))
+
+
 def _plan_goal(beat, cast):
     """Only exact affirmative action goals with an explicitly named subject.
 
@@ -61,6 +76,10 @@ def _plan_goal(beat, cast):
     goal = beat["goal"].strip()
     if beat["kind"] in QUIET:
         return None, "NON_STATEFUL_BEAT"
+    if "/" in actor:
+        # Multiple real speakers are a scene, not a single actor whose
+        # goal can be promoted to a source-observed physical state.
+        return None, "ENSEMBLE_GOAL_NOT_A_SINGLE_OBSERVED_ACTION"
     if not goal.startswith(actor) or CONDITIONAL.search(goal):
         return None, "AMBIGUOUS_OR_NONASSERTIVE_GOAL"
     # A second named character before the physical verb makes the subject
@@ -257,7 +276,7 @@ def compare_plan_to_prose(*, project_id: str, scene_id: str,
           all(k in beat for k in ("id", "kind", "actor", "goal", "causal_parent"))
           and type(beat["id"]) is str and 1 <= len(beat["id"]) <= 30 and
           type(beat["goal"]) is str and 1 <= len(beat["goal"]) <= MAX_GOAL and
-          type(beat["actor"]) is str and beat["actor"] in cast and
+          _actor_is_signed_cast_member_or_duet(beat["actor"],cast) and
           type(beat["kind"]) is str and
           (beat["causal_parent"] is None or
            type(beat["causal_parent"]) is str),
