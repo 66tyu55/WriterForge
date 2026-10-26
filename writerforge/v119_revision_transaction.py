@@ -232,6 +232,7 @@ def prepare_source_repair_contract(
     parent=beat["causal_parent"]
     previous_effect=None
     previous_pending_action=None
+    previous_temporal_source=None
     # The same V96/V98 source integrity owns decision-outcome-pending:
     # a writer can repair an observed decision before its consequence is
     # observed. Do not force the child to fabricate a previous effect.
@@ -246,18 +247,35 @@ def prepare_source_repair_contract(
                   "WF119_REPAIR_PARENT_SOURCE_MISSING")
             previous_effect=prior_effect
         else:
-            from .v98_rolling_causal_planner import (
-                latest_source_basis_for_replan,V98RollingPlanError)
-            try:
-                found,quote,kind=latest_source_basis_for_replan(
-                    (original_parent,))
-            except V98RollingPlanError:
-                raise RevisionTransactionError(
-                    "WF119_REPAIR_PARENT_PENDING_SOURCE_INVALID") from None
-            _need(found.get("beat_id")==parent and
-                  kind=="DECISION_ACTION_ONLY_OUTCOME_PENDING",
-                  "WF119_REPAIR_PARENT_PENDING_SOURCE_INVALID")
-            previous_pending_action=quote
+            prior_receipt=original_parent.get("receipt")
+            if (type(prior_receipt) is dict and
+                    prior_receipt.get("outcome_pending_source_only") is True):
+                from .v98_rolling_causal_planner import (
+                    latest_source_basis_for_replan,V98RollingPlanError)
+                try:
+                    found,quote,kind=latest_source_basis_for_replan(
+                        (original_parent,))
+                except V98RollingPlanError:
+                    raise RevisionTransactionError(
+                        "WF119_REPAIR_PARENT_PENDING_SOURCE_INVALID") from None
+                _need(found.get("beat_id")==parent and
+                      kind=="DECISION_ACTION_ONLY_OUTCOME_PENDING",
+                      "WF119_REPAIR_PARENT_PENDING_SOURCE_INVALID")
+                previous_pending_action=quote
+            else:
+                # Dialogues or quiet scenes without a reported effect can
+                # precede a revision without becoming a causal fact. Use
+                # the ORIGINAL V96 signed source rather than an invented
+                # predecessor result or a second temporal memory module.
+                from .v96_causal_turns import (
+                    _verified_noncausal_temporal_parent,
+                    V96CausalDraftError)
+                try:
+                    previous_temporal_source=(
+                        _verified_noncausal_temporal_parent(original_parent))
+                except V96CausalDraftError:
+                    raise RevisionTransactionError(
+                        "WF119_REPAIR_PARENT_TEMPORAL_SOURCE_INVALID") from None
     decision_pending=(beat["kind"]=="decision" and
                       type(original_trace) is dict and
                       type(original_trace.get("action_quote")) is str and
@@ -340,6 +358,8 @@ def prepare_source_repair_contract(
         "actual_previous_effect_quote":previous_effect,
         "actual_previous_pending_action_quote":previous_pending_action,
         "previous_parent_effect_unobserved":previous_pending_action is not None,
+        "previous_parent_temporal_link_unverified":previous_temporal_source is not None,
+        "actual_previous_temporal_source_sha256":previous_temporal_source,
         "original_model_trace":original_trace,
         "baseline_hard_findings":(
             source_before["findings"] if source_before is not None else []),
