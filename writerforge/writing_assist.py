@@ -3319,7 +3319,14 @@ class AutonomousWriting:
                             "WF96_TOTAL_SEGMENTED_MODEL_CALL_BUDGET_EXCEEDED")
                     issued_turns+=len(beats)
                     prompt_shas=[]
-                    cast=tuple(dict.fromkeys(b["actor"] for b in beats))
+                    # Model-authored dialogue may name multiple people in
+                    # ONE beat ("林槐/许照"). They are separate cast members,
+                    # not a fictional third person or a shared-knowledge POV.
+                    # Keep the original model beat untouched and source-signed.
+                    cast=tuple(dict.fromkeys(
+                        person for beat in beats
+                        for person in (beat["actor"].split("/")
+                            if "/" in beat["actor"] else (beat["actor"],))))
                     turn_index=0
                     while turn_index<len(beats):
                         try:
