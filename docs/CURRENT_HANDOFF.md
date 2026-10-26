@@ -1,6 +1,20 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.AV｜下一窗口最新正式交接：首先验证 WF 是否真正提升文学写作（2026-10-26）
+
+**先读：[WF_0AV_NEXT_SESSION_LITERARY_UPLIFT_HANDOFF_20261026.md](WF_0AV_NEXT_SESSION_LITERARY_UPLIFT_HANDOFF_20261026.md)**，然后读 [0.AU G+V98工程机制](WF_0AU_G_V98_PROSE_DRIVEN_WRITER_PLANNING_20261026.md) 及 [0.AR—0.AT 真实写作/自审证据](WF_0AR_0AS_0AT_REAL_WRITER_REVIEW_STAGE_LITERARY_UPLIFT_20261026.md)。
+
+用户最新强调**重点是提升 WF**。0.AU已经在唯一G线路增加默认关闭的 g_rolling_author_planning 开关，复用已有V98由真正作者根据已写正文重新选择下段事件，**但尚未进行任何真实文学质量A/B**。最近完整离线验收 [#40279156590](https://github.com/66tyu55/WriterForge/actions/runs/40279156590)：**1,808 tests、10 skipped、0 failed**。真实0.AQ的DeepSeek六段完整未接受稿仍有重复封册/传令；0.AS旧自审有效2/6修到6/6却6/6 MOVE_ON；0.AT带原句来源提醒仍2/2 MOVE_ON。不能把“检查/审稿能工作”宣传成文学能力提升或真实自发改稿。
+
+**下一窗口先核实当前HEAD并执行0.AV新原创场景、同模型旧G vs G+V98的严格实写对照**：事先固定任务、上下文、字数与预算口径，保存原始provider wire、prompt/正文SHA与V98实际作家选出的下一事件、SKIP原因、总调用成本；逐段检查重复行动、人物动机、真实后果、物品/时间/视角与节奏，再匿名双序盲评，长度/成本差异必须报告。只有真实原作者主动LOOK_BACK_NOW并通过V119撤销旧后代、重写新后文，才能声称作家自主回头真实通过。不得靠宿主写情节、强制修改或新加独立审稿记忆模块刷指标。
+
+**限制**：只 refactor-unified-scene-delivery-audit；绝不修改main、Railway、R2原著、正式Canon，保留V26/V98/V119与唯一NarrativeCore，不重复十类旧模型作者原稿或15章训练。**0.AV是交接文件，不代表新实写实验已经执行。**
+
+---
+
+
+
 ## 0.AU｜真正推动写作的 G+V98 逐段构思实验入口（2026-10-26）
 
 **最新文档**：[WF_0AU_G_V98_PROSE_DRIVEN_WRITER_PLANNING_20261026.md](WF_0AU_G_V98_PROSE_DRIVEN_WRITER_PLANNING_20261026.md)。**最新完整零模型回归**：[GitHub Actions #40279156590](https://github.com/66tyu55/WriterForge/actions/runs/40279156590)：**1808 tests、10 skipped、0 failed**。
