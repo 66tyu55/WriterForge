@@ -88,6 +88,7 @@ TASK={"format":"wf.0av.new-original-a-b-preregistered.v1",
       "combined_ceiling_including_previous_trial":26,
       "combined_completion_reservation_ceiling":44000,
       "earlier_failed_provider_run":PRIOR_FAILED_RUN_ID,
+      "third_source_failed_run":THIRD_ORIGINAL_RUN_ID,
       "judging":"Two opposite-order BLIND same-family DeepSeek scores, never WF truth",
       "pre_registered_dimensions":[
           "人物选择真实性","后果改变下一步","动作重复","真实物品及时间连续性",
@@ -585,11 +586,11 @@ def main():
             else type(error).__name__+":NO_BILLABLE_RETRY")
     finally:
         status["provider_calls"]=cap.calls
-        status["total_paid_calls_including_original_red"]=cap.calls+2
+        status["total_paid_calls_including_original_red"]=cap.calls+3
         status["provider_completion_tokens_reserved"]=(
             cap.output_reservations)
         status["total_reserved_tokens_including_original_red"]=(
-            cap.output_reservations+2100)
+            cap.output_reservations+3550)
         for label,writer in (("A",a_writer),("B",b_writer)):
             if writer is not None:
                 status[label+"_wire_events"]=writer.public_events()
@@ -597,7 +598,7 @@ def main():
         save_json(ROOT/"STATUS.json",status)
         print("WF0AV_STATUS "+json.dumps({
             "status":status["status"],"paid_calls":cap.calls,
-            "paid_calls_including_prior_red":cap.calls+2,
+            "paid_calls_including_prior_red":cap.calls+3,
             "completion_tokens_reserved":cap.output_reservations,
             "A_prose":status["A"],"B_prose":status["B"],
             "error":status.get("failure_code"),
