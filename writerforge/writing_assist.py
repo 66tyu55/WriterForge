@@ -1319,6 +1319,72 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
         "也不是本条要执行的 JSON 格式。"
     )
     content=review_stage_header+reminder
+    # An explicitly requested SAME-SOURCE literal reread must survive
+    # task separation. Pass ONLY its existing, SHA-verified sentence index:
+    # do not resurrect the prose-writing instructions that surrounded it.
+    literal_source_index_passed=False
+    index_marker="\n【同一稿件逐句原文来源目录】"
+    if index_marker in turn_packet.prompt:
+        raw_index=turn_packet.prompt.rsplit(index_marker,1)[1].strip()
+        try:
+            if len(raw_index)>22000:
+                raise ValueError("index size")
+            def no_dupe_index(items):
+                result={}
+                for k,v in items:
+                    if k in result:
+                        raise ValueError("duplicate source index field")
+                    result[k]=v
+                return result
+            index=json.loads(raw_index,object_pairs_hook=no_dupe_index)
+            keys={"format","source_sha256","units",
+                  "any_source_beyond_original",
+                  "character_mentions_literal_only",
+                  "literary_error_found_by_host",
+                  "literary_quality_verified","auto_revision_requested",
+                  "canon_writes","receipt_sha256"}
+            if (type(index) is not dict or set(index)!=keys or
+                index["format"]!="wf.writer.literal-source-replay-index.v1" or
+                index["source_sha256"]!=original_sha or
+                index["any_source_beyond_original"] is not False or
+                index["character_mentions_literal_only"] is not True or
+                any(index[k] is not False for k in (
+                    "literary_error_found_by_host",
+                    "literary_quality_verified","auto_revision_requested")) or
+                index["canon_writes"]!=0 or
+                index["receipt_sha256"]!=sha256(json.dumps(
+                    {k:v for k,v in index.items() if k!="receipt_sha256"},
+                    ensure_ascii=False,sort_keys=True,
+                    separators=(",",":")).encode("utf8")).hexdigest() or
+                type(index["units"]) is not list or
+                not 1<=len(index["units"])<=120):
+                raise ValueError("index schema/source")
+            cursor=0
+            for unit in index["units"]:
+                if (type(unit) is not dict or
+                    set(unit)!={"start","end","source_quote","explicit_names"} or
+                    type(unit["start"]) is not int or
+                    type(unit["end"]) is not int or
+                    unit["start"]!=cursor or
+                    not cursor<unit["end"]<=len(prose) or
+                    type(unit["source_quote"]) is not str or
+                    prose[cursor:unit["end"]]!=unit["source_quote"] or
+                    type(unit["explicit_names"]) is not list or
+                    len(unit["explicit_names"])>10 or
+                    any(type(n) is not str or not 1<=len(n)<=70 or
+                        n not in unit["source_quote"]
+                        for n in unit["explicit_names"])):
+                    raise ValueError("source offsets altered")
+                cursor=unit["end"]
+            if cursor!=len(prose):
+                raise ValueError("source not completely indexed")
+        except (ValueError,TypeError,KeyError,UnicodeError):
+            # The workbench must not pass guessed or forged provenance to
+            # the novelist merely to get a green review response.
+            raise WritingExecutionError(
+                "WF_AI_WRITER_LITERAL_REVIEW_INDEX_SOURCE_INVALID") from None
+        content+=index_marker+raw_index
+        literal_source_index_passed=True
     if source_identity_contract=="bind_null_current":
         content+=(
             "\n【来源 SHA 为宿主机械字段，并非文学判断】"
@@ -1409,6 +1475,7 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
         "review_prompt_sha256":sha256(content.encode("utf8")).hexdigest(),
         "review_writer_source_prose_unchanged":True,
         "review_writer_not_forced_to_revise":True,
+        "literal_source_reread_index_verified":literal_source_index_passed,
         "source_identity_contract":source_identity_contract,
         "earlier_author_source_attribution_requested":attribution_requested,
         "source_sha256_original_model_value_not_changed":True,
