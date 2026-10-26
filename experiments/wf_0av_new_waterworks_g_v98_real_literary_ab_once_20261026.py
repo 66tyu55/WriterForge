@@ -33,8 +33,11 @@ PROJECT="wf0av-fresh-waterworks-ab"
 SCENE="waterworks-inspection-night"
 MODEL="deepseek-flash"
 API="https://api.deepseek.com/v1"
-MAX_TOTAL_PAID_CALLS=24
-MAX_TOTAL_RESERVED_COMPLETION_TOKENS=41900
+MAX_TOTAL_PAID_CALLS=23
+MAX_TOTAL_RESERVED_COMPLETION_TOKENS=40450
+THIRD_ORIGINAL_RUN_ID=40285930972
+THIRD_SOURCE=Path('wf0av_third_paid_source')
+THIRD_RAW_SHA='7b776a0277ae8721af6c689b87da7962d9012b24751de1b76454052dc8c62de3'
 PRIOR_FAILED_RUN_ID=40283464818
 PRIOR_SOURCE=Path("wf0av_prior_failed_source")
 PRIOR_RAW_SHA=(
@@ -81,7 +84,7 @@ TASK={"format":"wf.0av.new-original-a-b-preregistered.v1",
       "per_turn_target_chinese_chars":[180,320],
       "new_run_max_paid_calls":MAX_TOTAL_PAID_CALLS,
       "new_run_max_reserved_completion_tokens":MAX_TOTAL_RESERVED_COMPLETION_TOKENS,
-      "source_locked_previous_paid_calls":2,
+      "source_locked_previous_paid_calls":3,
       "combined_ceiling_including_previous_trial":26,
       "combined_completion_reservation_ceiling":44000,
       "earlier_failed_provider_run":PRIOR_FAILED_RUN_ID,
@@ -204,6 +207,61 @@ def load_first_two_original_replies():
         "source_plan_original_contents_preserved":True,
         "original_model_planning_text_unchanged":True})
     return tuple(recovered)
+
+def load_third_original_response():
+    """Original first paragraph is real model prose from the second paid run.
+
+    Reuse ONLY its exact third provider wire/response. The V120 bug came
+    AFTER authoring and preservation; rewriting prose would corrupt evidence.
+    """
+    trial=json.loads((THIRD_SOURCE/"STATUS.json").read_text("utf8"))
+    require(trial["provider_calls"]==1 and trial["status"]==
+                "REAL_AB_SAFE_PARTIAL_FAILURE_NOT_RETRIED" and
+            trial["failure_code"]==
+                "WF96_SCENE_TURN_REJECTED_WF120_BEAT_INVALID" and
+            trial["total_paid_calls_including_original_red"]==3 and
+            trial["provider_completion_tokens_reserved"]==1450,
+            "WF0AV_PREVIOUS_THIRD_TRIAL_NOT_EXACT_FAILED_SOURCE")
+    old=trial["A_wire_events"]
+    require(len(old)==3 and
+            [x["wire_sha256"] for x in old[:2]]==list(PRIOR_RAW_SHA) and
+            all(x["paid_call"] is False for x in old[:2]),
+            "WF0AV_THIRD_TRIAL_DID_NOT_REUSE_ORIGINAL_TWO")
+    original=THIRD_SOURCE/"A"/"original-provider-wires"/"03-paid.json"
+    raw=original.read_bytes()
+    e=old[2]
+    require(h(raw)==THIRD_RAW_SHA and
+            e["wire_sha256"]==THIRD_RAW_SHA and
+            e["model"]==MODEL and e["index"]==3 and
+            e["paid_call"] is True and
+            e["saved_before_json_decode"] is True,
+            "WF0AV_REAL_THIRD_PROSE_WIRE_SHA_DRIFT")
+    envelope=json.loads(raw)
+    require(envelope["model"]==MODEL and
+            envelope["choices"][0]["finish_reason"]=="stop",
+            "WF0AV_THIRD_WIRE_PROVIDER_NOT_COMPLETED")
+    doc=json.loads(envelope["choices"][0]["message"]["content"])
+    raw_response=json.dumps(doc,ensure_ascii=False,separators=(",",":"))
+    require(type(doc) is dict and type(doc.get("prose")) is str and
+            type(doc.get("trace")) is dict and
+            h(raw_response)==e["returned_json_sha256"],
+            "WF0AV_THIRD_PROSE_BYTES_OR_DECODE_DRIFT")
+    dest=ROOT/"upstream-immutable-wire-copies"/(
+        f"03-origin-run-{THIRD_ORIGINAL_RUN_ID}.json")
+    require(not dest.exists(),"WF0AV_REPAID_THIRD_PROSE_SOURCE")
+    dest.write_bytes(raw)
+    save_json(ROOT/"RECOVERED_THIRD_PROSE_SOURCE_ONLY.json",{
+        "source_failed_run_id":THIRD_ORIGINAL_RUN_ID,
+        "original_paid_call_number":3,
+        "original_provider_wire_sha256":THIRD_RAW_SHA,
+        "original_reservation_tokens":1450,
+        "new_calls_to_recover":0,
+        "original_prose_sha256":h(doc["prose"]),
+        "model_prose_preserved_without_modification":True,
+        "original_trace_preserved_without_rewriting":True,
+        "status":"ACTUAL_AUTHOR_PROSE_SOURCE_ONLY"})
+    return dict(e,raw_response=raw_response)
+
 
 class AggregateCap:
     def __init__(self):
@@ -412,8 +470,8 @@ def main():
         "status":"PRE_REGISTERED_NO_CALLS",
         "model":MODEL,"A":None,"B":None,
         "provider_calls":0,"budget_limit":MAX_TOTAL_PAID_CALLS,
-        "prior_paid_calls_not_recharged":2,
-        "prior_reserved_completion_tokens_not_recharged":2100,
+        "prior_paid_calls_not_recharged":3,
+        "prior_reserved_completion_tokens_not_recharged":3550,
         "provider_completion_tokens_reserved":0,
         "judge":None,"literary_uplift_proven":False,
         "human_blind_grade":False,"originals_not_overwritten":True,
@@ -430,7 +488,8 @@ def main():
         key=os.environ.get("DEEPSEEK_API_KEY","")
         require(len(key)>=16,"WF0AV_EXISTING_DEEPSEEK_SECRET_MISSING")
         previous_two=load_first_two_original_replies()
-        a_writer=WireWriter("A",key,cap,replay=previous_two)
+        a_writer=WireWriter("A",key,cap,replay=previous_two+(
+            load_third_original_response(),))
         a=run_arm("A",a_writer)
         require(len(a_writer.events)>=5,
                 "WF0AV_A_NO_MULTITURN_PROVIDER_PREFIX")
@@ -452,10 +511,12 @@ def main():
             "B_turn_chars":[t["chars"] for t in b["turns"]],
             "A_new_paid_model_calls":a_writer.budget.calls_reserved,
             "A_previous_two_planning_calls_replayed":2,
+            "A_previous_third_original_prose_call_replayed":1,
+            "third_original_prose_raw_wire_sha256":THIRD_RAW_SHA,
             "original_red_wire_sha256s":list(PRIOR_RAW_SHA),
-            "combined_paid_calls_including_original_red":cap.calls+2,
+            "combined_paid_calls_including_original_red":cap.calls+3,
             "combined_reserved_output_tokens_including_original_red":(
-                cap.output_reservations+2100),
+                cap.output_reservations+3550),
             "B_new_paid_model_calls":b_writer.budget.calls_reserved,
             "B_shared_source_calls_not_rebilled":3,
             "A_provider_usage":a_writer.budget.public_receipt(),
