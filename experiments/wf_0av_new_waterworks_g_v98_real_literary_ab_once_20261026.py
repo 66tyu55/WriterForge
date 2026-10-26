@@ -33,8 +33,11 @@ PROJECT="wf0av-fresh-waterworks-ab"
 SCENE="waterworks-inspection-night"
 MODEL="deepseek-flash"
 API="https://api.deepseek.com/v1"
-MAX_TOTAL_PAID_CALLS=21
-MAX_TOTAL_RESERVED_COMPLETION_TOKENS=37550
+MAX_TOTAL_PAID_CALLS=20
+MAX_TOTAL_RESERVED_COMPLETION_TOKENS=36100
+SIXTH_ORIGINAL_RUN_ID=40287701471
+SIXTH_SOURCE=Path('wf0av_sixth_paid_source')
+SIXTH_RAW_SHA='3ee8c12e50aad171af51e6d2f1ef243d8fd2508e4a508766bb52917ce4646e13'
 FIFTH_ORIGINAL_RUN_ID=40286835621
 FIFTH_SOURCE=Path("wf0av_fifth_paid_source")
 FOURTH_FIFTH_RAW_SHA=(
@@ -90,12 +93,13 @@ TASK={"format":"wf.0av.new-original-a-b-preregistered.v1",
       "per_turn_target_chinese_chars":[180,320],
       "new_run_max_paid_calls":MAX_TOTAL_PAID_CALLS,
       "new_run_max_reserved_completion_tokens":MAX_TOTAL_RESERVED_COMPLETION_TOKENS,
-      "source_locked_previous_paid_calls":5,
+      "source_locked_previous_paid_calls":6,
       "combined_ceiling_including_previous_trial":26,
       "combined_completion_reservation_ceiling":44000,
       "earlier_failed_provider_run":PRIOR_FAILED_RUN_ID,
       "third_source_failed_run":THIRD_ORIGINAL_RUN_ID,
       "fourth_fifth_source_failed_run":FIFTH_ORIGINAL_RUN_ID,
+      "sixth_source_failed_run":SIXTH_ORIGINAL_RUN_ID,
       "judging":"Two opposite-order BLIND same-family DeepSeek scores, never WF truth",
       "pre_registered_dimensions":[
           "人物选择真实性","后果改变下一步","动作重复","真实物品及时间连续性",
@@ -327,6 +331,59 @@ def load_fourth_fifth_original_responses():
     return tuple(original)
 
 
+def load_sixth_original_response():
+    """A's author wrote t04; old unified scene-delivery then rejected it.
+
+    Resume from the provider's immutable wire, preserving the introspective
+    passage exactly and not reissuing its original billable provider request.
+    """
+    trial=json.loads((SIXTH_SOURCE/"STATUS.json").read_text("utf8"))
+    require(trial["status"]=="REAL_AB_SAFE_PARTIAL_FAILURE_NOT_RETRIED"
+            and trial["failure_code"]==
+                "WF96_SCENE_TURN_REJECTED_WFCORE_SCENE_DELIVERY_INPUT_INVALID"
+            and trial["provider_calls"]==1
+            and trial["total_paid_calls_including_original_red"]==6
+            and trial["provider_completion_tokens_reserved"]==1450,
+            "WF0AV_SIXTH_SOURCE_RUN_OR_FAILURE_DRIFT")
+    events=trial["A_wire_events"]
+    require(len(events)==6 and
+            [x["wire_sha256"] for x in events[:5]]==
+            list(PRIOR_RAW_SHA)+[THIRD_RAW_SHA]+list(FOURTH_FIFTH_RAW_SHA)
+            and all(e["paid_call"] is False for e in events[:5]),
+            "WF0AV_PREVIOUS_FIVE_WIRES_NO_LONGER_SOURCE_LOCKED")
+    original=SIXTH_SOURCE/"A"/"original-provider-wires"/"06-paid.json"
+    wire=original.read_bytes()
+    ev=events[5]
+    require(h(wire)==SIXTH_RAW_SHA and
+            ev["wire_sha256"]==SIXTH_RAW_SHA and
+            ev["paid_call"] is True and ev["index"]==6 and
+            ev["model"]==MODEL and
+            ev["saved_before_json_decode"] is True,
+            "WF0AV_REAL_SIXTH_WIRE_HASH_CHANGED")
+    envelope=json.loads(wire)
+    require(envelope["model"]==MODEL and
+            envelope["choices"][0]["finish_reason"]=="stop",
+            "WF0AV_SIXTH_WIRE_NOT_STOPPED_NORMALLY")
+    decoded=json.loads(envelope["choices"][0]["message"]["content"])
+    plain=json.dumps(decoded,ensure_ascii=False,separators=(",",":"))
+    require(type(decoded) is dict and type(decoded.get("prose")) is str
+            and type(decoded.get("trace")) is dict
+            and h(plain)==ev["returned_json_sha256"],
+            "WF0AV_REAL_SIXTH_AUTHOR_PROSE_DECODE_DRIFT")
+    dest=ROOT/"upstream-immutable-wire-copies"/(
+        f"06-origin-run-{SIXTH_ORIGINAL_RUN_ID}.json")
+    require(not dest.exists(),"WF0AV_REPAID_SIXTH_ORIGINAL_SOURCE")
+    dest.write_bytes(wire)
+    save_json(ROOT/"RECOVERED_SIXTH_PROSE_SOURCE_ONLY.json",{
+        "original_run":SIXTH_ORIGINAL_RUN_ID,
+        "wire_sha256":SIXTH_RAW_SHA,
+        "author_prose_sha256":h(decoded["prose"]),
+        "original_paid_calls_not_repeated":1,
+        "original_reserved_completion_tokens_not_repeated":1450,
+        "model_prose_not_rewritten":True})
+    return dict(ev,raw_response=plain)
+
+
 class AggregateCap:
     def __init__(self):
         self.calls=0
@@ -534,8 +591,8 @@ def main():
         "status":"PRE_REGISTERED_NO_CALLS",
         "model":MODEL,"A":None,"B":None,
         "provider_calls":0,"budget_limit":MAX_TOTAL_PAID_CALLS,
-        "prior_paid_calls_not_recharged":5,
-        "prior_reserved_completion_tokens_not_recharged":6450,
+        "prior_paid_calls_not_recharged":6,
+        "prior_reserved_completion_tokens_not_recharged":7900,
         "provider_completion_tokens_reserved":0,
         "judge":None,"literary_uplift_proven":False,
         "human_blind_grade":False,"originals_not_overwritten":True,
@@ -554,7 +611,8 @@ def main():
         previous_two=load_first_two_original_replies()
         a_writer=WireWriter("A",key,cap,replay=previous_two+(
             load_third_original_response(),)+
-            load_fourth_fifth_original_responses())
+            load_fourth_fifth_original_responses()+
+            (load_sixth_original_response(),))
         a=run_arm("A",a_writer)
         require(len(a_writer.events)>=5,
                 "WF0AV_A_NO_MULTITURN_PROVIDER_PREFIX")
@@ -580,10 +638,11 @@ def main():
             "third_original_prose_raw_wire_sha256":THIRD_RAW_SHA,
             "A_previous_fourth_and_fifth_original_prose_calls_replayed":2,
             "fourth_fifth_original_prose_wire_sha256s":list(FOURTH_FIFTH_RAW_SHA),
+            "sixth_real_prose_original_wire_sha256":SIXTH_RAW_SHA,
             "original_red_wire_sha256s":list(PRIOR_RAW_SHA),
-            "combined_paid_calls_including_original_red":cap.calls+5,
+            "combined_paid_calls_including_original_red":cap.calls+6,
             "combined_reserved_output_tokens_including_original_red":(
-                cap.output_reservations+6450),
+                cap.output_reservations+7900),
             "B_new_paid_model_calls":b_writer.budget.calls_reserved,
             "B_shared_source_calls_not_rebilled":3,
             "A_provider_usage":a_writer.budget.public_receipt(),
@@ -674,21 +733,22 @@ def main():
     if status["status"]=="REAL_AB_SAFE_PARTIAL_FAILURE_NOT_RETRIED":
         raise RuntimeError("WF0AV_SAFE_PARTIAL_EVIDENCE_RETAINED_NO_RETRY")
 
-def source_five_only_preflight():
+def source_six_only_preflight():
     """Execute exact saved first FIVE author replies through real G; zero APIs.
 
     The sixth attempted call must be intercepted BEFORE any provider call,
     proving repaired V96/NarrativeCore/V120/V118 all accept source progress.
     """
     global ROOT
-    ROOT=Path("wf0av_source_five_offline_validation_only")
+    ROOT=Path("wf0av_source_six_offline_validation_only")
     require(not ROOT.exists(),"WF0AV_SOURCE_PREFLIGHT_NEVER_REPLAY_OVERWRITE")
     ROOT.mkdir(parents=True)
     first_two=load_first_two_original_replies()
     third=load_third_original_response()
     fourth_fifth=load_fourth_fifth_original_responses()
-    saved=first_two+(third,)+fourth_fifth
-    require(len(saved)==5,"WF0AV_FIVE_ORIGINAL_WIRES_NOT_ALL_LOADED")
+    sixth=load_sixth_original_response()
+    saved=first_two+(third,)+fourth_fifth+(sixth,)
+    require(len(saved)==6,"WF0AV_SIX_ORIGINAL_WIRES_NOT_ALL_LOADED")
     cap=AggregateCap()
     cap.calls=MAX_TOTAL_PAID_CALLS
     dry=WireWriter("D","offline-no-network-key-valid-0123456789",
@@ -698,28 +758,28 @@ def source_five_only_preflight():
     except Exception as error:
         msg=str(error)
         require("WF0AV_HARD_GLOBAL_PROVIDER_BUDGET_EXHAUSTED" in msg
-                and len(dry.events)==6
+                and len(dry.events)==7
                 and all(e.get("paid_call") is False
-                        for e in dry.events[:5]),
-                "WF0AV_FIVE_SOURCE_ONLY_DID_NOT_PASS_TO_NEXT_AUTHOR_TURN:"
+                        for e in dry.events[:6]),
+                "WF0AV_SIX_SOURCE_ONLY_DID_NOT_PASS_TO_NEXT_AUTHOR_TURN:"
                     +type(error).__name__+":"+msg[:150])
     else:
         # Complete prose with just 3 turns is NOT allowed by the source plan.
-        raise RuntimeError("WF0AV_DRYRUN_FIVE_SOURCE_UNEXPECTED_FULL_COMPLETION")
-    save_json(ROOT/"OFFLINE_SOURCE_FIVE_PASS.json",{
+        raise RuntimeError("WF0AV_DRYRUN_SIX_SOURCE_UNEXPECTED_FULL_COMPLETION")
+    save_json(ROOT/"OFFLINE_SOURCE_SIX_PASS.json",{
         "model_calls":0,"model_secret_used":False,
-        "original_provider_wires":5,
+        "original_provider_wires":6,
         "all_original_prompt_SHA_validated":True,
-        "actual_author_prose_turns_retained":3,
+        "actual_author_prose_turns_retained":4,
         "next_author_model_call_blocked_before_network":True,
         "writer_V96_core_V120_V118_source_parse_passed":True,
         "canon_writes":0,"r2_writes":0})
-    print("WF0AV_ACTUAL_SOURCE_ONLY_FIVE_WIRES_PASS_NO_NEW_MODEL_CALLS")
+    print("WF0AV_ACTUAL_SOURCE_ONLY_SIX_WIRES_PASS_NO_NEW_MODEL_CALLS")
 
 
 if __name__=="__main__":
-    if "--source-five-preflight" in sys.argv:
-        source_five_only_preflight()
+    if "--source-six-preflight" in sys.argv:
+        source_six_only_preflight()
     elif "--preflight" in sys.argv:
         import inspect
         from writerforge.v98_rolling_causal_planner import (
