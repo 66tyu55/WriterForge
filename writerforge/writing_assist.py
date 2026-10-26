@@ -1214,8 +1214,85 @@ def _validate_author_prior_source_claims(*,reader_report,earlier_source,
 
 
 
+def _signed_previous_author_source_question(checkpoint,accepted):
+    """One original-source unresolved question for the SAME author to assess.
+
+    This is a projection of the EXISTING signed V114/V122 checkpoint, not
+    a new memory, a host writing critic or a mandatory revision. Previous
+    literal quotations and their source SHA remain evidence; their object
+    identities and any unmentioned return remain UNPROVEN.
+    """
+    if checkpoint is None:
+        return "",None
+    from .v114_continuity_memory import packed,hashb
+    from .v122_item_provenance import _digest as document_digest
+    def valid(value,code):
+        if not value:
+            raise WritingExecutionError(code)
+    valid(type(checkpoint) is dict and
+          checkpoint.get("format")==
+              "wf.writing.external-temporal-checkpoint.v114" and
+          checkpoint.get("receipt_sha256")==hashb(packed({
+              k:v for k,v in checkpoint.items() if k!="receipt_sha256"})) and
+          checkpoint.get("semantic_truth_verified") is False and
+          checkpoint.get("canon_writes")==0,
+          "WF_WRITER_REVIEW_OLD_SOURCE_CHECKPOINT_NOT_SIGNED")
+    if accepted:
+        previous=accepted[-1]
+        valid(type(previous) is dict and
+              type(previous.get("prose")) is str and
+              checkpoint.get("source_sha256")==sha256(
+                  previous["prose"].encode("utf8")).hexdigest(),
+              "WF_WRITER_REVIEW_OLD_SOURCE_NOT_PREVIOUS_TURN")
+    source=checkpoint.get("v122_physical_relation_source_receipt")
+    if source is None:
+        return "",None
+    valid(type(source) is dict and
+          source.get("format")==
+              "wf.v122.source-physical-relation-review.v1" and
+          source.get("source_sha256")==checkpoint["source_sha256"] and
+          source.get("receipt_sha256")==document_digest({
+              k:v for k,v in source.items() if k!="receipt_sha256"}),
+          "WF_WRITER_REVIEW_OLD_V122_SOURCE_NOT_SIGNED")
+    rows=source.get("document_custody_open_source_reviews",[])
+    valid(type(rows) is list and len(rows)<=8,
+          "WF_WRITER_REVIEW_PRIOR_SOURCE_DEBT_NOT_BOUNDED")
+    if not rows:
+        return "",None
+    pair=rows[-1]
+    valid(type(pair) is dict and
+          pair.get("literary_error_proven") is False and
+          pair.get("omitted_return_or_distinct_copy_may_explain") is True and
+          all(type(pair.get(k)) is str and pair[k] for k in (
+              "earlier_source_quote","later_source_quote",
+              "earlier_source_quote_sha256","later_source_quote_sha256",
+              "earlier_source_sha256","later_source_sha256")) and
+          len(pair["earlier_source_quote"])<=150 and
+          len(pair["later_source_quote"])<=150 and
+          all(pair[k+"_source_quote_sha256"]==sha256(
+              pair[k+"_source_quote"].encode("utf8")).hexdigest()
+              for k in ("earlier","later")),
+          "WF_WRITER_REVIEW_PRIOR_SOURCE_DEBT_QUOTE_NOT_VERIFIED")
+    # No host-authored transition, interpretation, literary score, or
+    # automatic preference for revision. Only actual two original quotes.
+    note=(
+        "\n【已签名的前文来源疑问（不是小说错误结论）】"
+        "在先前真实正文中曾出现「"+
+        pair["earlier_source_quote"]+"」，另有一处正文写「"+
+        pair["later_source_quote"]+"」。"
+        "工作台只能证明两句存在，不能证明它们指同一个物件；"
+        "可能是另一本、合理留白、尚未写出的归还，"
+        "也可能需要作者自己改写。"
+        "请由你作为原作者判断它是否影响当前或紧邻前一段的"
+        "人物行为与阅读理解，也可以明确选择不改。"
+        "切勿仅为通过审查强行补一段交接，更不能把推断冒充已写事实。"
+    )
+    return note,source["receipt_sha256"]
+
+
 def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
                                 ask_model,directory,cancel_check=None,
+                                source_checkpoint=None,
                                 reader_report=None,
                                 source_identity_contract="model_sha",
                                 earlier_source_for_attribution=None):
@@ -1319,6 +1396,13 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
         "也不是本条要执行的 JSON 格式。"
     )
     content=review_stage_header+reminder
+    source_note,source_note_sha=_signed_previous_author_source_question(
+        source_checkpoint,accepted)
+    if source_note and len(content)+len(source_note)<=MAX_PROMPT_CHARS:
+        content+=source_note
+        verified_source_note_delivered=True
+    else:
+        verified_source_note_delivered=False
     # An explicitly requested SAME-SOURCE literal reread must survive
     # task separation. Pass ONLY its existing, SHA-verified sentence index:
     # do not resurrect the prose-writing instructions that surrounded it.
@@ -1476,6 +1560,10 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
         "review_writer_source_prose_unchanged":True,
         "review_writer_not_forced_to_revise":True,
         "literal_source_reread_index_verified":literal_source_index_passed,
+        "signed_prior_document_source_question_delivered":verified_source_note_delivered,
+        "signed_prior_document_question_receipt_sha256":(
+            source_note_sha if verified_source_note_delivered else None),
+        "no_host_mandated_revision_from_source_question":True,
         "source_identity_contract":source_identity_contract,
         "earlier_author_source_attribution_requested":attribution_requested,
         "source_sha256_original_model_value_not_changed":True,
@@ -3532,6 +3620,8 @@ class AutonomousWriting:
                                             accepted=tuple(accepted_turns),
                                             turn_packet=turn_packet,
                                             ask_model=invoke_self_edit,
+                                            source_checkpoint=(
+                                                current_external_story_checkpoint),
                                             directory=job/(
                                                 f"chapter-{index:03d}-turn-"
                                                 f"{turn_index+1:02d}-ai-moment"
