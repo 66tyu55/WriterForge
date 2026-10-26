@@ -736,3 +736,133 @@ class ObservedStoryAuditor:
 
         persistent = tuple(sorted(k for k, v in unplanned_counts.items() if v >= max(2, emergence_threshold)))
         return ObservedStoryReport(tuple(drifts), tuple(functionless), persistent, tuple(spine))
+
+# 0.AZ: ONE offline continuation/stop decision for a portable cognitive habit.
+# This reuses the Evolution owner. It does not add a second SkillRegistry,
+# modify a manuscript, store model memories, or grant automatic promotions.
+# Live DeepSeek/GLM-5.3 source: Actions 40354436598. The fourth attempted
+# request returned Discovery HTTP 429; the GLM habit response does not exist.
+@dataclass(frozen=True)
+class HabitTrialEvidence:
+    habit_id: str
+    current_status: SkillStatus
+    verified_source_receipts: bool
+    expected_pairs: int
+    completed_pairs: int
+    attempted_model_calls: int
+    completed_model_responses: int
+    provider_failure_code: str | None
+    independent_literary_review: bool
+    confirmed_literary_benefit: bool
+    independently_confirmed_contamination: bool
+    repeated_no_benefit_evidence: bool
+
+
+@dataclass(frozen=True)
+class HabitTrialDisposition:
+    disposition: str
+    registry_status: SkillStatus
+    literary_conclusion: str
+    reason: str
+    habit_falsified: bool = False
+    habit_promoted: bool = False
+    new_provider_calls_authorized: int = 0
+    requires_external_restart_approval: bool = True
+
+
+def assess_habit_trial_continuation(evidence: HabitTrialEvidence
+                                   ) -> HabitTrialDisposition:
+    """Pure OFFLINE recommendation, no registry/Canon/model mutation.
+
+    Unmatched A/B arms after an API outage cannot establish bad literature,
+    poor cross-host portability, or skill contamination. Keeping the owner
+    in SHADOW and pausing is a valid evolutionary choice. External human
+    approval and actual new evidence are required to resume or promote.
+    The return value alone cannot change SQLite SkillStatus.
+    """
+    if (type(evidence) is not HabitTrialEvidence or
+        type(evidence.habit_id) is not str or
+        re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*",
+                     evidence.habit_id) is None or
+        type(evidence.current_status) is not SkillStatus or
+        any(type(n) is not int or n < 0 or n > 256 for n in
+            (evidence.expected_pairs,evidence.completed_pairs,
+             evidence.attempted_model_calls,evidence.completed_model_responses)) or
+        evidence.expected_pairs < 1 or
+        evidence.completed_pairs > evidence.expected_pairs or
+        evidence.completed_model_responses > evidence.attempted_model_calls or
+        evidence.completed_pairs * 2 > evidence.completed_model_responses or
+        any(type(b) is not bool for b in (
+            evidence.verified_source_receipts,
+            evidence.independent_literary_review,
+            evidence.confirmed_literary_benefit,
+            evidence.independently_confirmed_contamination,
+            evidence.repeated_no_benefit_evidence)) or
+        (evidence.provider_failure_code is not None and
+         (type(evidence.provider_failure_code) is not str or
+          re.fullmatch(r"[A-Z0-9_:\.-]{5,165}",
+                       evidence.provider_failure_code) is None))):
+        raise ValueError("WF_HABIT_TRIAL_EVIDENCE_INVALID")
+
+    def decision(disposition,conclusion,reason):
+        return HabitTrialDisposition(
+            disposition=disposition,
+            registry_status=evidence.current_status,
+            literary_conclusion=conclusion,
+            reason=reason)
+
+    if not evidence.verified_source_receipts:
+        return decision(
+            "REFUSE_UNVERIFIED_EVIDENCE","NOT_TESTED_INCOMPLETE",
+            "Original provider wire or source-receipt identity unavailable; "
+            "do not infer a Skill improvement or call the model.")
+    if evidence.current_status is SkillStatus.RETIRED:
+        return decision(
+            "STOP_RETIRED","NOT_ESTABLISHED",
+            "Retired capability is not resurrected by a newer model or "
+            "a historical scoring claim.")
+    if evidence.independently_confirmed_contamination:
+        return decision(
+            "REVIEW_QUARANTINE_LINEAGE","NOT_ESTABLISHED",
+            "Independent contamination finding: do not auto-retire, but "
+            "require manual lineage review before any promotion.")
+    if evidence.provider_failure_code is not None:
+        # A provider's backpressure/overload is not a falsifier for the
+        # author's cognitive decision. An attempted request may have been
+        # billed even if its text was not returned; never silently retry.
+        if (evidence.provider_failure_code.endswith("_HTTP_429") or
+            evidence.provider_failure_code.endswith("_HTTP_503") or
+            "RATE_LIMIT" in evidence.provider_failure_code):
+            return decision(
+                "DORMANT_HOST_RESOURCE","NOT_TESTED_INCOMPLETE",
+                "Host rate-limit/capacity prevented matched counterfactual; "
+                "preserve original wires and resume only by a new authorized "
+                "experiment, never automatic retry.")
+        return decision(
+            "DORMANT_PROVIDER_FAILURE","NOT_TESTED_INCOMPLETE",
+            "Unresolved host delivery/parse error does not prove the "
+            "habit helped or failed.")
+    if evidence.completed_pairs != evidence.expected_pairs:
+        return decision(
+            "DORMANT_UNMATCHED_ARMS","NOT_TESTED_INCOMPLETE",
+            "At least one planned matched control/habit pair has no actual "
+            "complete response; no cross-host quality verdict.")
+    if not evidence.independent_literary_review:
+        return decision(
+            "SHADOW_NEEDS_READER_EVIDENCE","NOT_ESTABLISHED",
+            "Both arms completed but literary comparison has no independent "
+            "reader evidence. Model preference is not promotion authority.")
+    if evidence.repeated_no_benefit_evidence:
+        return decision(
+            "DORMANT_NO_PROVEN_VALUE","NOT_ESTABLISHED",
+            "Repeated independent trials found inadequate gain relative to "
+            "cost; keep source evidence and stop speculative iteration.")
+    if evidence.confirmed_literary_benefit:
+        return decision(
+            "REVIEW_MANUAL_PROMOTION_ONLY","REVIEWABLE_NOT_PROVEN_BY_ENGINE",
+            "Independent positive evidence warrants a separate existing "
+            "Evolution promotion and regression gate, not self-approval.")
+    return decision(
+        "SHADOW_UNRESOLVED_LITERARY_COMPARISON","NOT_ESTABLISHED",
+        "Reader evidence was mixed/insufficient; keep both hypotheses in "
+        "SHADOW rather than inventing a winner.")
