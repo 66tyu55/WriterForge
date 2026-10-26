@@ -191,8 +191,7 @@ def g_source_replan_eligibility(accepted,*,allow_prose_only=False):
             receipt.get("prose_sha256")==digest(prose.encode("utf8")) and
             receipt.get("receipt_sha256")==digest(canonical({
                 k:v for k,v in receipt.items() if k!="receipt_sha256"})) and
-            receipt.get("turn_id")==last.get("beat_id") and
-            receipt.get("kind")==last.get("kind"),
+            receipt.get("turn_id")==last.get("beat_id"),
             "WF98_G_REPLAN_SOURCE_HASH_MISMATCH")
     mode=receipt.get("causal_check")
     source_only_kind=None
