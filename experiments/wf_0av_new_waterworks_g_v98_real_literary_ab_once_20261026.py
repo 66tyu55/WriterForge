@@ -634,8 +634,8 @@ class WireWriter:
                 previous=json.loads((SEVENTH_EIGHTH_SOURCE/"B"/
                     "exact-requests"/"04.json").read_text("utf8"))
                 old_prompt=previous["prompt"]
-                old_cut="\\n只输出JSON，字段必须且只能为："
-                new_cut="\\n【本次真实来源顺序坐标】"
+                old_cut="\n只输出JSON，字段必须且只能为："
+                new_cut="\n【本次真实来源顺序坐标】"
                 require(h(old_prompt)==B_FIRST_REPLAN_OLD_PROMPT_SHA and
                         old_cut in old_prompt and new_cut in packet.prompt and
                         old_prompt.split(old_cut,1)[0]==
