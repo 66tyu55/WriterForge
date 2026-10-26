@@ -17,7 +17,7 @@ from hashlib import sha256
 import json
 
 from .v96_causal_turns import (
-    CAUSAL_KINDS,BEAT_FIELDS,_occurrences,parse_turn_outline,
+    CAUSAL_KINDS,BEAT_FIELDS,CRAFT,_occurrences,parse_turn_outline,
     canonical,digest,V96CausalDraftError,
 )
 
@@ -311,6 +311,27 @@ def validate_replan(raw,*,accepted,accepted_beats,seed_next_beat,
     require(_bounded(doc["unresolved_question"],8,200) and
             _bounded(doc["reason_for_shift"],8,220),
             "WF98_ROLLING_MOTIVATION_OR_UNCERTAINTY_MISSING")
+    # 0.AV REAL provider RED #40321793262. Only the optional, model-
+    # generated craft_focus exceeded the original V96 two-tag vocabulary.
+    # That is NOT a reason to discard the author's coherent character
+    # choice or to pay for a newly hallucinated plan. Preserve the ORIGINAL
+    # provider reply (caller writes it before validation), and record only
+    # a bounded compatibility projection of optional craft metadata.
+    # This never repairs source anchors, actor, goal, kind, id or parent.
+    original_model_next_turn_sha256=digest(canonical(proposal))
+    original_craft=proposal.get("craft_focus")
+    removed_optional_craft_tags=[]
+    if (type(original_craft) is list and len(original_craft)<=4 and
+            all(type(tag) is str and _bounded(tag,1,32)
+                for tag in original_craft)):
+        cleaned=[]
+        for tag in original_craft:
+            if tag in CRAFT and tag not in cleaned and len(cleaned)<2:
+                cleaned.append(tag)
+            else:
+                removed_optional_craft_tags.append(tag)
+        if cleaned!=original_craft:
+            proposal={**proposal,"craft_focus":cleaned}
     # 0.AV true DeepSeek author RED: the prior V96 "effect_quote"
     # identified the blackout, while the writer *correctly chose* a different
     # verbatim passage (countdown + missing hospital reading) as the pressure
@@ -371,6 +392,10 @@ def validate_replan(raw,*,accepted,accepted_beats,seed_next_beat,
         "beat_id":proposal["id"],
         "old_seed_beat_sha256":digest(canonical(seed_next_beat)),
         "proposed_beat_sha256":digest(canonical(proposal)),
+        "original_model_next_turn_sha256":original_model_next_turn_sha256,
+        "only_optional_model_craft_adjusted":bool(removed_optional_craft_tags),
+        "removed_optional_craft_tags":removed_optional_craft_tags,
+        "original_model_answer_must_be_preserved":True,
         "grounded_prior_beat_id":parent["beat_id"],
         "grounded_prior_prose_sha256":digest(parent["prose"].encode("utf8")),
         "source_parent_relation_review_required":(
