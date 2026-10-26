@@ -78,6 +78,13 @@ jobs:
           name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
           github-token: ${{ github.token }}
           path: wf0av_third_paid_source
+      - name: Restore original fourth and fifth DeepSeek prose; actual V118 failed only AFTER these
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40286835621
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_fifth_paid_source
       - name: Source-only preflight the original paid RED model plan after V96 fix
         run: |
           python - <<'PY'
@@ -115,6 +122,8 @@ jobs:
           assert receipt["canon_writes"]==receipt["model_calls"]==0
           print("REAL PROVIDER PLAN/PROSE PASSES V96 CORE V120: NO REWRITE, NO MODEL CALL")
           PY
+      - name: Prove first five actual DeepSeek messages run through complete G without calling provider again
+        run: python -m experiments.wf_0av_new_waterworks_g_v98_real_literary_ab_once_20261026 --source-five-preflight
       - name: Same DeepSeek Flash authors two G paths with true source locked prefix
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
@@ -132,8 +141,8 @@ jobs:
               "TWO_REAL_AUTHOR_BRANCHES_COMPLETED",
               "TWO_ARMS_TWO_BLIND_ORDER_REPORTS",
               "TWO_ARMS_GRADED_PARTIAL_NO_RETRY")
-          assert data["provider_calls"]<=23
-          assert data["provider_completion_tokens_reserved"]<=40450
+          assert data["provider_calls"]<=21
+          assert data["provider_completion_tokens_reserved"]<=37550
           assert data["total_paid_calls_including_original_red"]<=26
           assert data["total_reserved_tokens_including_original_red"]<=44000
           assert data["R2_reads"]==data["R2_writes"]==data["Canon_writes"]==0
