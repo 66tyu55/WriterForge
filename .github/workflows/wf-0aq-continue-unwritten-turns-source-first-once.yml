@@ -1,0 +1,132 @@
+name: WF 0.AQ Continue ONLY Unwritten G Turns from Eight Real DeepSeek Replies ONCE
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_0AQ_FIFTH_SIXTH_AUTHOR_AFTER_EIGHT_SHA_ONCE_20261026.txt
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wf-0aq-eight-signed-old-source-then-new-fifth-sixth-once
+  cancel-in-progress: false
+
+jobs:
+  source-locked-real-fifth-and-sixth-writer:
+    if: >-
+      github.repository == '66tyu55/WriterForge' &&
+      github.ref_name == 'refactor-unified-scene-delivery-audit' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'experiment(0.AQ): FIRE ONLY NEVER-WRITTEN FIFTH AND SIXTH G TURNS AFTER EIGHT SOURCE SHAS'
+    runs-on: ubuntu-latest
+    timeout-minutes: 42
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -e '.[r2]'
+      - name: Strictly forbid external R2, original literature, Canon or second-model credentials
+        run: |
+          test "$(cat experiments/WF_0AQ_FIFTH_SIXTH_AUTHOR_AFTER_EIGHT_SHA_ONCE_20261026.txt)" = "WF0AQ_ONLY_UNWRITTEN_SOURCE_LOCKED_AFTER_EIGHT_OLD_REAL_RESPONSES"
+          python - <<'PY'
+          import os
+          assert not any(os.getenv(k) for k in (
+              'WRITERFORGE_R2_ACCOUNT_ID','WRITERFORGE_R2_ACCESS_KEY_ID',
+              'DISCOVERY_API_KEY','OPENAI_API_KEY','OPENROUTER_API_KEY'))
+          PY
+      - name: Full no-model regression and signed old-source warning tests
+        run: python -m unittest discover -s tests -q
+      - name: Recover original 0.AH historical DeepSeek prose without reauthoring
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40201458798
+          name: WF-0AH-Second-Three-Xianxia-History-Comedy-Real-Pairs-Wires-and-Ratings
+          github-token: ${{ github.token }}
+          path: wf0am_frozen_0ah_first
+      - name: Recover original 0.AM paid chapter and six-event decisions
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40257489862
+          name: WF-0AM-Real-History-One-G-Author-Original-Wires-Source-Repair-Downstream
+          github-token: ${{ github.token }}
+          path: wf0ao_old_real_0am_failed_plan
+      - name: Recover ALL EIGHT original 0.AO prose and timing provider messages
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40259961845
+          name: WF-0AO-Old-Two-Real-DeepSeek-Plans-New-G-Prose-V119-Trace-Source
+          github-token: ${{ github.token }}
+          path: wf0aq_original_eight_provider_artifact
+      - name: G actual source-first offline replay through turn 4, stop before turn 5
+        env:
+          WF0AQ_SOURCE_ONLY_STOP_BEFORE_NEW: '1'
+        run: |
+          python -m experiments.wf_0aq_resume_eight_real_writer_turns_then_new_once_20261026
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('wf_0aq_older_eight_real_prose_restore_20261026')
+          s=json.loads((p/'STATUS.json').read_text('utf8'))
+          assert s['status']=='EIGHT_REPLAYED_THROUGH_PRE_MODEL_STOP'
+          assert s['new_model_calls']==0 and s['old_provider_wires_verified']==8
+          assert s['old_real_model_replies_replayed']==9
+          assert s['R2_reads']==s['R2_writes']==s['Canon_writes']==0
+          assert len(s['old_prompt_replay_comparisons'])==8
+          assert all(row['same_prompt_and_budget'] for row in
+                     s['old_prompt_replay_comparisons'][:6])
+          assert all(row.get('only_wf_source_warning_changed') is True for row in
+                     s['old_prompt_replay_comparisons'][6:])
+          assert all(row.get('old_writer_answer_cannot_prove_new_guidance_followed') is True
+                     for row in s['old_prompt_replay_comparisons'][6:])
+          print('SAVED 8 REAL AUTHORS and original prompt drift pinned; no model spent.')
+          PY
+          mv wf_0aq_older_eight_real_prose_restore_20261026 wf_0aq_offline_audited_replay
+      - name: Only after authentic eight-SHA offline GREEN, ask SAME DeepSeek for never-written next events
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: python -m experiments.wf_0aq_resume_eight_real_writer_turns_then_new_once_20261026
+      - name: Honest signed new chapter or unchanged source-first failure, never claim literature quality
+        run: |
+          python - <<'PY'
+          import json
+          from hashlib import sha256
+          from pathlib import Path
+          p=Path('wf_0aq_older_eight_real_prose_restore_20261026')
+          s=json.loads((p/'STATUS.json').read_text('utf8'))
+          assert s['format']=='wf.0aq.eight-real-author-responses-next-unwritten-turn.v1'
+          assert s['status']=='UNACCEPTED_REAL_G_CHAPTER_COMPLETED_SOURCE_REVIEW_SEPARATE',s.get('failure_code')
+          assert s['old_provider_wires_verified']==8
+          assert s['old_real_model_replies_replayed']==9
+          assert 1<=s['new_model_calls']<=9
+          assert len(s['new_provider_events'])==s['new_model_calls']
+          assert s['R2_reads']==s['R2_writes']==s['Canon_writes']==0
+          assert not s['main_modified'] and s['Railway_deployments']==0
+          assert s['literary_improvement_proven'] is False
+          assert s['author_accepted'] is False
+          for row in s['new_provider_events']:
+              if row['saved_before_decode']:
+                  f=p/'new-provider-originals'/f"new-{row['index']:02d}.json"
+                  assert sha256(f.read_bytes()).hexdigest()==row['wire_sha256']
+          print('New signed G candidate',s['complete_candidate_prose_sha256'],
+                'new calls',s['new_model_calls'],
+                'real model previous-turn rewinds',s['model_previous_turn_rewinds'])
+          PY
+      - name: Always retain older and new author source, including every failed rejection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AQ-Real-Eight-Old-G-Responses-Then-New-Author-V119-Source-Closure
+          path: |
+            wf_0aq_offline_audited_replay/
+            wf_0aq_older_eight_real_prose_restore_20261026/
+          retention-days: 90
+          if-no-files-found: warn
