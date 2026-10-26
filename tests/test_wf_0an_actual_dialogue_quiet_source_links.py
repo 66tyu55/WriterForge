@@ -141,6 +141,26 @@ class SourceCheckedNonActionDependency(unittest.TestCase):
         self.assertFalse(receipt["eligible_for_factjournal_KNOWN"])
         self.assertEqual(a["prose"],AFTERMATH)
 
+    def test_v119_source_repair_guide_keeps_quiet_temporal_parent_unverified(self):
+        from writerforge.v119_revision_transaction import (
+            prepare_source_repair_contract)
+        parent=check_turn(reply(QUIET),beat("t01","quiet"),
+                          mode="causal_guard")
+        child=beat("t02","aftermath",parent="t01")
+        doc=prepare_source_repair_contract(
+            source=AFTERMATH,
+            source_sha256=sha256(AFTERMATH.encode("utf8")).hexdigest(),
+            beat=child,accepted=(parent,),
+            original_trace={"action_quote":None,"effect_quote":None,
+                            "parent_effect_quote":None})
+        self.assertEqual(doc["previous_causal_parent_id"],"t01")
+        self.assertIsNone(doc["actual_previous_effect_quote"])
+        self.assertTrue(doc["previous_parent_temporal_link_unverified"])
+        self.assertEqual(doc["actual_previous_temporal_source_sha256"],
+                         sha256(QUIET.encode("utf8")).hexdigest())
+        self.assertFalse(doc["no_literary_grade_or_host_authored_text"] is False)
+        self.assertEqual(doc["canon_writes"],0)
+
     def test_forged_quiet_outcome_or_parent_receipt_must_not_pass(self):
         q=check_turn(reply(QUIET),beat("t01","quiet"),
                      mode="causal_guard")
