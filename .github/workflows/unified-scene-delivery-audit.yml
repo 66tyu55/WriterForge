@@ -73,6 +73,7 @@ on:
       - tests/test_wf_0av_v98_author_selected_prior_prose_anchor.py
       - tests/test_wf_0av_v98_replan_dynamic_author_turn_indices.py
       - tests/test_wf_0av_v98_optional_author_craft_hint.py
+      - tests/test_wf_0av_review_only_writer_rolling_prose.py
       - writerforge/v98_rolling_causal_planner.py
       - tests/test_wf_0at_two_real_author_source_review_protocol.py
       - experiments/wf_0at_two_real_author_signed_source_reviews_once_20261026.py
