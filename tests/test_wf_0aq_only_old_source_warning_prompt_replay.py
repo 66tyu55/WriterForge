@@ -9,6 +9,8 @@ changed quote, changed budget or extra text is a source error, not a new
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -32,12 +34,16 @@ class SingleBoundedPromptException(TestCase):
                           {"prompt_sha256":e.h(prompt),
                            "max_completion_tokens_reserved":600},
                           {"prompt":prompt}))
+        temporary=TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        sandbox=Path(temporary.name)/"isolated-model-test-only"
         with patch.object(e,"DeepSeekFlashModel") as m:
             obj=e.RealPaidHistoryThenWriter(
                 "旧章节实际计划JSON",{
                     "prompt_sha256":e.h("旧章节计划的同一题"),
                     "max_completion_tokens_reserved":650},
-                events,"offline-fake-key-without-network")
+                events,"offline-fake-key-without-network",
+                output_root=sandbox)
         obj.replayed=index
         return obj,old,new,m
 
@@ -81,6 +87,23 @@ class SingleBoundedPromptException(TestCase):
         obj2,_,__,provider=self.make(8)
         self.assertTrue(obj2.ask(Packet(new),model="deepseek-flash",
                                  api_base="irrelevant",max_tokens=600).endswith("7"))
+        provider.return_value.ask_json.assert_not_called()
+
+    def test_mocked_source_mismatch_never_poisons_real_live_output(self):
+        # Regression for Actions 40263390051: earlier test runs wrote
+        # mocked old/new prompts into the real one-shot output directory.
+        # The live job then correctly refused to overwrite that directory
+        # before any paid writer call. Keep the guard; fix test isolation.
+        self.assertFalse(e.OUT.exists())
+        obj,old,new,provider=self.make(7)
+        with self.assertRaisesRegex(
+                RuntimeError,"WF0AQ_SOURCE_WARNING_ONLY_PROMPT_DRIFT_NOT_EXACT"):
+            obj.ask(Packet(new+"错误扩展原作家对主帅的已知信息"),
+                    model="deepseek-flash",api_base="irrelevant",
+                    max_tokens=600)
+        stored=obj.output_root/"original-vs-current-prompts"/"07.json"
+        self.assertTrue(stored.is_file())
+        self.assertFalse(e.OUT.exists())
         provider.return_value.ask_json.assert_not_called()
 
     def test_source_warning_only_cannot_hide_revised_author_budget(self):
