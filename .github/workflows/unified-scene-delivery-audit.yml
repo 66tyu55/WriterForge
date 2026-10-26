@@ -70,6 +70,7 @@ on:
       - tests/test_wf_0as_six_real_review_only_protocol.py
       - tests/test_wf_0at_signed_source_question_in_author_review.py
       - tests/test_wf_0au_g_rolling_author_planning.py
+      - tests/test_wf_0av_v98_author_selected_prior_prose_anchor.py
       - writerforge/v98_rolling_causal_planner.py
       - tests/test_wf_0at_two_real_author_source_review_protocol.py
       - experiments/wf_0at_two_real_author_signed_source_reviews_once_20261026.py
