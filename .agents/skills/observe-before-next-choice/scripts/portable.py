@@ -112,9 +112,11 @@ def load_capsule(path:Path,*,expected_sha256:str|None=None):
           "WFHABIT_CAPSULE_TRANSFER_UNPROVEN_GUARD")
     _need(type(p) is dict and set(p)=={
           "motivation","referenced_real_actions_runs",
-          "independently_graded","original_provider_wires_outside_capsule"} and
+          "independently_graded","original_provider_wires_outside_capsule",
+          "counterexamples_required"} and
           p["independently_graded"] is False and
           p["original_provider_wires_outside_capsule"] is True and
+          p["counterexamples_required"] is True and
           p["referenced_real_actions_runs"]==[40344654185,40339756228],
           "WFHABIT_CAPSULE_PROVENANCE_GUARD")
     _need(type(st) is dict and set(st)=={
