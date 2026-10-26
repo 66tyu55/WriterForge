@@ -1,0 +1,100 @@
+name: WF 0.AQ Offline Rehydrate Eight Genuine G Responses Before Fifth Turn ONCE
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_0AQ_OFFLINE_REUSE_EIGHT_AUTHENTIC_RESPONSES_ONCE_20261026.txt
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  eight-original-author-responses-no-model:
+    if: >-
+      github.repository == '66tyu55/WriterForge' &&
+      github.ref_name == 'refactor-unified-scene-delivery-audit' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'audit(0.AQ): FIRE ZERO MODEL EIGHT ORIGINAL AUTHOR SOURCES THROUGH ACTUAL G'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -e '.[r2]'
+      - name: Prove ONE zero-provider audit and no R2/Canon/model secret
+        run: |
+          test "$(cat experiments/WF_0AQ_OFFLINE_REUSE_EIGHT_AUTHENTIC_RESPONSES_ONCE_20261026.txt)" = "WF0AQ_SAME_EIGHT_REAL_G_REPLIES_BEFORE_FIFTH_ZERO_PAID"
+          python - <<'PY'
+          import os
+          assert not any(os.getenv(k) for k in (
+              'DEEPSEEK_API_KEY','DISCOVERY_API_KEY','OPENAI_API_KEY',
+              'OPENROUTER_API_KEY','WRITERFORGE_R2_ACCOUNT_ID',
+              'WRITERFORGE_R2_ACCESS_KEY_ID'))
+          PY
+      - name: V96 and original real trace-debt offline regression
+        run: |
+          PYTHONPATH=tests python -m unittest \
+            tests.test_wf_0ap_real_trace_review_parent_downstream \
+            tests.test_wf_0an_actual_dialogue_quiet_source_links -q
+      - name: Download first paid 0.AH original history author
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40201458798
+          name: WF-0AH-Second-Three-Xianxia-History-Comedy-Real-Pairs-Wires-and-Ratings
+          github-token: ${{ github.token }}
+          path: wf0am_frozen_0ah_first
+      - name: Download original 0.AM DeepSeek chapter and six event plans
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40257489862
+          name: WF-0AM-Real-History-One-G-Author-Original-Wires-Source-Repair-Downstream
+          github-token: ${{ github.token }}
+          path: wf0ao_old_real_0am_failed_plan
+      - name: Download eight previous DeepSeek prose and self-review source messages
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40259961845
+          name: WF-0AO-Old-Two-Real-DeepSeek-Plans-New-G-Prose-V119-Trace-Source
+          github-token: ${{ github.token }}
+          path: wf0aq_original_eight_provider_artifact
+      - name: Actual G through all eight old author replies, then STOP before any fifth-turn provider
+        env:
+          WF0AQ_SOURCE_ONLY_STOP_BEFORE_NEW: '1'
+        run: python -m experiments.wf_0aq_resume_eight_real_writer_turns_then_new_once_20261026
+      - name: All eight old provider SHA and source prompt drift status
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('wf_0aq_older_eight_real_prose_restore_20261026')
+          x=json.loads((p/'STATUS.json').read_text('utf8'))
+          assert x['status']=='EIGHT_REPLAYED_THROUGH_PRE_MODEL_STOP',x.get('failure_code')
+          assert x['old_provider_wires_verified']==8
+          assert x['old_real_model_replies_replayed']==9
+          assert x['new_model_calls']==0
+          assert x['R2_reads']==x['R2_writes']==x['Canon_writes']==0
+          assert x['Railway_deployments']==0 and not x['main_modified']
+          f=json.loads((p/'first-unwritten-turn-prompt.json').read_text('utf8'))
+          assert f['old_replayed_author_calls']==8 and f['new_provider_calls']==0
+          for m in x['old_prompt_replay_comparisons']:
+              print('REAL PROSE',m['original_writer_request'],
+                    'byte-identical-prompt:',m['same_prompt_and_budget'])
+          print('G FROZEN FOUR PROSE RESTORED, NEW FIFTH PROMPT SHA:',f['prompt_sha256'])
+          PY
+      - name: Keep source-only real manuscript and prompt drift receipts, no model call
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AQ-Replay-All-Eight-Old-DeepSeek-Prose-and-Timing-No-Model
+          path: wf_0aq_older_eight_real_prose_restore_20261026/
+          retention-days: 90
+          if-no-files-found: warn
