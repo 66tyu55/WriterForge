@@ -288,11 +288,28 @@ def validate_replan(raw,*,accepted,accepted_beats,seed_next_beat,
     require(_bounded(doc["unresolved_question"],8,200) and
             _bounded(doc["reason_for_shift"],8,220),
             "WF98_ROLLING_MOTIVATION_OR_UNCERTAINTY_MISSING")
-    require(doc["basis_effect_quote"]==basis_quote,
-            "WF98_REPLAN_NOT_ANCHORED_TO_ACTUAL_SOURCE_BASIS"
-            if basis_kind=="DECISION_ACTION_ONLY_OUTCOME_PENDING" else
-            "WF98_REPLAN_NOT_ANCHORED_TO_ACTUAL_EFFECT")
-    basis=_anchor(parent["prose"],doc["basis_effect_quote"],"BASIS")
+    # 0.AV true DeepSeek author RED: the prior V96 "effect_quote"
+    # identified the blackout, while the writer *correctly chose* a different
+    # verbatim passage (countdown + missing hospital reading) as the pressure
+    # driving the next choice. The old validator imposed its own choice of
+    # literary focus and discarded the model's genuinely new next beat.
+    #
+    # V96 verifies only lexical positions, never that any particular quoted
+    # effect is the best reason for the NEXT character decision. Permit the
+    # AUTHOR to select another UNIQUE, BOUNDED, LITERAL passage in the SAME
+    # signed prior prose. Mark it as unverified source, not effect/cause.
+    # Pending-action cases remain strict: do not smuggle an outcome via an
+    # unrelated quote when the old author's decision has no observed effect.
+    writer_basis=doc["basis_effect_quote"]
+    author_selected_other_basis=writer_basis!=basis_quote
+    if basis_kind=="DECISION_ACTION_ONLY_OUTCOME_PENDING":
+        require(not author_selected_other_basis,
+                "WF98_REPLAN_NOT_ANCHORED_TO_ACTUAL_SOURCE_BASIS")
+    elif author_selected_other_basis:
+        require(_bounded(writer_basis,6,MAX_SHORT_QUOTE_CHARS) and
+                len(_occurrences(parent["prose"],writer_basis))==1,
+                "WF98_REPLAN_NOT_ANCHORED_TO_ACTUAL_EFFECT")
+    basis=_anchor(parent["prose"],writer_basis,"BASIS")
     costs={}
     for key in ("pressure_quote","cost_quote"):
         val=doc[key]
@@ -333,11 +350,20 @@ def validate_replan(raw,*,accepted,accepted_beats,seed_next_beat,
         "proposed_beat_sha256":digest(canonical(proposal)),
         "grounded_prior_beat_id":parent["beat_id"],
         "grounded_prior_prose_sha256":digest(parent["prose"].encode("utf8")),
-        "source_parent_relation_review_required":review_reason is not None,
+        "source_parent_relation_review_required":(
+            review_reason is not None or author_selected_other_basis),
         "source_parent_relation_review_reason":review_reason,
         "source_parent_causal_relation_verified":False,
-        "source_basis_kind":basis_kind,
-        "source_basis_is_observed_effect":basis_kind=="EFFECT_SOURCE_ONLY",
+        "source_basis_kind":(
+            "AUTHOR_SELECTED_OTHER_LITERAL_SOURCE_ONLY"
+            if author_selected_other_basis else basis_kind),
+        "source_basis_is_observed_effect":(
+            basis_kind=="EFFECT_SOURCE_ONLY" and
+            not author_selected_other_basis),
+        "author_selected_non_effect_literal_source_only":(
+            author_selected_other_basis),
+        "original_v96_source_basis_sha256":digest(
+            basis_quote.encode("utf8")),
         "source_basis_anchor":basis,
         "cost_anchor":costs["cost_quote"],
         "pressure_anchor":costs["pressure_quote"],
