@@ -541,6 +541,11 @@ def preflight_next_prose(next_prose, *, previous_candidate_state,
         previous_relation_receipt=previous_relation_receipt)
     if relations["current_source_needs_review"]:
         review_findings.insert(0,"NEEDS_SOURCE_RELATION_REVIEW")
+    # A possible missing hand-back of a portable manuscript or prop is
+    # a source-anchored REVIEW, not proof of same-object identity and not a
+    # hard-block. This is inside the signed V122/V114 provenance boundary.
+    if relations.get("document_custody_current_needs_review") is True:
+        review_findings.insert(0,"WF122_DOCUMENT_CUSTODY_SOURCE_REVIEW")
     if relations["dependent_on_unresolved_previous_relation"]:
         review_findings.insert(0,"PRIOR_SOURCE_RELATION_CLAIM_NEEDS_REVIEW")
     # Remain conservative about unexplained mana recovery until a separately
@@ -576,6 +581,9 @@ def preflight_next_prose(next_prose, *, previous_candidate_state,
         "needs_review":bool(review_findings),
         "review_findings":list(dict.fromkeys(review_findings))[:12],
         "physical_relation_receipt_sha256":relations["receipt_sha256"],
+        "document_custody_current_review_pairs":relations.get(
+            "document_custody_current_review_pairs",[]),
+        "document_custody_never_proves_literary_error":True,
         "physical_relation_review_pairs":relations["review_pairs"],
         "physical_relation_dependent_on_previous_source":(
             relations["dependent_on_unresolved_previous_relation"]),
