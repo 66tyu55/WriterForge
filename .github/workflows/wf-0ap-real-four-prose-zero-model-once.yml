@@ -1,0 +1,88 @@
+name: WF 0.AP Replay Four Real G Writer Turns and Rejected Parent ZERO Model ONCE
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_0AP_REAL_EIGHT_WIRES_ZERO_MODEL_REPLAY_ONCE_20261026.txt
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wf-0ap-four-saved-original-deepseek-prose-only-offline
+  cancel-in-progress: false
+
+jobs:
+  real-source-sha-and-v96-review-only-green:
+    if: >-
+      github.repository == '66tyu55/WriterForge' &&
+      github.ref_name == 'refactor-unified-scene-delivery-audit' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'audit(0.AP): FIRE EIGHT REAL ORIGINAL WIRES ZERO NEW MODEL REPLAY'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install current source-first WriterForge only
+        run: python -m pip install -e '.[r2]'
+      - name: Verify one-shot marker, no model/R2/Canon credentials
+        run: |
+          test "$(cat experiments/WF_0AP_REAL_EIGHT_WIRES_ZERO_MODEL_REPLAY_ONCE_20261026.txt)" = "WF0AP_VERIFY_EIGHT_REAL_SOURCE_SHA_FOUR_TURNS_NO_PROVIDER"
+          python - <<'PY'
+          import os
+          assert not any(os.getenv(n) for n in (
+              'DEEPSEEK_API_KEY','DISCOVERY_API_KEY','OPENAI_API_KEY',
+              'OPENROUTER_API_KEY','WRITERFORGE_R2_ACCOUNT_ID',
+              'WRITERFORGE_R2_ACCESS_KEY_ID'))
+          print('0.AP: no author call, no original books or Canon credentials')
+          PY
+      - name: Focused synthetic RED to real module GREEN
+        run: |
+          PYTHONPATH=tests python -m unittest \
+            tests.test_wf_0ap_real_trace_review_parent_downstream \
+            tests.test_wf_0an_actual_dialogue_quiet_source_links \
+            tests.test_wf_0ai_decision_effect_pending -q
+      - name: Get exact 0.AO eight real writer provider envelopes and source traces
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40259961845
+          name: WF-0AO-Old-Two-Real-DeepSeek-Plans-New-G-Prose-V119-Trace-Source
+          github-token: ${{ github.token }}
+          path: wf0ap_existing_original_0ao
+      - name: Reverify eight actual SHA and replay author prose/trace without any model
+        run: python -m experiments.wf_0ap_replay_four_real_g_writer_turns_20261026
+      - name: Assert actual old-model four paragraphs and two review-only debts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path('wf_0ap_four_original_writer_turns_zero_paid_replay_20261026/STATUS.json').read_text('utf8'))
+          assert x['status']=='FOUR_REAL_PROSE_PRESERVED_SOURCE_REVIEW_ONLY'
+          assert x['old_provider_wires_verified']==8
+          assert x['new_model_calls']==x['R2_reads']==x['R2_writes']==x['Canon_writes']==0
+          assert len(x['turns'])==4
+          assert x['turns'][2]['review_only'] and x['turns'][3]['review_only']
+          assert x['turns'][3]['parent_review_only_source_sha256']==x['turns'][2]['original_prose_sha256']
+          assert all(x['turns'][k]['no_fact_or_canon_promotion'] for k in range(4))
+          for row in x['turns']:
+              print(row['turn_id'], row['source_status'], row['trace_error'],
+                    row['original_prose_sha256'])
+          PY
+      - name: Retain source-only receipts even if replay rejects
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AP-Eight-Original-DeepSeek-Wires-Four-Real-Paragraphs-SHA-Only-Replay
+          path: wf_0ap_four_original_writer_turns_zero_paid_replay_20261026/
+          retention-days: 90
+          if-no-files-found: warn
