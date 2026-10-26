@@ -1,0 +1,115 @@
+name: WF 0.AO Reuse Original DeepSeek Plan and Generate ONLY New G Prose ONCE
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_0AO_FROZEN_REAL_0AM_PLAN_PROSE_ONLY_FIRE_ONCE_20261026.txt
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wf-0ao-old-two-real-plans-new-prose-once
+  cancel-in-progress: false
+
+jobs:
+  real-G-after-source-signed-original-plan:
+    if: >-
+      github.repository == '66tyu55/WriterForge' &&
+      github.ref_name == 'refactor-unified-scene-delivery-audit' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'experiment(0.AO): FIRE ONLY NEW G PROSE ON ORIGINAL PAID DEEPSEEK SIX-EVENT PLAN'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install only existing source-verified WriterForge dependencies
+        run: python -m pip install -e '.[r2]'
+      - name: Exact single fire marker and no copyrighted book, R2 or second model
+        run: |
+          test "$(cat experiments/WF_0AO_FROZEN_REAL_0AM_PLAN_PROSE_ONLY_FIRE_ONCE_20261026.txt)" = "WF0AO_NO_NEW_PLANNING_ONE_REAL_G_ONLY_PREVIOUS_SIX"
+          python - <<'PY'
+          import os
+          assert not any(os.getenv(k) for k in (
+              'WRITERFORGE_R2_ACCOUNT_ID','WRITERFORGE_R2_ACCESS_KEY_ID',
+              'DISCOVERY_API_KEY','OPENAI_API_KEY','OPENROUTER_API_KEY'))
+          print('No original books, Canon, R2 or second writing provider configured.')
+          PY
+      - name: Complete no-model WF regression before charging
+        run: python -m unittest discover -s tests -q
+      - name: Download unchanged original six 0.AH writer provider wires
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40201458798
+          name: WF-0AH-Second-Three-Xianxia-History-Comedy-Real-Pairs-Wires-and-Ratings
+          github-token: ${{ github.token }}
+          path: wf0am_frozen_0ah_first
+      - name: Download original two DeepSeek plans and failed G receipts
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40257489862
+          name: WF-0AM-Real-History-One-G-Author-Original-Wires-Source-Repair-Downstream
+          github-token: ${{ github.token }}
+          path: wf0ao_old_real_0am_failed_plan
+      - name: Source SHA all old wires, real six-event outline and no rewritten goals
+        run: |
+          python - <<'PY'
+          from experiments import wf_0am_real_history_same_model_g_once_20261026 as old
+          from experiments.wf_0ao_frozen_real_deepseek_plan_prose_once_20261026 import freeze_original_model_decisions,TURN_REPLY_SHA,h
+          source,wire=old.verify_old_real_source()
+          chapter,outline,receipt,status,_=freeze_original_model_decisions()
+          assert h(source)==status['source_sha256']
+          assert receipt['original_model_plan_sha256']==TURN_REPLY_SHA
+          assert receipt['events_or_goals_unchanged']
+          assert len(outline)>500 and len(chapter)>100
+          print('VERIFIED archived source',status['source_sha256'])
+          print('VERIFIED old provider chapter and six-turn plan without any new model call')
+          PY
+      - name: Bounded DeepSeek author NEW prose and self-review only, old plans never regenerated
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: python -m experiments.wf_0ao_frozen_real_deepseek_plan_prose_once_20261026
+      - name: Reject fake promotion and verify author provider original SHA
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from hashlib import sha256
+          import json
+          d=Path('wf_0ao_frozen_original_plan_real_G_prose_20261026')
+          s=json.loads((d/'STATUS.json').read_text('utf8'))
+          assert s['status']=='SIGNED_NEW_G_UNACCEPTED_REAL_PROSE_COMPLETED',s.get('failure_code')
+          assert s['old_real_plan_replayed_without_model']
+          assert s['old_real_six_event_plan_preserved']
+          assert s['frozen_chapter_plan_replayed_requests']==1
+          assert 1<=s['new_model_calls']<=16
+          assert s['new_model_calls']==len(s['new_provider_events'])
+          assert s['R2_reads']==s['R2_writes']==s['Canon_writes']==0
+          assert s['Railway_deployments']==0 and not s['main_modified']
+          assert s['actor_acceptance'] is False and s['literary_improvement_proven'] is False
+          original=(d/'frozen-original-history.md').read_bytes()
+          assert sha256(original).hexdigest()==s['original_author_source_sha256']
+          for event in s['new_provider_events']:
+              if event['provider_wire_saved_before_json_validation']:
+                  p=d/'provider-originals'/f"new-{event['index']:02d}.json"
+                  assert sha256(p.read_bytes()).hexdigest()==event['raw_provider_sha256']
+          print('Verified signed real G chapter from old source; writer rewind count:',
+                s['old_previous_turn_rewinds'])
+          PY
+      - name: Keep exact old and NEW provider evidence and unaccepted job on any result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AO-Old-Two-Real-DeepSeek-Plans-New-G-Prose-V119-Trace-Source
+          path: wf_0ao_frozen_original_plan_real_G_prose_20261026/
+          retention-days: 90
+          if-no-files-found: warn
