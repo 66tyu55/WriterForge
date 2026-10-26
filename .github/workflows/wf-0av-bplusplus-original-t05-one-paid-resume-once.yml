@@ -1,0 +1,170 @@
+name: WF 0.AV B++ Original DeepSeek T05 Last ONE Call Source-SHA Resume ONCE
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0av-bplusplus-original-t05-one-paid-resume-once.yml
+      - experiments/wf_0av_bplusplus_t05_only_immutable_resume_once_20261026.py
+      - tests/test_wf_0av_bplusplus_original_t05_resume_protocol.py
+      - experiments/WF_0AV_BPLUSPLUS_FINAL_ORIGINAL_T05_ONCE_20261026.txt
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wf-0av-original-Bplusplus-last-author-t05-only-once
+  cancel-in-progress: false
+
+jobs:
+  exact-ten-original-deepseek-wire-no-model-preflight:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install current development commit only, no Railway or R2
+        run: python -m pip install -e '.[r2]'
+      - name: Full 0.AV source-first regressions, no provider
+        run: |
+          python -m py_compile experiments/wf_0av_bplusplus_t05_only_immutable_resume_once_20261026.py
+          python -m unittest discover -s tests -q
+      - name: Original A/B first seven paid/previously replayed DeepSeek responses
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40323596997
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_completed_0av_source
+      - name: Original B+ control, frozen two-order grades, first three shared prose
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40328385610
+          name: WF-0AV-B-versus-BPlus-ReviewOnly-Prose-Real-Author-Wires-Source-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_first_Bplus_source
+      - name: Original B++ three paid author wires and failure receipt: 8,9,10
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40339756228
+          name: WF-0AV-Bplus-Bplusplus-Same-DeepSeek-Prior-Prose-Real-Wires
+          github-token: ${{ github.token }}
+          path: wf0av_failed_Bplusplus_original_wire_source
+      - name: Dry signed exact ten-model-response replay and new t05 prompt no network
+        run: python -m experiments.wf_0av_bplusplus_t05_only_immutable_resume_once_20261026 --preflight
+      - name: Preserve zero-model RED or GREEN with all immutable source hashes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AV-Bplusplus-Original-10-Signed-DeepSeek-Wires-T05-Ready-OFFLINE
+          path: wf_0av_Bplusplus_original_t05_only_resume_20261026/
+          retention-days: 90
+          if-no-files-found: warn
+
+  original-deepseek-one-real-t05-prose-only:
+    needs: [exact-ten-original-deepseek-wire-no-model-preflight]
+    if: >-
+      github.repository == '66tyu55/WriterForge' &&
+      github.ref_name == 'refactor-unified-scene-delivery-audit' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'experiment(0.AV): FIRE ONLY ORIGINAL BPLUSPLUS FINAL T05 ONE REAL CALL ONCE'
+    runs-on: ubuntu-latest
+    timeout-minutes: 42
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Protect one-use fingerprint and other vendor/account side effects
+        run: |
+          test "$(cat experiments/WF_0AV_BPLUSPLUS_FINAL_ORIGINAL_T05_ONCE_20261026.txt)" = "WF0AV_SIGNED_TEN_DEEPSEEK_WIRES_ONLY_LAST_T05_ONE_REAL_AUTHOR_CALL"
+          python - <<'PY'
+          import os
+          assert not any(os.getenv(k) for k in (
+            "WRITERFORGE_R2_ACCOUNT_ID","WRITERFORGE_R2_ACCESS_KEY_ID",
+            "OPENAI_API_KEY","DISCOVERY_API_KEY","OPENROUTER_API_KEY"))
+          print("Only original DeepSeek writer, one t05 call, never R2")
+          PY
+      - name: Complete initial original writer t01-t03 sources
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40323596997
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_completed_0av_source
+      - name: Complete immutable B+ literary control
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40328385610
+          name: WF-0AV-B-versus-BPlus-ReviewOnly-Prose-Real-Author-Wires-Source-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_first_Bplus_source
+      - name: Recover exact three B++ originals from previous RED run, do not reauthor
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40339756228
+          name: WF-0AV-Bplus-Bplusplus-Same-DeepSeek-Prior-Prose-Real-Wires
+          github-token: ${{ github.token }}
+          path: wf0av_failed_Bplusplus_original_wire_source
+      - name: Repeat ten original provider replay and original t05 plan BEFORE paid access
+        run: |
+          python -m experiments.wf_0av_bplusplus_t05_only_immutable_resume_once_20261026 --preflight
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("wf_0av_Bplusplus_original_t05_only_resume_20261026")/"SOURCE_LOCKED_T05_ONLY_ZERO_PAID_PREFLIGHT.json"
+          r=json.loads(p.read_text("utf8"))
+          assert r["new_paid_calls"]==0 and r["original_25_historical_model_calls_not_recharged"]
+          assert r["status"]=="TEN_AUTHENTIC_WIRES_REPLAYED_ONE_NEW_T05_PROSE_PROMPT_READY"
+          PY
+          rm -rf wf_0av_Bplusplus_original_t05_only_resume_20261026
+      - name: Pay ONLY last never-written original DeepSeek T05 prose (one call max)
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: python -m experiments.wf_0av_bplusplus_t05_only_immutable_resume_once_20261026
+      - name: Verify real writer original provenance, last paid raw SHA and no literary claims
+        if: success()
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          root=Path("wf_0av_Bplusplus_original_t05_only_resume_20261026")
+          s=json.loads((root/"STATUS.json").read_text("utf8"))
+          assert s["status"]=="SOURCE_LOCKED_BPLUSPLUS_AUTHOR_ORIGINAL_T05_COMPLETED"
+          assert s["last_new_paid_calls"]==1 and s["last_new_reserved_completion"]==1450
+          assert s["total_paid_calls"]==26 and s["total_reserved_completion"]==32300
+          assert s["all_four_new_Bplusplus_calls_total"]==4
+          assert s["literary_improvement_proven"] is False
+          assert s["R2_reads"]==s["R2_writes"]==s["Canon_writes"]==0
+          assert s["main_modified"] is False and s["Railway_deployments"]==0
+          assert len(s["provider_events"])==11
+          assert all(not e["paid_call"] for e in s["provider_events"][:10])
+          e=s["provider_events"][10]
+          assert e["paid_call"] and e["saved_before_json_decode"]
+          wire=(root/"B"/"original-provider-wires"/"11-paid.json").read_bytes()
+          assert hashlib.sha256(wire).hexdigest()==e["wire_sha256"]
+          for i in (8,9,10):
+              name=root/"immutable-prior-bplusplus-paid-wires"/f"{i:02d}-paid.json"
+              assert hashlib.sha256(name.read_bytes()).hexdigest()==s["provider_events"][i-1]["wire_sha256"]
+          assert s["comparison"]["same_t01_t02_t03_author_originals"]
+          assert s["comparison"]["unchanged_t04_live_DeepSeek_prose_sha256"]=="7f636d503ab6b6c9d47dcc980b3305329282b3e7d62375d582cfe9618058eda2"
+          assert s["comparison"]["no_extra_literary_judge"]
+          print("ONE NEW ACTUAL ORIGINAL DEEPSEEK PROSE T05 WRITTEN",s["comparison"]["new_Bplusplus_sha256"])
+          PY
+      - name: ALWAYS retain original eleven wires, author prose, signed failures, exact prompts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AV-Bplusplus-Final-Real-DeepSeek-T05-One-Call-Original-Writer-All-SHA
+          path: wf_0av_Bplusplus_original_t05_only_resume_20261026/
+          retention-days: 90
+          if-no-files-found: warn
