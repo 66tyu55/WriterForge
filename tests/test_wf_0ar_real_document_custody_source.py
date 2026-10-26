@@ -15,9 +15,12 @@ import unittest
 from hashlib import sha256
 
 from writerforge.v122_item_provenance import (
-    audit_physical_relation_sources, ItemProvenanceError
+    audit_physical_relation_sources, ItemProvenanceError, _digest,
 )
 from writerforge.v116_state_delta import preflight_next_prose
+from writerforge.v114_external_story_state import (
+    external_temporal_step,temporal_prompt,
+)
 
 OUTGOING=(
     "周卒把册子揣进贴身的油布囊里，应声出去。"
@@ -98,10 +101,50 @@ class SourceFirstPortableDocumentReview(unittest.TestCase):
         after=audit_physical_relation_sources(
             prose=REAPPEARING,previous_relation_receipt=next_state)
         self.assertTrue(after["document_custody_current_needs_review"])
+        self.assertEqual(len(after["document_custody_open_source_reviews"]),1)
+        later=audit_physical_relation_sources(
+            prose=QUIET,previous_relation_receipt=after)
+        self.assertFalse(later["document_custody_current_needs_review"])
+        self.assertEqual(len(later["document_custody_open_source_reviews"]),1)
+        self.assertEqual(
+            later["document_custody_open_source_reviews"][0]["later_source_sha256"],
+            checksum(REAPPEARING))
+
+    def test_real_v114_reducer_keeps_same_signed_debt_and_delivers_optional_writer_context(self):
+        actors=("秦渊","周卒")
+        first=external_temporal_step(OUTGOING,cast=actors)
+        second=external_temporal_step(QUIET,cast=actors,prior=first)
+        third=external_temporal_step(REAPPEARING,cast=actors,prior=second)
+        self.assertEqual(third["source_sha256"],checksum(REAPPEARING))
+        self.assertEqual(third["canon_writes"],0)
+        evidence=third["v122_physical_relation_source_receipt"]
+        self.assertTrue(evidence["document_custody_current_needs_review"])
+        self.assertEqual(len(evidence["document_custody_open_source_reviews"]),1)
+        hint=temporal_prompt(third)
+        self.assertIn("周卒把册子揣进",hint)
+        self.assertIn("与地形册子一并纳入",hint)
+        self.assertIn("未核实",hint)
+        self.assertIn("非已判文学错误",hint)
+        self.assertNotIn("必须删除",hint)
+        fourth=external_temporal_step(QUIET,cast=actors,prior=third)
+        carry=fourth["v122_physical_relation_source_receipt"]
+        self.assertEqual(len(carry["document_custody_open_source_reviews"]),1)
+        self.assertFalse(carry["document_custody_current_needs_review"])
+        self.assertIn("未核实",temporal_prompt(fourth))
 
     def test_tampered_custody_source_receipt_never_turns_into_certified_item_state(self):
         previous=audit_physical_relation_sources(prose=OUTGOING)
         forged={**previous,"source_sha256":"0"*64}
+        with self.assertRaises(ItemProvenanceError):
+            audit_physical_relation_sources(
+                prose=REAPPEARING,previous_relation_receipt=forged)
+        # Even if an attacker recomputes a raw, unkeyed SHA, the claimed
+        # actor is absent from the source quote and cannot be accepted.
+        import copy
+        forged=copy.deepcopy(previous)
+        forged["document_custody_open_sources"][0]["holder_literal"]="陌生人"
+        forged["receipt_sha256"]=_digest({
+            k:v for k,v in forged.items() if k!="receipt_sha256"})
         with self.assertRaises(ItemProvenanceError):
             audit_physical_relation_sources(
                 prose=REAPPEARING,previous_relation_receipt=forged)
