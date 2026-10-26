@@ -93,6 +93,42 @@ class GWriterRollingGate(unittest.TestCase):
         self.assertEqual(guide["model_calls"],0)
         self.assertTrue(guide["knowledge_is_character_scoped"])
 
+
+    def test_0av_v120_keeps_original_duet_dialogue_without_fake_single_actor(self):
+        """RED: original DeepSeek joint dialogue must be a valid UNPROVEN plan."""
+        from writerforge.v120_plan_prose_gate import compare_plan_to_prose
+        from hashlib import sha256
+        beat={"id":"t01","kind":"dialogue","actor":"林槐/许照",
+              "goal":"林槐通过对讲机向许照核对两份签名不同的检修记录",
+              "causal_parent":None}
+        prose=("林槐握着对讲机解释两份记录互相矛盾。"
+               "许照听见一阵电流声，要求她核对封签，却仍没有亲眼看见控制室。"
+               "医院的真实水压没有新的报告，林槐也不敢说自己知道答案。")
+        r=compare_plan_to_prose(
+            project_id="0av-duet",scene_id="nightvalve",
+            beat=beat,prose=prose,cast=("林槐","许照"))
+        self.assertEqual(r["status"],"UNPROVEN")
+        self.assertEqual(r["coverage"],"NON_STATEFUL_BEAT")
+        self.assertIsNone(r["expected_narrow_state"])
+        self.assertEqual(r["prose_sha256"],sha256(prose.encode("utf8")).hexdigest())
+        self.assertEqual(r["canon_writes"],0)
+        self.assertFalse(r["whole_beat_goal_verified"])
+
+    def test_0av_v120_interiority_is_not_automatically_action(self):
+        from writerforge.v120_plan_prose_gate import compare_plan_to_prose
+        beat={"id":"t04","kind":"interiority","actor":"林槐",
+              "goal":"林槐犹豫是否可以再催促井下工人",
+              "causal_parent":None}
+        prose=("仪表绿线停在那里，她不知城西医院是否已经断了水。"
+               "林槐想起许照昨夜的一句话，又怀疑自己此前听错了编号，"
+               "但这些念头都不能当成封签已经被人动过的证据。")
+        r=compare_plan_to_prose(
+            project_id="0av-duet",scene_id="nightvalve",
+            beat=beat,prose=prose,cast=("林槐","许照"))
+        self.assertEqual(r["status"],"UNPROVEN")
+        self.assertEqual(r["coverage"],"NON_STATEFUL_BEAT")
+        self.assertIsNone(r["expected_narrow_state"])
+
     def test_G_requires_explicit_opt_in_parameter(self):
         from writerforge.writing_assist import AutonomousWriting
         import inspect
