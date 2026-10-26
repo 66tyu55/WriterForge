@@ -169,6 +169,39 @@ def latest_source_basis_for_replan(accepted):
     raise V98RollingPlanError("WF98_NO_ACTUAL_PRIOR_SOURCE_TO_REPLAN_FROM")
 
 
+def g_source_replan_eligibility(accepted):
+    """G opt-in: replan only on the last signed, non-REVIEW prose basis.
+
+    Never skip a review-only last turn to reuse an older, no-longer-current
+    outcome. WF decides only whether source evidence exists, not the plot.
+    """
+    require(type(accepted) in (tuple,list) and len(accepted)>0,
+            "WF98_G_REPLAN_NO_SOURCE")
+    last=accepted[-1]
+    require(type(last) is dict and type(last.get("prose")) is str,
+            "WF98_G_REPLAN_BAD_PREVIOUS")
+    prose=last["prose"]
+    receipt=last.get("receipt")
+    require(type(receipt) is dict and
+            receipt.get("prose_sha256")==digest(prose.encode("utf8")) and
+            receipt.get("receipt_sha256")==digest(canonical({
+                k:v for k,v in receipt.items() if k!="receipt_sha256"})),
+            "WF98_G_REPLAN_SOURCE_HASH_MISMATCH")
+    mode=receipt.get("causal_check")
+    if mode=="TRACE_REJECTED_SOURCE_PROSE_REVIEW_ONLY":
+        reason="PREVIOUS_TRACE_REVIEW_ONLY"
+    elif (receipt.get("outcome_pending_source_only") is True or
+          type(last.get("effect_quote")) is str and last["effect_quote"]):
+        # Reuse existing strict V98 validation instead of trusting metadata.
+        latest_source_basis_for_replan((last,))
+        reason=None
+    else:
+        reason="NO_VERIFIED_SOURCE_BASIS"
+    return {"eligible":reason is None,"reason":reason,
+            "source_sha256":receipt["prose_sha256"],
+            "causal_truth_verified":False,"model_calls":0}
+
+
 def prepare_replan_instructions(*,accepted,seed_next_beat,
                                 allowed_actor_names):
     previous,basis_quote,basis_kind=latest_source_basis_for_replan(accepted)
