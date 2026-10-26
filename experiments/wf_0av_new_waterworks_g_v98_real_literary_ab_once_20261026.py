@@ -711,7 +711,7 @@ def main():
             "wire_sha256s":[x["wire_sha256"] for x in prefix],
             "prompt_sha256s":[x["prompt_sha256"] for x in prefix],
             "repaid_for_B":False,"same_author_originals_preserved":True})
-        b_writer=WireWriter("B",key,cap,replay=prefix+(first_B_replan,))
+        b_writer=WireWriter("B",key,cap,replay=tuple(prefix)+(first_B_replan,))
         b=run_arm("B",b_writer)
         ca,cb=len(a["prose"]),len(b["prose"])
         ratio=cb/max(ca,1)
@@ -899,7 +899,7 @@ def source_eight_only_preflight():
             "WF0AV_PREVIOUS_REAL_A_FIFTH_PROSE_DID_NOT_COMPLETE_OLD_G")
     prefix=[dict(a_writer.events[i],raw_response=a_writer.outputs[i])
             for i in range(3)]
-    b_writer=WireWriter("B",fake_key,cap,replay=prefix+(first_B_replan,))
+    b_writer=WireWriter("B",fake_key,cap,replay=tuple(prefix)+(first_B_replan,))
     try:
         run_arm("B",b_writer)
     except Exception as e:
