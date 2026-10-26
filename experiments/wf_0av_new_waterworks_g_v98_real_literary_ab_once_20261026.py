@@ -711,11 +711,11 @@ def main():
             else type(error).__name__+":NO_BILLABLE_RETRY")
     finally:
         status["provider_calls"]=cap.calls
-        status["total_paid_calls_including_original_red"]=cap.calls+5
+        status["total_paid_calls_including_original_red"]=cap.calls+6
         status["provider_completion_tokens_reserved"]=(
             cap.output_reservations)
         status["total_reserved_tokens_including_original_red"]=(
-            cap.output_reservations+6450)
+            cap.output_reservations+7900)
         for label,writer in (("A",a_writer),("B",b_writer)):
             if writer is not None:
                 status[label+"_wire_events"]=writer.public_events()
@@ -723,7 +723,7 @@ def main():
         save_json(ROOT/"STATUS.json",status)
         print("WF0AV_STATUS "+json.dumps({
             "status":status["status"],"paid_calls":cap.calls,
-            "paid_calls_including_prior_red":cap.calls+5,
+            "paid_calls_including_prior_red":cap.calls+6,
             "completion_tokens_reserved":cap.output_reservations,
             "A_prose":status["A"],"B_prose":status["B"],
             "error":status.get("failure_code"),
@@ -734,10 +734,10 @@ def main():
         raise RuntimeError("WF0AV_SAFE_PARTIAL_EVIDENCE_RETAINED_NO_RETRY")
 
 def source_six_only_preflight():
-    """Execute exact saved first FIVE author replies through real G; zero APIs.
+    """Execute exact saved first SIX author replies through real G; zero APIs.
 
-    The sixth attempted call must be intercepted BEFORE any provider call,
-    proving repaired V96/NarrativeCore/V120/V118 all accept source progress.
+    The seventh attempted call must be intercepted BEFORE any provider call,
+    proving repaired V96/NarrativeCore/V120/V118/scene-delivery retain prose.
     """
     global ROOT
     ROOT=Path("wf0av_source_six_offline_validation_only")
