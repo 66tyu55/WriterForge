@@ -42,7 +42,7 @@ jobs:
       github.repository == '66tyu55/WriterForge' &&
       github.ref_name == 'refactor-unified-scene-delivery-audit' &&
       github.run_attempt == 1 &&
-      github.event.head_commit.message == 'experiment(0.AV): CONTINUE FROM TWO SAVED REAL WIRES AFTER V96 REPAIR ONCE'
+      github.event.head_commit.message == 'experiment(0.AV): CONTINUE FROM SIX IMMUTABLE DEEPSEEK WIRES TO REAL G V98 A-B ONCE'
     runs-on: ubuntu-latest
     timeout-minutes: 48
     steps:
@@ -56,7 +56,7 @@ jobs:
         run: python -m pip install -e '.[r2]'
       - name: Prove exact one-shot and no R2 or other model credentials
         run: |
-          test "$(cat experiments/WF_0AV_NEW_WATERWORKS_G_V98_LIVE_ONCE_20261026.txt)" = "WF0AV_SOURCE_LOCKED_TWO_OLD_PROVIDER_WIRES_V96_REPAIRED_NEW_PROSE"
+          test "$(cat experiments/WF_0AV_NEW_WATERWORKS_G_V98_LIVE_ONCE_20261026.txt)" = "WF0AV_SOURCE_LOCKED_SIX_OLD_PROVIDER_WIRES_NEXT_TURN"
           python - <<'PY'
           import os
           assert not any(os.environ.get(k) for k in (
@@ -85,6 +85,13 @@ jobs:
           name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
           github-token: ${{ github.token }}
           path: wf0av_fifth_paid_source
+      - name: Restore sixth true author paragraph from the rejected old scene-delivery gate; no repayment
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40287701471
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_sixth_paid_source
       - name: Source-only preflight the original paid RED model plan after V96 fix
         run: |
           python - <<'PY'
@@ -122,8 +129,8 @@ jobs:
           assert receipt["canon_writes"]==receipt["model_calls"]==0
           print("REAL PROVIDER PLAN/PROSE PASSES V96 CORE V120: NO REWRITE, NO MODEL CALL")
           PY
-      - name: Prove first five actual DeepSeek messages run through complete G without calling provider again
-        run: python -m experiments.wf_0av_new_waterworks_g_v98_real_literary_ab_once_20261026 --source-five-preflight
+      - name: Prove first SIX actual DeepSeek messages run through complete G with no provider bill
+        run: python -m experiments.wf_0av_new_waterworks_g_v98_real_literary_ab_once_20261026 --source-six-preflight
       - name: Same DeepSeek Flash authors two G paths with true source locked prefix
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
@@ -141,8 +148,8 @@ jobs:
               "TWO_REAL_AUTHOR_BRANCHES_COMPLETED",
               "TWO_ARMS_TWO_BLIND_ORDER_REPORTS",
               "TWO_ARMS_GRADED_PARTIAL_NO_RETRY")
-          assert data["provider_calls"]<=21
-          assert data["provider_completion_tokens_reserved"]<=37550
+          assert data["provider_calls"]<=20
+          assert data["provider_completion_tokens_reserved"]<=36100
           assert data["total_paid_calls_including_original_red"]<=26
           assert data["total_reserved_tokens_including_original_red"]<=44000
           assert data["R2_reads"]==data["R2_writes"]==data["Canon_writes"]==0
