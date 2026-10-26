@@ -46,7 +46,7 @@ class FrozenOriginalWriterPlanProtocol(unittest.TestCase):
         freeze=inspect.getsource(trial.freeze_original_model_decisions)
         self.assertIn("freeze_original_model_decisions()",body)
         self.assertLess(body.index("freeze_original_model_decisions()"),
-                        body.index("OriginalPlanThenSameWriter(secret"))
+                        body.index("OriginalPlanThenSameWriter("))
         self.assertIn('frozen_turn_outlines=(turns,)',body)
         self.assertIn('draft_mode="continuity_guard"',body)
         self.assertIn('self_edit_timing="ai_decides"',body)
