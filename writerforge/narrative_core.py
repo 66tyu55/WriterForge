@@ -1785,7 +1785,7 @@ def audit_scene_delivery(*,prose,scene_goal,scene_kind,
           _text(scene_goal,600) and
           type(scene_kind) is str and scene_kind in (
               "action","decision","reversal","dialogue","quiet",
-              "aftermath","setup","transition","chapter"),
+              "aftermath","setup","transition","interiority","chapter"),
           "WFCORE_SCENE_DELIVERY_INPUT_INVALID")
     _need(type(anchored_effect_quotes) in (tuple,list) and
           len(anchored_effect_quotes)<=12 and
