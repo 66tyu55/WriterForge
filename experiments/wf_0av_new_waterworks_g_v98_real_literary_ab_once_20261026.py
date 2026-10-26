@@ -1065,8 +1065,86 @@ def source_eight_only_preflight():
     print("WF0AV_EIGHT_REAL_PROVIDER_WIRES_A_FIVE_PROSE_B_V98_PASS_NO_NEW_MODEL",flush=True)
 
 
+
+def source_ten_only_preflight():
+    """Paid #9 prose is restored, paid #10 BAD plan is forensic-only.
+
+    Reconstruct the historical first-B planning answer with an explicit,
+    bounded old/new formatting-contract comparison, then consume genuine B
+    t02 prose. Intercept the next t03 plan call BEFORE any paid provider.
+    This protects the writer's prose against prompt-driven reauthoring.
+    """
+    global ROOT
+    ROOT=Path("wf0av_source_ten_offline_validation_only")
+    require(not ROOT.exists(),"WF0AV_TEN_SOURCE_PREFLIGHT_NEVER_OVERWRITE")
+    ROOT.mkdir(parents=True)
+    first_two=load_first_two_original_replies()
+    third=load_third_original_response()
+    fourth_fifth=load_fourth_fifth_original_responses()
+    sixth=load_sixth_original_response()
+    seventh_A,first_B_replan=load_seventh_A_and_first_B_replan()
+    b_second=load_ninth_B_prose_and_tenth_rejected_plan()
+    source_A=first_two+(third,)+fourth_fifth+(sixth,seventh_A)
+    budget=AggregateCap()
+    budget.calls=MAX_TOTAL_PAID_CALLS
+    fake_key="offline-no-network-key-valid-0123456789"
+    author_A=WireWriter("A",fake_key,budget,replay=source_A)
+    result_A=run_arm("A",author_A)
+    require(len(result_A["turns"])==5 and
+            len(author_A.events)==7 and
+            all(not x["paid_call"] for x in author_A.events),
+            "WF0AV_SOURCE_TEN_A_NOT_EXACT_OLD_AUTHORED_CHAPTER")
+    pinned_prefix=tuple(dict(author_A.events[i],
+        raw_response=author_A.outputs[i]) for i in range(3))
+    author_B=WireWriter("B",fake_key,budget,
+        replay=pinned_prefix+(first_B_replan,b_second))
+    try:
+        run_arm("B",author_B)
+    except Exception as error:
+        code=str(error)
+        require("WF0AV_HARD_GLOBAL_PROVIDER_BUDGET_EXHAUSTED" in code
+                and len(author_B.events)==6
+                and all(not e["paid_call"] for e in author_B.events[:5])
+                and author_B.events[4]["wire_sha256"]==B_SECOND_PROSE_WIRE_SHA,
+                "WF0AV_TEN_SOURCE_B_ORIGINAL_PROSE_WAS_NOT_REPLAYED:"
+                +type(error).__name__+":"+code[:170])
+    else:
+        raise RuntimeError("WF0AV_TEN_SOURCE_UNEXPECTED_NO_ACTUAL_NEXT_PLAN")
+    request=json.loads((ROOT/"B"/"exact-requests"/"06.json").read_text("utf8"))
+    prompt=request["prompt"]
+    require(request["max_tokens"]==650 and
+            '"next_turn":{"id":"t03"' in prompt and
+            '"causal_parent":"t02"' in prompt and
+            '"next_turn":{"id":"t02"' not in prompt and
+            "下一事件编号必须为 t03" in prompt and
+            request["prompt_sha256"]!=B_REJECTED_T03_OLD_PROMPT_SHA,
+            "WF0AV_NEW_T03_REPLAN_PROMPT_NOT_STRUCTURALLY_CORRECT")
+    old_bad=json.loads((NINTH_TENTH_SOURCE/"B"/"original-provider-wires"/
+                        "06-paid.json").read_text("utf8"))
+    old_doc=json.loads(old_bad["choices"][0]["message"]["content"])
+    require(old_doc["next_turn"]["id"]=="t02" and
+            old_doc["next_turn"]["causal_parent"]=="t03",
+            "WF0AV_TENTH_INVALID_AUTHORED_BEAT_WAS_MODIFIED")
+    save_json(ROOT/"OFFLINE_SOURCE_TEN_PASS.json",{
+        "status":"REAL_OLD_G_COMPLETE_AND_B_SECOND_PROSE_RETAINED",
+        "all_ten_prior_provider_wires_sha_verified":True,
+        "old_A_whole_chapter_sha256":result_A["sha256"],
+        "original_paid_author_responses":10,
+        "source_only_replay_model_calls":0,
+        "B_real_t02_prose_sha256":h(json.loads(b_second["raw_response"])["prose"]),
+        "B_first_replan_old_prompt_not_falsely_called_identical":True,
+        "B_original_second_replan_remains_rejected":True,
+        "B_repaired_next_replan_prompt_sha256":request["prompt_sha256"],
+        "B_t03_model_generation_stopped_before_network":True,
+        "main_writes":0,"railway_deployments":0,
+        "R2_writes":0,"Canon_writes":0,"literary_uplift_proven":False})
+    print("WF0AV_TEN_IMMUTABLE_PROVIDER_WIRES_A_FINISHED_B_T02_RETAINED_NO_NEW_MODEL",flush=True)
+
+
 if __name__=="__main__":
-    if "--source-eight-preflight" in sys.argv:
+    if "--source-ten-preflight" in sys.argv:
+        source_ten_only_preflight()
+    elif "--source-eight-preflight" in sys.argv:
         source_eight_only_preflight()
     elif "--source-six-preflight" in sys.argv:
         source_six_only_preflight()
