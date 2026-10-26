@@ -1,5 +1,16 @@
-# WriterForge 当前有效交接｜2026-10-24
+# WriterForge 当前有效交接｜2026-10-27
 
+## 0.AZ｜元 Skill 认知习惯真实“宿主资源停止”已执行，不得自动重试 429
+
+**当前第一读取**：[WF_0AZ_REAL_HOST_429_HABIT_DORMANCY_SOURCE_FIRST_20261026.md](WF_0AZ_REAL_HOST_429_HABIT_DORMANCY_SOURCE_FIRST_20261026.md)。随后读 [0.AX 元 Skill 生态源码审计](WF_0AX_META_SKILL_ECOLOGY_ACTUAL_CAPABILITY_AUDIT_20261026.md) 与 [0.AW 三开源项目源码研究](WF_0AW_OPEN_SOURCE_SELF_EVOLUTION_CODE_REVIEW_20261026.md)。**此节覆盖下方仍称 0.AV“尚未启动实写”的历史交接时态**；旧文和旧失败原件保留，不再按旧建议重复收费生成。
+
+- **实际元 Skill**：`.agents/skills/observe-before-next-choice/` 已有标准 SKILL.md、SHADOW `capsule.json`（SHA256 `42cad98118dea662cea472f708ef1de22f4bb139da3210b1f5c3c1f9ac12664d`）、纯 Python 可移植封装、synthetic fixture。工程双封装 GREEN [#40352617638](https://github.com/66tyu55/WriterForge/actions/runs/40352617638)，当时 **1,854 tests、10 skipped**。证明相同认知合同在两个 **adapter envelopes** 运行，**不证明两个独立真实 AI 宿主的文学增益**。V98 先前缺给真正正文写作阶段的签名前文，已由原 `v98_rolling_causal_planner.py`、`writing_assist.py` 修复；G+V98 开关默认仍关闭。
+- **双模型实际一试**：[DeepSeek + Discovery GLM-5.3 Actions #40354436598](https://github.com/66tyu55/WriterForge/actions/runs/40354436598) 的原始 artifact **12664209371**。预先 8 次封顶、两新合成题、旧稿/提示词源 SHA。实际 4 次请求（7200 completion token 预留，不是账单）；3 份原始模型正文返回，最后一份 GLM habit 组 HTTP 429 **没有生成可用正文**，余下4次没有调用、没有重试。DeepSeek 无线电 control 253字 / habit 214字，两种行为都可成立，没有独立盲评；GLM control 267字、habit 缺失。文学价值和跨模型受益**UNPROVEN**。真实是两种模型 API **在同一个 GitHub Actions WF 运行壳中**，并非两个独立 agent 应用。
+- **第一次可停止的元进化**：原 `writerforge/evolution.py` 已加入纯离线 `HabitTrialEvidence`、`HabitTrialDisposition`、`assess_habit_trial_continuation`，根据有签名的真实来源/配对完整性/供应商状态区分 `DORMANT_HOST_RESOURCE` 与 `SHADOW_NEEDS_READER_EVIDENCE`、`DORMANT_NO_PROVEN_VALUE`、`REVIEW_QUARANTINE_LINEAGE`。它**不自动调用模型、不操作 SkillRegistry 或 Canon、不授予晋级**。新增九项合成 RED→原模块实现，真实旧 wire 无修改地零费用重放 [#40356733598](https://github.com/66tyu55/WriterForge/actions/runs/40356733598)，最终 **1,868 tests、10 skipped、0 failed**，原 3 份 provider wire SHA 全部重新核对。artifact **12665747871**。
+- **当前合法处置**：**本次实验会话 DORMANT_HOST_RESOURCE / NOT_TESTED_INCOMPLETE；可迁移认知习惯胶囊仍 SHADOW。自动追加模型调用 0 次。** 无 GLM habit 反事实，不得补造，不允许由本实验自动淘汰或进化、不能把 HTTP 429 当语义污染。不触碰 main/Railway/R2/Canon、V26/V98/V119、唯一 NarrativeCore。
+- **下一步不自动执行**：先审核另一 **真实独立 agent 应用宿主** 的实际权限/适配及当前任务容量，再做同胶囊 SHA、跨题材合法重复/有限认知对照与独立读者检验。再次付费须新授权与独立预算，不得重放/覆盖历史已付费原稿；不要仅因 GitHub 语法门禁为 GREEN 就宣称文学技能获得提升。
+
+---
 
 ## 0.AV｜下一窗口最新正式交接：首先验证 WF 是否真正提升文学写作（2026-10-26）
 
