@@ -806,7 +806,7 @@ def main():
         status["provider_completion_tokens_reserved"]=(
             cap.output_reservations)
         status["total_reserved_tokens_including_original_red"]=(
-            cap.output_reservations+7900)
+            cap.output_reservations+10000)
         for label,writer in (("A",a_writer),("B",b_writer)):
             if writer is not None:
                 status[label+"_wire_events"]=writer.public_events()
@@ -868,8 +868,74 @@ def source_six_only_preflight():
     print("WF0AV_ACTUAL_SOURCE_ONLY_SIX_WIRES_PASS_NO_NEW_MODEL_CALLS")
 
 
+
+def source_eight_only_preflight():
+    """Source-lock ALL EIGHT previously paid REAL outputs, no new provider.
+
+    A must finish all five authored paragraphs. B must accept the true
+    fourth response as the original author's source-true replanning,
+    then halt *before* asking the next (as yet unwritten) prose paragraph.
+    A failing original response is never regenerated to refresh a green test.
+    """
+    global ROOT
+    ROOT=Path("wf0av_source_eight_offline_validation_only")
+    require(not ROOT.exists(),"WF0AV_EIGHT_SOURCE_PREFLIGHT_NEVER_OVERWRITE")
+    ROOT.mkdir(parents=True)
+    first_two=load_first_two_original_replies()
+    third=load_third_original_response()
+    fourth_fifth=load_fourth_fifth_original_responses()
+    sixth=load_sixth_original_response()
+    seventh_A,first_B_replan=load_seventh_A_and_first_B_replan()
+    saved_A=first_two+(third,)+fourth_fifth+(sixth,seventh_A)
+    require(len(saved_A)==7,"WF0AV_SOURCE_EIGHT_A_INCOMPLETE")
+    cap=AggregateCap()
+    cap.calls=MAX_TOTAL_PAID_CALLS
+    fake_key="offline-no-network-key-valid-0123456789"
+    a_writer=WireWriter("A",fake_key,cap,replay=saved_A)
+    a=run_arm("A",a_writer)
+    require(len(a["turns"])==5 and len(a_writer.events)==7 and
+            all(e["paid_call"] is False for e in a_writer.events) and
+            a["evidence"]["g_writer_v98_opt_in"] is False,
+            "WF0AV_PREVIOUS_REAL_A_FIFTH_PROSE_DID_NOT_COMPLETE_OLD_G")
+    prefix=[dict(a_writer.events[i],raw_response=a_writer.outputs[i])
+            for i in range(3)]
+    b_writer=WireWriter("B",fake_key,cap,replay=prefix+(first_B_replan,))
+    try:
+        run_arm("B",b_writer)
+    except Exception as e:
+        need=str(e)
+        require("WF0AV_HARD_GLOBAL_PROVIDER_BUDGET_EXHAUSTED" in need and
+                len(b_writer.events)==5 and
+                all(row["paid_call"] is False for row in b_writer.events[:4]) and
+                b_writer.events[3]["wire_sha256"]==B_FIRST_REPLAN_RAW_SHA,
+                "WF0AV_B_REAL_AUTHOR_NEW_SOURCE_PLAN_NOT_ACCEPTED:"
+                +type(e).__name__+":"+need[:150])
+    else:
+        raise RuntimeError("WF0AV_B_DRYRUN_UNEXPECTEDLY_SPENT_NO_AUTHOR_B_PROSE")
+    B_plans=list((ROOT/"B"/"g-candidate-only").rglob(
+        "chapter-001-replan-02-raw.json"))
+    require(len(B_plans)==1 and
+            h(json.loads(B_plans[0].read_text("utf8"))
+              ["basis_effect_quote"])==
+            h("控制台上，停电倒计时的数字一格一格往下掉，医院那一栏的水压读数始终没有出现。"),
+            "WF0AV_B_PRIOR_MODEL_ALTERNATE_SOURCE_WAS_NOT_PRESERVED")
+    save_json(ROOT/"OFFLINE_SOURCE_EIGHT_PASS.json",{
+        "status":"REAL_SOURCE_A_FIVE_TURNS_COMPLETED_B_V98_PASSED_NO_MODEL",
+        "source_paid_wires":8,"provider_calls_now":0,
+        "original_A_new_fifth_prose_used":True,
+        "A_whole_chapter_sha256":a["sha256"],
+        "B_original_next_beat_provider_sha256":B_FIRST_REPLAN_RAW_SHA,
+        "B_next_prose_call_intercepted_without_spending":True,
+        "B_author_selected_different_literal_prior_detail":True,
+        "V98_causal_relation_independently_verified":False,
+        "R2_writes":0,"Canon_writes":0})
+    print("WF0AV_EIGHT_REAL_PROVIDER_WIRES_A_FIVE_PROSE_B_V98_PASS_NO_NEW_MODEL",flush=True)
+
+
 if __name__=="__main__":
-    if "--source-six-preflight" in sys.argv:
+    if "--source-eight-preflight" in sys.argv:
+        source_eight_only_preflight()
+    elif "--source-six-preflight" in sys.argv:
         source_six_only_preflight()
     elif "--preflight" in sys.argv:
         import inspect
