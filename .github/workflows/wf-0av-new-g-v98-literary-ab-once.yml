@@ -5,6 +5,7 @@ on:
     branches: [refactor-unified-scene-delivery-audit]
     paths:
       - experiments/wf_0av_new_waterworks_g_v98_real_literary_ab_once_20261026.py
+      - .github/workflows/wf-0av-new-g-v98-literary-ab-once.yml
       - experiments/WF_0AV_NEW_WATERWORKS_G_V98_LIVE_ONCE_20261026.txt
 
 permissions:
@@ -35,6 +36,52 @@ jobs:
           python -m experiments.wf_0av_new_waterworks_g_v98_real_literary_ab_once_20261026 --preflight
       - name: Full zero-model regression before charging existing author
         run: python -m unittest discover -s tests -q
+      - name: Restore original TWO paid DeepSeek response wires from FAILED first run (no reauthor)
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40283464818
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_prior_failed_source
+      - name: Restore real paragraph THREE, paid once but refused by old V120
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40285930972
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_third_paid_source
+      - name: Restore original fourth and fifth DeepSeek prose; actual V118 failed only AFTER these
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40286835621
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_fifth_paid_source
+      - name: Restore sixth true author paragraph from the rejected old scene-delivery gate; no repayment
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40287701471
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_sixth_paid_source
+      - name: Restore genuine A fifth prose and B author-selected V98 replan from latest RED
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40294657373
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_seventh_eighth_source
+      - name: Source eight entire author evidence dry replay before enabling any provider secret
+        run: python -m experiments.wf_0av_new_waterworks_g_v98_real_literary_ab_once_20261026 --source-eight-preflight
+      - name: Always retain read-only source-eight preflight receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AV-Source-Eight-Offline-Source-Guard-Only
+          path: wf0av_source_eight_offline_validation_only/
+          retention-days: 90
+          if-no-files-found: warn
+
 
   bounded-new-provider-literary-ab:
     needs: [no-model-source-preflight]
