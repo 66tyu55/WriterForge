@@ -33,8 +33,8 @@ PROJECT="wf0av-fresh-waterworks-ab"
 SCENE="waterworks-inspection-night"
 MODEL="deepseek-flash"
 API="https://api.deepseek.com/v1"
-MAX_TOTAL_PAID_CALLS=16
-MAX_TOTAL_RESERVED_COMPLETION_TOKENS=31900
+MAX_TOTAL_PAID_CALLS=15
+MAX_TOTAL_RESERVED_COMPLETION_TOKENS=31250
 SIXTH_ORIGINAL_RUN_ID=40287701471
 SIXTH_SOURCE=Path('wf0av_sixth_paid_source')
 SIXTH_RAW_SHA='3ee8c12e50aad171af51e6d2f1ef243d8fd2508e4a508766bb52917ce4646e13'
@@ -50,6 +50,12 @@ B_REJECTED_T03_PLAN_WIRE_SHA="c0ca3087e3b0513ad1100e8c83a96a2a8b0410451b70a31cf9
 B_FIRST_REPLAN_OLD_PROMPT_SHA="d44526267244a96a015e6a51a5c245be082665268258788441e44a6aa2b91d62"
 B_SECOND_PROSE_OLD_PROMPT_SHA="3d2576bbad59860fc1e4fcd3a981777cdac64c967061709a9dc6a5f00d487b56"
 B_REJECTED_T03_OLD_PROMPT_SHA="71694fc77f0ef9eda7e966d67c7ea74ed36155b6213b372cd999f08e32395362"
+ELEVENTH_ORIGINAL_RUN_ID=40321793262
+ELEVENTH_SOURCE=(Path("wf0av_eleventh_paid_source")/
+    "wf_0av_new_waterworks_g_v98_real_literary_ab_20261026")
+B_TRUE_T03_PLAN_RAW_SHA="ddbb093fb6b1006d9d82169f6233378ecf68da667eea8eae6c6941a268335711"
+B_TRUE_T03_PLAN_PROMPT_SHA="37df8c380a969518ad3696269aaab7cdc82fb9256e52eb9dd9eab7e49009df7c"
+
 FIFTH_ORIGINAL_RUN_ID=40286835621
 FIFTH_SOURCE=Path("wf0av_fifth_paid_source")
 FOURTH_FIFTH_RAW_SHA=(
@@ -105,7 +111,7 @@ TASK={"format":"wf.0av.new-original-a-b-preregistered.v1",
       "per_turn_target_chinese_chars":[180,320],
       "new_run_max_paid_calls":MAX_TOTAL_PAID_CALLS,
       "new_run_max_reserved_completion_tokens":MAX_TOTAL_RESERVED_COMPLETION_TOKENS,
-      "source_locked_previous_paid_calls":10,
+      "source_locked_previous_paid_calls":11,
       "combined_ceiling_including_previous_trial":26,
       "combined_completion_reservation_ceiling":44000,
       "earlier_failed_provider_run":PRIOR_FAILED_RUN_ID,
@@ -114,6 +120,7 @@ TASK={"format":"wf.0av.new-original-a-b-preregistered.v1",
       "sixth_source_failed_run":SIXTH_ORIGINAL_RUN_ID,
       "seventh_A_and_first_B_source_failed_run":SEVENTH_EIGHTH_ORIGINAL_RUN_ID,
       "ninth_B_prose_and_tenth_invalid_B_plan_run":NINTH_TENTH_ORIGINAL_RUN_ID,
+      "eleventh_real_B_t03_craft_red_run":ELEVENTH_ORIGINAL_RUN_ID,
       "judging":"Two opposite-order BLIND same-family DeepSeek scores, never WF truth",
       "pre_registered_dimensions":[
           "人物选择真实性","后果改变下一步","动作重复","真实物品及时间连续性",
@@ -564,6 +571,79 @@ def load_ninth_B_prose_and_tenth_rejected_plan():
         "new_R2_or_Canon_writes":0})
     return preserved[0]
 
+
+def load_eleventh_B_true_t03_replan_with_optional_craft_source():
+    """The ORIGINAL t03 writer choice is valid except optional craft hints.
+
+    DeepSeek's 11th real reply selected Lin Huai, a new decision, and
+    genuine preceding prose. The old V98-->V96 route rejected only
+    craft_focus's three tags. Read the same provider bytes, never ask the
+    author to rewrite his event to satisfy nonliterary metadata. The ONLY
+    derived adaptation is original V98's bounded optional craft projection,
+    with the complete raw three-tag answer archived unchanged.
+    """
+    trial=json.loads((ELEVENTH_SOURCE/"STATUS.json").read_text("utf8"))
+    require(trial["status"]=="REAL_AB_SAFE_PARTIAL_FAILURE_NOT_RETRIED"
+            and trial["failure_code"]==
+                "WF96_SCENE_TURN_REJECTED_WF98_NEXT_TURN_V96_OUTLINE_REJECTED_WF96_TURN_PLAN_FIELDS_ID_OR_CRAFT_INVALID"
+            and trial["provider_calls"]==1
+            and trial["total_paid_calls_including_original_red"]==11
+            and trial["provider_completion_tokens_reserved"]==650
+            and trial["prior_paid_calls_not_recharged"]==10,
+            "WF0AV_ELEVENTH_TRUE_MODEL_PLAN_FAILURE_ID_DRIFT")
+    events=trial["B_wire_events"]
+    require(len(events)==6 and
+            [e["wire_sha256"] for e in events[:3]]==
+                list(PRIOR_RAW_SHA)+[THIRD_RAW_SHA]
+            and events[3]["wire_sha256"]==B_FIRST_REPLAN_RAW_SHA
+            and events[4]["wire_sha256"]==B_SECOND_PROSE_WIRE_SHA
+            and all(e["paid_call"] is False for e in events[:5]),
+            "WF0AV_ELEVENTH_NOT_PAIRED_TO_TEN_FROZEN_WIRES")
+    event=events[5]
+    raw=(ELEVENTH_SOURCE/"B"/"original-provider-wires"/
+         "06-paid.json").read_bytes()
+    require(h(raw)==B_TRUE_T03_PLAN_RAW_SHA and
+            event["model"]==MODEL and event["index"]==6 and
+            event["wire_sha256"]==B_TRUE_T03_PLAN_RAW_SHA and
+            event["prompt_sha256"]==B_TRUE_T03_PLAN_PROMPT_SHA and
+            event["reserved_output_tokens"]==650 and
+            event["paid_call"] and event["saved_before_json_decode"],
+            "WF0AV_ELEVENTH_ORIGINAL_PROVIDER_AND_REQUEST_SHA_CHANGED")
+    envelope=json.loads(raw)
+    require(envelope["model"]==MODEL and
+            len(envelope["choices"])==1 and
+            envelope["choices"][0]["finish_reason"]=="stop",
+            "WF0AV_ELEVENTH_MODEL_FINISH_DRIFT")
+    doc=json.loads(envelope["choices"][0]["message"]["content"])
+    raw_answer=json.dumps(doc,ensure_ascii=False,separators=(",",":"))
+    require(h(raw_answer)==event["returned_json_sha256"] and
+            doc["next_turn"]["id"]=="t03" and
+            doc["next_turn"]["causal_parent"]=="t02" and
+            doc["next_turn"]["actor"]=="林槐" and
+            doc["next_turn"]["craft_focus"]==
+                ["dialogue","interiority","decision"] and
+            doc["basis_effect_quote"]=="对讲机里只剩电流声了。",
+            "WF0AV_ELEVENTH_TRUE_T03_CHOICE_NOT_ORIGINAL")
+    fname=f"11-origin-run-{ELEVENTH_ORIGINAL_RUN_ID}-B.json"
+    dest=ROOT/"upstream-immutable-wire-copies"/fname
+    require(not dest.exists(),"WF0AV_ELEVENTH_REAL_WIRE_OVERWRITE")
+    dest.write_bytes(raw)
+    save_json(ROOT/"RECOVERED_ELEVENTH_AUTHOR_CHOICE.json",{
+        "run":ELEVENTH_ORIGINAL_RUN_ID,
+        "provider_wire_sha256":B_TRUE_T03_PLAN_RAW_SHA,
+        "original_provider_prompt_sha256":B_TRUE_T03_PLAN_PROMPT_SHA,
+        "original_next_goal_sha256":h(doc["next_turn"]["goal"]),
+        "original_craft_focus":doc["next_turn"]["craft_focus"],
+        "original_model_reply_never_overwritten":True,
+        "only_optional_craft_projection_can_be_derived":True,
+        "author_id_actor_goal_parent_and_source_quotes_not_reauthored":True,
+        "prior_paid_calls_not_recharged":1,
+        "prior_reserved_completion_tokens_not_recharged":650,
+        "R2_writes":0,"Canon_writes":0})
+    return dict(event,raw_response=raw_answer,source_arm="B",
+                raw_bytes_owned_by="upstream-immutable-wire-copies/"+fname)
+
+
 class AggregateCap:
     def __init__(self):
         self.calls=0
@@ -806,8 +886,8 @@ def main():
         "status":"PRE_REGISTERED_NO_CALLS",
         "model":MODEL,"A":None,"B":None,
         "provider_calls":0,"budget_limit":MAX_TOTAL_PAID_CALLS,
-        "prior_paid_calls_not_recharged":10,
-        "prior_reserved_completion_tokens_not_recharged":12100,
+        "prior_paid_calls_not_recharged":11,
+        "prior_reserved_completion_tokens_not_recharged":12750,
         "provider_completion_tokens_reserved":0,
         "judge":None,"literary_uplift_proven":False,
         "human_blind_grade":False,"originals_not_overwritten":True,
@@ -829,6 +909,7 @@ def main():
         sixth=load_sixth_original_response()
         seventh_A,first_B_replan=load_seventh_A_and_first_B_replan()
         B_second_prose=load_ninth_B_prose_and_tenth_rejected_plan()
+        B_true_t03_plan=load_eleventh_B_true_t03_replan_with_optional_craft_source()
         a_writer=WireWriter("A",key,cap,
             replay=previous_two+(third,)+fourth_fifth+(sixth,seventh_A))
         a=run_arm("A",a_writer)
@@ -841,7 +922,7 @@ def main():
             "wire_sha256s":[x["wire_sha256"] for x in prefix],
             "prompt_sha256s":[x["prompt_sha256"] for x in prefix],
             "repaid_for_B":False,"same_author_originals_preserved":True})
-        b_writer=WireWriter("B",key,cap,replay=tuple(prefix)+(first_B_replan,B_second_prose))
+        b_writer=WireWriter("B",key,cap,replay=tuple(prefix)+(first_B_replan,B_second_prose,B_true_t03_plan))
         b=run_arm("B",b_writer)
         ca,cb=len(a["prose"]),len(b["prose"])
         ratio=cb/max(ca,1)
@@ -861,13 +942,15 @@ def main():
             "eighth_original_B_v98_plan_wire_sha256":B_FIRST_REPLAN_RAW_SHA,
             "ninth_original_B_second_prose_wire_sha256":B_SECOND_PROSE_WIRE_SHA,
             "tenth_rejected_B_t03_plan_wire_sha256":B_REJECTED_T03_PLAN_WIRE_SHA,
+            "eleventh_original_B_t03_plan_wire_sha256":B_TRUE_T03_PLAN_RAW_SHA,
+            "eleventh_optional_craft_labels_only_projected":True,
             "prior_tenth_plan_not_accepted_by_writer_core":True,
             "B_first_replan_historical_prompt_drift_explicitly_reported":True,
-            "prior_new_paid_calls_not_recharged":10,
+            "prior_new_paid_calls_not_recharged":11,
             "original_red_wire_sha256s":list(PRIOR_RAW_SHA),
-            "combined_paid_calls_including_original_red":cap.calls+10,
+            "combined_paid_calls_including_original_red":cap.calls+11,
             "combined_reserved_output_tokens_including_original_red":(
-                cap.output_reservations+12100),
+                cap.output_reservations+12750),
             "B_new_paid_model_calls":b_writer.budget.calls_reserved,
             "B_shared_source_calls_not_rebilled":3,
             "A_provider_usage":a_writer.budget.public_receipt(),
@@ -936,11 +1019,11 @@ def main():
             else type(error).__name__+":NO_BILLABLE_RETRY")
     finally:
         status["provider_calls"]=cap.calls
-        status["total_paid_calls_including_original_red"]=cap.calls+10
+        status["total_paid_calls_including_original_red"]=cap.calls+11
         status["provider_completion_tokens_reserved"]=(
             cap.output_reservations)
         status["total_reserved_tokens_including_original_red"]=(
-            cap.output_reservations+12100)
+            cap.output_reservations+12750)
         for label,writer in (("A",a_writer),("B",b_writer)):
             if writer is not None:
                 status[label+"_wire_events"]=writer.public_events()
@@ -948,7 +1031,7 @@ def main():
         save_json(ROOT/"STATUS.json",status)
         print("WF0AV_STATUS "+json.dumps({
             "status":status["status"],"paid_calls":cap.calls,
-            "paid_calls_including_prior_red":cap.calls+10,
+            "paid_calls_including_prior_red":cap.calls+11,
             "completion_tokens_reserved":cap.output_reservations,
             "A_prose":status["A"],"B_prose":status["B"],
             "error":status.get("failure_code"),
