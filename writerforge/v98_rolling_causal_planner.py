@@ -257,6 +257,28 @@ def prepare_replan_instructions(*,accepted,seed_next_beat,
     # choice remains with the original writer, not with a host-written beat.
     source_parent_id=previous["beat_id"]
     next_turn_id=seed_next_beat["id"]
+    # 0.AV actual B+ prose: t04 re-cut an already-cut signal because V98
+    # only exposed t03 and a stale static beat, not t01's real switch
+    # operation. Let the SAME writer actually reread bounded earlier prose.
+    # No host summary, inferred holder, automatic chronology judgment or
+    # fabricated event. Each visible earlier source MUST retain its signed
+    # V96 prose receipt; a mismatched byte aborts before the next model call.
+    recent_prior_literal=""
+    if allow_g_prose_only and len(accepted)>1:
+        source_parts=[]
+        for original in accepted[-3:-1]:
+            verified=g_source_replan_eligibility(
+                (original,),allow_prose_only=True)
+            require(verified["eligible"],
+                    "WF98_PRIOR_LITERAL_PROSE_SOURCE_NOT_VERIFIED")
+            source_parts.append(
+                "\n【"+original["beat_id"]+" 实际已写正文 / SHA256 "+
+                verified["source_sha256"]+"】\n"+
+                original["prose"][-320:])
+        recent_prior_literal=(
+            "\n【更早两段的真实正文来源；顺序不等于因果，"
+            "人物猜想不等于已知事实】"+
+            "".join(source_parts))
     structural_example={
         "next_turn":{
             "id":next_turn_id,
@@ -291,6 +313,7 @@ def prepare_replan_instructions(*,accepted,seed_next_beat,
          if pending else "")
        +"\n【原来的下一事件建议，可根据实际变化改写，但不是已成立事实】\n"
        +json.dumps(seed_next_beat,ensure_ascii=False,separators=(",",":"))
+       +recent_prior_literal
        +"\n【已登场可选视角人物，不可虚构未出场的新身份】"
        +json.dumps(allowed_actor_names,ensure_ascii=False)
        +("\n【因果关系需审慎核实】先前两句字面先后只证明来源；"
