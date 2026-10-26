@@ -31,7 +31,7 @@ class FrozenSixGReviewSourceProtocol(unittest.TestCase):
         self.assertIn('ORIGINAL_PROSE_SHAS',verify)
         self.assertIn('raw_provider_sha256',verify)
         self.assertIn('finish_reason',verify)
-        self.assertIn('source_prose_sha256',verify) if False else None
+        self.assertIn('r["prose_sha256"]',verify)
         self.assertLess(main.index('freeze_original_six()'),
                         main.index('model=SixOriginalReviews(key)'))
         self.assertIn('new_writer_prose_calls',main)
