@@ -228,6 +228,40 @@ def g_source_replan_eligibility(accepted,*,allow_prose_only=False):
     }
 
 
+def author_signed_prior_prose_for_writer(accepted):
+    """Give the actual prose-writing author short, signed *earlier* source.
+
+    Real 0.AV B++ t05 repeated a switch already cut at t01: V98's next
+    *planning* call could see signed t01, but the subsequent *prose* call
+    still relied on a frozen chapter plan. No inferred action inventory,
+    model-written summary or literary judgement is emitted here.
+
+    This is only input data for the author; nothing is promoted to KNOWN.
+    The current last turn is already passed through existing V96 prose
+    context. Older excerpts can never be trusted without their full V96
+    receipt hash and exact-prose hash being verified again.
+    """
+    require(type(accepted) in (tuple,list) and len(accepted)<=12,
+            "WF98_G_WRITER_SIGNED_HISTORY_INVALID")
+    if len(accepted)<2:
+        return ""
+    # Verify *all* exposed/linked history, including the last turn whose
+    # excerpt is already supplied by the existing turn writer route.
+    for turn in accepted:
+        proof=g_source_replan_eligibility((turn,),allow_prose_only=True)
+        require(proof["eligible"],"WF98_G_WRITER_SOURCE_RECEIPT_INVALID")
+    rows=[]
+    for turn in accepted[-3:-1]:
+        rows.append("\n【"+turn["beat_id"]+" 早前原作者正文 / SHA256 "+
+                    turn["receipt"]["prose_sha256"]+"；来源不等于已证因果】\n"+
+                    turn["prose"][-320:])
+    context=("\n【更早真实正文，仅供当前写作AI理解既有选择；不自动判断人物动机、"
+             "物件状态和因果；是否重试或改变行动由作者决定】"+
+             "".join(rows))
+    require(len(context)<=2000,"WF98_G_WRITER_SOURCE_WINDOW_BUDGET")
+    return context
+
+
 def prepare_replan_instructions(*,accepted,seed_next_beat,
                                 allowed_actor_names,allow_g_prose_only=False):
     require(type(allow_g_prose_only) is bool,
