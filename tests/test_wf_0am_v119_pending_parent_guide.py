@@ -63,7 +63,7 @@ class RepairGuideDoesNotInventObservedOutcomes(unittest.TestCase):
         self.assertEqual(doc["actual_previous_pending_action_quote"],
                          HISTORY_ACTION)
         self.assertTrue(doc["previous_parent_effect_unobserved"])
-        self.assertTrue(doc["unverified_relation_cannot_become_downstream_fact"])
+        self.assertTrue(doc["physical_relation_source_evidence"]["unverified_relation_cannot_become_downstream_fact"])
         self.assertEqual(doc["downstream_after_change"],
                          "MUST_REGENERATE_FROM_REVISED_SOURCE")
 
