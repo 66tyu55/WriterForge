@@ -69,6 +69,8 @@ on:
       - tests/test_wf_0as_real_writer_review_stage_isolation.py
       - tests/test_wf_0as_six_real_review_only_protocol.py
       - tests/test_wf_0at_signed_source_question_in_author_review.py
+      - tests/test_wf_0at_two_real_author_source_review_protocol.py
+      - experiments/wf_0at_two_real_author_signed_source_reviews_once_20261026.py
       - experiments/wf_0as_real_six_same_writer_self_review_once_20261026.py
       - experiments/wf_0ao_frozen_real_deepseek_plan_prose_once_20261026.py
       - experiments/wf_0am_real_history_same_model_g_once_20261026.py
