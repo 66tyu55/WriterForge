@@ -1,6 +1,21 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.AU｜真正推动写作的 G+V98 逐段构思实验入口（2026-10-26）
+
+**最新文档**：[WF_0AU_G_V98_PROSE_DRIVEN_WRITER_PLANNING_20261026.md](WF_0AU_G_V98_PROSE_DRIVEN_WRITER_PLANNING_20261026.md)。**最新完整零模型回归**：[GitHub Actions #40279156590](https://github.com/66tyu55/WriterForge/actions/runs/40279156590)：**1808 tests、10 skipped、0 failed**。
+
+- 上一次0.AS/0.AT的真正实测只是纠正审稿JSON输出合同：六次真DeepSeek写后决定从2/6有效到6/6有效，但6/6都是MOVE_ON；带有来源双引句疑点的另外两次也都MOVE_ON。这无法证明WF使文学文本变好了；不能继续无休止追加提醒、堆Review模块或强求模型删句。
+- 这次提升重点改**模型真正写作前的构思时机**：原G continuity_guard使用一次冻结的多beat计划，容易在已写事实变化后重复封套、换马、传令。现仅在原 `writerforge/writing_assist.py::AutonomousWriting.run` 的G线路新增 opt-in `g_rolling_author_planning=False`；开启时复用**已有 V98**让同一个写作AI以真正前文来重新选择下一beat。WF不代写情节，不当文学裁判，V26、V119、统一NarrativeCore维持原有角色。
+- 原 `writerforge/v98_rolling_causal_planner.py:g_source_replan_eligibility` 验前一段真实原文及完整SHA回执，允许有来源的原动作/后果或后果尚待观察的真实决定；**最后一段是TRACE_REJECTED或安静无效果时，不跳过前文偷用旧因果**，不额外付费构思，按旧冻结下一beat继续并留 signed source-only SKIP回执。hash伪造拒绝，不把时间承接升级KNOWN。
+- 预览/回滚：新增rolling相关派生列表纳入G原有上一段回改snapshot；章节源回执现在导出 `g_writer_v98_opt_in`、候选rolling beat和跳过原因，文学胜负始终未验证。0.AU新测试已在全量套件中执行。**暂不默认开启**。
+- **下一项必须是实测文学效果**：比较同一模型同一场景、可比生成预算的旧G vs G+V98 opt-in 的真正逐段写作，标出重复动作和人物已知/未知矛盾的变化，同时保留双方原始provider wire、正文SHA、写后决定、两序盲评分和失败。若不能证明写作改善，不能将开关设为默认，也不许反向逼AI迎合评审。
+- 禁令：只 `refactor-unified-scene-delivery-audit`；main、Railway、R2原著、正式Canon零改，不能新建第二文学记忆；不能为了“绿”重写0.AQ旧六段，旧0.AM/0.AO/0.AP原始失败保留。
+
+---
+
+
+
 ## 0.AR—0.AT 最新｜WF 写作帮助的实测提升与下一项核心缺口（2026-10-26）
 
 **最新第一阅读**：[0.AR—0.AT真实六段作者与自审改进报告](WF_0AR_0AS_0AT_REAL_WRITER_REVIEW_STAGE_LITERARY_UPLIFT_20261026.md)。唯一分支 refactor-unified-scene-delivery-audit。原始 0.AQ G 六段小说 SHA d1b86f2b6430b80bdb70df70199b9644e0a0b041ab842a81abc0a625c29cb0e3，不再重写旧原作家正文或旧模型计划。
