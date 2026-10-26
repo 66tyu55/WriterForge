@@ -42,7 +42,7 @@ jobs:
       github.repository == '66tyu55/WriterForge' &&
       github.ref_name == 'refactor-unified-scene-delivery-audit' &&
       github.run_attempt == 1 &&
-      github.event.head_commit.message == 'experiment(0.AV): FIRE NEW WATERWORKS SAME-DEEPSEEK G VS G-V98 LITERARY A-B ONCE'
+      github.event.head_commit.message == 'experiment(0.AV): CONTINUE FROM TWO SAVED REAL WIRES AFTER V96 REPAIR ONCE'
     runs-on: ubuntu-latest
     timeout-minutes: 48
     steps:
@@ -56,13 +56,38 @@ jobs:
         run: python -m pip install -e '.[r2]'
       - name: Prove exact one-shot and no R2 or other model credentials
         run: |
-          test "$(cat experiments/WF_0AV_NEW_WATERWORKS_G_V98_LIVE_ONCE_20261026.txt)" = "WF0AV_NEW_WATERWORKS_SOURCE_LOCKED_SAME_AUTHOR_AB_NO_R2"
+          test "$(cat experiments/WF_0AV_NEW_WATERWORKS_G_V98_LIVE_ONCE_20261026.txt)" = "WF0AV_SOURCE_LOCKED_TWO_OLD_PROVIDER_WIRES_V96_REPAIRED_NEW_PROSE"
           python - <<'PY'
           import os
           assert not any(os.environ.get(k) for k in (
               'WRITERFORGE_R2_ACCOUNT_ID','WRITERFORGE_R2_ACCESS_KEY_ID',
               'OPENAI_API_KEY','DISCOVERY_API_KEY','OPENROUTER_API_KEY'))
           print("0.AV: no R2, other vendor or user original.")
+          PY
+      - name: Restore original TWO paid DeepSeek response wires from FAILED first run (no reauthor)
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40283464818
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_prior_failed_source
+      - name: Source-only preflight the original paid RED model plan after V96 fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          from writerforge.v96_causal_turns import parse_turn_outline
+          from writerforge.writing_assist import _normalize_optional_model_craft_labels
+          from hashlib import sha256
+          root=Path("wf0av_prior_failed_source")
+          source=(root/"A"/"original-provider-wires"/"02-paid.json").read_bytes()
+          assert sha256(source).hexdigest()=="f7b64df21080e7a196dc9e8babaebe94bb267a232ec1a9e2061c3d4598572ca4"
+          original=json.loads(source)["choices"][0]["message"]["content"]
+          normalized,receipt=_normalize_optional_model_craft_labels(original)
+          turns=parse_turn_outline(normalized)
+          assert len(turns)==5 and turns[3]["kind"]=="interiority"
+          assert turns[0]["actor"]=="林槐/许照"
+          print("REAL PAID PREVIOUS DEEPSEEK JSON NOW PASSES ORIGINAL V96: NO MODEL CALL")
           PY
       - name: Same DeepSeek Flash authors two G paths with true source locked prefix
         env:
@@ -81,8 +106,10 @@ jobs:
               "TWO_REAL_AUTHOR_BRANCHES_COMPLETED",
               "TWO_ARMS_TWO_BLIND_ORDER_REPORTS",
               "TWO_ARMS_GRADED_PARTIAL_NO_RETRY")
-          assert data["provider_calls"]<=26
-          assert data["provider_completion_tokens_reserved"]<=44000
+          assert data["provider_calls"]<=24
+          assert data["provider_completion_tokens_reserved"]<=41900
+          assert data["total_paid_calls_including_original_red"]<=26
+          assert data["total_reserved_tokens_including_original_red"]<=44000
           assert data["R2_reads"]==data["R2_writes"]==data["Canon_writes"]==0
           assert not data["main_modified"] and data["Railway_deployments"]==0
           for side in ("A","B"):
