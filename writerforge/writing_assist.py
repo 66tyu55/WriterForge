@@ -3068,8 +3068,9 @@ class AutonomousWriting:
                     "不强迫每段反转。只输出JSON对象turns数组，"
                     "每项字段：id(t01等顺序)、kind(action/decision/"
                     "reversal/setup/dialogue/quiet/aftermath/transition)、"
-                    "actor、goal、causal_parent(前一个action/decision/"
-                    "reversal的id或null)、craft_focus(0到2个："
+                    "actor、goal、causal_parent(之前已规划事件的id或null；"
+                    "对话、安静观察可作顺序承接，但并不证明因果)、"
+                    "craft_focus(0到2个："
                     "dialogue/detail/interiority/pacing/restraint/contrast/"
                     "action/none)。只做滚动短计划，不写正文；"
                     "不把模型猜测变成角色已经知道的事实。",
