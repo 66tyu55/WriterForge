@@ -751,6 +751,27 @@ def _bounded_document_custody_projection(prose,previous_relation_receipt):
             re.fullmatch(r"[0-9a-f]{64}",old["origin_source_sha256"]) is not None,
             "WF122_DOCUMENT_CUSTODY_PRIOR_SOURCE_INVALID")
         active.append(dict(old))
+    earlier_reviews=(previous_relation_receipt or {}).get(
+        "document_custody_open_source_reviews",[])
+    _need(type(earlier_reviews) is list and
+          len(earlier_reviews)<=_DOC_CUSTODY_LIMIT,
+          "WF122_DOCUMENT_CUSTODY_PRIOR_REVIEW_BOUNDS")
+    open_reviews=[]
+    for old in earlier_reviews:
+        _need(type(old) is dict and all(
+            type(old.get(k)) is str and old[k] for k in (
+                "earlier_source_sha256","later_source_sha256",
+                "earlier_source_quote","later_source_quote",
+                "earlier_source_quote_sha256","later_source_quote_sha256")) and
+              old["earlier_source_quote_sha256"]==
+                  _digest(old["earlier_source_quote"]) and
+              old["later_source_quote_sha256"]==
+                  _digest(old["later_source_quote"]) and
+              all(re.fullmatch(r"[0-9a-f]{64}",old[k]) is not None
+                  for k in ("earlier_source_sha256","later_source_sha256")) and
+              old.get("literary_error_proven") is False,
+              "WF122_DOCUMENT_CUSTODY_PRIOR_REVIEW_SOURCE_INVALID")
+        open_reviews.append(dict(old))
     observations=[]
     fresh=[]
     for begin,end,sentence,spoken in _segments(prose):
@@ -858,7 +879,18 @@ def _bounded_document_custody_projection(prose,previous_relation_receipt):
                     break
     _need(len(active)<=_DOC_CUSTODY_LIMIT,
           "WF122_DOCUMENT_CUSTODY_OPEN_LIMIT")
-    return active,observations,fresh
+    seen={(x["earlier_source_quote_sha256"],x["later_source_quote_sha256"],
+           x["later_source_sha256"]) for x in open_reviews}
+    for row in fresh:
+        key=(row["earlier_source_quote_sha256"],
+             row["later_source_quote_sha256"],row["later_source_sha256"])
+        if key in seen:
+            continue
+        _need(len(open_reviews)<_DOC_CUSTODY_LIMIT,
+              "WF122_DOCUMENT_CUSTODY_OPEN_REVIEW_BUDGET")
+        open_reviews.append(dict(row))
+        seen.add(key)
+    return active,observations,fresh,open_reviews
 
 
 def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
@@ -1008,9 +1040,9 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
                         "writer_can_continue_unrelated_scenes":True,
                     })
                     break
-    document_sources,document_observations,document_reviews=(
-        _bounded_document_custody_projection(
-            prose,previous_relation_receipt))
+    (document_sources,document_observations,document_reviews,
+     document_open_reviews)=_bounded_document_custody_projection(
+         prose,previous_relation_receipt)
     payload={
         "format":"wf.v122.source-physical-relation-review.v1",
         "source_sha256":_digest(prose),
@@ -1024,7 +1056,9 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
         "document_custody_open_sources":document_sources,
         "document_custody_source_observations":document_observations,
         "document_custody_current_review_pairs":document_reviews,
+        "document_custody_open_source_reviews":document_open_reviews,
         "document_custody_current_needs_review":bool(document_reviews),
+        "document_custody_prior_debt_not_auto_settled":True,
         "document_custody_authoritative_holder_written":False,
         "document_custody_literary_error_verified":False,
         "open_relation_reviews":open_debts,
