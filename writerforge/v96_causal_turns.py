@@ -29,7 +29,7 @@ MAX_QUOTE_CHARS=96
 MAX_CONTEXT_CHARS=3500
 MAX_APPROVED_EXCLUSIONS=16
 CAUSAL_KINDS=frozenset(("action","decision","reversal"))
-KINDS=CAUSAL_KINDS | {"setup","dialogue","quiet","aftermath","transition"}
+KINDS=CAUSAL_KINDS | {"setup","dialogue","quiet","aftermath","transition","interiority"}
 CRAFT=frozenset((
     "dialogue","detail","interiority","pacing","restraint","contrast",
     "action","none",
@@ -514,7 +514,7 @@ def make_turn_instructions(beat,*,mode,accepted=(),
                   predecessor.get("effect_quote") is None and
                   type(predecessor.get("receipt")) is dict and
                   predecessor["receipt"].get("kind") in
-                     ("setup","dialogue","quiet","aftermath","transition")):
+                     ("setup","dialogue","quiet","aftermath","transition","interiority")):
                 note+=("\n【只承接前文已写的叙事顺序，因果仍未证实】"
                        "前一场没有可引用的实际后果。"
                        "trace.parent_effect_quote 必须是 JSON null。"
