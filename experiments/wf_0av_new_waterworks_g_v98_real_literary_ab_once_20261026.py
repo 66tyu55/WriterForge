@@ -33,11 +33,15 @@ PROJECT="wf0av-fresh-waterworks-ab"
 SCENE="waterworks-inspection-night"
 MODEL="deepseek-flash"
 API="https://api.deepseek.com/v1"
-MAX_TOTAL_PAID_CALLS=20
-MAX_TOTAL_RESERVED_COMPLETION_TOKENS=36100
+MAX_TOTAL_PAID_CALLS=18
+MAX_TOTAL_RESERVED_COMPLETION_TOKENS=34000
 SIXTH_ORIGINAL_RUN_ID=40287701471
 SIXTH_SOURCE=Path('wf0av_sixth_paid_source')
 SIXTH_RAW_SHA='3ee8c12e50aad171af51e6d2f1ef243d8fd2508e4a508766bb52917ce4646e13'
+SEVENTH_EIGHTH_ORIGINAL_RUN_ID=40294657373
+SEVENTH_EIGHTH_SOURCE=Path("wf0av_seventh_eighth_source")
+A_SEVENTH_RAW_SHA="9fdc8ff4cdfaac930b5fd8b524df334844de7183c00cd43e134532dc406977d8"
+B_FIRST_REPLAN_RAW_SHA="c5f74d6bd582f12ce55250a48c22cc457aeb3e31fe68107cc5acc054289ce719"
 FIFTH_ORIGINAL_RUN_ID=40286835621
 FIFTH_SOURCE=Path("wf0av_fifth_paid_source")
 FOURTH_FIFTH_RAW_SHA=(
@@ -93,13 +97,14 @@ TASK={"format":"wf.0av.new-original-a-b-preregistered.v1",
       "per_turn_target_chinese_chars":[180,320],
       "new_run_max_paid_calls":MAX_TOTAL_PAID_CALLS,
       "new_run_max_reserved_completion_tokens":MAX_TOTAL_RESERVED_COMPLETION_TOKENS,
-      "source_locked_previous_paid_calls":6,
+      "source_locked_previous_paid_calls":8,
       "combined_ceiling_including_previous_trial":26,
       "combined_completion_reservation_ceiling":44000,
       "earlier_failed_provider_run":PRIOR_FAILED_RUN_ID,
       "third_source_failed_run":THIRD_ORIGINAL_RUN_ID,
       "fourth_fifth_source_failed_run":FIFTH_ORIGINAL_RUN_ID,
       "sixth_source_failed_run":SIXTH_ORIGINAL_RUN_ID,
+      "seventh_A_and_first_B_source_failed_run":SEVENTH_EIGHTH_ORIGINAL_RUN_ID,
       "judging":"Two opposite-order BLIND same-family DeepSeek scores, never WF truth",
       "pre_registered_dimensions":[
           "人物选择真实性","后果改变下一步","动作重复","真实物品及时间连续性",
@@ -384,6 +389,87 @@ def load_sixth_original_response():
     return dict(ev,raw_response=plain)
 
 
+
+def load_seventh_A_and_first_B_replan():
+    """Two REAL charged wires from 40294657373, never re-bill either one.
+
+    A authored the previously unwritten final paragraph. B authored a
+    *different*, genuinely source-literal next-beat plan that old V98
+    incorrectly rejected for not matching V96's one preferred effect quote.
+    After a source-only RED -> original-V98 FIX we validate this exact
+    proposal. Never ask DeepSeek to generate a substitute just to please
+    the software.
+    """
+    trial=json.loads((SEVENTH_EIGHTH_SOURCE/"STATUS.json").read_text("utf8"))
+    require(trial["status"]=="REAL_AB_SAFE_PARTIAL_FAILURE_NOT_RETRIED"
+            and trial["failure_code"]==
+                "WF96_SCENE_TURN_REJECTED_WF98_REPLAN_NOT_ANCHORED_TO_ACTUAL_EFFECT"
+            and trial["provider_calls"]==2
+            and trial["total_paid_calls_including_original_red"]==8
+            and trial["provider_completion_tokens_reserved"]==2100,
+            "WF0AV_PAID_SEVENTH_EIGHTH_SOURCE_FAILURE_IDENTITY_DRIFT")
+    a_events=trial["A_wire_events"]
+    b_events=trial["B_wire_events"]
+    expected=(
+        list(PRIOR_RAW_SHA)+[THIRD_RAW_SHA]+
+        list(FOURTH_FIFTH_RAW_SHA)+[SIXTH_RAW_SHA])
+    require(len(a_events)==7 and
+            [e["wire_sha256"] for e in a_events[:6]]==expected and
+            all(e["paid_call"] is False for e in a_events[:6]) and
+            len(b_events)==4 and
+            [e["wire_sha256"] for e in b_events[:3]]==expected[:3] and
+            all(e["paid_call"] is False for e in b_events[:3]),
+            "WF0AV_EIGHT_PREVIOUS_WIRES_NOT_SINGLE_SOURCE_LOCKED")
+    restored=[]
+    for side,index,sha,kind in (
+        ("A",7,A_SEVENTH_RAW_SHA,"prose"),
+        ("B",4,B_FIRST_REPLAN_RAW_SHA,"replan"),
+    ):
+        original=(SEVENTH_EIGHTH_SOURCE/side/"original-provider-wires"/
+                  f"{index:02d}-paid.json")
+        wire=original.read_bytes()
+        event=(a_events if side=="A" else b_events)[index-1]
+        require(h(wire)==sha and event["wire_sha256"]==sha and
+                event["model"]==MODEL and event["index"]==index and
+                event["paid_call"] is True and
+                event["saved_before_json_decode"] is True and
+                event["reserved_output_tokens"]==
+                    (1450 if kind=="prose" else 650),
+                "WF0AV_PREVIOUS_SOURCE_WIRE_SHA_OR_TOKEN_DRIFT")
+        envelope=json.loads(wire)
+        require(envelope["model"]==MODEL and
+                len(envelope["choices"])==1 and
+                envelope["choices"][0]["finish_reason"]=="stop",
+                "WF0AV_PREVIOUS_SEVENTH_EIGHTH_MODEL_NOT_STOPPED")
+        doc=json.loads(envelope["choices"][0]["message"]["content"])
+        response=json.dumps(doc,ensure_ascii=False,separators=(",",":"))
+        require(h(response)==event["returned_json_sha256"] and
+                type(doc) is dict and
+                (type(doc.get("prose")) is str and
+                 type(doc.get("trace")) is dict if kind=="prose" else
+                 type(doc.get("next_turn")) is dict and
+                 type(doc.get("basis_effect_quote")) is str),
+                "WF0AV_SEVENTH_EIGHTH_MODEL_JSON_DRIFT")
+        fname=f"{7 if side=='A' else 8:02d}-origin-run-{SEVENTH_EIGHTH_ORIGINAL_RUN_ID}-{side}.json"
+        dest=ROOT/"upstream-immutable-wire-copies"/fname
+        require(not dest.exists(),"WF0AV_SEVENTH_EIGHTH_ORIGINAL_WIRE_OVERWRITE")
+        dest.write_bytes(wire)
+        restored.append(dict(event,raw_response=response,
+                             source_arm=side,
+                             raw_bytes_owned_by="upstream-immutable-wire-copies/"+fname))
+    save_json(ROOT/"RECOVERED_SEVENTH_EIGHTH_WIRES.json",{
+        "run":SEVENTH_EIGHTH_ORIGINAL_RUN_ID,
+        "raw_sha256":{ "A_last_prose":A_SEVENTH_RAW_SHA,
+                      "B_first_source_replan":B_FIRST_REPLAN_RAW_SHA},
+        "A_original_prose_unchanged":True,
+        "B_original_writer_replan_unchanged":True,
+        "original_failed_validation_module":"V98",
+        "prior_model_calls_not_repaid":2,
+        "prior_completion_reservations_not_repaid":2100,
+        "source_only_fixes_may_not_promote_narrative_KNOWN":True})
+    return tuple(restored)
+
+
 class AggregateCap:
     def __init__(self):
         self.calls=0
@@ -446,10 +532,10 @@ class WireWriter:
                     prior.get("wire_sha256") and
                     prior.get("saved_before_json_decode"),
                     "WF0AV_IDENTICAL_PREFIX_PROMPT_BUDGET_SOURCE_DRIFT")
-            event.update({"replayed_from":"A",
+            event.update({"replayed_from":prior.get("source_arm","A"),
                           "wire_sha256":prior["wire_sha256"],
                           "saved_before_json_decode":True,
-                          "raw_bytes_owned_by":"A/original-provider-wires"})
+                          "raw_bytes_owned_by":prior.get("raw_bytes_owned_by","A/original-provider-wires")})
             self.outputs.append(prior["raw_response"])
             return prior["raw_response"]
         self.global_cap.reserve(max_tokens)
@@ -591,8 +677,8 @@ def main():
         "status":"PRE_REGISTERED_NO_CALLS",
         "model":MODEL,"A":None,"B":None,
         "provider_calls":0,"budget_limit":MAX_TOTAL_PAID_CALLS,
-        "prior_paid_calls_not_recharged":6,
-        "prior_reserved_completion_tokens_not_recharged":7900,
+        "prior_paid_calls_not_recharged":8,
+        "prior_reserved_completion_tokens_not_recharged":10000,
         "provider_completion_tokens_reserved":0,
         "judge":None,"literary_uplift_proven":False,
         "human_blind_grade":False,"originals_not_overwritten":True,
@@ -609,10 +695,12 @@ def main():
         key=os.environ.get("DEEPSEEK_API_KEY","")
         require(len(key)>=16,"WF0AV_EXISTING_DEEPSEEK_SECRET_MISSING")
         previous_two=load_first_two_original_replies()
-        a_writer=WireWriter("A",key,cap,replay=previous_two+(
-            load_third_original_response(),)+
-            load_fourth_fifth_original_responses()+
-            (load_sixth_original_response(),))
+        third=load_third_original_response()
+        fourth_fifth=load_fourth_fifth_original_responses()
+        sixth=load_sixth_original_response()
+        seventh_A,first_B_replan=load_seventh_A_and_first_B_replan()
+        a_writer=WireWriter("A",key,cap,
+            replay=previous_two+(third,)+fourth_fifth+(sixth,seventh_A))
         a=run_arm("A",a_writer)
         require(len(a_writer.events)>=5,
                 "WF0AV_A_NO_MULTITURN_PROVIDER_PREFIX")
@@ -623,7 +711,7 @@ def main():
             "wire_sha256s":[x["wire_sha256"] for x in prefix],
             "prompt_sha256s":[x["prompt_sha256"] for x in prefix],
             "repaid_for_B":False,"same_author_originals_preserved":True})
-        b_writer=WireWriter("B",key,cap,replay=prefix)
+        b_writer=WireWriter("B",key,cap,replay=prefix+(first_B_replan,))
         b=run_arm("B",b_writer)
         ca,cb=len(a["prose"]),len(b["prose"])
         ratio=cb/max(ca,1)
@@ -639,10 +727,13 @@ def main():
             "A_previous_fourth_and_fifth_original_prose_calls_replayed":2,
             "fourth_fifth_original_prose_wire_sha256s":list(FOURTH_FIFTH_RAW_SHA),
             "sixth_real_prose_original_wire_sha256":SIXTH_RAW_SHA,
+            "seventh_original_A_prose_wire_sha256":A_SEVENTH_RAW_SHA,
+            "eighth_original_B_v98_plan_wire_sha256":B_FIRST_REPLAN_RAW_SHA,
+            "prior_new_paid_calls_not_recharged":8,
             "original_red_wire_sha256s":list(PRIOR_RAW_SHA),
-            "combined_paid_calls_including_original_red":cap.calls+6,
+            "combined_paid_calls_including_original_red":cap.calls+8,
             "combined_reserved_output_tokens_including_original_red":(
-                cap.output_reservations+7900),
+                cap.output_reservations+10000),
             "B_new_paid_model_calls":b_writer.budget.calls_reserved,
             "B_shared_source_calls_not_rebilled":3,
             "A_provider_usage":a_writer.budget.public_receipt(),
@@ -711,7 +802,7 @@ def main():
             else type(error).__name__+":NO_BILLABLE_RETRY")
     finally:
         status["provider_calls"]=cap.calls
-        status["total_paid_calls_including_original_red"]=cap.calls+6
+        status["total_paid_calls_including_original_red"]=cap.calls+8
         status["provider_completion_tokens_reserved"]=(
             cap.output_reservations)
         status["total_reserved_tokens_including_original_red"]=(
@@ -723,7 +814,7 @@ def main():
         save_json(ROOT/"STATUS.json",status)
         print("WF0AV_STATUS "+json.dumps({
             "status":status["status"],"paid_calls":cap.calls,
-            "paid_calls_including_prior_red":cap.calls+6,
+            "paid_calls_including_prior_red":cap.calls+8,
             "completion_tokens_reserved":cap.output_reservations,
             "A_prose":status["A"],"B_prose":status["B"],
             "error":status.get("failure_code"),
