@@ -123,14 +123,14 @@ class SourceFirstPortableDocumentReview(unittest.TestCase):
         hint=temporal_prompt(third)
         self.assertIn("周卒把册子揣进",hint)
         self.assertIn("与地形册子一并纳入",hint)
-        self.assertIn("未核实",hint)
+        self.assertIn("保留未知",hint)
         self.assertIn("非已判文学错误",hint)
         self.assertNotIn("必须删除",hint)
         fourth=external_temporal_step(QUIET,cast=actors,prior=third)
         carry=fourth["v122_physical_relation_source_receipt"]
         self.assertEqual(len(carry["document_custody_open_source_reviews"]),1)
         self.assertFalse(carry["document_custody_current_needs_review"])
-        self.assertIn("未核实",temporal_prompt(fourth))
+        self.assertIn("保留未知",temporal_prompt(fourth))
 
     def test_tampered_custody_source_receipt_never_turns_into_certified_item_state(self):
         previous=audit_physical_relation_sources(prose=OUTGOING)
