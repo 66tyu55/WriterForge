@@ -109,7 +109,9 @@ class OptInReviewOnlyWriterPerspective(unittest.TestCase):
                     "causal_parent":"t02","craft_focus":["dialogue"]}
         third=review_only_model_turn(response(
             "三更时女子已经停下与少年争论，驿站窗纸发出响声。"
-            "他们听见河边有人叫了一声，却没有看见到底是谁。",
+            "他们听见河边有人叫了一声，却没有看见到底是谁。"
+            "从此刻到风雨停下，他们仍未得到河边人的回应，既不能断定来人已经过桥，"
+            "也不能把刚才听见的声音当作通行结果；屋檐下的人都不知道下一步该怎么走。",
             ACTION1,None,EFFECT2),third_beat,
             failure_code="WF96_PARTIAL_ACTION_EFFECT_NOT_ALLOWED",
             accepted=(a,b))
