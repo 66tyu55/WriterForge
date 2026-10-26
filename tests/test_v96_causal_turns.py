@@ -180,9 +180,11 @@ class V96GateTests(unittest.TestCase):
             parse_turn_outline(json.dumps(bad,ensure_ascii=False))
         bad=turns()
         bad["turns"][0]["kind"]="quiet"
-        with self.assertRaisesRegex(V96CausalDraftError,
-                                    "PARENT_NOT_PRIOR"):
-            parse_turn_outline(json.dumps(bad,ensure_ascii=False))
+        # A quiet turn may be a TEMPORAL parent in a provisional plan.
+        # Actual prose must later provide signed source; this does NOT
+        # verify a causal effect or allow inventing parent_effect_quote.
+        unverified=parse_turn_outline(json.dumps(bad,ensure_ascii=False))
+        self.assertEqual(unverified[1]["causal_parent"],"t01")
         bad=turns()
         bad["turns"][0]["craft_focus"]=[{"model_trick":"fake"}]
         with self.assertRaises(V96CausalDraftError):
