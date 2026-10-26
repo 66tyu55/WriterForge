@@ -1,0 +1,107 @@
+name: WF 0.AM One Original History Through Real G Author and Rewind ONCE
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_0AM_REAL_HISTORY_G_AUTHOR_ONCE_20261026.txt
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wf-0am-one-archived-historical-source-real-g-same-deepseek-author
+  cancel-in-progress: false
+
+jobs:
+  one-archived-history-through-actual-G:
+    if: >-
+      github.repository == '66tyu55/WriterForge' &&
+      github.ref_name == 'refactor-unified-scene-delivery-audit' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'experiment(0.AM): FIRE ONE TRUE HISTORY G AUTHOR CONTINUATION'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install only existing WF dependency graph
+        run: python -m pip install -e '.[r2]'
+      - name: Limit this job and prove no R2 or other literature provider secrets
+        run: |
+          test "$(cat experiments/WF_0AM_REAL_HISTORY_G_AUTHOR_ONCE_20261026.txt)" = "WF0AM_ONE_TRUE_UNACCEPTED_0AH_HISTORY_G_WRITER_LIMIT_12"
+          python - <<'PY'
+          import os
+          assert not any(os.getenv(k) for k in (
+              'WRITERFORGE_R2_ACCOUNT_ID','WRITERFORGE_R2_ACCESS_KEY_ID',
+              'DISCOVERY_API_KEY','OPENAI_API_KEY','OPENROUTER_API_KEY'))
+          print('0.AM: no R2, copyrighted books, Canon writer, or other provider')
+          PY
+      - name: Full no-model WF regression including real-history-root G signed rewind
+        run: python -m unittest discover -s tests -q
+      - name: Retrieve 0.AH initial original six author wires without reauthoring
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40201458798
+          name: WF-0AH-Second-Three-Xianxia-History-Comedy-Real-Pairs-Wires-and-Ratings
+          github-token: ${{ github.token }}
+          path: wf0am_frozen_0ah_first
+      - name: Retrieve 0.AH SHA-audited source recovery, original prose unchanged
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40202483990
+          name: WF-0AH-12-Real-Provider-Wires-3-Genre-Both-Order-Scores-and-Causal-Evidence
+          github-token: __GITHUB_TOKEN__
+          path: wf0am_frozen_0ah_complete
+      - name: Prove original previous scene, provider bytes, source SHA and no source drift
+        run: |
+          python - <<'PY'
+          from experiments.wf_0am_real_history_same_model_g_once_20261026 import verify_old_real_source,EXPECTED_SOURCE_SHA,h
+          prose,wire_sha=verify_old_real_source()
+          assert h(prose)==EXPECTED_SOURCE_SHA and len(wire_sha)==64
+          print('0.AM original writer source VERIFIED SHA',EXPECTED_SOURCE_SHA)
+          print('0.AM old original provider RAW SHA',wire_sha)
+          PY
+      - name: ONE actual same DeepSeek Flash writer, G AI chooses edit or MOVE_ON
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: python -m experiments.wf_0am_real_history_same_model_g_once_20261026
+      - name: Enforce immutable old author, signed NEW core, no Canon or false literary grading
+        run: |
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          d=Path('wf_0am_real_history_closed_loop_20261026')
+          r=json.loads((d/'STATUS.json').read_text('utf8'))
+          assert r['format']=='wf.0am.single-model-original-history-full-g-once.v1'
+          assert r['status']=='SIGNED_UNACCEPTED_CONTINUATION_COMPLETED',r.get('error_code')
+          assert 1<=r['model_calls']<=12 and len(r['model_events'])==r['model_calls']
+          assert r['R2_reads']==r['R2_writes']==r['canon_writes']==0
+          assert r['Railway_deployments']==0 and not r['main_modified']
+          assert r['literary_improvement_proven'] is False
+          assert r['new_chapter_author_accepted'] is False
+          original=(d/'frozen-original-history.md').read_bytes()
+          assert hashlib.sha256(original).hexdigest()==r['source_sha256']
+          for row in r['model_events']:
+              if row['original_wire_saved_before_parsing']:
+                  path=d/'provider-originals'/f"{row['index']:02d}-real-model-wire.json"
+                  assert hashlib.sha256(path.read_bytes()).hexdigest()==row['wire_sha256']
+          print('0.AM original preserved; candidate graph signed, unaccepted.')
+          print('Model calls',r['model_calls'],'writer previous-turn rewinds',r['revised_previous_turn_count'])
+          PY
+      - name: Retain exact true provider wires, frozen original source and unaccepted G job on failure or success
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AM-Real-History-One-G-Author-Original-Wires-Source-Repair-Downstream
+          path: wf_0am_real_history_closed_loop_20261026/
+          retention-days: 90
+          if-no-files-found: warn
