@@ -255,6 +255,22 @@ def temporal_prompt(checkpoint):
     parts=["【真实正文中的候选物件状态（Novel Studio时态归约，非已确认正典）】"]
     open_debts=compact_debts(checkpoint)
     if open_debts:parts.append(open_debts)
+    custody=(checkpoint.get("v122_physical_relation_source_receipt") or {})
+    pending=custody.get("document_custody_open_source_reviews",[])
+    if pending:
+        # SOURCE-anchored question inside the original signed V114/V122
+        # checkpoint. It does not assert that two booklet descriptions
+        # refer to the same object, that off-page return is impossible,
+        # or that the author must revise. Only the writing AI chooses.
+        item=pending[-1]
+        parts.append(
+            "【前文实物去向待来源复核，非已判文学错误】"
+            +"先前写到「"+item["earlier_source_quote"][:65]
+            +"」，后来写到「"+item["later_source_quote"][:65]
+            +"」。可能是另一本、回叙或省略的交还；"
+            "这些解释均未被软件证明。"
+            "后续如依赖此物件的归属，先保留未知，不要凭空认定归还。"
+            "文学留白或改写由原作者自行判断。")
     if checkpoint.get("v116_anchored_state_delta"):
         parts.append(compact_verified_delta_context(
             checkpoint["v116_anchored_state_delta"],output))
