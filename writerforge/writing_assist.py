@@ -2739,7 +2739,10 @@ class AutonomousWriting:
             cross_chapter_fork:dict|None=None,
             selected_fork_receipt:dict|None=None,
             g_rolling_author_planning:bool=False) -> dict:
-        if type(g_rolling_author_planning) is not bool or (\n                g_rolling_author_planning and draft_mode!="continuity_guard"):\n            raise WritingExecutionError("WF_G_ROLLING_REQUIRES_EXPLICIT_G_MODE")\n        if (type(reader_first_self_review) is not bool or
+        if type(g_rolling_author_planning) is not bool or (
+                g_rolling_author_planning and draft_mode!="continuity_guard"):
+            raise WritingExecutionError("WF_G_ROLLING_REQUIRES_EXPLICIT_G_MODE")
+        if (type(reader_first_self_review) is not bool or
             reader_first_self_review and (
                 draft_mode!="continuity_guard" or self_edit_rounds==0 or
                 self_edit_timing!="ai_decides")):
@@ -3348,7 +3351,28 @@ class AutonomousWriting:
                                     "external":current_external_story_checkpoint,
                                     "lamp":last_lamp_receipt})
                             beat=seed_beat
-                            # G's opt-in writer-owned replan is allowed only\n                            # when the IMMEDIATELY previous source offers an\n                            # actual signed effect or pending decision action.\n                            # REVIEW-only and quiet chronological links cannot\n                            # be turned into a supposedly observed cause.\n                            g_replan=False\n                            if g_rolling_author_planning and turn_index>0:\n                                from .v98_rolling_causal_planner import (\n                                    g_source_replan_eligibility)\n                                eligibility=g_source_replan_eligibility(\n                                    tuple(accepted_turns))\n                                if eligibility["eligible"]:\n                                    g_replan=True\n                                else:\n                                    g_rolling_source_skips.append({\n                                        "turn_id":seed_beat["id"],\n                                        "reason":eligibility["reason"],\n                                        "source_sha256":eligibility["source_sha256"],\n                                        "no_plan_model_call":True,\n                                        "literary_truth_proven":False})\n                            if (draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling")\n                                or g_replan) and turn_index>0:
+                            # G's opt-in writer-owned replan is allowed only
+                            # when the IMMEDIATELY previous source offers an
+                            # actual signed effect or pending decision action.
+                            # REVIEW-only and quiet chronological links cannot
+                            # be turned into a supposedly observed cause.
+                            g_replan=False
+                            if g_rolling_author_planning and turn_index>0:
+                                from .v98_rolling_causal_planner import (
+                                    g_source_replan_eligibility)
+                                eligibility=g_source_replan_eligibility(
+                                    tuple(accepted_turns))
+                                if eligibility["eligible"]:
+                                    g_replan=True
+                                else:
+                                    g_rolling_source_skips.append({
+                                        "turn_id":seed_beat["id"],
+                                        "reason":eligibility["reason"],
+                                        "source_sha256":eligibility["source_sha256"],
+                                        "no_plan_model_call":True,
+                                        "literary_truth_proven":False})
+                            if (draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling")
+                                or g_replan) and turn_index>0:
                                 if rolling_replan_calls>=MAX_ROLLING_REPLANS_PER_JOB:
                                     raise V98RollingPlanError(
                                         "WF98_REPLAN_MODEL_CALL_BUDGET_EXCEEDED")
