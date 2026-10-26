@@ -74,7 +74,7 @@ jobs:
           name: WF-0AS-Six-Original-DeepSeek-Self-Reviews-Old-Versus-Isolated-Stage-Wires
           github-token: ${{ github.token }}
           path: wf0at_prior_0as_reviews
-      - name: ZERO paid model preflight: real source + signed V114 booklet question available for both T05/T06
+      - name: "ZERO paid model preflight: real source and signed V114 booklet question available for T05/T06"
         run: |
           python - <<'PY'
           from experiments.wf_0at_two_real_author_signed_source_reviews_once_20261026 import signed_previous_source_review_context
