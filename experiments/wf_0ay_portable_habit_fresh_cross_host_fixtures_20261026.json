@@ -1,0 +1,46 @@
+{
+  "format": "wf.0ay.two-real-hosts-new-scenarios.v1",
+  "tasks": [
+    {
+      "format": "wf.habit.task.v1",
+      "task_id": "flood-radio",
+      "task": "续写220至330个中文汉字，写阮知面对第四站回执号码异常作出自己的选择，并体现沈闻的有限认知；不预设最后一艘船已经收到警报。不要解释写作技巧。",
+      "prior_prose": [
+        {
+          "turn_id": "t01",
+          "prose": "凌晨四点，值守员沈闻亲手把停航警报拍发到沿河四个站点，回执纸带从机器里吐了出来。他在值班本上写下发送时间，又将纸带夹在第二页。靠岸的最后一艘拖船并没有回应，他无法知道船长是否听见。",
+          "sha256": "8f9c38babf2d1f086562f29c883a60589456eeb729157b761533aab7f6cb163b"
+        },
+        {
+          "turn_id": "t02",
+          "prose": "半小时后，助手阮知带着被雨打湿的记录进屋，只看到无线电的红灯忽明忽暗。她问沈闻要不要立即拍发停航警报，沈闻把那页纸带递过去，却发现第四站的回执号码与本子上的不同。有人已发出警告，谁确实收到却仍是未知。",
+          "sha256": "0ed79fe924b61a2d3de047bd2bd05b0d6b1eab51d31eb1137e31caba627b01b3"
+        }
+      ],
+      "old_plan": "接下来沈闻首次拍发停航警报，其他人终于知道停航消息。"
+    },
+    {
+      "format": "wf.habit.task.v1",
+      "task_id": "historic-seal",
+      "task": "续写220至330个中文汉字，保持陆凝的限知第三人称，让他在马蹄疑问和送信责任中作一个可信的新选择；允许继续等待或重新调查，但不能把疑似回来的马直接当成王季已经返回。",
+      "prior_prose": [
+        {
+          "turn_id": "t01",
+          "prose": "四更前，县吏陆凝当着老驿卒的面把两张加盖火印的通行纸交给快脚王季，让他沿东门送到巡河营。王季把纸贴身藏好，牵走了那匹左后蹄带伤的青马。陆凝看着他出门，却不知道东门外道路是否仍能通行。",
+          "sha256": "f9eeb79d7655c17c0be43f2b50769176b28a207ff9cd7a2c7abfc1624e7ac7f3"
+        },
+        {
+          "turn_id": "t02",
+          "prose": "天亮后，驿卒拿来一枚泥脚印，称是王季的马返回留下的。陆凝记得那匹马左后蹄带伤，却没有看见谁骑马经过，也看不出泥印是否来自同一天。桌上旧章程还写着要派王季送纸，他把章程压住，没立即照做。",
+          "sha256": "5784e29ee7804ff5a0509e1a17b23b344c270fda1fde3dd397e272babb178465"
+        }
+      ],
+      "old_plan": "派快脚王季去送两张通行纸，待巡河营回信。"
+    }
+  ],
+  "source_author": "WF synthetic fictional task written only for this trial",
+  "reuse_old_nightvalve": false,
+  "old_experiment_wires_unmodified": true,
+  "blind_literary_quality_proven": false,
+  "reference_case_in_skill_not_reused": true
+}
