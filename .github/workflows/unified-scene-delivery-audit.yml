@@ -62,6 +62,8 @@ on:
       - tests/test_wf_0am_real_g_one_shot_protocol.py
       - tests/test_wf_0am_v119_pending_parent_guide.py
       - tests/test_wf_0an_actual_dialogue_quiet_source_links.py
+      - tests/test_wf_0ao_frozen_author_plan_protocol.py
+      - experiments/wf_0ao_frozen_real_deepseek_plan_prose_once_20261026.py
       - experiments/wf_0am_real_history_same_model_g_once_20261026.py
       - tests/test_wf_0al_real_fullwidth_separator_original.py
       - tests/test_v98_rolling_causal_planner.py
