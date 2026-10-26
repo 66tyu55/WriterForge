@@ -4,7 +4,7 @@ on:
   push:
     branches: [refactor-unified-scene-delivery-audit]
     paths:
-      - experiments/WF_0AQ_OFFLINE_REUSE_EIGHT_AUTHENTIC_RESPONSES_ONCE_20261026.txt
+      - experiments/WF_0AQ_OFFLINE_REUSE_EIGHT_AFTER_MANIFEST_FIX_ONCE_20261026.txt
 
 permissions:
   contents: read
@@ -16,7 +16,7 @@ jobs:
       github.repository == '66tyu55/WriterForge' &&
       github.ref_name == 'refactor-unified-scene-delivery-audit' &&
       github.run_attempt == 1 &&
-      github.event.head_commit.message == 'audit(0.AQ): FIRE ZERO MODEL EIGHT ORIGINAL AUTHOR SOURCES THROUGH ACTUAL G'
+      github.event.head_commit.message == 'audit(0.AQ): FIRE CORRECTED PLAN SHA REPLAY EIGHT REAL RESPONSES NO MODEL'
     runs-on: ubuntu-latest
     timeout-minutes: 18
     steps:
@@ -32,7 +32,7 @@ jobs:
       - run: python -m pip install -e '.[r2]'
       - name: Prove ONE zero-provider audit and no R2/Canon/model secret
         run: |
-          test "$(cat experiments/WF_0AQ_OFFLINE_REUSE_EIGHT_AUTHENTIC_RESPONSES_ONCE_20261026.txt)" = "WF0AQ_SAME_EIGHT_REAL_G_REPLIES_BEFORE_FIFTH_ZERO_PAID"
+          test "$(cat experiments/WF_0AQ_OFFLINE_REUSE_EIGHT_AFTER_MANIFEST_FIX_ONCE_20261026.txt)" = "WF0AQ_FIX_ORIGINAL_PLAN_MANIFEST_EIGHT_REAL_WIRES_NO_PROVIDER"
           python - <<'PY'
           import os
           assert not any(os.getenv(k) for k in (
