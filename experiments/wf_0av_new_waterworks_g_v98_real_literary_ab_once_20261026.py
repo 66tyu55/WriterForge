@@ -33,8 +33,14 @@ PROJECT="wf0av-fresh-waterworks-ab"
 SCENE="waterworks-inspection-night"
 MODEL="deepseek-flash"
 API="https://api.deepseek.com/v1"
-MAX_TOTAL_PAID_CALLS=26
-MAX_TOTAL_RESERVED_COMPLETION_TOKENS=44000
+MAX_TOTAL_PAID_CALLS=24
+MAX_TOTAL_RESERVED_COMPLETION_TOKENS=41900
+PRIOR_FAILED_RUN_ID=40283464818
+PRIOR_SOURCE=Path("wf0av_prior_failed_source")
+PRIOR_RAW_SHA=(
+    "9d6efe8e2375565cfbdc1a8ac6a30b5a6754fb6537c96835fd6fcd32f56d1a19",
+    "f7b64df21080e7a196dc9e8babaebe94bb267a232ec1a9e2061c3d4598572ca4",
+)
 WRITER_SYSTEM=(
     "你是正在创作原创现代小说的写作模型。"
     "每轮只完成眼前交给你的一个构思或正文任务，严格输出JSON。"
@@ -73,8 +79,12 @@ TASK={"format":"wf.0av.new-original-a-b-preregistered.v1",
       "new_paid_responses_only_after_common_prefix_B":True,
       "expected_turns_min":3,"expected_turns_max":5,
       "per_turn_target_chinese_chars":[180,320],
-      "max_paid_calls":MAX_TOTAL_PAID_CALLS,
-      "max_reserved_completion_tokens":MAX_TOTAL_RESERVED_COMPLETION_TOKENS,
+      "new_run_max_paid_calls":MAX_TOTAL_PAID_CALLS,
+      "new_run_max_reserved_completion_tokens":MAX_TOTAL_RESERVED_COMPLETION_TOKENS,
+      "source_locked_previous_paid_calls":2,
+      "combined_ceiling_including_previous_trial":26,
+      "combined_completion_reservation_ceiling":44000,
+      "earlier_failed_provider_run":PRIOR_FAILED_RUN_ID,
       "judging":"Two opposite-order BLIND same-family DeepSeek scores, never WF truth",
       "pre_registered_dimensions":[
           "人物选择真实性","后果改变下一步","动作重复","真实物品及时间连续性",
@@ -129,6 +139,65 @@ def make_local_fixture(base):
         db,runtime,PROJECT,SCENE,"续写有限认知人物的水务控制室紧张场景",
         model=MODEL,api_base=API,source_genre="现代小说")
     return db,assist
+
+def load_first_two_original_replies():
+    """Read the two original failed-run WIRE bytes, no model or normalized story.
+
+    The failure was WF V96's lack of a noncausal 'interiority' turn kind.
+    This source-only replay is not a second paid plan attempt. Missing,
+    different or altered raw response always stops before a new billable call.
+    """
+    from writerforge.v96_causal_turns import parse_turn_outline
+    prior=json.loads((PRIOR_SOURCE/"STATUS.json").read_text("utf8"))
+    require(prior["status"]=="REAL_AB_SAFE_PARTIAL_FAILURE_NOT_RETRIED"
+            and prior["provider_calls"]==2
+            and prior["failure_code"]==
+                "WF96_SCENE_TURN_REJECTED_WF96_TURN_PLAN_FIELDS_ID_OR_CRAFT_INVALID"
+            and prior["provider_completion_tokens_reserved"]==2100,
+            "WF0AV_PREVIOUS_FAILURE_IDENTITY_NOT_SOURCE_LOCKED")
+    old=prior["A_wire_events"]
+    require(len(old)==2,"WF0AV_PREVIOUS_MODEL_EVENTS_CHANGED")
+    recovered=[]
+    copies=ROOT/"upstream-immutable-wire-copies"
+    copies.mkdir(parents=True,exist_ok=False)
+    for i in (1,2):
+        event=old[i-1]
+        source=PRIOR_SOURCE/"A"/"original-provider-wires"/f"{i:02d}-paid.json"
+        raw=source.read_bytes()
+        require(event["index"]==i and event["model"]==MODEL and
+                event["wire_sha256"]==PRIOR_RAW_SHA[i-1] and
+                h(raw)==PRIOR_RAW_SHA[i-1] and
+                event["saved_before_json_decode"] is True,
+                "WF0AV_PREVIOUS_WIRE_BYTES_SHA_MISMATCH")
+        envelope=json.loads(raw)
+        require(envelope["model"]==MODEL and
+                len(envelope["choices"])==1 and
+                envelope["choices"][0]["finish_reason"]=="stop",
+                "WF0AV_PREVIOUS_PROVIDER_WIRE_NOT_COMPLETE")
+        decoded=json.loads(envelope["choices"][0]["message"]["content"])
+        replacement=json.dumps(decoded,ensure_ascii=False,separators=(",",":"))
+        require(h(replacement)==event["returned_json_sha256"],
+                "WF0AV_PREVIOUS_JSON_CANONICAL_SOURCE_CHANGED")
+        if i==2:
+            turns=parse_turn_outline(replacement)
+            require(len(turns)==5 and turns[3]["kind"]=="interiority"
+                    and turns[0]["actor"]=="林槐/许照",
+                    "WF0AV_SOURCE_PLAN_SILENTLY_REWRITTEN")
+        # Retained upstream provider response is duplicated ONLY as bytes.
+        dest=copies/f"{i:02d}-origin-run-{PRIOR_FAILED_RUN_ID}.json"
+        require(not dest.exists(),"WF0AV_UPSTREAM_WIRE_COPY_OVERWRITTEN")
+        dest.write_bytes(raw)
+        recovered.append(dict(event,raw_response=replacement))
+    save_json(ROOT/"RECOVERED_FIRST_TWO_SOURCE_ONLY.json",{
+        "original_failed_run_id":PRIOR_FAILED_RUN_ID,
+        "original_provider_wire_sha256":list(PRIOR_RAW_SHA),
+        "original_paid_calls":2,
+        "original_reserved_completion_tokens":2100,
+        "new_calls_for_recovery":0,
+        "model_said_interiority_not_host_authored":True,
+        "source_plan_original_contents_preserved":True,
+        "original_model_planning_text_unchanged":True})
+    return tuple(recovered)
 
 class AggregateCap:
     def __init__(self):
@@ -337,6 +406,8 @@ def main():
         "status":"PRE_REGISTERED_NO_CALLS",
         "model":MODEL,"A":None,"B":None,
         "provider_calls":0,"budget_limit":MAX_TOTAL_PAID_CALLS,
+        "prior_paid_calls_not_recharged":2,
+        "prior_reserved_completion_tokens_not_recharged":2100,
         "provider_completion_tokens_reserved":0,
         "judge":None,"literary_uplift_proven":False,
         "human_blind_grade":False,"originals_not_overwritten":True,
@@ -352,7 +423,8 @@ def main():
             "WF0AV_EXTERNAL_SOURCE_OR_OTHER_VENDOR_NOT_ALLOWED")
         key=os.environ.get("DEEPSEEK_API_KEY","")
         require(len(key)>=16,"WF0AV_EXISTING_DEEPSEEK_SECRET_MISSING")
-        a_writer=WireWriter("A",key,cap)
+        previous_two=load_first_two_original_replies()
+        a_writer=WireWriter("A",key,cap,replay=previous_two)
         a=run_arm("A",a_writer)
         require(len(a_writer.events)>=5,
                 "WF0AV_A_NO_MULTITURN_PROVIDER_PREFIX")
@@ -372,7 +444,12 @@ def main():
             "A_chars":ca,"B_chars":cb,"B_over_A_chars_ratio":ratio,
             "A_turn_chars":[t["chars"] for t in a["turns"]],
             "B_turn_chars":[t["chars"] for t in b["turns"]],
-            "A_real_paid_model_calls":a_writer.budget.calls_reserved,
+            "A_new_paid_model_calls":a_writer.budget.calls_reserved,
+            "A_previous_two_planning_calls_replayed":2,
+            "original_red_wire_sha256s":list(PRIOR_RAW_SHA),
+            "combined_paid_calls_including_original_red":cap.calls+2,
+            "combined_reserved_output_tokens_including_original_red":(
+                cap.output_reservations+2100),
             "B_new_paid_model_calls":b_writer.budget.calls_reserved,
             "B_shared_source_calls_not_rebilled":3,
             "A_provider_usage":a_writer.budget.public_receipt(),
@@ -441,8 +518,11 @@ def main():
             else type(error).__name__+":NO_BILLABLE_RETRY")
     finally:
         status["provider_calls"]=cap.calls
+        status["total_paid_calls_including_original_red"]=cap.calls+2
         status["provider_completion_tokens_reserved"]=(
             cap.output_reservations)
+        status["total_reserved_tokens_including_original_red"]=(
+            cap.output_reservations+2100)
         for label,writer in (("A",a_writer),("B",b_writer)):
             if writer is not None:
                 status[label+"_wire_events"]=writer.public_events()
@@ -450,6 +530,7 @@ def main():
         save_json(ROOT/"STATUS.json",status)
         print("WF0AV_STATUS "+json.dumps({
             "status":status["status"],"paid_calls":cap.calls,
+            "paid_calls_including_prior_red":cap.calls+2,
             "completion_tokens_reserved":cap.output_reservations,
             "A_prose":status["A"],"B_prose":status["B"],
             "error":status.get("failure_code"),
