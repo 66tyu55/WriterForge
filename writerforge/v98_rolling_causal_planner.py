@@ -347,6 +347,31 @@ def prepare_replan_instructions(*,accepted,seed_next_beat,
     return context
 
 
+def _signed_visible_author_quote(accepted,text,reason):
+    """Find the author's quote in exactly ONE signed, truly visible prose.
+
+    G+V98 reveals the latest 760 chars and two previous 320-char signed
+    excerpts. A quote from t03 does not become an effect or fact of t04.
+    Host must re-verify every source receipt, even when selecting a quote.
+    """
+    require(type(accepted) in (tuple,list) and 1<=len(accepted)<=12,
+            "WF98_SIGNED_VISIBLE_WINDOW_BAD_HISTORY")
+    require(_bounded(text,6,MAX_SHORT_QUOTE_CHARS),
+            "WF98_"+reason+"_QUOTE_BOUND")
+    visible=accepted[-3:]
+    matches=[]
+    for i,turn in enumerate(visible):
+        proof=g_source_replan_eligibility((turn,),allow_prose_only=True)
+        require(proof["eligible"] and not proof["causal_truth_verified"],
+                "WF98_SIGNED_VISIBLE_WINDOW_RECEIPT_INVALID")
+        literal=turn["prose"][-(760 if i==len(visible)-1 else 320):]
+        if text in literal:
+            matches.append((turn,_anchor(turn["prose"],text,reason)))
+    require(len(matches)==1,
+            "WF98_"+reason+"_NOT_UNIQUE_IN_SIGNED_VISIBLE_PROSE_WINDOW")
+    return matches[0]
+
+
 def validate_replan(raw,*,accepted,accepted_beats,seed_next_beat,
                     allowed_actor_names,author_forbidden_phrases=(),
                     allow_g_prose_only=False):
@@ -429,20 +454,33 @@ def validate_replan(raw,*,accepted,accepted_beats,seed_next_beat,
     if basis_kind=="DECISION_ACTION_ONLY_OUTCOME_PENDING":
         require(not author_selected_other_basis,
                 "WF98_REPLAN_NOT_ANCHORED_TO_ACTUAL_SOURCE_BASIS")
-    elif author_selected_other_basis:
-        require(_bounded(writer_basis,6,MAX_SHORT_QUOTE_CHARS) and
-                len(_occurrences(parent["prose"],writer_basis))==1,
-                "WF98_REPLAN_NOT_ANCHORED_TO_ACTUAL_EFFECT")
-    basis=_anchor(parent["prose"],writer_basis,"BASIS")
+    if allow_g_prose_only:
+        # The SAME author can choose a still-open t03 quote when planning t05.
+        # Its signed origin must not be silently retconned as a t04 effect.
+        basis_source,basis=_signed_visible_author_quote(
+            accepted,writer_basis,"BASIS")
+    else:
+        if author_selected_other_basis:
+            require(_bounded(writer_basis,6,MAX_SHORT_QUOTE_CHARS) and
+                    len(_occurrences(parent["prose"],writer_basis))==1,
+                    "WF98_REPLAN_NOT_ANCHORED_TO_ACTUAL_EFFECT")
+        basis_source=parent
+        basis=_anchor(parent["prose"],writer_basis,"BASIS")
     costs={}
+    cost_sources={}
     for key in ("pressure_quote","cost_quote"):
         val=doc[key]
         if val is not None:
-            # Optional. Missing cost is explicitly unknown rather than
-            # a fabricated "price paid" from narrative planning.
-            costs[key]=_anchor(parent["prose"],val,key.upper())
+            # Optional: literal quoted pressure is not a proven story fact.
+            if allow_g_prose_only:
+                cost_sources[key],costs[key]=_signed_visible_author_quote(
+                    accepted,val,key.upper())
+            else:
+                cost_sources[key]=parent
+                costs[key]=_anchor(parent["prose"],val,key.upper())
         else:
             costs[key]=None
+            cost_sources[key]=None
     for forbidden in author_forbidden_phrases:
         require(type(forbidden) is str and
                 len(forbidden)<=90 and forbidden not in
@@ -481,14 +519,27 @@ def validate_replan(raw,*,accepted,accepted_beats,seed_next_beat,
         "only_optional_model_craft_adjusted":bool(removed_optional_craft_tags),
         "removed_optional_craft_tags":removed_optional_craft_tags,
         "original_model_answer_must_be_preserved":True,
-        "grounded_prior_beat_id":parent["beat_id"],
-        "grounded_prior_prose_sha256":digest(parent["prose"].encode("utf8")),
+        "grounded_prior_beat_id":basis_source["beat_id"],
+        "grounded_prior_prose_sha256":digest(basis_source["prose"].encode("utf8")),
+        "source_parent_beat_id":parent["beat_id"],
+        "source_parent_prose_sha256":digest(parent["prose"].encode("utf8")),
+        "source_basis_from_older_signed_prose":(
+            basis_source["beat_id"]!=parent["beat_id"]),
+        "pressure_source_beat_id":(
+            cost_sources["pressure_quote"]["beat_id"]
+            if cost_sources["pressure_quote"] is not None else None),
+        "cost_source_beat_id":(
+            cost_sources["cost_quote"]["beat_id"]
+            if cost_sources["cost_quote"] is not None else None),
         "source_parent_relation_review_required":(
             review_reason is not None or author_selected_other_basis or
             allow_g_prose_only),
         "source_parent_relation_review_reason":review_reason,
         "source_parent_causal_relation_verified":False,
         "source_basis_kind":(
+            "EARLIER_SIGNED_PROSE_AUTHOR_ONLY"
+            if allow_g_prose_only and
+               basis_source["beat_id"]!=parent["beat_id"] else
             basis_kind if allow_g_prose_only else
             "AUTHOR_SELECTED_OTHER_LITERAL_SOURCE_ONLY"
             if author_selected_other_basis else basis_kind),
