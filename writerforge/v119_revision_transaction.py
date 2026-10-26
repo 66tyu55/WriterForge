@@ -233,6 +233,7 @@ def prepare_source_repair_contract(
     previous_effect=None
     previous_pending_action=None
     previous_temporal_source=None
+    previous_review_only_source=None
     # The same V96/V98 source integrity owns decision-outcome-pending:
     # a writer can repair an observed decision before its consequence is
     # observed. Do not force the child to fabricate a previous effect.
@@ -262,6 +263,21 @@ def prepare_source_repair_contract(
                       kind=="DECISION_ACTION_ONLY_OUTCOME_PENDING",
                       "WF119_REPAIR_PARENT_PENDING_SOURCE_INVALID")
                 previous_pending_action=quote
+            elif (type(prior_receipt) is dict and
+                  prior_receipt.get("causal_check")==
+                      "TRACE_REJECTED_SOURCE_PROSE_REVIEW_ONLY"):
+                # Prior real literary prose survived a rejected model
+                # citation. Reuse the same V96 SHA verification and carry
+                # only an unresolved prose-link, never a proven effect.
+                from .v96_causal_turns import (
+                    _verified_review_only_temporal_parent,
+                    V96CausalDraftError)
+                try:
+                    previous_review_only_source=(
+                        _verified_review_only_temporal_parent(original_parent))
+                except V96CausalDraftError:
+                    raise RevisionTransactionError(
+                        "WF119_REPAIR_PARENT_REVIEW_ONLY_SOURCE_INVALID") from None
             else:
                 # Dialogues or quiet scenes without a reported effect can
                 # precede a revision without becoming a causal fact. Use
@@ -360,6 +376,8 @@ def prepare_source_repair_contract(
         "previous_parent_effect_unobserved":previous_pending_action is not None,
         "previous_parent_temporal_link_unverified":previous_temporal_source is not None,
         "actual_previous_temporal_source_sha256":previous_temporal_source,
+        "previous_parent_trace_review_only":previous_review_only_source is not None,
+        "actual_previous_review_only_source_sha256":previous_review_only_source,
         "original_model_trace":original_trace,
         "baseline_hard_findings":(
             source_before["findings"] if source_before is not None else []),
