@@ -112,9 +112,10 @@ def freeze_original_model_decisions():
 
 
 class OriginalPlanThenSameWriter:
-    def __init__(self,key,original_first_reply,old_metadata):
+    def __init__(self,key,original_first_reply,old_metadata,old_request):
         self.first=original_first_reply
         self.old=old_metadata
+        self.old_request=old_request
         self.replayed_first=False
         self.current=None
         self.events=[]
@@ -142,9 +143,23 @@ class OriginalPlanThenSameWriter:
         require(model=="deepseek-flash" and len(packet.prompt)>40,
                 "WF0AO_SAME_SOURCE_WRITER_WRONG_MODEL")
         if not self.replayed_first:
-            require(h(packet.prompt)==self.old["prompt_sha256"] and
-                    max_tokens==self.old["max_completion_tokens_reserved"],
-                    "WF0AO_OLD_REAL_CHAPTER_PLAN_PROMPT_CHANGED")
+            same=(h(packet.prompt)==self.old["prompt_sha256"] and
+                  max_tokens==self.old["max_completion_tokens_reserved"])
+            if not same or os.getenv("WF0AO_OFFLINE_PROMPT_CAPTURE_ONLY")=="1":
+                save(OUT/"source-only-first-prompt-identity.json",{
+                    "format":"wf.0ao.first-original-plan-prompt-attestation.v1",
+                    "same_prompt_sha_and_budget":same,
+                    "old_prompt_sha256":self.old["prompt_sha256"],
+                    "current_prompt_sha256":h(packet.prompt),
+                    "old_max_tokens":self.old["max_completion_tokens_reserved"],
+                    "current_max_tokens":max_tokens,
+                    "old_prompt":self.old_request["prompt"],
+                    "current_prompt":packet.prompt,
+                    "new_model_calls":0,
+                    "no_literary_semantics_inferred":True})
+            if os.getenv("WF0AO_OFFLINE_PROMPT_CAPTURE_ONLY")=="1":
+                raise RuntimeError("WF0AO_STOP_AFTER_SOURCE_ONLY_PROMPT_CAPTURE")
+            require(same,"WF0AO_OLD_REAL_CHAPTER_PLAN_PROMPT_CHANGED")
             self.replayed_first=True
             return self.first  # Actual immutable paid source. NO new model.
         require(len(self.events)<MAX_NEW_CALLS,
@@ -243,7 +258,8 @@ def main():
             source_genre="古代白话")
         secret=os.getenv("DEEPSEEK_API_KEY","")
         require(len(secret)>=16,"WF0AO_EXISTING_DEEPSEEK_KEY_MISSING")
-        model=OriginalPlanThenSameWriter(secret,frozen,replies[0][1])
+        model=OriginalPlanThenSameWriter(
+            secret,frozen,replies[0][1],replies[0][2])
         with patch("writerforge.writing_assist.local_chat_completion",
                    side_effect=model.ask):
             final=AutonomousWriting(assist).run(
