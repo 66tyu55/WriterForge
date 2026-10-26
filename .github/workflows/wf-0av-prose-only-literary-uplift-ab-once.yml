@@ -1,0 +1,134 @@
+name: WF 0.AV Real Writer Review-Only Prose Replanning B+ Literary A-B ONCE
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/wf_0av_review_only_prose_uplift_ab_once_20261026.py
+      - experiments/WF_0AV_REVIEW_ONLY_BPLUS_LIVE_ONCE_20261026.txt
+      - .github/workflows/wf-0av-prose-only-literary-uplift-ab-once.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wf-0av-source-true-t04-t05-prose-only-literary-uplift-bplus-once
+  cancel-in-progress: false
+
+jobs:
+  full-offline-source-first:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 26
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install WriterForge from this DEV commit only
+        run: python -m pip install -e '.[r2]'
+      - name: All regressions including real source-only review RED to GREEN
+        run: |
+          python -m py_compile experiments/wf_0av_review_only_prose_uplift_ab_once_20261026.py
+          python -m unittest discover -s tests -q
+      - name: Recover complete immutable SAME DeepSeek authored baseline A and B, never re-author
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40323596997
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_completed_0av_source
+      - name: Actual seven-provider-wire B prefix, t04 NEW writer prompt, ZERO network/charges
+        run: python -m experiments.wf_0av_review_only_prose_uplift_ab_once_20261026 --preflight
+      - name: Always preserve original source-only preflight, including RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AV-Original-B-7-Wires-ReviewOnly-T04-Preflight-No-Model
+          path: wf_0av_review_only_author_prose_uplift_trial_20261026/
+          retention-days: 90
+          if-no-files-found: warn
+
+  one-shot-real-same-deepseek-writer:
+    needs: [full-offline-source-first]
+    if: >-
+      github.repository == '66tyu55/WriterForge' &&
+      github.ref_name == 'refactor-unified-scene-delivery-audit' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'experiment(0.AV): FIRE SIGNED B FIRST THREE FOR WRITER SOURCE-ONLY T04 T05 REAL LITERARY AB ONCE'
+    runs-on: ubuntu-latest
+    timeout-minutes: 42
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dev code without deployment
+        run: python -m pip install -e '.[r2]'
+      - name: Require exact one-shot fingerprint; refuse R2 and other models
+        run: |
+          test "$(cat experiments/WF_0AV_REVIEW_ONLY_BPLUS_LIVE_ONCE_20261026.txt)" = "WF0AV_SOURCE_FIRST_SEVEN_SIGNED_REAL_B_AUTHOR_RESPONSES_NEW_T04_T05_ONLY"
+          python - <<'PY'
+          import os
+          assert not any(os.environ.get(k) for k in (
+              'WRITERFORGE_R2_ACCOUNT_ID','WRITERFORGE_R2_ACCESS_KEY_ID',
+              'DISCOVERY_API_KEY','OPENAI_API_KEY','OPENROUTER_API_KEY'))
+          print('Only original DeepSeek literary author is permitted.')
+          PY
+      - name: Restore old completed A/B original wires, chapter text and evidence
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40323596997
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_completed_0av_source
+      - name: Repeat zero-provider source and prompt preflight BEFORE using DeepSeek secret
+        run: |
+          python -m experiments.wf_0av_review_only_prose_uplift_ab_once_20261026 --preflight
+          rm -rf wf_0av_review_only_author_prose_uplift_trial_20261026
+      - name: Ask ORIGINAL DeepSeek writer only for never-written B+ t04/t05, capped hard; anonymous double-order grade if comparable
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: python -m experiments.wf_0av_review_only_prose_uplift_ab_once_20261026
+      - name: Check spent calls, live source SHA, no false literary claims
+        if: success()
+        run: |
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          root=Path('wf_0av_review_only_author_prose_uplift_trial_20261026')
+          s=json.loads((root/'STATUS.json').read_text('utf8'))
+          assert s['status'] in ('TWO_REAL_WRITER_CONTINUATIONS_SAVED',
+              'BOTH_BRANCHES_REVERSE_BLIND_GRADED',
+              'BOTH_BRANCHES_SCORES_INCOMPLETE_NO_RETRY')
+          assert s['prior_paid_calls']==16 and 0<=s['new_paid_model_calls']<=6
+          assert s['combined_total_paid_calls']<=26
+          assert s['combined_completion_reservations']<=44000
+          assert s['new_completion_tokens_reserved']<=8000
+          assert not s['literary_improvement_proven']
+          assert s['R2_reads']==s['R2_writes']==s['Canon_writes']==0
+          assert not s['main_modified'] and s['Railway_deployments']==0
+          assert s['comparison']['same_first_three_paragraph_sha256s']==[
+              'ba054d739aade438044d4c0a51cb03e31474e0cfc5dc9bc76976376c5a4109b3',
+              'a46f07ab64f0a6e9dc1d0d1b344ee5a06be8a74daca39725ed999c40499b9403',
+              '3f22dd574a949a74bd5004f6fb54e33d1196ea3cb561e33dfe5dde1ebf334a0f']
+          for row in s['provider_events']:
+              if row.get('paid_call') and row.get('saved_before_json_decode'):
+                  p=root/'B'/'original-provider-wires'/f"{row['index']:02d}-paid.json"
+                  assert hashlib.sha256(p.read_bytes()).hexdigest()==row['wire_sha256']
+          print('REAL WRITER SAME PREFIX COMPLETED',s['comparison']['new_source_only_B_plus_sha256'])
+          print('REAL NONCANON_SOURCE_ONLY_REPLANS',len(s['comparison']['B_plus_prose_only_replans']))
+          PY
+      - name: Preserve original DeepSeek wire bytes, sources, author planning and all failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AV-B-versus-BPlus-ReviewOnly-Prose-Real-Author-Wires-Source-Grades
+          path: wf_0av_review_only_author_prose_uplift_trial_20261026/
+          retention-days: 90
+          if-no-files-found: warn
