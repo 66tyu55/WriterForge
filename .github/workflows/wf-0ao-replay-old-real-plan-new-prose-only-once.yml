@@ -4,7 +4,7 @@ on:
   push:
     branches: [refactor-unified-scene-delivery-audit]
     paths:
-      - experiments/WF_0AO_FROZEN_REAL_0AM_PLAN_PROSE_ONLY_FIRE_ONCE_20261026.txt
+      - experiments/WF_0AO_FROZEN_REAL_PLAN_PROMPT_SHA_FIXED_V2_ONCE_20261026.txt
 
 permissions:
   contents: read
@@ -20,7 +20,7 @@ jobs:
       github.repository == '66tyu55/WriterForge' &&
       github.ref_name == 'refactor-unified-scene-delivery-audit' &&
       github.run_attempt == 1 &&
-      github.event.head_commit.message == 'experiment(0.AO): FIRE ONLY NEW G PROSE ON ORIGINAL PAID DEEPSEEK SIX-EVENT PLAN'
+      github.event.head_commit.message == 'experiment(0.AO): FIRE NEW G PROSE WITH VERIFIED BYTE-EXACT REPLAYED PLAN'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -37,7 +37,7 @@ jobs:
         run: python -m pip install -e '.[r2]'
       - name: Exact single fire marker and no copyrighted book, R2 or second model
         run: |
-          test "$(cat experiments/WF_0AO_FROZEN_REAL_0AM_PLAN_PROSE_ONLY_FIRE_ONCE_20261026.txt)" = "WF0AO_NO_NEW_PLANNING_ONE_REAL_G_ONLY_PREVIOUS_SIX"
+          test "$(cat experiments/WF_0AO_FROZEN_REAL_PLAN_PROMPT_SHA_FIXED_V2_ONCE_20261026.txt)" = "WF0AO_NO_OLD_PLAN_REGEN_AFTER_BYTE_IDENTICAL_PROMPT"
           python - <<'PY'
           import os
           assert not any(os.getenv(k) for k in (
