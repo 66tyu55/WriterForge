@@ -37,6 +37,23 @@ PAID_RUN=40259961845
 REPLAYED_CALLS=8
 MAX_NEW_CALLS=9
 OUTPUT_TOKENS_CAP=23000
+# The SINGLE source-only prompt change in preserved G request 7 and 8
+# was independently verified byte-for-byte from 0.AQ offline artifact
+# 12624389834, not guessed. This is an honesty boundary: these earlier
+# answers remain historical fiction under old instructions, never new
+# responses to the corrected source guide.
+OLD_REVIEW_GUIDANCE=(
+    "\n【承接真实已写前因】trace.parent_effect_quote"
+    "必须逐字引用前文已实际出现的后果，"
+    "不能凭计划概括、虚构或自行改写。"
+)
+NEW_REVIEW_GUIDANCE=(
+    "\n【前段小说正文保留，但其来源/因果引句被拒绝】"
+    "旧稿可作为时间上的前文，不是经过证明的前因。"
+    "trace.parent_effect_quote 必须为 JSON null，"
+    "不能为了填满字段从旧稿随便抽句作‘后果’。"
+    "人物仍可继续观察或行动，旧来源错误保留待复核。"
+)
 OFFLINE=os.getenv("WF0AQ_SOURCE_ONLY_STOP_BEFORE_NEW","")=="1"
 
 
@@ -164,6 +181,25 @@ class RealPaidHistoryThenWriter:
                 save(OUT/"original-vs-current-prompts"/f"{i+1:02d}.json",{
                     **comparison,"old_prompt":record["prompt"],
                     "current_prompt":packet.prompt})
+            # The first six exact original calls are byte-identical.
+            # The last two differ by ONE verified WF source-warning line.
+            # No person, plan, prose, model parameters or other context may
+            # change while an old authored answer is reused. It is still
+            # explicitly an OLD authored candidate, not a model response
+            # to the corrected prompt.
+            if i<6:
+                need(comparison["same_prompt_and_budget"] is True,
+                     "WF0AQ_UNEXPECTED_OLD_AUTHOR_PROMPT_DRIFT")
+            else:
+                allowed=(record["prompt"].count(OLD_REVIEW_GUIDANCE)==1
+                         and record["prompt"].replace(
+                             OLD_REVIEW_GUIDANCE,NEW_REVIEW_GUIDANCE)==
+                             packet.prompt
+                         and old["max_completion_tokens_reserved"]==max_tokens)
+                need(allowed,
+                     "WF0AQ_SOURCE_WARNING_ONLY_PROMPT_DRIFT_NOT_EXACT")
+                comparison["only_wf_source_warning_changed"]=True
+                comparison["old_writer_answer_cannot_prove_new_guidance_followed"]=True
             self.prompt_comparisons.append(comparison)
             self.replayed+=1
             return saved
