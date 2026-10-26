@@ -19,7 +19,7 @@ MAX_CHARS=460
 MAX_RISKS=2
 VALID_BEAT_KINDS=frozenset((
     "action","decision","reversal","setup","dialogue","quiet",
-    "aftermath","transition",
+    "aftermath","transition","interiority",
 ))
 VALID_FOCUS=frozenset((
     "dialogue","detail","interiority","pacing","restraint",
