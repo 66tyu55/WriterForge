@@ -4,7 +4,7 @@ on:
   push:
     branches: [refactor-unified-scene-delivery-audit]
     paths:
-      - experiments/WF_0AQ_FIFTH_SIXTH_AUTHOR_AFTER_EIGHT_SHA_ONCE_20261026.txt
+      - experiments/WF_0AQ_FIFTH_SIXTH_AFTER_TEST_ISOLATION_ONCE_20261026.txt
 
 permissions:
   contents: read
@@ -20,7 +20,7 @@ jobs:
       github.repository == '66tyu55/WriterForge' &&
       github.ref_name == 'refactor-unified-scene-delivery-audit' &&
       github.run_attempt == 1 &&
-      github.event.head_commit.message == 'experiment(0.AQ): FIRE ONLY NEVER-WRITTEN FIFTH AND SIXTH G TURNS AFTER EIGHT SOURCE SHAS'
+      github.event.head_commit.message == 'experiment(0.AQ): FIRE NEW T05 T06 AFTER SOURCE-FIRST TEST ISOLATION GREEN'
     runs-on: ubuntu-latest
     timeout-minutes: 42
     steps:
@@ -36,7 +36,7 @@ jobs:
       - run: python -m pip install -e '.[r2]'
       - name: Strictly forbid external R2, original literature, Canon or second-model credentials
         run: |
-          test "$(cat experiments/WF_0AQ_FIFTH_SIXTH_AUTHOR_AFTER_EIGHT_SHA_ONCE_20261026.txt)" = "WF0AQ_ONLY_UNWRITTEN_SOURCE_LOCKED_AFTER_EIGHT_OLD_REAL_RESPONSES"
+          test "$(cat experiments/WF_0AQ_FIFTH_SIXTH_AFTER_TEST_ISOLATION_ONCE_20261026.txt)" = "WF0AQ_NO_POLLUTED_TEST_OUTPUT_EIGHT_SOURCES_BEFORE_NEW_AUTHOR"
           python - <<'PY'
           import os
           assert not any(os.getenv(k) for k in (
