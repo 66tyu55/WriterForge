@@ -173,7 +173,7 @@ def _verified_noncausal_temporal_parent(prior):
     receipt=prior.get("receipt")
     need(type(receipt) is dict and
          receipt.get("kind") in
-             ("setup","dialogue","quiet","aftermath","transition") and
+             ("setup","dialogue","quiet","aftermath","transition","interiority") and
          receipt.get("causal_check")=="EXACT_OBSERVABLE_ANCHORS_ONLY" and
          receipt.get("turn_id")==prior.get("beat_id") and
          receipt.get("prose_sha256")==digest(prose.encode("utf8")) and
