@@ -120,7 +120,12 @@ def same_original_task(old):
 
 
 class RealPaidHistoryThenWriter:
-    def __init__(self,old_plan,old_plan_event,prior_eight,secret):
+    def __init__(self,old_plan,old_plan_event,prior_eight,secret,*,output_root):
+        # The paid experiment owns OUT; offline tests MUST inject a separate
+        # temporary root. Never let a mocked author call write into a future
+        # real run's immutable output path during preflight discovery.
+        need(isinstance(output_root,Path),"WF0AQ_OUTPUT_ROOT_NOT_EXPLICIT")
+        self.output_root=output_root
         self.old_plan=old_plan
         self.old_plan_event=old_plan_event
         self.old_eight=prior_eight
@@ -139,7 +144,7 @@ class RealPaidHistoryThenWriter:
     def save_wire(self,wire):
         need(self.current is not None and type(wire) is bytes and
              self.new_events,"WF0AQ_UNEXPECTED_PAID_PROVIDER_WIRE")
-        p=OUT/"new-provider-originals"/(
+        p=self.output_root/"new-provider-originals"/(
             f"new-{self.new_events[-1]['index']:02d}.json")
         p.parent.mkdir(parents=True,exist_ok=True)
         need(not p.exists(),"WF0AQ_NEW_ORIGINAL_WIRE_CANNOT_OVERWRITE")
@@ -178,7 +183,7 @@ class RealPaidHistoryThenWriter:
             if not comparison["same_prompt_and_budget"]:
                 comparison["historical_response_not_a_new_model_reply"]=True
                 comparison["provenance_scope"]="EXISTING_ALREADY_AUTHORED_DRAFT_ONLY"
-                save(OUT/"original-vs-current-prompts"/f"{i+1:02d}.json",{
+                save(self.output_root/"original-vs-current-prompts"/f"{i+1:02d}.json",{
                     **comparison,"old_prompt":record["prompt"],
                     "current_prompt":packet.prompt})
             # The first six exact original calls are byte-identical.
@@ -204,7 +209,7 @@ class RealPaidHistoryThenWriter:
             self.replayed+=1
             return saved
         if OFFLINE:
-            save(OUT/"first-unwritten-turn-prompt.json",{
+            save(self.output_root/"first-unwritten-turn-prompt.json",{
                 "prompt":packet.prompt,"prompt_sha256":h(packet.prompt),
                 "max_tokens":max_tokens,
                 "old_replayed_author_calls":self.replayed-1,
@@ -220,7 +225,7 @@ class RealPaidHistoryThenWriter:
             "wire_sha256":None,
         }
         self.new_events.append(event)
-        save(OUT/"new-model-requests"/f"{event['index']:02d}.json",{
+        save(self.output_root/"new-model-requests"/f"{event['index']:02d}.json",{
             "prompt":packet.prompt,"prompt_sha256":h(packet.prompt),
             "max_tokens":max_tokens,"writer_is_original_deepseek":True,
             "literary_grade_is_not_a_reward":True})
@@ -303,7 +308,8 @@ def main():
             source_genre="古代白话")
         key=os.getenv("DEEPSEEK_API_KEY","wf0aq-no-model-key")
         author=RealPaidHistoryThenWriter(
-            chapter,old_plan_replies[0][1],old_eight,key)
+            chapter,old_plan_replies[0][1],old_eight,key,
+            output_root=OUT)
         with patch("writerforge.writing_assist.local_chat_completion",
                    side_effect=author.ask):
             result=AutonomousWriting(assist).run(
