@@ -1,0 +1,131 @@
+name: WF 0.AT Two Real Source-Aware DeepSeek Self-Reviews No Reauthor ONCE
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_0AT_TWO_SIGNED_SOURCE_REVIEW_ONCE_20261026.txt
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wf-0at-two-source-signed-author-review-once
+  cancel-in-progress: false
+
+jobs:
+  real-source-question-to-same-author:
+    if: >-
+      github.repository == '66tyu55/WriterForge' &&
+      github.ref_name == 'refactor-unified-scene-delivery-audit' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'experiment(0.AT): FIRE TWO ORIGINAL DEEPSEEK SIGNED SOURCE SELF REVIEWS ONLY'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing WriterForge source-first libraries only
+        run: python -m pip install -e '.[r2]'
+      - name: One-shot no R2, Canon, original literature or second provider secret
+        run: |
+          test "$(cat experiments/WF_0AT_TWO_SIGNED_SOURCE_REVIEW_ONCE_20261026.txt)" = "WF0AT_TWO_OLD_AUTHOR_REVIEWS_ONLY_WITH_SIGNED_BOOKLET_SOURCE"
+          python - <<'PY'
+          import os
+          assert not any(os.getenv(k) for k in (
+              'WRITERFORGE_R2_ACCOUNT_ID','WRITERFORGE_R2_ACCESS_KEY_ID',
+              'DISCOVERY_API_KEY','OPENAI_API_KEY','OPENROUTER_API_KEY'))
+          PY
+      - name: Full no-model WriterForge suite including legal ellipsis and forged-citation tests
+        run: python -m unittest discover -s tests -q
+      - name: Freeze old initial 0.AH true author historical prose
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40201458798
+          name: WF-0AH-Second-Three-Xianxia-History-Comedy-Real-Pairs-Wires-and-Ratings
+          github-token: ${{ github.token }}
+          path: wf0am_frozen_0ah_first
+      - name: Freeze 0.AO real four early G author source wires and full prompts
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40259961845
+          name: WF-0AO-Old-Two-Real-DeepSeek-Plans-New-G-Prose-V119-Trace-Source
+          github-token: ${{ github.token }}
+          path: wf0as_original_0ao_eight
+      - name: Freeze six real original G prose turns and later provider wires
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40264287305
+          name: WF-0AQ-Real-Eight-Old-G-Responses-Then-New-Author-V119-Source-Closure
+          github-token: ${{ github.token }}
+          path: wf0as_original_0aq_full_g
+      - name: Freeze last isolated-stage real six DeepSeek original decisions
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40272430331
+          name: WF-0AS-Six-Original-DeepSeek-Self-Reviews-Old-Versus-Isolated-Stage-Wires
+          github-token: ${{ github.token }}
+          path: wf0at_prior_0as_reviews
+      - name: ZERO paid model preflight: real source + signed V114 booklet question available for both T05/T06
+        run: |
+          python - <<'PY'
+          from experiments.wf_0at_two_real_author_signed_source_reviews_once_20261026 import signed_previous_source_review_context
+          p,b,q,history,prev=signed_previous_source_review_context()
+          assert len(p)==len(b)==len(q)==6 and len(history)==2
+          for key in (5,6):
+              item=history[key]
+              assert "周卒把册子揣进" in item['signed_source_note']
+              assert "地形册子一并纳入" in item['signed_source_note']
+              assert item['source_note_sha256'] and len(item['source_note_sha256'])==64
+              print('SIGNED SOURCE T',key,'V114 receipt',item['source_note_sha256'])
+          print('ZERO PROVIDER CALLS. ORIGINAL LITERARY SCORES NOT USED AS SELF-REWARD.')
+          PY
+      - name: Exactly TWO true DeepSeek writer self-review choices, no new fiction or forced revision
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: python -m experiments.wf_0at_two_real_author_signed_source_reviews_once_20261026
+      - name: Preserve real provider original SHA and meaningful source question decision status
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from hashlib import sha256
+          import json
+          p=Path('wf_0at_real_original_writer_source_aware_review_20261026')
+          s=json.loads((p/'STATUS.json').read_text('utf8'))
+          assert s['format']=='wf.0at.real-two-source-signed-novelist-review.v1'
+          assert s['status']=='TWO_NEW_ORIGINAL_AUTHOR_SOURCE_AWARE_REVIEWS_PRESERVED',s.get('failure_code')
+          assert s['real_provider_calls']==2 and len(s['provider_events'])==2
+          assert s['new_novel_prose']==s['Canon_writes']==s['R2_reads']==s['R2_writes']==0
+          assert s['author_edit_applied'] is False
+          assert s['literary_improvement_proven'] is False
+          assert s['original_writer_decides_change_or_keep'] is True
+          assert not s['main_modified'] and s['Railway_deployments']==0
+          for k,ev in enumerate(s['provider_events'],1):
+              assert ev['raw_provider_saved_before_parse']
+              file=p/'provider-originals'/f"source-aware-t{4+k:02d}.json"
+              assert sha256(file.read_bytes()).hexdigest()==ev['provider_raw_sha256']
+          for row in s['rows']:
+              assert row['old_isolated_decision']=='MOVE_ON'
+              assert row['no_new_prose_or_forced_v119_transaction']
+              print(row['turn_id'],'previously MOVE_ON; original DeepSeek after real source question',
+                    row['new_same_author_decision'])
+          print('Valid task-format responses',s['valid_choice_count'],
+                'author-selected LOOK_BACK',s['look_back_choice_count'],
+                '(neither establishes literary quality).')
+          PY
+      - name: Retain source SHA, actual two model decisions and original provider wire on every outcome
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AT-Two-Real-Source-Aware-Same-Writer-Review-Decisions-Original-Wires
+          path: wf_0at_real_original_writer_source_aware_review_20261026/
+          retention-days: 90
+          if-no-files-found: warn
