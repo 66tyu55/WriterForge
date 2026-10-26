@@ -129,6 +129,21 @@ class GWriterRollingGate(unittest.TestCase):
         self.assertEqual(r["coverage"],"NON_STATEFUL_BEAT")
         self.assertIsNone(r["expected_narrow_state"])
 
+
+    def test_0av_v118_real_t04_interiority_is_never_contract_rejected(self):
+        """Real paid A wrote three turns; t04's interiority is author choice."""
+        from writerforge.v118_lamp_scheduler import plan_scene_lamps
+        beat={"id":"t04","kind":"interiority","actor":"林槐",
+              "goal":"在未证实的水压与停电之间反复怀疑自己的开阀命令",
+              "causal_parent":"t03",
+              "craft_focus":["interiority","pacing"]}
+        receipt=plan_scene_lamps(project_id="0av-nightvalve",
+            chapter_index=1,turn_index=4,beat=beat)
+        self.assertEqual(receipt["beat_kind"],"interiority")
+        self.assertEqual(receipt["new_model_calls"],0)
+        self.assertEqual(receipt["factjournal_canon_writes"],0)
+        self.assertFalse(receipt["literary_quality_improvement_proven"])
+
     def test_G_requires_explicit_opt_in_parameter(self):
         from writerforge.writing_assist import AutonomousWriting
         import inspect
