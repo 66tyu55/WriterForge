@@ -1,0 +1,106 @@
+name: WF 0.AV NEW Waterworks Same DeepSeek G vs G+V98 Literary A-B ONCE
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/wf_0av_new_waterworks_g_v98_real_literary_ab_once_20261026.py
+      - experiments/WF_0AV_NEW_WATERWORKS_G_V98_LIVE_ONCE_20261026.txt
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wf-0av-fresh-waterworks-only-source-locked-writer-prose-ab
+  cancel-in-progress: false
+
+jobs:
+  no-model-source-preflight:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing WF only
+        run: python -m pip install -e '.[r2]'
+      - name: Check syntax, source gate and no default G promotion
+        run: |
+          python -m py_compile experiments/wf_0av_new_waterworks_g_v98_real_literary_ab_once_20261026.py
+          python -m experiments.wf_0av_new_waterworks_g_v98_real_literary_ab_once_20261026 --preflight
+      - name: Full zero-model regression before charging existing author
+        run: python -m unittest discover -s tests -q
+
+  bounded-new-provider-literary-ab:
+    needs: [no-model-source-preflight]
+    if: >-
+      github.repository == '66tyu55/WriterForge' &&
+      github.ref_name == 'refactor-unified-scene-delivery-audit' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'experiment(0.AV): FIRE NEW WATERWORKS SAME-DEEPSEEK G VS G-V98 LITERARY A-B ONCE'
+    runs-on: ubuntu-latest
+    timeout-minutes: 48
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing WF without deploying
+        run: python -m pip install -e '.[r2]'
+      - name: Prove exact one-shot and no R2 or other model credentials
+        run: |
+          test "$(cat experiments/WF_0AV_NEW_WATERWORKS_G_V98_LIVE_ONCE_20261026.txt)" = "WF0AV_NEW_WATERWORKS_SOURCE_LOCKED_SAME_AUTHOR_AB_NO_R2"
+          python - <<'PY'
+          import os
+          assert not any(os.environ.get(k) for k in (
+              'WRITERFORGE_R2_ACCOUNT_ID','WRITERFORGE_R2_ACCESS_KEY_ID',
+              'OPENAI_API_KEY','DISCOVERY_API_KEY','OPENROUTER_API_KEY'))
+          print("0.AV: no R2, other vendor or user original.")
+          PY
+      - name: Same DeepSeek Flash authors two G paths with true source locked prefix
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: python -m experiments.wf_0av_new_waterworks_g_v98_real_literary_ab_once_20261026
+      - name: Validate real provider SHA, source progress and cost
+        if: success()
+        run: |
+          python - <<'PY'
+          import json
+          from hashlib import sha256
+          from pathlib import Path
+          root=Path("wf_0av_new_waterworks_g_v98_real_literary_ab_20261026")
+          data=json.loads((root/"STATUS.json").read_text("utf8"))
+          assert data["status"] in (
+              "TWO_REAL_AUTHOR_BRANCHES_COMPLETED",
+              "TWO_ARMS_TWO_BLIND_ORDER_REPORTS",
+              "TWO_ARMS_GRADED_PARTIAL_NO_RETRY")
+          assert data["provider_calls"]<=26
+          assert data["provider_completion_tokens_reserved"]<=44000
+          assert data["R2_reads"]==data["R2_writes"]==data["Canon_writes"]==0
+          assert not data["main_modified"] and data["Railway_deployments"]==0
+          for side in ("A","B"):
+              for row in data[side+"_wire_events"]:
+                  if row["paid_call"] and row["saved_before_json_decode"]:
+                      p=(root/side/"original-provider-wires"/
+                         f"{row['index']:02d}-paid.json")
+                      assert sha256(p.read_bytes()).hexdigest()==row["wire_sha256"]
+          print("WF0AV VERIFIED ACTUAL NEW AUTHOR AB",data["status"])
+          print("WF0AV REPLANS",data["comparison"]["B_actual_source_anchored_replans"])
+          print("WF0AV SKIPS",data["comparison"]["B_source_only_skips"])
+          print("WF0AV LENGTH COMPARABLE",data["comparison"]["length_comparable"])
+          PY
+      - name: Keep exact original wires and failure evidence also on RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          path: wf_0av_new_waterworks_g_v98_real_literary_ab_20261026/
+          retention-days: 90
+          if-no-files-found: warn
