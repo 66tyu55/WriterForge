@@ -33,8 +33,14 @@ PROJECT="wf0av-fresh-waterworks-ab"
 SCENE="waterworks-inspection-night"
 MODEL="deepseek-flash"
 API="https://api.deepseek.com/v1"
-MAX_TOTAL_PAID_CALLS=23
-MAX_TOTAL_RESERVED_COMPLETION_TOKENS=40450
+MAX_TOTAL_PAID_CALLS=21
+MAX_TOTAL_RESERVED_COMPLETION_TOKENS=37550
+FIFTH_ORIGINAL_RUN_ID=40286835621
+FIFTH_SOURCE=Path("wf0av_fifth_paid_source")
+FOURTH_FIFTH_RAW_SHA=(
+    "6ff634ca385a48a9ecaac3100b1c3f5235b4b5560da7c68db667a1eec3345fd5",
+    "fe7e494f59c80c0f30fb7ff25bceb3a8c5af44287031790f8a7ce1b7a9edbdaa",
+)
 THIRD_ORIGINAL_RUN_ID=40285930972
 THIRD_SOURCE=Path('wf0av_third_paid_source')
 THIRD_RAW_SHA='7b776a0277ae8721af6c689b87da7962d9012b24751de1b76454052dc8c62de3'
@@ -84,11 +90,12 @@ TASK={"format":"wf.0av.new-original-a-b-preregistered.v1",
       "per_turn_target_chinese_chars":[180,320],
       "new_run_max_paid_calls":MAX_TOTAL_PAID_CALLS,
       "new_run_max_reserved_completion_tokens":MAX_TOTAL_RESERVED_COMPLETION_TOKENS,
-      "source_locked_previous_paid_calls":3,
+      "source_locked_previous_paid_calls":5,
       "combined_ceiling_including_previous_trial":26,
       "combined_completion_reservation_ceiling":44000,
       "earlier_failed_provider_run":PRIOR_FAILED_RUN_ID,
       "third_source_failed_run":THIRD_ORIGINAL_RUN_ID,
+      "fourth_fifth_source_failed_run":FIFTH_ORIGINAL_RUN_ID,
       "judging":"Two opposite-order BLIND same-family DeepSeek scores, never WF truth",
       "pre_registered_dimensions":[
           "人物选择真实性","后果改变下一步","动作重复","真实物品及时间连续性",
@@ -262,6 +269,62 @@ def load_third_original_response():
         "original_trace_preserved_without_rewriting":True,
         "status":"ACTUAL_AUTHOR_PROSE_SOURCE_ONLY"})
     return dict(e,raw_response=raw_response)
+
+
+def load_fourth_fifth_original_responses():
+    """Two more actual DeepSeek prose replies, already charged and source-kept.
+
+    The old WF V118 rejected t04 AFTER A produced t01-t03. These are not
+    authoring prompts to retry; they are replayed without model calls.
+    """
+    trial=json.loads((FIFTH_SOURCE/"STATUS.json").read_text("utf8"))
+    require(trial["status"]=="REAL_AB_SAFE_PARTIAL_FAILURE_NOT_RETRIED"
+            and trial["failure_code"]==
+                "WF96_SCENE_TURN_REJECTED_WF118_LAMP_BAD_SCENE_CONTRACT"
+            and trial["provider_calls"]==2
+            and trial["total_paid_calls_including_original_red"]==5
+            and trial["provider_completion_tokens_reserved"]==2900,
+            "WF0AV_FIFTH_SOURCE_MISMATCH")
+    events=trial["A_wire_events"]
+    require(len(events)==5 and
+            [x["wire_sha256"] for x in events[:3]]==
+                list(PRIOR_RAW_SHA)+[THIRD_RAW_SHA] and
+            all(x["paid_call"] is False for x in events[:3]),
+            "WF0AV_THREE_PREVIOUS_PAID_WIRES_NOT_SOURCE_LOCKED")
+    original=[]
+    for i,sha in enumerate(FOURTH_FIFTH_RAW_SHA,start=4):
+        event=events[i-1]
+        raw=(FIFTH_SOURCE/"A"/"original-provider-wires"/
+             f"{i:02d}-paid.json").read_bytes()
+        require(h(raw)==sha and event["wire_sha256"]==sha and
+                event["paid_call"] is True and event["index"]==i
+                and event["model"]==MODEL and
+                event["saved_before_json_decode"] is True,
+                "WF0AV_FOURTH_FIFTH_REAL_PROVIDER_WIRE_NOT_EXACT")
+        envelope=json.loads(raw)
+        require(envelope["model"]==MODEL and
+                envelope["choices"][0]["finish_reason"]=="stop",
+                "WF0AV_OLD_MODEL_CONTINUATION_NOT_COMPLETE")
+        doc=json.loads(envelope["choices"][0]["message"]["content"])
+        response=json.dumps(doc,ensure_ascii=False,separators=(",",":"))
+        require(type(doc) is dict and type(doc.get("prose")) is str
+                and type(doc.get("trace")) is dict
+                and h(response)==event["returned_json_sha256"],
+                "WF0AV_REAL_PROSE_RESPONSE_JSON_DRIFT")
+        destination=ROOT/"upstream-immutable-wire-copies"/(
+            f"{i:02d}-origin-run-{FIFTH_ORIGINAL_RUN_ID}.json")
+        require(not destination.exists(),
+                "WF0AV_PAID_MODEL_REPLY_NEVER_OVERWRITE")
+        destination.write_bytes(raw)
+        original.append(dict(event,raw_response=response))
+    save_json(ROOT/"RECOVERED_FOURTH_FIFTH_SOURCE_ONLY.json",{
+        "run":FIFTH_ORIGINAL_RUN_ID,
+        "already_paid_calls":2,
+        "already_reserved_completion_tokens":2900,
+        "provider_wire_shas":list(FOURTH_FIFTH_RAW_SHA),
+        "copied_exact_provider_bytes":True,
+        "model_called_again_for_these_responses":False})
+    return tuple(original)
 
 
 class AggregateCap:
@@ -471,8 +534,8 @@ def main():
         "status":"PRE_REGISTERED_NO_CALLS",
         "model":MODEL,"A":None,"B":None,
         "provider_calls":0,"budget_limit":MAX_TOTAL_PAID_CALLS,
-        "prior_paid_calls_not_recharged":3,
-        "prior_reserved_completion_tokens_not_recharged":3550,
+        "prior_paid_calls_not_recharged":5,
+        "prior_reserved_completion_tokens_not_recharged":6450,
         "provider_completion_tokens_reserved":0,
         "judge":None,"literary_uplift_proven":False,
         "human_blind_grade":False,"originals_not_overwritten":True,
@@ -490,7 +553,8 @@ def main():
         require(len(key)>=16,"WF0AV_EXISTING_DEEPSEEK_SECRET_MISSING")
         previous_two=load_first_two_original_replies()
         a_writer=WireWriter("A",key,cap,replay=previous_two+(
-            load_third_original_response(),))
+            load_third_original_response(),)+
+            load_fourth_fifth_original_responses())
         a=run_arm("A",a_writer)
         require(len(a_writer.events)>=5,
                 "WF0AV_A_NO_MULTITURN_PROVIDER_PREFIX")
@@ -514,10 +578,12 @@ def main():
             "A_previous_two_planning_calls_replayed":2,
             "A_previous_third_original_prose_call_replayed":1,
             "third_original_prose_raw_wire_sha256":THIRD_RAW_SHA,
+            "A_previous_fourth_and_fifth_original_prose_calls_replayed":2,
+            "fourth_fifth_original_prose_wire_sha256s":list(FOURTH_FIFTH_RAW_SHA),
             "original_red_wire_sha256s":list(PRIOR_RAW_SHA),
-            "combined_paid_calls_including_original_red":cap.calls+3,
+            "combined_paid_calls_including_original_red":cap.calls+5,
             "combined_reserved_output_tokens_including_original_red":(
-                cap.output_reservations+3550),
+                cap.output_reservations+6450),
             "B_new_paid_model_calls":b_writer.budget.calls_reserved,
             "B_shared_source_calls_not_rebilled":3,
             "A_provider_usage":a_writer.budget.public_receipt(),
@@ -586,11 +652,11 @@ def main():
             else type(error).__name__+":NO_BILLABLE_RETRY")
     finally:
         status["provider_calls"]=cap.calls
-        status["total_paid_calls_including_original_red"]=cap.calls+3
+        status["total_paid_calls_including_original_red"]=cap.calls+5
         status["provider_completion_tokens_reserved"]=(
             cap.output_reservations)
         status["total_reserved_tokens_including_original_red"]=(
-            cap.output_reservations+3550)
+            cap.output_reservations+6450)
         for label,writer in (("A",a_writer),("B",b_writer)):
             if writer is not None:
                 status[label+"_wire_events"]=writer.public_events()
@@ -598,7 +664,7 @@ def main():
         save_json(ROOT/"STATUS.json",status)
         print("WF0AV_STATUS "+json.dumps({
             "status":status["status"],"paid_calls":cap.calls,
-            "paid_calls_including_prior_red":cap.calls+3,
+            "paid_calls_including_prior_red":cap.calls+5,
             "completion_tokens_reserved":cap.output_reservations,
             "A_prose":status["A"],"B_prose":status["B"],
             "error":status.get("failure_code"),
