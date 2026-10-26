@@ -688,6 +688,179 @@ def _candidate_physical_source_question(prose,one,two,*,
         "adjacent_sentence_not_proven_same_time":adjacent_sentences,
     }
 
+# Portable-document custody is a SOURCE-ONLY subprojection of the EXISTING
+# signed V122/V114 relation receipt, not a new item database or literary
+# critic. It records a possible missing transition across turns, never
+# declares two noun phrases the same physical object or writes a holder cell.
+# The recognition vocabulary limits coverage; absence of an alert is NOT
+# evidence of a verified transfer chain.
+_DOC_CUSTODY_LIMIT=8
+_DOC_ACTOR=r"(?P<actor>[\u3400-\u9fff]{2,6})"
+_DOC_ITEM=r"(?P<item>[\u3400-\u9fff]{0,6}(?:册子|文书|卷宗|账簿|密函|药箱|钥匙|信封|账册|经卷|令牌))"
+_DOC_LEAVE=re.compile(
+    _DOC_ACTOR+r"把"+_DOC_ITEM+
+    r"(?:揣进|收进|塞进|装进|收入)[^。！？；\n]{0,38}?"
+    r"(?:出去|离开|走出)")
+_DOC_REHANDLE_MIXED=re.compile(
+    _DOC_ACTOR+r"把[^。！？；\n]{0,30}?[，,]与"+
+    _DOC_ITEM+r"一并(?:纳入|收进|装进|封入|放进|收入)")
+_DOC_REHANDLE_DIRECT=re.compile(
+    _DOC_ACTOR+r"(?:把|将)"+_DOC_ITEM+
+    r"(?:放进|装进|封进|纳入|收入)")
+_DOC_RETURN=re.compile(
+    r"(?P<giver>[\u3400-\u9fff]{2,6})"
+    r"(?:回来|折返|回到案前|回到屋里)(?:把|将)"
+    +_DOC_ITEM+r"(?:交还|还给|递还|交给)"
+    r"(?P<receiver>[\u3400-\u9fff]{2,6})")
+_DOC_DISTINCT=("另一本","另一册","另外一","第二","第三","副本",
+               "抄本","备份","复写","新的一本","两本","两册")
+_DOC_NONCURRENT=("回忆","回想","想起","梦见","假如","如果","曾经回想",
+                 "那时","旧日","当初那一幕")
+
+
+def _document_identity_source_scope(before,after):
+    if any(word in before or word in after for word in _DOC_DISTINCT):
+        return None
+    if before==after:
+        return "EXACT_DOCUMENT_LITERAL"
+    if (min(len(before),len(after))>=2 and
+        (before.endswith(after) or after.endswith(before))):
+        return "POSSIBLE_DOCUMENT_ALIAS"
+    return None
+
+
+def _bounded_document_custody_projection(prose,previous_relation_receipt):
+    """A small, source-locked custody QUESTION, never semantic ownership.
+
+    One original narrated handoff carried away by a named participant may
+    conflict with another named participant handling possibly the same
+    object later, if a return is not shown. Off-page returns, different
+    copies, or narrative flashbacks remain legitimate possibilities.
+    """
+    inherited=(previous_relation_receipt or {}).get(
+        "document_custody_open_sources",[])
+    _need(type(inherited) is list and len(inherited)<=_DOC_CUSTODY_LIMIT,
+          "WF122_DOCUMENT_CUSTODY_PRIOR_BOUNDS")
+    active=[]
+    for old in inherited:
+        _need(type(old) is dict and all(
+            type(old.get(k)) is str and old[k] for k in (
+                "item_literal","holder_literal","source_quote",
+                "source_quote_sha256","origin_source_sha256")) and
+            old["source_quote_sha256"]==_digest(old["source_quote"]) and
+            re.fullmatch(r"[0-9a-f]{64}",old["origin_source_sha256"]) is not None,
+            "WF122_DOCUMENT_CUSTODY_PRIOR_SOURCE_INVALID")
+        active.append(dict(old))
+    observations=[]
+    fresh=[]
+    for begin,end,sentence,spoken in _segments(prose):
+        if spoken or any(word in sentence for word in _DOC_NONCURRENT):
+            # A retrospective claim cannot silently overwrite current custody.
+            continue
+        matches=[]
+        for kind,rx in (
+            ("RETURN",_DOC_RETURN),
+            ("CARRY_AWAY",_DOC_LEAVE),
+            ("LOCAL_HANDLE",_DOC_REHANDLE_MIXED),
+            ("LOCAL_HANDLE",_DOC_REHANDLE_DIRECT),
+        ):
+            for m in rx.finditer(sentence):
+                quote=m.group()
+                if any(x in quote for x in _DOC_DISTINCT):
+                    continue
+                at=begin+m.start()
+                if (not 7<=len(quote)<=150 or prose[at:at+len(quote)]!=quote
+                    or not _present(prose,at,at+len(quote))):
+                    continue
+                actor=(m.groupdict().get("actor") or
+                       m.groupdict().get("giver"))
+                receiver=m.groupdict().get("receiver")
+                item=m.group("item")
+                matches.append({
+                    "kind":kind,"actor_literal":actor,
+                    "receiver_literal":receiver,
+                    "item_literal":item,
+                    "source_start":at,"source_end":at+len(quote),
+                    "source_quote":quote,
+                    "source_quote_sha256":_digest(quote),
+                    "source_sha256":_digest(prose),
+                    "source_narration_not_semantic_identity_proof":True,
+                })
+        matches.sort(key=lambda x:x["source_start"])
+        for ev in matches:
+            if len(observations)>=_DOC_CUSTODY_LIMIT:
+                _need(False,"WF122_DOCUMENT_CUSTODY_SCAN_BUDGET_EXCEEDED")
+            observations.append(ev)
+            same=[(i,entry,_document_identity_source_scope(
+                entry["item_literal"],ev["item_literal"]))
+                for i,entry in enumerate(active)]
+            same=[x for x in same if x[2] is not None]
+            if ev["kind"]=="RETURN":
+                # Only an explicitly narrated return by the recorded source
+                # holder can transition the candidate to the recipient.
+                for i,previous,identity in same:
+                    if previous["holder_literal"]!=ev["actor_literal"]:
+                        continue
+                    active[i]={
+                        "item_literal":previous["item_literal"],
+                        "holder_literal":ev["receiver_literal"],
+                        "source_quote":ev["source_quote"],
+                        "source_quote_sha256":ev["source_quote_sha256"],
+                        "origin_source_sha256":ev["source_sha256"],
+                        "evidence_class":"NARRATED_RETURN_SOURCE_ONLY",
+                    }
+                    break
+            elif ev["kind"]=="CARRY_AWAY":
+                candidate={
+                    "item_literal":ev["item_literal"],
+                    "holder_literal":ev["actor_literal"],
+                    "source_quote":ev["source_quote"],
+                    "source_quote_sha256":ev["source_quote_sha256"],
+                    "origin_source_sha256":ev["source_sha256"],
+                    "evidence_class":"NARRATED_CARRY_AWAY_SOURCE_ONLY",
+                }
+                if same and same[0][1]["holder_literal"]==ev["actor_literal"]:
+                    active[same[0][0]]=candidate
+                elif not same:
+                    _need(len(active)<_DOC_CUSTODY_LIMIT,
+                          "WF122_DOCUMENT_CUSTODY_OPEN_SOURCE_LIMIT")
+                    active.append(candidate)
+                # A different holder may be an alias or offstage handoff;
+                # this narrow projection does NOT invent the transition.
+            else:
+                for i,previous,identity in same:
+                    if previous["holder_literal"]==ev["actor_literal"]:
+                        break
+                    _need(len(fresh)<_DOC_CUSTODY_LIMIT,
+                          "WF122_DOCUMENT_CUSTODY_REVIEW_BOUNDS")
+                    fresh.append({
+                        "earlier_holder_literal":previous["holder_literal"],
+                        "later_holder_literal":ev["actor_literal"],
+                        "earlier_item_literal":previous["item_literal"],
+                        "later_item_literal":ev["item_literal"],
+                        "earlier_source_sha256":previous["origin_source_sha256"],
+                        "later_source_sha256":ev["source_sha256"],
+                        "earlier_source_quote":previous["source_quote"],
+                        "later_source_quote":ev["source_quote"],
+                        "earlier_source_quote_sha256":
+                            previous["source_quote_sha256"],
+                        "later_source_quote_sha256":ev["source_quote_sha256"],
+                        "later_source_start":ev["source_start"],
+                        "item_identity_scope":(
+                            "POSSIBLE_DOCUMENT_ALIAS" if identity!=
+                                "EXACT_DOCUMENT_LITERAL" else
+                            "EXACT_SOURCE_LITERAL_NOT_PROVEN_ONE_OBJECT"),
+                        "omitted_return_or_distinct_copy_may_explain":True,
+                        "literary_error_proven":False,
+                        "real_world_transfer_verified":False,
+                        "writer_rewrite_not_performed":True,
+                    })
+                    break
+    _need(len(active)<=_DOC_CUSTODY_LIMIT,
+          "WF122_DOCUMENT_CUSTODY_OPEN_LIMIT")
+    return active,observations,fresh
+
+
 def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
     """Bounded evidence-first relation review within V122; zero model calls.
 
@@ -835,6 +1008,9 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
                         "writer_can_continue_unrelated_scenes":True,
                     })
                     break
+    document_sources,document_observations,document_reviews=(
+        _bounded_document_custody_projection(
+            prose,previous_relation_receipt))
     payload={
         "format":"wf.v122.source-physical-relation-review.v1",
         "source_sha256":_digest(prose),
@@ -843,6 +1019,14 @@ def audit_physical_relation_sources(*,prose,previous_relation_receipt=None):
             if previous_relation_receipt is not None else None),
         "claims":claims,
         "review_pairs":reviews,
+        # No second ledger: bounded source projection INSIDE the existing
+        # signed V122/V114 candidate relation receipt only.
+        "document_custody_open_sources":document_sources,
+        "document_custody_source_observations":document_observations,
+        "document_custody_current_review_pairs":document_reviews,
+        "document_custody_current_needs_review":bool(document_reviews),
+        "document_custody_authoritative_holder_written":False,
+        "document_custody_literary_error_verified":False,
         "open_relation_reviews":open_debts,
         "open_relations_forwarded_from_signed_prior":old_unresolved,
         "open_relation_debts_are_source_only_not_state_cells":True,
