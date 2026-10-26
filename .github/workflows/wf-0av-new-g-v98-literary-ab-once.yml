@@ -89,7 +89,7 @@ jobs:
       github.repository == '66tyu55/WriterForge' &&
       github.ref_name == 'refactor-unified-scene-delivery-audit' &&
       github.run_attempt == 1 &&
-      github.event.head_commit.message == 'experiment(0.AV): CONTINUE FROM EIGHT IMMUTABLE DEEPSEEK AUTHOR WIRES AFTER V98 FIX ONCE'
+      github.event.head_commit.message == 'experiment(0.AV): FIRE VERIFIED EIGHT REAL AUTHOR WIRES FOR NEW B PROSE ONCE'
     runs-on: ubuntu-latest
     timeout-minutes: 48
     steps:
@@ -103,7 +103,7 @@ jobs:
         run: python -m pip install -e '.[r2]'
       - name: Prove exact one-shot and no R2 or other model credentials
         run: |
-          test "$(cat experiments/WF_0AV_NEW_WATERWORKS_G_V98_LIVE_ONCE_20261026.txt)" = "WF0AV_SOURCE_LOCKED_EIGHT_OLD_PROVIDER_WIRES_WRITER_OWNED_V98_NEXT"
+          test "$(cat experiments/WF_0AV_NEW_WATERWORKS_G_V98_LIVE_ONCE_20261026.txt)" = "WF0AV_EIGHT_REAL_WIRES_OFFLINE_GREEN_AUTHOR_OWNED_B_PROSE_ONLY"
           python - <<'PY'
           import os
           assert not any(os.environ.get(k) for k in (
