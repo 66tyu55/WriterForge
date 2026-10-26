@@ -1,6 +1,21 @@
 # WriterForge 当前有效交接｜2026-10-24
 
 
+## 0.AR—0.AT 最新｜WF 写作帮助的实测提升与下一项核心缺口（2026-10-26）
+
+**最新第一阅读**：[0.AR—0.AT真实六段作者与自审改进报告](WF_0AR_0AS_0AT_REAL_WRITER_REVIEW_STAGE_LITERARY_UPLIFT_20261026.md)。唯一分支 refactor-unified-scene-delivery-audit。原始 0.AQ G 六段小说 SHA d1b86f2b6430b80bdb70df70199b9644e0a0b041ab842a81abc0a625c29cb0e3，不再重写旧原作家正文或旧模型计划。
+
+- **0.AR 真正来源缺口**：在六段 DeepSeek 历史稿中，周卒已带走册子，秦渊又封装疑似同一本。原V122/V116/V114经RED→原模块修复→GREEN，加入签名、跨安静段可保留的可能物品流转疑问；可以是不同副本/省略/回叙，**仅REVIEW、不是已判小说错误或实体holder**。完整回归 [#40273050833](https://github.com/66tyu55/WriterForge/actions/runs/40273050833) 1802 tests、10 skipped、0 failures。
+- **0.AS 真正模型接口底层进步**：原 G 一次自审请求混用创作正文 JSON prose/trace 和选择回改的 JSON，实际6次自审4次错输出正文。已在原 writing_assist.py 分离独立写后审稿任务，保留 source-only逐句索引和严格SHA，原模型文学决定不由 WF 做。真实 DeepSeek 同六份不变原稿/同模型、只补6次审稿：[0.AS #40272430331](https://github.com/66tyu55/WriterForge/actions/runs/40272430331) **合法自审2/6 → 6/6，0次新小说生成**，但六次全部选择MOVE_ON、0次回改。是接口有效率提高，不是写作质量得到证明。
+- **0.AT 有来源的作家式回看**：原 G 现在能将V114/V122原始双引句和有签名的“册子归属待证”提供给写后原作者；宿主不强迫改文，不造交还动作。完整无模型回归 [#40273430253](https://github.com/66tyu55/WriterForge/actions/runs/40273430253) **1805 tests、10 skipped、0 failed**。真DeepSeek在 [0.AT #40273633246](https://github.com/66tyu55/WriterForge/actions/runs/40273633246) 重新审核原t05/t06，真正引用册子疑问，但 **2/2仍MOVE_ON**，把缺失转移视作可能有意留白。文学错误未确认，原作者也尚未执行真实V119修稿。零新小说生成、零正式Canon/R2写入。
+- **用户真正关心的 WF 下一个提升点**：眼下 G（continuity_guard）在全章节开头冻结了6个beat；V98只在 rolling_causal/emotion_rolling/foresight_rolling 下根据真实下一段重规划。实际作者已封册发人后依旧重复封册/换马/派人，可能是“规划滞后于文本”造成。必须先在唯一G线路**opt-in 接回现有V98逐步自主重规划**，验证正文改变导致下一beat和后文/状态一起撤回重生成、旧稿不可覆盖、未证书面引句不可冒充真实后果。另一项是源证据与独立阅读视角质疑交接，再给原作家是否回改的决定权；不可只发提醒或强制删除。
+- **未证明**：独立文学水平进步、真实原AI主动发现应该删哪句、实测V119自主回改和下游重写闭环。十类型微段和旧15章测试不得重复刷分；4/6 prose回显的原失败不能抹掉。只有同小说同模型相似预算、可比篇幅、跨段来源核验和逆序盲评，才可算真正文学进步。
+- **不变禁令**：main、Railway、R2用户原著、正式Canon、第二叙事记忆主人、重复15章训练都不能动；保留V26/V98/V119、唯一NarrativeCore。WF只辅助原作者构思、理解来源和修订事务，不得代AI生成文学正文或判断其艺术价值。
+
+---
+
+
+
 ## 0.AI—0.AL 更新：十类原创微段真实写作已覆盖，V96决策后果待观察修复（2026-10-25）
 
 **已执行，不能重复写作：** 0.AG武侠/恐怖/计谋、0.AH仙侠/历史/喜剧、0.AJ+0.AL言情/科幻灾难、0.AK日常/抒情，共 **10类不同原创场景、20份作者原稿**。最新 [0.AL 原文恢复与双序评分 #40206306377](https://github.com/66tyu55/WriterForge/actions/runs/40206306377) 及 [0.AK最后两类 #40206473113](https://github.com/66tyu55/WriterForge/actions/runs/40206473113) **成功**；0.AK 全量离线 **1,759 tests、10 skipped、0 failed**。这不是作品文学进步通关：新四类都被标明不可比。
