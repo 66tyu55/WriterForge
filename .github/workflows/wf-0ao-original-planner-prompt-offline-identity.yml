@@ -1,0 +1,96 @@
+name: WF 0.AO Offline Original-vs-New Planner Prompt SHA Forensics ONCE
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - experiments/WF_0AO_OFFLINE_PROMPT_IDENTITY_NO_MODEL_ONCE_20261026.txt
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  prompt-identity-only-no-real-writer:
+    if: >-
+      github.repository == '66tyu55/WriterForge' &&
+      github.ref_name == 'refactor-unified-scene-delivery-audit' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'audit(0.AO): FIRE OFFLINE SOURCE ONLY ORIGINAL PLANNER PROMPT COMPARISON'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -e '.[r2]'
+      - name: Prove opt-in forensic marker with NO production model credentials
+        run: |
+          test "$(cat experiments/WF_0AO_OFFLINE_PROMPT_IDENTITY_NO_MODEL_ONCE_20261026.txt)" = "WF0AO_DIAGNOSE_SOURCE_SHA_NOT_WRITER_NO_PROVIDER"
+          python - <<'PY'
+          import os
+          assert not any(os.getenv(k) for k in (
+              'DEEPSEEK_API_KEY','DISCOVERY_API_KEY','OPENAI_API_KEY',
+              'WRITERFORGE_R2_ACCOUNT_ID','WRITERFORGE_R2_ACCESS_KEY_ID'))
+          PY
+      - name: Run source-only structural tests
+        run: python -m unittest discover -s tests -p test_wf_0ao_frozen_author_plan_protocol.py -q
+      - name: Download original WF 0.AH author wire and prose
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40201458798
+          name: WF-0AH-Second-Three-Xianxia-History-Comedy-Real-Pairs-Wires-and-Ratings
+          github-token: ${{ github.token }}
+          path: wf0am_frozen_0ah_first
+      - name: Download original 0.AM DeepSeek chapter plan and event-outline wire
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40257489862
+          name: WF-0AM-Real-History-One-G-Author-Original-Wires-Source-Repair-Downstream
+          github-token: ${{ github.token }}
+          path: wf0ao_old_real_0am_failed_plan
+      - name: Capture next G planning prompt and abort BEFORE any possible network
+        env:
+          WF0AO_OFFLINE_PROMPT_CAPTURE_ONLY: '1'
+          DEEPSEEK_API_KEY: 'wf0ao-offline-no-network-key-v1'
+        run: |
+          set +e
+          python -m experiments.wf_0ao_frozen_real_deepseek_plan_prose_once_20261026
+          RESULT=$?
+          set -e
+          test "$RESULT" -eq 1
+      - name: Enforce verified prompt comparison and precisely zero paid calls
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json,hashlib
+          d=Path('wf_0ao_frozen_original_plan_real_G_prose_20261026')
+          s=json.loads((d/'STATUS.json').read_text('utf8'))
+          p=json.loads((d/'source-only-first-prompt-identity.json').read_text('utf8'))
+          assert s['failure_code']=='WF0AO_STOP_AFTER_SOURCE_ONLY_PROMPT_CAPTURE'
+          assert s['new_model_calls']==0 and not s['new_provider_events']
+          assert s['old_real_plan_replayed_without_model']
+          assert s['old_real_six_event_plan_preserved']
+          assert s['Canon_writes']==s['R2_reads']==s['R2_writes']==0
+          assert hashlib.sha256(p['old_prompt'].encode()).hexdigest()==p['old_prompt_sha256']
+          assert hashlib.sha256(p['current_prompt'].encode()).hexdigest()==p['current_prompt_sha256']
+          assert p['new_model_calls']==0
+          print('Old prompt SHA:',p['old_prompt_sha256'])
+          print('New prompt SHA:',p['current_prompt_sha256'])
+          print('Same request and budget?',p['same_prompt_sha_and_budget'])
+          print('OFFLINE FORENSIC ONLY; ZERO MODEL OR CANON CALLS.')
+          PY
+      - name: Preserve source-only old/new prompt evidence, no literary fiction generated
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AO-Original-and-New-Prompt-SHA-Difference-No-Provider
+          path: wf_0ao_frozen_original_plan_real_G_prose_20261026/
+          retention-days: 30
+          if-no-files-found: warn
