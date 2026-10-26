@@ -189,6 +189,41 @@ def _verified_noncausal_temporal_parent(prior):
     return receipt["prose_sha256"]
 
 
+def _verified_review_only_temporal_parent(prior):
+    """Verify a prior V96 TRACE_REJECTED prose receipt as source, not cause.
+
+    The actual body remains an authored private draft. A child may continue
+    chronologically, but MUST NOT claim that its bad/unknown model trace is
+    an observed effect, causal evidence, knowledge or Canon.
+    """
+    need(type(prior) is dict and type(prior.get("prose")) is str,
+         "WF96_REVIEW_ONLY_PARENT_SOURCE_INVALID")
+    prose=prior["prose"]
+    r=prior.get("receipt")
+    need(type(r) is dict and
+         r.get("format")=="wf.writing.candidate-turn.v96" and
+         r.get("turn_id")==prior.get("beat_id") and
+         r.get("kind") in KINDS and
+         r.get("causal_check")=="TRACE_REJECTED_SOURCE_PROSE_REVIEW_ONLY" and
+         r.get("source_causal_review_reason")=="TRACE_REJECTED" and
+         r.get("source_causal_review_required") is True and
+         r.get("model_trace_failure_code") in TRACE_ONLY_REVIEW_ERRORS and
+         r.get("model_trace_not_proof_of_causality") is True and
+         r.get("prose_sha256")==digest(prose.encode("utf8")) and
+         r.get("receipt_sha256")==digest(canonical({
+             k:v for k,v in r.items() if k!="receipt_sha256"})) and
+         prior.get("effect_quote") is None and
+         r.get("action_anchor") is None and
+         r.get("effect_anchor") is None and
+         r.get("parent_effect_sha256") is None and
+         r.get("causal_relation_verified") is False and
+         r.get("eligible_for_factjournal_KNOWN") is False and
+         r.get("eligible_for_experience_promotion") is False and
+         r.get("candidate_requires_author_acceptance") is True,
+         "WF96_REVIEW_ONLY_PARENT_SOURCE_INVALID")
+    return r["prose_sha256"]
+
+
 def _source_causal_relation_review(prose, action, effect, action_quote,
                                    effect_quote):
     """Conservative *review cues*, never a host verdict on literary causality.
@@ -309,6 +344,17 @@ def check_turn(raw,beat, *, mode, accepted=(),
                      "WF96_PARENT_CAUSE_NOT_ANCHORED_IN_PREVIOUS_PROSE")
                 recorded["parent_effect_sha256"]=digest(
                     required.encode("utf8"))
+            elif (type(prior.get("receipt")) is dict and
+                  prior["receipt"].get("causal_check")==
+                      "TRACE_REJECTED_SOURCE_PROSE_REVIEW_ONLY"):
+                # The preceding *prose* is signed and still readable, but
+                # the previous model trace was already rejected. Do not
+                # convert a child's citation (even if a real substring)
+                # into the parent's invented EFFECT. G may retain its
+                # actual prose under the existing review-only path.
+                _verified_review_only_temporal_parent(prior)
+                need(False,
+                     "WF96_PARENT_REVIEW_ONLY_TRACE_REQUIRES_REVIEW")
             elif (type(prior.get("receipt")) is dict and
                   prior["receipt"].get("outcome_pending_source_only") is True):
                 # An actual authored decision may not have an observed
@@ -456,6 +502,15 @@ def make_turn_instructions(beat,*,mode,accepted=(),
                        "trace.parent_effect_quote 必须为 JSON null。"
                        "下一场可调查、等待或推进，不可宣称已经发生未写出的结果。")
             elif (type(predecessor) is dict and
+                  type(predecessor.get("receipt")) is dict and
+                  predecessor["receipt"].get("causal_check")==
+                      "TRACE_REJECTED_SOURCE_PROSE_REVIEW_ONLY"):
+                note+=("\n【前段小说正文保留，但其来源/因果引句被拒绝】"
+                       "旧稿可作为时间上的前文，不是经过证明的前因。"
+                       "trace.parent_effect_quote 必须为 JSON null，"
+                       "不能为了填满字段从旧稿随便抽句作‘后果’。"
+                       "人物仍可继续观察或行动，旧来源错误保留待复核。")
+            elif (type(predecessor) is dict and
                   predecessor.get("effect_quote") is None and
                   type(predecessor.get("receipt")) is dict and
                   predecessor["receipt"].get("kind") in
@@ -570,6 +625,7 @@ def normalize_model_source_citations(raw,beat,accepted=()):
 
 
 TRACE_ONLY_REVIEW_ERRORS=frozenset((
+    "WF96_PARENT_REVIEW_ONLY_TRACE_REQUIRES_REVIEW",
     "WF96_ACTION_NOT_UNIQUE_IN_ACTUAL_PROSE",
     "WF96_EFFECT_NOT_UNIQUE_IN_ACTUAL_PROSE",
     "WF96_ACTION_EFFECT_OVERLAP_OR_REVERSED",
@@ -614,9 +670,20 @@ def review_only_model_turn(raw,beat,*,failure_code,accepted=(),
     need(len(canonical(doc))<=MAX_TURN_JSON_BYTES,
          "WF96_TRACE_RECOVERY_EXCEEDS_BOUNDS")
     parent=beat.get("causal_parent")
-    need(parent is None or
-         parent in {row.get("beat_id") for row in accepted},
+    actual_parents={row.get("beat_id"):row for row in accepted
+                    if type(row) is dict}
+    need(parent is None or parent in actual_parents,
          "WF96_TRACE_RECOVERY_PARENT_NOT_WRITTEN")
+    reviewed_parent_sha=None
+    if parent is not None:
+        previous=actual_parents[parent]
+        previous_receipt=previous.get("receipt")
+        if (type(previous_receipt) is dict and
+            previous_receipt.get("causal_check")==
+                "TRACE_REJECTED_SOURCE_PROSE_REVIEW_ONLY"):
+            # The old source itself must still be SHA intact. Otherwise a
+            # forged "review" could quietly launder an arbitrary parent.
+            reviewed_parent_sha=_verified_review_only_temporal_parent(previous)
     for excluded in _approved_exclusions(author_confirmed_forbidden_phrases):
         need(excluded not in prose,
              "WF96_AUTHOR_CONFIRMED_KNOWLEDGE_BOUNDARY_VIOLATION")
@@ -638,6 +705,8 @@ def review_only_model_turn(raw,beat,*,failure_code,accepted=(),
         "parent_effect_sha256":None,
         "model_trace_failure_code":failure_code,
         "model_trace_not_proof_of_causality":True,
+        "parent_review_only_source_sha256":reviewed_parent_sha,
+        "parent_review_only_unresolved":reviewed_parent_sha is not None,
         "inherited_canon_facts_written":False,
         "literary_causality_independently_verified":False,
         "eligible_for_factjournal_KNOWN":False,
