@@ -214,6 +214,27 @@ def prepare_replan_instructions(*,accepted,seed_next_beat,
             1<=len(allowed_actor_names)<=12 and
             all(_bounded(v,1,70) for v in allowed_actor_names),
             "WF98_INVALID_FROZEN_CAST")
+    # 0.AV real DeepSeek RED: at t03 the former hardcoded t02/t01
+    # JSON example contradicted the verified next beat t03 and parent t02.
+    # Only IDs/parent are structural source coordinates. Every narrative
+    # choice remains with the original writer, not with a host-written beat.
+    source_parent_id=previous["beat_id"]
+    next_turn_id=seed_next_beat["id"]
+    structural_example={
+        "next_turn":{
+            "id":next_turn_id,
+            "kind":seed_next_beat["kind"],
+            "actor":seed_next_beat["actor"],
+            "goal":"下一小步真正要解决的问题与人物阻力",
+            "causal_parent":source_parent_id,
+            "craft_focus":seed_next_beat["craft_focus"],
+        },
+        "basis_effect_quote":basis_quote,
+        "pressure_quote":None,
+        "cost_quote":None,
+        "unresolved_question":"尚未有人证实的关键事情是什么",
+        "reason_for_shift":"前文实际写出的变化如何影响作者所选的新方向",
+    }
     context=(
        "\n【刚刚真正写出的情节，而非计划中的情节】\n"
        +accepted[-1]["prose"][-760:]
@@ -238,16 +259,18 @@ def prepare_replan_instructions(*,accepted,seed_next_beat,
        "人物必须仍有可理解的欲望和阻力；"
        "允许质疑原定目标、误会、倒叙、安静铺垫与开放悬念，"
        "不要求每个片段产生反转。新目标不是已知事实。"
-       "\n只输出JSON，字段必须且只能为："
-       '{"next_turn":{"id":"t02","kind":"decision","actor":"人物",'
-       '"goal":"下一小步真正要解决的问题",'
-       '"causal_parent":"t01","craft_focus":["detail"]},'
-       '"basis_effect_quote":"必须逐字照抄上述真实变化",'
-       '"pressure_quote":null或先前正文实际短引句,'
-       '"cost_quote":null或先前正文实际短引句,'
-       '"unresolved_question":"读者/人物还有什么不知道",'
-       '"reason_for_shift":"为何这一步不同于最初静态计划"}。'
-       "quote引句6至96字符且在旧正文唯一存在；"
+       "\n【本次真实来源顺序坐标】下一事件编号必须为 "
+       +next_turn_id+"；上一段的来源父编号必须为 "+source_parent_id+
+       "。这两个编号仅用于来源顺序定位，不代表已确认因果。"
+       "\n只输出严格JSON；以下是当前编号的结构示例，不是要照搬的剧情、人物决策或已成立事实："
+       +json.dumps(structural_example,ensure_ascii=False,separators=(",",":"))
+       +"。kind、actor、goal、craft_focus 应由你自行决定，但actor限于已登场列表；"
+       "id和causal_parent不能因剧情变化而改写。"
+       "basis_effect_quote须为上一段原文中唯一出现的6至96字短引句；"
+       "前文已观察的后果不是必须选择的文学重心，你可以引用其他真实细节，"
+       "但不得把引句升级为已证因果；"
+       "尚未观察结果的决定则只能引用已校验的真实决定/行动原句。"
+       "pressure_quote与cost_quote只能是上一段原文唯一短引句或JSON null；"
        "代价未明确写出就填null，不得为了过测试伪造。"
        "只建议新情节，不能声明模型理解已被审核，也不能更改先前正文。"
     )
