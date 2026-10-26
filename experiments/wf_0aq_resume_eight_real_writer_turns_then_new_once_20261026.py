@@ -231,18 +231,21 @@ def main():
             "WRITERFORGE_R2_ACCOUNT_ID","WRITERFORGE_R2_ACCESS_KEY_ID")),
             "WF0AQ_FORBIDDEN_EXTERNAL_SOURCE_CREDENTIAL")
         old,old_wire=history.verify_old_real_source()
-        chapter,turns,_,oldplanmeta,_=original.freeze_original_model_decisions()
+        chapter,turns,_,oldplanmeta,old_plan_replies=(
+            original.freeze_original_model_decisions())
         old_eight,old_report=freeze_previous_paid_eight()
         need(h(old)==old_report["original_author_source_sha256"]
              and old_report["original_model_turn_outline_sha256"]==
-                 oldplanmeta["original_model_turn_outline_sha256"]
+                 original.TURN_REPLY_SHA
+             and old_report["original_model_plan_sha256"]==
+                 original.PLAN_REPLY_SHA
              and old_report["old_real_plan_replayed_without_model"] is True
              and old_report["old_real_six_event_plan_preserved"] is True,
              "WF0AQ_OLD_AUTHOR_HISTORY_OR_EVENT_SNAPSHOT_DRIFT")
         status["old_provider_wires_verified"]=len(old_eight)
         save(OUT/"source-identity.json",{
             "old_source_sha256":h(old),"original_model_provider_sha256":old_wire,
-            "first_real_plan_sha256":oldplanmeta["original_model_plan_sha256"],
+            "first_real_plan_sha256":original.PLAN_REPLY_SHA,
             "original_eight_real_provider_sha256s":[e["raw_provider_sha256"]
                                                    for _,e,_ in old_eight],
             "no_model_calls_for_old_source":True})
@@ -264,10 +267,7 @@ def main():
             source_genre="古代白话")
         key=os.getenv("DEEPSEEK_API_KEY","wf0aq-no-model-key")
         author=RealPaidHistoryThenWriter(
-            chapter,oldplanmeta and json.loads(
-                (original.PAID_PLAN/"STATUS.json").read_text("utf8")
-            )["model_events"][0],
-            old_eight,key)
+            chapter,old_plan_replies[0][1],old_eight,key)
         with patch("writerforge.writing_assist.local_chat_completion",
                    side_effect=author.ask):
             result=AutonomousWriting(assist).run(
