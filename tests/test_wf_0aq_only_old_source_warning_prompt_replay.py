@@ -26,7 +26,8 @@ class SingleBoundedPromptException(TestCase):
         new=old.replace(e.OLD_REVIEW_GUIDANCE,e.NEW_REVIEW_GUIDANCE)
         events=[]
         for n in range(8):
-            prompt=old if n in (6,7) else "旧情节真实约束"+str(n)
+            prompt=(old if n in (6,7) else
+                    "这一段旧情节来自实际作家写作，人物动作和消息时间都保持不变。"*3+str(n))
             events.append(("真实模型先前写好的JSON回答"+str(n),
                           {"prompt_sha256":e.h(prompt),
                            "max_completion_tokens_reserved":600},
@@ -42,7 +43,8 @@ class SingleBoundedPromptException(TestCase):
 
     def test_six_earlier_calls_must_be_same_prompt_and_token_budget(self):
         obj,_,__,provider=self.make(1)
-        result=obj.ask(Packet("旧情节真实约束0"),model="deepseek-flash",
+        previous=obj.old_eight[0][2]["prompt"]
+        result=obj.ask(Packet(previous),model="deepseek-flash",
                        api_base="irrelevant",max_tokens=600)
         self.assertTrue(result.endswith("0"))
         self.assertTrue(obj.prompt_comparisons[-1]["same_prompt_and_budget"])
@@ -50,7 +52,7 @@ class SingleBoundedPromptException(TestCase):
         provider.return_value.ask_json.assert_not_called()
         with self.assertRaisesRegex(RuntimeError,
                                     "WF0AQ_UNEXPECTED_OLD_AUTHOR_PROMPT_DRIFT"):
-            obj.ask(Packet("人物行为已经发生了一个改变"),
+            obj.ask(Packet("人物行为已经发生了一个改变，但文学目标和消息时间被额外附加了未授权的解释。"*3),
                     model="deepseek-flash",api_base="irrelevant",
                     max_tokens=600)
 
