@@ -179,7 +179,13 @@ def load_first_two_original_replies():
         require(h(replacement)==event["returned_json_sha256"],
                 "WF0AV_PREVIOUS_JSON_CANONICAL_SOURCE_CHANGED")
         if i==2:
-            turns=parse_turn_outline(replacement)
+            from writerforge.writing_assist import _normalize_optional_model_craft_labels
+            source_compatible,optional_receipt=(
+                _normalize_optional_model_craft_labels(replacement))
+            turns=parse_turn_outline(source_compatible)
+            require(optional_receipt is not None and
+                    optional_receipt["only_model_optional_craft_fields_adjusted"],
+                    "WF0AV_ORIGINAL_UNSUPPORTED_OPTIONAL_CRAFT_NOT_COMPATIBLE")
             require(len(turns)==5 and turns[3]["kind"]=="interiority"
                     and turns[0]["actor"]=="林槐/许照",
                     "WF0AV_SOURCE_PLAN_SILENTLY_REWRITTEN")
