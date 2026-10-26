@@ -64,6 +64,35 @@ class GWriterRollingGate(unittest.TestCase):
         self.assertTrue(b["receipt"]["parent_temporal_link_unverified"])
         self.assertFalse(b["receipt"]["causal_relation_verified"])
 
+
+    def test_0av_g_schedules_two_real_dialogue_participants_not_one_fake_person(self):
+        """RED on saved DeepSeek t01: A/B should keep duet, not invent a third person."""
+        from writerforge.narrative_core import new_graph,schedule
+        graph=new_graph(project_id="0av-actors",scene_id="nightvalve",chapter_index=0)
+        planned={"id":"t01","kind":"dialogue","actor":"林槐/许照",
+                 "goal":"林槐隔着对讲机与井下的许照发生第一次严重分歧",
+                 "causal_parent":None,"craft_focus":["dialogue","restraint"]}
+        preview=schedule(graph,project_id="0av-actors",scene_id="nightvalve",
+                         chapter_index=1,beat=planned)
+        self.assertEqual(preview["model_calls"],0)
+        self.assertEqual(preview["canon_writes"],0)
+        self.assertTrue(preview["knowledge_is_character_scoped"])
+        self.assertEqual(preview["ensemble_source_actor_labels"],["林槐","许照"])
+        self.assertTrue(preview["ensemble_composite_actor_not_personified"])
+        self.assertNotIn("character:林槐/许照",graph["nodes"])
+
+    def test_0av_interiority_receives_non_forced_character_lens(self):
+        """A writer's introspective beat should not be coerced into a decision/action."""
+        from writerforge.narrative_core import new_graph,schedule
+        graph=new_graph(project_id="0av-lens",scene_id="nightvalve",chapter_index=0)
+        beat={"id":"t01","kind":"interiority","actor":"林槐",
+              "goal":"面对不确定的医院水压林槐想清楚自己真正害怕的事",
+              "causal_parent":None,"craft_focus":["interiority"]}
+        guide=schedule(graph,project_id="0av-lens",scene_id="nightvalve",
+                       chapter_index=1,beat=beat)
+        self.assertEqual(guide["model_calls"],0)
+        self.assertTrue(guide["knowledge_is_character_scoped"])
+
     def test_G_requires_explicit_opt_in_parameter(self):
         from writerforge.writing_assist import AutonomousWriting
         import inspect
