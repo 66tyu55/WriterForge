@@ -231,15 +231,55 @@ def prepare_source_repair_contract(
           "WF119_REPAIR_PRIOR_STATE_UNTRUSTED")
     parent=beat["causal_parent"]
     previous_effect=None
+    previous_pending_action=None
+    # The same V96/V98 source integrity owns decision-outcome-pending:
+    # a writer can repair an observed decision before its consequence is
+    # observed. Do not force the child to fabricate a previous effect.
     if parent is not None:
         matches=[x for x in accepted if x.get("beat_id")==parent]
-        _need(len(matches)==1 and
-              type(matches[0].get("effect_quote")) is str and
-              matches[0]["effect_quote"] and
-              type(matches[0].get("prose")) is str and
-              matches[0]["prose"].count(matches[0]["effect_quote"])==1,
-              "WF119_REPAIR_PARENT_SOURCE_MISSING")
-        previous_effect=matches[0]["effect_quote"]
+        _need(len(matches)==1,"WF119_REPAIR_PARENT_SOURCE_MISSING")
+        original_parent=matches[0]
+        prior_effect=original_parent.get("effect_quote")
+        if type(prior_effect) is str and prior_effect:
+            _need(type(original_parent.get("prose")) is str and
+                  original_parent["prose"].count(prior_effect)==1,
+                  "WF119_REPAIR_PARENT_SOURCE_MISSING")
+            previous_effect=prior_effect
+        else:
+            from .v98_rolling_causal_planner import (
+                latest_source_basis_for_replan,V98RollingPlanError)
+            try:
+                found,quote,kind=latest_source_basis_for_replan(
+                    (original_parent,))
+            except V98RollingPlanError:
+                raise RevisionTransactionError(
+                    "WF119_REPAIR_PARENT_PENDING_SOURCE_INVALID") from None
+            _need(found.get("beat_id")==parent and
+                  kind=="DECISION_ACTION_ONLY_OUTCOME_PENDING",
+                  "WF119_REPAIR_PARENT_PENDING_SOURCE_INVALID")
+            previous_pending_action=quote
+    decision_pending=(beat["kind"]=="decision" and
+                      type(original_trace) is dict and
+                      type(original_trace.get("action_quote")) is str and
+                      original_trace.get("effect_quote") is None)
+    if decision_pending:
+        # Do not trust just the author's claim that its effect is absent.
+        # Re-run the EXISTING V96 literal source, polarity and parent
+        # checks. No literary causality or future state becomes KNOWN.
+        from .v96_causal_turns import (
+            check_turn,V96CausalDraftError)
+        try:
+            checked=check_turn(
+                json.dumps({"prose":source,"trace":original_trace},
+                           ensure_ascii=False,separators=(",",":")),
+                beat,mode="causal_guard",accepted=accepted,
+                max_prose_chars=1024)
+        except V96CausalDraftError:
+            raise RevisionTransactionError(
+                "WF119_REPAIR_DECISION_PENDING_TRACE_INVALID") from None
+        _need(checked["receipt"]["outcome_pending_source_only"] is True and
+              checked["receipt"]["causal_relation_verified"] is False,
+              "WF119_REPAIR_DECISION_PENDING_TRACE_INVALID")
     raw_focus=(writer_attention or {}).get("source_quote")
     focus=raw_focus if (type(raw_focus) is str and
                         6<=len(raw_focus)<=160 and
@@ -298,6 +338,8 @@ def prepare_source_repair_contract(
         "author_intent_not_a_verified_fact":intent,
         "previous_causal_parent_id":parent,
         "actual_previous_effect_quote":previous_effect,
+        "actual_previous_pending_action_quote":previous_pending_action,
+        "previous_parent_effect_unobserved":previous_pending_action is not None,
         "original_model_trace":original_trace,
         "baseline_hard_findings":(
             source_before["findings"] if source_before is not None else []),
@@ -321,8 +363,11 @@ def prepare_source_repair_contract(
         "prior_item_character_rows_omitted":max(0,len(source_rows)-8),
         "other_prior_state_domains_not_in_this_small_view":True,
         "omission_does_not_mean_state_was_erased":True,
-        "source_action_effect_required":beat["kind"] in (
+        "source_action_quote_required":beat["kind"] in (
             "action","decision","reversal"),
+        "decision_effect_unobserved_source_only":decision_pending,
+        "source_action_effect_required":beat["kind"] in (
+            "action","decision","reversal") and not decision_pending,
         "repair_paths_owned_by_author":[
             "KEEP_IF_THIS_IS_DELIBERATELY_UNWRITTEN_AND_COHERENT",
             "REVISE_EXACT_SOURCE_SPAN_AND_REVIEW_CAUSE_AND_EFFECT",
