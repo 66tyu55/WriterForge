@@ -3358,19 +3358,28 @@ class AutonomousWriting:
                                     "external":current_external_story_checkpoint,
                                     "lamp":last_lamp_receipt})
                             beat=seed_beat
-                            # G's opt-in writer-owned replan is allowed only
-                            # when the IMMEDIATELY previous source offers an
-                            # actual signed effect or pending decision action.
-                            # REVIEW-only and quiet chronological links cannot
-                            # be turned into a supposedly observed cause.
+                            # 0.AV true original fiction A/B: t03 and t04
+                            # remain readable signed prose even when their
+                            # model trace is REVIEW-only. The old G stopped
+                            # letting the author rethink the next character
+                            # choice, fell back to frozen goals at t04/t05,
+                            # and repeated the opening valve orders. In the
+                            # existing G opt-in, offer the SAME model the
+                            # current literal prose as unverified writer
+                            # material; NEVER convert its story to a V96
+                            # observed effect or narrative KNOWN fact.
                             g_replan=False
+                            g_prose_only_author_replan=False
                             if g_rolling_author_planning and turn_index>0:
                                 from .v98_rolling_causal_planner import (
                                     g_source_replan_eligibility)
                                 eligibility=g_source_replan_eligibility(
-                                    tuple(accepted_turns))
+                                    tuple(accepted_turns),
+                                    allow_prose_only=True)
                                 if eligibility["eligible"]:
                                     g_replan=True
+                                    g_prose_only_author_replan=(
+                                        eligibility["prose_only_unverified"])
                                 else:
                                     g_rolling_source_skips.append({
                                         "turn_id":seed_beat["id"],
@@ -3386,7 +3395,9 @@ class AutonomousWriting:
                                 instructions=prepare_replan_instructions(
                                     accepted=tuple(accepted_turns),
                                     seed_next_beat=seed_beat,
-                                    allowed_actor_names=cast)
+                                    allowed_actor_names=cast,
+                                    allow_g_prose_only=(
+                                        g_prose_only_author_replan))
                                 if draft_mode in ("emotion_rolling","foresight_rolling"):
                                     instructions+=(
                                         "\n【人物变化/待解决代价】"+
@@ -3420,7 +3431,9 @@ class AutonomousWriting:
                                     seed_next_beat=seed_beat,
                                     allowed_actor_names=cast,
                                     author_forbidden_phrases=(
-                                        author_confirmed_forbidden_phrases))
+                                        author_confirmed_forbidden_phrases),
+                                    allow_g_prose_only=(
+                                        g_prose_only_author_replan))
                                 rolling_receipts.append(rolling_receipt)
                                 rolling_goals.append(dict(beat))
                             turn_addition=make_turn_instructions(
