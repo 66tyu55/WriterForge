@@ -42,7 +42,7 @@ from .v96_causal_turns import (
 from .v98_rolling_causal_planner import (
     V98RollingPlanError,MAX_ROLLING_REPLANS_PER_JOB,
     prepare_replan_instructions,validate_replan,
-    latest_source_basis_for_replan,
+    latest_source_basis_for_replan,author_signed_prior_prose_for_writer,
 )
 from .v102_emotional_causality import (
     V102EmotionalCausalityError,check_emotional_turn,
@@ -430,6 +430,24 @@ def _save_unified_cold_capsule(root:Path,packet:dict) -> dict:
                 raise WritingExecutionError(
                     "WFCORE_COLD_ARCHIVE_RACE_CONFLICT") from None
     return {"path":str(path),"sha256":digest}
+
+
+def g_writer_active_plan_view(plan):
+    """Copy old chapter intent without replaying its stale action/outcome.
+
+    G+V98 already lets the actual writer choose a next turn from observed
+    prose. Keep the original file and the writer's objective, conflict, POV,
+    craft needs and chapter goal unchanged; only stop presenting the OLD
+    chapter decision and presumed outcome as instructions for every later
+    segment. No host supplies a replacement decision or literary summary.
+    """
+    if type(plan) is not dict or any(
+            key not in plan for key in
+            ("objective","conflict","decision","outcome","pov","needs",
+             "chapter_goal","literary_quality_verified")):
+        raise WritingExecutionError("WF_G_AUTHOR_PLAN_VIEW_CONTRACT_INVALID")
+    return {key:value for key,value in plan.items()
+            if key not in ("decision","outcome")}
 
 
 def _source_progression_literary_cue(accepted_turns):
@@ -3442,6 +3460,15 @@ class AutonomousWriting:
                                            else draft_mode),accepted=accepted_turns,
                                 author_confirmed_forbidden_phrases=(
                                     author_confirmed_forbidden_phrases))
+                            if (g_rolling_author_planning and
+                                turn_index>0):
+                                # Real 0.AV literary RED: the next-beat AI
+                                # saw original t01 prose, but the PROSE AI
+                                # was deprived of it and re-cut the signal.
+                                # Source is a signed literal, not a host
+                                # judgement about whether repetition is bad.
+                                turn_addition+=author_signed_prior_prose_for_writer(
+                                    tuple(accepted_turns))
                             if draft_mode=="continuity_guard":
                                 turn_addition+=(
                                     "\n【真正参与下一段创作的时态物件状态（MIT Novel Studio原子归约）】"
@@ -3495,7 +3522,10 @@ class AutonomousWriting:
                                     else "")
                                 turn_packet,lamps,delivery=(
                                     _prepare_guarded_turn_packet(
-                                        body_base,plan=plan,
+                                        body_base,plan=(
+                                            g_writer_active_plan_view(plan)
+                                            if g_rolling_author_planning and turn_index>0
+                                            else plan),
                                         hard_turn_addition=turn_addition,
                                         facets=facets,
                                         dependency_hint=dependency_hint,
