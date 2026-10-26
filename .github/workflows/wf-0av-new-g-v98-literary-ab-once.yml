@@ -71,14 +71,25 @@ jobs:
           name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
           github-token: ${{ github.token }}
           path: wf0av_seventh_eighth_source
+      - name: Restore original B t02 prose and source-rejected second writer replan without repaying
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40297313308
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_ninth_tenth_paid_source
       - name: Source eight entire author evidence dry replay before enabling any provider secret
         run: python -m experiments.wf_0av_new_waterworks_g_v98_real_literary_ab_once_20261026 --source-eight-preflight
+      - name: Verify all TEN actual paid source wires and dynamically correct next beat BEFORE provider credentials
+        run: python -m experiments.wf_0av_new_waterworks_g_v98_real_literary_ab_once_20261026 --source-ten-preflight
       - name: Always retain read-only source-eight preflight receipts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: WF-0AV-Source-Eight-Offline-Source-Guard-Only
-          path: wf0av_source_eight_offline_validation_only/
+          path: |
+            wf0av_source_eight_offline_validation_only/
+            wf0av_source_ten_offline_validation_only/
           retention-days: 90
           if-no-files-found: warn
 
@@ -89,7 +100,7 @@ jobs:
       github.repository == '66tyu55/WriterForge' &&
       github.ref_name == 'refactor-unified-scene-delivery-audit' &&
       github.run_attempt == 1 &&
-      github.event.head_commit.message == 'experiment(0.AV): FIRE VERIFIED EIGHT REAL AUTHOR WIRES FOR NEW B PROSE ONCE'
+      github.event.head_commit.message == 'experiment(0.AV): FIRE TEN IMMUTABLE DEEPSEEK WIRES FOR NEW T03 PLAN AND B PROSE ONCE'
     runs-on: ubuntu-latest
     timeout-minutes: 48
     steps:
@@ -103,7 +114,7 @@ jobs:
         run: python -m pip install -e '.[r2]'
       - name: Prove exact one-shot and no R2 or other model credentials
         run: |
-          test "$(cat experiments/WF_0AV_NEW_WATERWORKS_G_V98_LIVE_ONCE_20261026.txt)" = "WF0AV_EIGHT_REAL_WIRES_OFFLINE_GREEN_AUTHOR_OWNED_B_PROSE_ONLY"
+          test "$(cat experiments/WF_0AV_NEW_WATERWORKS_G_V98_LIVE_ONCE_20261026.txt)" = "WF0AV_TEN_REAL_WIRES_GREEN_NEW_T03_AUTHOR_PLAN_NO_REPAYMENT"
           python - <<'PY'
           import os
           assert not any(os.environ.get(k) for k in (
@@ -146,6 +157,13 @@ jobs:
           name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
           github-token: ${{ github.token }}
           path: wf0av_seventh_eighth_source
+      - name: Restore original B t02 prose and source-rejected second writer replan without repaying
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40297313308
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_ninth_tenth_paid_source
       - name: Source-only preflight the original paid RED model plan after V96 fix
         run: |
           python - <<'PY'
@@ -185,6 +203,8 @@ jobs:
           PY
       - name: Confirm all EIGHT original provider messages; A whole chapter and B real author plan; zero model calls
         run: python -m experiments.wf_0av_new_waterworks_g_v98_real_literary_ab_once_20261026 --source-eight-preflight
+      - name: Verify all TEN paid original sources and reject old malformed t03 plan BEFORE new paid call
+        run: python -m experiments.wf_0av_new_waterworks_g_v98_real_literary_ab_once_20261026 --source-ten-preflight
       - name: Same DeepSeek Flash authors two G paths with true source locked prefix
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
@@ -202,8 +222,8 @@ jobs:
               "TWO_REAL_AUTHOR_BRANCHES_COMPLETED",
               "TWO_ARMS_TWO_BLIND_ORDER_REPORTS",
               "TWO_ARMS_GRADED_PARTIAL_NO_RETRY")
-          assert data["provider_calls"]<=18
-          assert data["provider_completion_tokens_reserved"]<=34000
+          assert data["provider_calls"]<=16
+          assert data["provider_completion_tokens_reserved"]<=31900
           assert data["total_paid_calls_including_original_red"]<=26
           assert data["total_reserved_tokens_including_original_red"]<=44000
           assert data["R2_reads"]==data["R2_writes"]==data["Canon_writes"]==0
@@ -227,5 +247,6 @@ jobs:
           path: |
             wf_0av_new_waterworks_g_v98_real_literary_ab_20261026/
             wf0av_source_eight_offline_validation_only/
+            wf0av_source_ten_offline_validation_only/
           retention-days: 90
           if-no-files-found: warn
