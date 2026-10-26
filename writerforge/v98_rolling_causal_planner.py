@@ -169,14 +169,19 @@ def latest_source_basis_for_replan(accepted):
     raise V98RollingPlanError("WF98_NO_ACTUAL_PRIOR_SOURCE_TO_REPLAN_FROM")
 
 
-def g_source_replan_eligibility(accepted):
-    """G opt-in: replan only on the last signed, non-REVIEW prose basis.
+def g_source_replan_eligibility(accepted,*,allow_prose_only=False):
+    """G: source-gate the immediately preceding real prose, not old beats.
 
-    Never skip a review-only last turn to reuse an older, no-longer-current
-    outcome. WF decides only whether source evidence exists, not the plot.
+    By default, preserve 0.AU's strict effect-only policy. Explicit G+V98
+    may instead ask the *same author* to consider a signed REVIEW-only or
+    quiet paragraph, provided it is never labelled a verified effect,
+    causality, objective fact or canonical knowledge. This repairs the
+    source-true literary stall seen after 0.AV's actual third paragraph.
     """
     require(type(accepted) in (tuple,list) and len(accepted)>0,
             "WF98_G_REPLAN_NO_SOURCE")
+    require(type(allow_prose_only) is bool,
+            "WF98_G_SOURCE_ONLY_SETTING_NOT_BOOL")
     last=accepted[-1]
     require(type(last) is dict and type(last.get("prose")) is str,
             "WF98_G_REPLAN_BAD_PREVIOUS")
@@ -185,11 +190,18 @@ def g_source_replan_eligibility(accepted):
     require(type(receipt) is dict and
             receipt.get("prose_sha256")==digest(prose.encode("utf8")) and
             receipt.get("receipt_sha256")==digest(canonical({
-                k:v for k,v in receipt.items() if k!="receipt_sha256"})),
+                k:v for k,v in receipt.items() if k!="receipt_sha256"})) and
+            receipt.get("turn_id")==last.get("beat_id") and
+            receipt.get("kind")==last.get("kind"),
             "WF98_G_REPLAN_SOURCE_HASH_MISMATCH")
     mode=receipt.get("causal_check")
+    source_only_kind=None
     if mode=="TRACE_REJECTED_SOURCE_PROSE_REVIEW_ONLY":
         reason="PREVIOUS_TRACE_REVIEW_ONLY"
+        # A rejected claim about action/effect is NOT a rejection of the
+        # writer's literal prose, nor proof that its events happened.
+        if receipt.get("source_causal_review_reason")=="TRACE_REJECTED":
+            source_only_kind="REVIEW_ONLY_PROSE_AUTHOR_ONLY"
     elif (receipt.get("outcome_pending_source_only") is True or
           type(last.get("effect_quote")) is str and last["effect_quote"]):
         # Reuse existing strict V98 validation instead of trusting metadata.
@@ -197,14 +209,40 @@ def g_source_replan_eligibility(accepted):
         reason=None
     else:
         reason="NO_VERIFIED_SOURCE_BASIS"
-    return {"eligible":reason is None,"reason":reason,
-            "source_sha256":receipt["prose_sha256"],
-            "causal_truth_verified":False,"model_calls":0}
+        if (mode=="EXACT_OBSERVABLE_ANCHORS_ONLY" and
+                receipt.get("kind") in
+                ("quiet","dialogue","setup","aftermath",
+                 "transition","interiority") and
+                receipt.get("action_anchor") is None and
+                receipt.get("effect_anchor") is None and
+                last.get("effect_quote") is None):
+            source_only_kind="QUIET_PROSE_AUTHOR_ONLY"
+    author_prose_only=allow_prose_only and source_only_kind is not None
+    return {
+        "eligible":reason is None or author_prose_only,
+        "reason":None if author_prose_only else reason,
+        "previous_source_review_reason":reason if author_prose_only else None,
+        "source_basis_kind":source_only_kind if author_prose_only else None,
+        "prose_only_unverified":author_prose_only,
+        "source_sha256":receipt["prose_sha256"],
+        "causal_truth_verified":False,"model_calls":0,
+    }
 
 
 def prepare_replan_instructions(*,accepted,seed_next_beat,
-                                allowed_actor_names):
-    previous,basis_quote,basis_kind=latest_source_basis_for_replan(accepted)
+                                allowed_actor_names,allow_g_prose_only=False):
+    require(type(allow_g_prose_only) is bool,
+            "WF98_SOURCE_ONLY_WRITER_MODE_INVALID")
+    if allow_g_prose_only:
+        gate=g_source_replan_eligibility(
+            accepted,allow_prose_only=True)
+        require(gate["eligible"] and gate["prose_only_unverified"],
+                "WF98_NO_SIGNED_PROSE_ONLY_WRITER_BASIS")
+        previous=accepted[-1]
+        basis_quote=None
+        basis_kind=gate["source_basis_kind"]
+    else:
+        previous,basis_quote,basis_kind=latest_source_basis_for_replan(accepted)
     pending=basis_kind=="DECISION_ACTION_ONLY_OUTCOME_PENDING"
     source_review=previous["receipt"].get("source_causal_review_reason")
     require(type(seed_next_beat) is dict and
@@ -229,7 +267,9 @@ def prepare_replan_instructions(*,accepted,seed_next_beat,
             "causal_parent":source_parent_id,
             "craft_focus":seed_next_beat["craft_focus"],
         },
-        "basis_effect_quote":basis_quote,
+        "basis_effect_quote":(
+            "从上面真实正文逐字选取唯一的6至96字引句"
+            if allow_g_prose_only else basis_quote),
         "pressure_quote":None,
         "cost_quote":None,
         "unresolved_question":"尚未有人证实的关键事情是什么",
@@ -238,10 +278,14 @@ def prepare_replan_instructions(*,accepted,seed_next_beat,
     context=(
        "\n【刚刚真正写出的情节，而非计划中的情节】\n"
        +accepted[-1]["prose"][-760:]
-       +("\n【前一段确实写出的决定/尝试；后果尚未观察或尚未发生】\n"
+       +("\n【上一段正文已保存，但它的动作/后果trace仅供复核】\n"
+          "你可以依据真实文字自主重想下一步；原句只能证明书写来源，"
+          "不能证明其中任何人物猜想、动作后果或物件状态。\n"
+          if allow_g_prose_only else
+          "\n【前一段确实写出的决定/尝试；后果尚未观察或尚未发生】\n"
           if pending else
           "\n【前一项仅被确认在正文中出现的引句（未证明由先前动作造成）】\n")
-       +basis_quote
+       +(basis_quote if basis_quote is not None else "")
        +("\n【旧字段兼容说明】本次 JSON 的 basis_effect_quote "
          "必须引用上面已写出的决定/行动原句，只是旧字段名；"
          "它不是 effect，不代表决定已产生结果。后果尚未发生时请继续保留未知。"
@@ -269,7 +313,9 @@ def prepare_replan_instructions(*,accepted,seed_next_beat,
        "basis_effect_quote须为上一段原文中唯一出现的6至96字短引句；"
        "前文已观察的后果不是必须选择的文学重心，你可以引用其他真实细节，"
        "但不得把引句升级为已证因果；"
-       "尚未观察结果的决定则只能引用已校验的真实决定/行动原句。"
+       +("前段trace未能证明动作或后果；请引用真实原文而不把它写作既成因果。"
+         if allow_g_prose_only else
+         "尚未观察结果的决定则只能引用已校验的真实决定/行动原句。")
        "pressure_quote与cost_quote只能是上一段原文唯一短引句或JSON null；"
        "代价未明确写出就填null，不得为了过测试伪造。"
        "只建议新情节，不能声明模型理解已被审核，也不能更改先前正文。"
@@ -280,7 +326,8 @@ def prepare_replan_instructions(*,accepted,seed_next_beat,
 
 
 def validate_replan(raw,*,accepted,accepted_beats,seed_next_beat,
-                    allowed_actor_names,author_forbidden_phrases=()):
+                    allowed_actor_names,author_forbidden_phrases=(),
+                    allow_g_prose_only=False):
     """One model proposal -> next frozen-for-this-step beat + metadata receipt.
 
     Caller saves the resulting private beat alongside draft, never CANON.
@@ -300,7 +347,18 @@ def validate_replan(raw,*,accepted,accepted_beats,seed_next_beat,
     for t,beat in zip(accepted,accepted_beats):
         require(t.get("beat_id")==beat.get("id"),
                 "WF98_HISTORY_BEAT_ID_CHANGED")
-    parent,basis_quote,basis_kind=latest_source_basis_for_replan(accepted)
+    require(type(allow_g_prose_only) is bool,
+            "WF98_SOURCE_ONLY_WRITER_MODE_INVALID")
+    if allow_g_prose_only:
+        gate=g_source_replan_eligibility(
+            accepted,allow_prose_only=True)
+        require(gate["eligible"] and gate["prose_only_unverified"],
+                "WF98_NO_SIGNED_PROSE_ONLY_WRITER_BASIS")
+        parent=accepted[-1]
+        basis_quote=None
+        basis_kind=gate["source_basis_kind"]
+    else:
+        parent,basis_quote,basis_kind=latest_source_basis_for_replan(accepted)
     doc=_decode(raw)
     proposal=doc["next_turn"]
     require(type(proposal) is dict and set(proposal)==BEAT_FIELDS and
@@ -381,6 +439,11 @@ def validate_replan(raw,*,accepted,accepted_beats,seed_next_beat,
             "WF98_NEXT_TURN_MUTATED_AFTER_VALIDATION")
     parent_receipt=parent["receipt"]
     review_reason=parent_receipt.get("source_causal_review_reason")
+    if allow_g_prose_only:
+        review_reason=(
+            "PREVIOUS_TRACE_REVIEW_ONLY" if
+            basis_kind=="REVIEW_ONLY_PROSE_AUTHOR_ONLY" else
+            "NO_VERIFIED_CAUSAL_SOURCE_IN_QUIET_PROSE")
     # Legacy receipts have no explicit source-relation classifier; do not
     # silently upgrade the older, purely lexical V96 evidence to fact.
     if "source_causal_review_required" not in parent_receipt:
@@ -399,19 +462,25 @@ def validate_replan(raw,*,accepted,accepted_beats,seed_next_beat,
         "grounded_prior_beat_id":parent["beat_id"],
         "grounded_prior_prose_sha256":digest(parent["prose"].encode("utf8")),
         "source_parent_relation_review_required":(
-            review_reason is not None or author_selected_other_basis),
+            review_reason is not None or author_selected_other_basis or
+            allow_g_prose_only),
         "source_parent_relation_review_reason":review_reason,
         "source_parent_causal_relation_verified":False,
         "source_basis_kind":(
+            basis_kind if allow_g_prose_only else
             "AUTHOR_SELECTED_OTHER_LITERAL_SOURCE_ONLY"
             if author_selected_other_basis else basis_kind),
+        "review_only_or_quiet_prose_writer_plan":allow_g_prose_only,
+        "review_only_prose_never_promoted_to_action_or_effect":
+            allow_g_prose_only,
         "source_basis_is_observed_effect":(
             basis_kind=="EFFECT_SOURCE_ONLY" and
-            not author_selected_other_basis),
+            not author_selected_other_basis and not allow_g_prose_only),
         "author_selected_non_effect_literal_source_only":(
             author_selected_other_basis),
-        "original_v96_source_basis_sha256":digest(
-            basis_quote.encode("utf8")),
+        "original_v96_source_basis_sha256":(
+            digest(basis_quote.encode("utf8"))
+            if basis_quote is not None else None),
         "source_basis_anchor":basis,
         "cost_anchor":costs["cost_quote"],
         "pressure_anchor":costs["pressure_quote"],
