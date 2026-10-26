@@ -71,6 +71,13 @@ jobs:
           name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
           github-token: ${{ github.token }}
           path: wf0av_prior_failed_source
+      - name: Restore real paragraph THREE, paid once but refused by old V120
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40285930972
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_third_paid_source
       - name: Source-only preflight the original paid RED model plan after V96 fix
         run: |
           python - <<'PY'
@@ -97,7 +104,16 @@ jobs:
           assert duet["ensemble_source_actor_labels"]==["林槐","许照"]
           assert inside["model_calls"]==duet["model_calls"]==0
           assert duet["canon_writes"]==inside["canon_writes"]==0
-          print("REAL PROVIDER AUTHOR PLAN V96 AND ONE CORE: NO REWRITE, NO MODEL CALL")
+          from writerforge.v120_plan_prose_gate import compare_plan_to_prose
+          third=Path("wf0av_third_paid_source/A/original-provider-wires/03-paid.json").read_bytes()
+          assert sha256(third).hexdigest()=="7b776a0277ae8721af6c689b87da7962d9012b24751de1b76454052dc8c62de3"
+          authored=json.loads(json.loads(third)["choices"][0]["message"]["content"])
+          receipt=compare_plan_to_prose(
+              project_id="0av-real-wire-preflight",scene_id="nightvalve",
+              beat=turns[0],prose=authored["prose"],cast=("林槐","许照"))
+          assert receipt["status"]=="UNPROVEN" and receipt["coverage"]=="NON_STATEFUL_BEAT"
+          assert receipt["canon_writes"]==receipt["model_calls"]==0
+          print("REAL PROVIDER PLAN/PROSE PASSES V96 CORE V120: NO REWRITE, NO MODEL CALL")
           PY
       - name: Same DeepSeek Flash authors two G paths with true source locked prefix
         env:
@@ -116,8 +132,8 @@ jobs:
               "TWO_REAL_AUTHOR_BRANCHES_COMPLETED",
               "TWO_ARMS_TWO_BLIND_ORDER_REPORTS",
               "TWO_ARMS_GRADED_PARTIAL_NO_RETRY")
-          assert data["provider_calls"]<=24
-          assert data["provider_completion_tokens_reserved"]<=41900
+          assert data["provider_calls"]<=23
+          assert data["provider_completion_tokens_reserved"]<=40450
           assert data["total_paid_calls_including_original_red"]<=26
           assert data["total_reserved_tokens_including_original_red"]<=44000
           assert data["R2_reads"]==data["R2_writes"]==data["Canon_writes"]==0
