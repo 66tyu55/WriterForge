@@ -67,6 +67,8 @@ on:
       - tests/test_wf_0aq_only_old_source_warning_prompt_replay.py
       - tests/test_wf_0ar_real_document_custody_source.py
       - tests/test_wf_0as_real_writer_review_stage_isolation.py
+      - tests/test_wf_0as_six_real_review_only_protocol.py
+      - experiments/wf_0as_real_six_same_writer_self_review_once_20261026.py
       - experiments/wf_0ao_frozen_real_deepseek_plan_prose_once_20261026.py
       - experiments/wf_0am_real_history_same_model_g_once_20261026.py
       - tests/test_wf_0al_real_fullwidth_separator_original.py
