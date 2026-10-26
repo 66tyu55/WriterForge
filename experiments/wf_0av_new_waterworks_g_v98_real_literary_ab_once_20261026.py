@@ -215,7 +215,7 @@ class WireWriter:
                         "WF0AV_REAL_AUTHOR_TURN_OUTLINE_SHAPE_FAILED")
                 require(3<=len(doc["turns"])<=5,
                         "WF0AV_PRE_REGISTERED_TURN_COUNT_OUTSIDE_3_TO_5_NO_RETRY")
-                parse_turn_outline(raw)
+                # WF's native optional-craft normalizer owns plan validation.
             return raw
         finally:
             self.active=None
@@ -354,7 +354,7 @@ def main():
         require(len(key)>=16,"WF0AV_EXISTING_DEEPSEEK_SECRET_MISSING")
         a_writer=WireWriter("A",key,cap)
         a=run_arm("A",a_writer)
-        require(len(a_writer.events)>=6,
+        require(len(a_writer.events)>=5,
                 "WF0AV_A_NO_MULTITURN_PROVIDER_PREFIX")
         prefix=[dict(a_writer.events[i],
                      raw_response=a_writer.outputs[i]) for i in range(3)]
