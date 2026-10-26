@@ -748,6 +748,8 @@ def _bounded_document_custody_projection(prose,previous_relation_receipt):
                 "item_literal","holder_literal","source_quote",
                 "source_quote_sha256","origin_source_sha256")) and
             old["source_quote_sha256"]==_digest(old["source_quote"]) and
+            old["holder_literal"] in old["source_quote"] and
+            old["item_literal"] in old["source_quote"] and
             re.fullmatch(r"[0-9a-f]{64}",old["origin_source_sha256"]) is not None,
             "WF122_DOCUMENT_CUSTODY_PRIOR_SOURCE_INVALID")
         active.append(dict(old))
