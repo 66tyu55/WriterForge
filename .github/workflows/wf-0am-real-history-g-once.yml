@@ -4,7 +4,7 @@ on:
   push:
     branches: [refactor-unified-scene-delivery-audit]
     paths:
-      - experiments/WF_0AM_REAL_HISTORY_ONE_SIGNED_ARCHIVE_ONCE_20261026.txt
+      - experiments/WF_0AM_REAL_HISTORY_ONE_SIGNED_ARCHIVE_V2_ONCE_20261026.txt
 
 permissions:
   contents: read
@@ -20,7 +20,7 @@ jobs:
       github.repository == '66tyu55/WriterForge' &&
       github.ref_name == 'refactor-unified-scene-delivery-audit' &&
       github.run_attempt == 1 &&
-      github.event.head_commit.message == 'experiment(0.AM): FIRE VERIFIED SINGLE-ARCHIVE HISTORY G AUTHOR ONCE'
+      github.event.head_commit.message == 'experiment(0.AM): FIRE SOURCE-SIGNED HISTORY G ONLY AFTER VERIFIED PREFLIGHT'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -37,7 +37,7 @@ jobs:
         run: python -m pip install -e '.[r2]'
       - name: Limit this job and prove no R2 or other literature provider secrets
         run: |
-          test "$(cat experiments/WF_0AM_REAL_HISTORY_G_AUTHOR_ONCE_20261026.txt)" = "WF0AM_ONE_ORIGINAL_SIGNED_0AH_ARCHIVE_NO_RETRY"
+          test "$(cat experiments/WF_0AM_REAL_HISTORY_ONE_SIGNED_ARCHIVE_V2_ONCE_20261026.txt)" = "WF0AM_ONE_ORIGINAL_SIGNED_0AH_ARCHIVE_NO_RETRY"
           python - <<'PY'
           import os
           assert not any(os.getenv(k) for k in (
