@@ -132,7 +132,7 @@ class IndependentAuthorReviewStage(TestCase):
         from dataclasses import replace
         source=_source_only_writer_replay_index(
             self.real_prose,cast=("少年","女子"))
-        marker="\\n【同一稿件逐句原文来源目录】"
+        marker="\n【同一稿件逐句原文来源目录】"
         enriched=self.packet.prompt+marker+json.dumps(
             source,ensure_ascii=False)
         self.packet=replace(self.packet,prompt=enriched,
@@ -149,7 +149,7 @@ class IndependentAuthorReviewStage(TestCase):
         source=_source_only_writer_replay_index(
             self.real_prose,cast=("少年","女子"))
         source["source_sha256"]="0"*64
-        payload=self.packet.prompt+"\\n【同一稿件逐句原文来源目录】"+json.dumps(
+        payload=self.packet.prompt+"\n【同一稿件逐句原文来源目录】"+json.dumps(
             source,ensure_ascii=False)
         self.packet=replace(self.packet,prompt=payload,
                             prompt_sha256=digest(payload))
