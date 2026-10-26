@@ -20,7 +20,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from writerforge.writing_assist import _ai_decides_when_to_revisit
+from writerforge.writing_assist import (
+    _ai_decides_when_to_revisit,_source_only_writer_replay_index,
+)
+from writerforge.verified_flow import WritingExecutionError
 from writerforge.verified_flow import GroundedDraftPacket
 from test_v96_causal_turns import (
     prose1,prose2,ACTION2,EFFECT2,EFFECT1,turns,response,
@@ -124,6 +127,41 @@ class IndependentAuthorReviewStage(TestCase):
         wrong["source_sha256"]="0"*64
         result,_=self.run_author(json.dumps(wrong,ensure_ascii=False))
         self.assertEqual(result["decision"],"INVALID_SIGNAL")
+
+    def test_author_can_reread_verified_literal_index_without_prose_generating_prompt(self):
+        from dataclasses import replace
+        source=_source_only_writer_replay_index(
+            self.real_prose,cast=("少年","女子"))
+        marker="\\n【同一稿件逐句原文来源目录】"
+        enriched=self.packet.prompt+marker+json.dumps(
+            source,ensure_ascii=False)
+        self.packet=replace(self.packet,prompt=enriched,
+                            prompt_sha256=digest(enriched))
+        result,actual_prompt=self.run_author(
+            moment("MOVE_ON",self.real_prose))
+        self.assertEqual(result["decision"],"MOVE_ON")
+        self.assertTrue(result["receipt"]["literal_source_reread_index_verified"])
+        self.assertIn(marker.strip(),actual_prompt)
+        self.assertNotIn("【小说正文生成任务】",actual_prompt)
+
+    def test_forged_literal_reread_index_fails_before_writer_model_call(self):
+        from dataclasses import replace
+        source=_source_only_writer_replay_index(
+            self.real_prose,cast=("少年","女子"))
+        source["source_sha256"]="0"*64
+        payload=self.packet.prompt+"\\n【同一稿件逐句原文来源目录】"+json.dumps(
+            source,ensure_ascii=False)
+        self.packet=replace(self.packet,prompt=payload,
+                            prompt_sha256=digest(payload))
+        calls=[]
+        with self.assertRaisesRegex(
+                WritingExecutionError,"WF_AI_WRITER_LITERAL_REVIEW_INDEX_SOURCE_INVALID"):
+            _ai_decides_when_to_revisit(
+                raw=self.raw,beat=self.beat,accepted=(),
+                turn_packet=self.packet,
+                ask_model=lambda *a,**k:calls.append((a,k)),
+                directory=self.root/"forged-source-index")
+        self.assertEqual(calls,[])
 
     def test_opt_in_null_current_sha_does_not_change_artistic_choice(self):
         author=json.loads(moment("MOVE_ON",self.real_prose))
