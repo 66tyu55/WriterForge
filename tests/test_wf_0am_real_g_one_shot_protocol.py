@@ -44,7 +44,13 @@ class FrozenHistoryOneShotPreflight(unittest.TestCase):
                     concerns=("scene","decision"),genre="古代白话")
                 self.assertEqual(packet.snapshot_id,snapshot)
                 self.assertEqual(len(packet.evidence),1)
-                self.assertIn(HISTORY_REAL[:45],packet.prompt)
+                # The real WF packet intentionally keeps reference excerpts
+                # out of the prose instruction. Source bytes stay in the
+                # evidence table; the live G outline supplies prior fiction.
+                self.assertIn("秦渊",packet.prompt)
+                source_row=db.conn.execute(
+                    "SELECT excerpt FROM source_spans").fetchone()
+                self.assertEqual(source_row["excerpt"],HISTORY_REAL[:88])
                 works=db.conn.execute(
                     "SELECT work_id,source_sha256 FROM studied_works").fetchall()
                 self.assertEqual(len(works),1)
