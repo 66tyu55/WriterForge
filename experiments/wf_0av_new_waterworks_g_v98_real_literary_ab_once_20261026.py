@@ -1225,8 +1225,84 @@ def source_ten_only_preflight():
     print("WF0AV_TEN_IMMUTABLE_PROVIDER_WIRES_A_FINISHED_B_T02_RETAINED_NO_NEW_MODEL",flush=True)
 
 
+
+def source_eleven_only_preflight():
+    """Replay ALL eleven original paid wires, then stop before new t03 prose.
+
+    Original DeepSeek #11 selected a meaningful t03 character choice.
+    The repair may PROJECT its optional craft tags ONLY, with full raw
+    provider SHA and original goal unchanged. No source is regenerated,
+    no disallowed model secret and no Canon, R2 or learning writes.
+    """
+    global ROOT
+    ROOT=Path("wf0av_source_eleven_offline_validation_only")
+    require(not ROOT.exists(),"WF0AV_ELEVEN_SOURCE_PREFLIGHT_NEVER_OVERWRITE")
+    ROOT.mkdir(parents=True)
+    earlier=load_first_two_original_replies()
+    third=load_third_original_response()
+    fourth_fifth=load_fourth_fifth_original_responses()
+    sixth=load_sixth_original_response()
+    seventh_A,first_B_replan=load_seventh_A_and_first_B_replan()
+    second_B=load_ninth_B_prose_and_tenth_rejected_plan()
+    third_B_plan=load_eleventh_B_true_t03_replan_with_optional_craft_source()
+    replay_A=earlier+(third,)+fourth_fifth+(sixth,seventh_A)
+    cap=AggregateCap()
+    cap.calls=MAX_TOTAL_PAID_CALLS
+    offline_key="offline-no-network-key-valid-0123456789"
+    author_A=WireWriter("A",offline_key,cap,replay=replay_A)
+    A=run_arm("A",author_A)
+    require(len(A["turns"])==5 and
+            all(not x["paid_call"] for x in author_A.events),
+            "WF0AV_REAL_A_CHANGED_DURING_ELEVENTH_SOURCE_AUDIT")
+    prefix=tuple(dict(author_A.events[i],
+        raw_response=author_A.outputs[i]) for i in range(3))
+    author_B=WireWriter("B",offline_key,cap,
+        replay=prefix+(first_B_replan,second_B,third_B_plan))
+    try:
+        run_arm("B",author_B)
+    except Exception as err:
+        err_code=str(err)
+        require("WF0AV_HARD_GLOBAL_PROVIDER_BUDGET_EXHAUSTED" in err_code
+                and len(author_B.events)==7 and
+                all(not e["paid_call"] for e in author_B.events[:6])
+                and author_B.events[5]["wire_sha256"]==B_TRUE_T03_PLAN_RAW_SHA,
+                "WF0AV_REAL_T03_PLAN_COMPATIBILITY_STILL_BLOCKED:"
+                +type(err).__name__+":"+err_code[:170])
+    else:
+        raise RuntimeError("WF0AV_ELEVEN_SOURCE_DRYRUN_CALLED_NO_AUTHOR")
+    p=json.loads((ROOT/"B"/"exact-requests"/"07.json").read_text("utf8"))
+    prompt=p["prompt"]
+    true_doc=json.loads(third_B_plan["raw_response"])
+    correct_goal=true_doc["next_turn"]["goal"]
+    require(p["max_tokens"]==1450 and
+            correct_goal in prompt and
+            '"id":"t03"' in prompt and
+            '"causal_parent":"t02"' in prompt and
+            '"craft_focus":["dialogue","interiority"]' in prompt and
+            p["prompt_sha256"]==h(prompt),
+            "WF0AV_T03_AUTHOR_GOAL_NOT_DELIVERED_WITH_OPTIONAL_ONLY_CRAFT_FIX")
+    save_json(ROOT/"OFFLINE_SOURCE_ELEVEN_PASS.json",{
+        "format":"wf.0av.eleven-real-wire-original-author-v98-craft-replay.v1",
+        "status":"ELEVEN_SIGNED_REAL_PROVIDER_CALLS_VERIFIED_ZERO_NEW",
+        "original_A_full_prose_sha256":A["sha256"],
+        "author_B_second_prose_sha256":h(
+            json.loads(second_B["raw_response"])["prose"]),
+        "author_B_original_t03_plan_wire_sha256":B_TRUE_T03_PLAN_RAW_SHA,
+        "author_B_original_t03_goal_sha256":h(correct_goal),
+        "original_invalid_t03_id_parent_wire_still_rejected":True,
+        "true_t03_original_plan_raw_is_preserved":True,
+        "source_only_craft_tag_projection":["dialogue","interiority"],
+        "non_craft_author_story_choices_mutated":False,
+        "next_prose_provider_call_blocked_pre_network":True,
+        "provider_calls_now":0,"R2_writes":0,"Canon_writes":0,
+        "literary_uplift_proven":False})
+    print("WF0AV_ELEVEN_REAL_PROVIDER_WIRES_B_T03_AUTHORED_GOAL_SOURCE_ONLY_GREEN",flush=True)
+
+
 if __name__=="__main__":
-    if "--source-ten-preflight" in sys.argv:
+    if "--source-eleven-preflight" in sys.argv:
+        source_eleven_only_preflight()
+    elif "--source-ten-preflight" in sys.argv:
         source_ten_only_preflight()
     elif "--source-eight-preflight" in sys.argv:
         source_eight_only_preflight()
