@@ -623,12 +623,86 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
           _text(beat.get("actor"),70) and
           beat.get("kind") in (
               "action","decision","reversal","setup","quiet",
-              "dialogue","aftermath","transition") and
+              "dialogue","aftermath","transition","interiority") and
           type(max_prompt_chars) is int and
           0<=max_prompt_chars<=MAX_PROMPT,
           "WFCORE_SCHEDULER_INPUT_INVALID")
     goal=beat["goal"]
     actor=beat["actor"]
+    if "/" in actor:
+        # G's real DeepSeek author may plan one SCENE with two voices.
+        # "林槐/许照" is NOT a third character/node/POV. Do not choose
+        # either participant as the sole writer's viewpoint, merge their
+        # private knowledge, or rewrite the model's exact beat.
+        participants=actor.split("/")
+        _need(2<=len(participants)<=3 and
+              len(set(participants))==len(participants) and
+              all(_id(p) for p in participants),
+              "WFCORE_SCENE_PARTICIPANTS_NOT_DISTINCT_CHARACTER_IDS")
+        per_person=[
+            (name,schedule(graph,project_id=project_id,scene_id=scene_id,
+                           beat={**beat,"actor":name},
+                           chapter_index=chapter_index,
+                           max_prompt_chars=MAX_PROMPT))
+            for name in participants]
+        must=[]
+        possible=[]
+        tasks=[]
+        deferred=[]
+        for name,child in per_person:
+            prefix=f"【仅供作家理解{name}的来源约束，不等于其他人物知情】"
+            if child["required_context"]:
+                must.append(prefix+"\n"+child["required_context"])
+            if child["optional_context"]:
+                possible.append((name,prefix+"\n"+child["optional_context"]))
+            tasks.extend({**task,"actor":name,
+                          "key":name+"|"+task["key"]}
+                         for task in child["tasks"])
+            deferred.extend(name+"|"+key for key in child["deferred_tasks"])
+        required="\n".join(must)
+        _need(len(required)<=max_prompt_chars,
+              "WFCORE_REQUIRED_SCENE_GUARD_EXCEEDS_BUDGET")
+        choice=[]
+        used=len(required)
+        for name,optional_text in possible:
+            width=len(optional_text)+(1 if used else 0)
+            if used+width<=max_prompt_chars:
+                choice.append(optional_text)
+                used+=width
+            else:
+                deferred.append(name+"|UNSELECTED_OPTIONAL_CONTEXT")
+        optional="\n".join(choice)
+        output=required+("\n" if required and optional else "")+optional
+        _need(len(output)<=max_prompt_chars,
+              "WFCORE_PROMPT_BUDGET_INVARIANT")
+        return {
+            "format":"wf.narrative.scheduler.v1",
+            "chapter_index":chapter_index,
+            "graph_receipt_sha256":graph["receipt_sha256"],
+            "tasks":tasks,
+            "required_context":required,
+            "optional_context":optional,
+            "deferred_tasks":deferred,
+            "deferred_unresolved_thread_count":sum(
+                r["deferred_unresolved_thread_count"]
+                for _,r in per_person),
+            "author_unknown_proactive_eligible":sum(
+                r["author_unknown_proactive_eligible"]
+                for _,r in per_person),
+            "author_unknown_proactive_chosen":sum(
+                r["author_unknown_proactive_chosen"]
+                for _,r in per_person),
+            "author_unknown_unprompted_not_selected":sum(
+                r["author_unknown_unprompted_not_selected"]
+                for _,r in per_person),
+            "prompt_chars":len(output),
+            "priority_order":["HARD_STATE","NPC_KNOWLEDGE",
+                              "CHARACTER_INTENT","LONG_THREAD","CRAFT"],
+            "model_calls":0,"canon_writes":0,
+            "knowledge_is_character_scoped":True,
+            "ensemble_source_actor_labels":participants,
+            "ensemble_composite_actor_not_personified":True,
+        }
     tasks={}
     def queue(lane,key,msg,mandatory=True):
         ident=(PRIORITY[lane],key)
@@ -656,7 +730,7 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
                 if len(parts)>=3:
                     break
             if parts:
-                quiet=beat["kind"]=="quiet"
+                quiet=beat["kind"] in ("quiet","interiority")
                 queue("CHARACTER_INTENT",actor_key,
                       ("【人物自主内心张力】" if quiet else
                        "【人物自主行动张力】")+"；".join(parts)+"。"+
@@ -681,7 +755,7 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
         named_in_goal=fact["name"] in goal
         proactive=(not named_in_goal and
                    relation=="AUTHOR_ASSERTED_UNKNOWN" and
-                   beat["kind"] not in ("quiet","transition"))
+                   beat["kind"] not in ("quiet","interiority","transition"))
         if proactive:
             proactive_unknown_eligible+=1
             if proactive_unknown_delivered>=2:
@@ -716,7 +790,7 @@ def schedule(graph,*,project_id,scene_id,beat,chapter_index,
         if t["status"]!="OPEN" or beat["kind"]=="transition":
             continue
         thread_id=nid.split(":",1)[1]
-        if beat["kind"]=="quiet":
+        if beat["kind"] in ("quiet","interiority"):
             # Do not ignite every debt merely because the protagonist
             # appears in a quiet chapter. A quiet scene must explicitly
             # name BOTH sides or the exact stable thread key.
