@@ -1295,7 +1295,30 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
         "\n【当前实际未接受的小说原文】"+prose+
         "\n【当前原文字节身份】"+original_sha
     )
-    content=turn_packet.prompt+reminder
+    # This is an INDEPENDENT model task, not another prose-generation
+    # request. The previous G turn_packet contains an authoritative-looking
+    # instruction to emit {"prose","trace"}. Concatenating it ahead of this
+    # review request caused REAL DeepSeek replies to emit a second novel
+    # paragraph instead of a MOVE_ON/LOOK_BACK_NOW decision (0.AQ: 4/6).
+    # Reusing only actual immutable previous/current prose, their SHAs,
+    # recorded source effects and frozen beat keeps review grounded while
+    # preventing the two mutually exclusive JSON schemas competing.
+    # The writer still chooses ALL literary reasons and whether to revise.
+    # No host authoring, scoring, fact promotion or retry.
+    review_stage_header=(
+        "【WriterForge 独立写后审稿阶段 / ONLY_REVIEW_DECISION】"
+        "上一条小说生成指令已经结束，绝不可继续输出小说正文、"
+        "prose/trace 或新的章节计划。你是刚写完文字的同一位作者。"
+        "当前任务只需根据下方逐字原稿自行选择 MOVE_ON 或 "
+        "LOOK_BACK_NOW，后者只是提出回改意向，不在本条修改文字。"
+        "没有外部文学分数或强制回改目标。"
+        "\n【审稿来源安全边界】只有下方实际写出的当前段、"
+        "紧邻上段、它们的 SHA 和已有引句可用作具体来源。"
+        "未知人物心理、后果、物品归属仍是未知。"
+        "曾经出现的创作任务大纲不是已发生事实，"
+        "也不是本条要执行的 JSON 格式。"
+    )
+    content=review_stage_header+reminder
     if source_identity_contract=="bind_null_current":
         content+=(
             "\n【来源 SHA 为宿主机械字段，并非文学判断】"
@@ -1382,6 +1405,10 @@ def _ai_decides_when_to_revisit(*,raw,beat,accepted,turn_packet,
         "original_decision_sha256":sha256(
             response.encode("utf8")).hexdigest(),
         "only_ai_can_choose_revisit":True,
+        "review_prompt_stage_isolated_from_prose_generation":True,
+        "review_prompt_sha256":sha256(content.encode("utf8")).hexdigest(),
+        "review_writer_source_prose_unchanged":True,
+        "review_writer_not_forced_to_revise":True,
         "source_identity_contract":source_identity_contract,
         "earlier_author_source_attribution_requested":attribution_requested,
         "source_sha256_original_model_value_not_changed":True,
