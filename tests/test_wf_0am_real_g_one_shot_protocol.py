@@ -59,8 +59,6 @@ class FrozenHistoryOneShotPreflight(unittest.TestCase):
         caller=inspect.getsource(trial.OneRealAuthor)
         self.assertIn('source_file.read_text("utf8")',inspect.getsource(
             trial.verify_old_real_source))
-        self.assertIn("original_provider_wire_sha256",inspect.getsource(
-            trial.verify_old_real_source)+program) if False else None
         self.assertIn("verify_old_real_source()",program)
         self.assertLess(program.index("verify_old_real_source()"),
                         program.index("writer=OneRealAuthor(secret)"))
