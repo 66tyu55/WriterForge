@@ -1,0 +1,140 @@
+name: WF 0.AV Signed Prior Prose B++ Real Writer Last Four Calls ONCE
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0av-prior-prose-window-last-four-once.yml
+      - experiments/wf_0av_prior_prose_window_last_four_calls_once_20261026.py
+      - tests/test_wf_0av_prior_prose_window_live_protocol.py
+      - experiments/WF_0AV_SIGNED_PRIOR_PROSE_BPLUSPLUS_LIVE_ONCE_20261026.txt
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wf-0av-signed-prior-prose-t04-t05-one-time
+  cancel-in-progress: false
+
+jobs:
+  source-only-preflight:
+    if: github.repository == '66tyu55/WriterForge' && github.ref_name == 'refactor-unified-scene-delivery-audit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: All source-first regressions with no external model
+        run: |
+          python -m py_compile experiments/wf_0av_prior_prose_window_last_four_calls_once_20261026.py
+          python -m unittest discover -s tests -q
+      - name: Seven original DeepSeek B source wires from completed A-B
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40323596997
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_completed_0av_source
+      - name: Real unchanged B+ source and two-order blind grades
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40328385610
+          name: WF-0AV-B-versus-BPlus-ReviewOnly-Prose-Real-Author-Wires-Source-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_first_Bplus_source
+      - name: Replay all old signed author replies and inspect new t04 prompt, no network
+        run: python -m experiments.wf_0av_prior_prose_window_last_four_calls_once_20261026 --preflight
+      - name: Always preserve preflight evidence including failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AV-Bplusplus-Signed-Previous-Wire-And-Prompt-OFFLINE
+          path: wf_0av_recent_source_prose_window_Bplusplus_20261026/
+          retention-days: 90
+          if-no-files-found: warn
+
+  one-time-real-same-deepseek-author:
+    needs: [source-only-preflight]
+    if: >-
+      github.repository == '66tyu55/WriterForge' &&
+      github.ref_name == 'refactor-unified-scene-delivery-audit' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'experiment(0.AV): FIRE BPLUSPLUS SIGNED OLD PROSE T04 T05 FOUR REAL CALLS ONCE'
+    runs-on: ubuntu-latest
+    timeout-minutes: 42
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[r2]'
+      - name: Check hard one-shot fingerprint and no R2 credentials
+        run: |
+          test "$(cat experiments/WF_0AV_SIGNED_PRIOR_PROSE_BPLUSPLUS_LIVE_ONCE_20261026.txt)" = "WF0AV_BPLUSPLUS_REAL_PREFIX_7_WIRES_T04_T05_ONLY_MAX4_NO_GRADES"
+          python - <<'PY'
+          import os
+          assert not any(os.getenv(k) for k in ("WRITERFORGE_R2_ACCOUNT_ID","WRITERFORGE_R2_ACCESS_KEY_ID","DISCOVERY_API_KEY","OPENAI_API_KEY","OPENROUTER_API_KEY"))
+          PY
+      - name: Seven immutable old author wire bytes
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40323596997
+          name: WF-0AV-New-Waterworks-Same-DeepSeek-G-Versus-G-V98-Real-Wires-And-Blind-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_completed_0av_source
+      - name: Unchanged old B+ original
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40328385610
+          name: WF-0AV-B-versus-BPlus-ReviewOnly-Prose-Real-Author-Wires-Source-Grades
+          github-token: ${{ github.token }}
+          path: wf0av_first_Bplus_source
+      - name: Independently recheck source and prompt BEFORE model secret is loaded
+        run: |
+          python -m experiments.wf_0av_prior_prose_window_last_four_calls_once_20261026 --preflight
+          rm -rf wf_0av_recent_source_prose_window_Bplusplus_20261026
+      - name: Original DeepSeek writer ONLY for B++ t04/t05, at most four calls, no new judge
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: python -m experiments.wf_0av_prior_prose_window_last_four_calls_once_20261026
+      - name: Verify actual wire hashes, cost and non-canon completion
+        if: success()
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          p=Path("wf_0av_recent_source_prose_window_Bplusplus_20261026")
+          s=json.loads((p/"STATUS.json").read_text("utf8"))
+          assert s["status"]=="REAL_BPLUS_BPLUSPLUS_SOURCE_WINDOW_WRITER_PROSE_COMPLETED"
+          assert s["new_paid_calls"]==4 and s["total_paid_calls"]==26
+          assert s["new_reserved_completion"]<=4400 and s["combined_reserved_completion"]<=44000
+          assert s["literary_improvement_proven"] is False
+          assert s["R2_reads"]==s["R2_writes"]==s["Canon_writes"]==0
+          assert s["main_modified"] is False and s["Railway_deployments"]==0
+          assert s["comparison"]["same_original_t01_t02_t03_bytes"]
+          assert s["comparison"]["new_true_model_calls"]==4
+          assert s["comparison"]["independent_literary_grade"] is None
+          assert len(s["provider_events"])==11
+          for e in s["provider_events"]:
+              if e["paid_call"]:
+                  assert e["saved_before_json_decode"]
+                  wire=(p/"B"/"original-provider-wires"/f"{e['index']:02d}-paid.json").read_bytes()
+                  assert hashlib.sha256(wire).hexdigest()==e["wire_sha256"]
+          print("B++ ORIGINAL AUTHOR SOURCE VERIFIED",s["new_prose_sha256"])
+          PY
+      - name: Preserve all real DeepSeek originals even on failed parsing/replay
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0AV-Bplus-Bplusplus-Same-DeepSeek-Prior-Prose-Real-Wires
+          path: wf_0av_recent_source_prose_window_Bplusplus_20261026/
+          retention-days: 90
+          if-no-files-found: warn
