@@ -144,6 +144,26 @@ class GWriterRollingGate(unittest.TestCase):
         self.assertEqual(receipt["factjournal_canon_writes"],0)
         self.assertFalse(receipt["literary_quality_improvement_proven"])
 
+    def test_0av_source_original_six_interiority_survives_core_scene_delivery(self):
+        """RED from sixth actual DeepSeek reply. Introspection isn't failed fiction."""
+        from writerforge.narrative_core import audit_scene_delivery
+        prose=(
+            "林槐听见许照说封签的铅丝拧断了。"
+            "他又翻开台账，发现自己下命令前漏看了一页。"
+            "他终于承认不知道医院此刻的水压，于是改变了命令。"
+            "可井下人的回答断在电流声里，他不能假定指令已经送达。"
+        )
+        result=audit_scene_delivery(
+            prose=prose,
+            scene_goal="林槐根据实际新增线索反思并调整指令，但不夸大井下的知识",
+            scene_kind="interiority")
+        self.assertFalse(result["blocked"])
+        self.assertEqual(result["scene_kind"],"interiority")
+        self.assertFalse(result["scene_function_verified"])
+        self.assertFalse(result["model_claim_not_promoted_to_fact"] is False)
+        self.assertEqual(result["model_calls"],0)
+        self.assertEqual(result["canon_writes"],0)
+
     def test_G_requires_explicit_opt_in_parameter(self):
         from writerforge.writing_assist import AutonomousWriting
         import inspect
