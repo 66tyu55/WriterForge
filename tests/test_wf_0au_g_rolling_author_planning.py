@@ -20,6 +20,50 @@ class GWriterRollingGate(unittest.TestCase):
         tampered={**turn,"prose":turn["prose"]+"伪造"}
         with self.assertRaises(Exception):
             g_source_replan_eligibility((tampered,))
+
+    def test_0av_real_author_interiority_is_a_valid_unforced_narrative_turn(self):
+        """RED from real new paid author plan: interiority is legitimate prose, not an action."""
+        import json
+        from writerforge.v96_causal_turns import parse_turn_outline,CAUSAL_KINDS
+        author_plan={"turns":[
+            {"id":"t01","kind":"dialogue","actor":"林槐/许照",
+             "goal":"通过不完整的对讲机话音表现双方认知差异和冲突",
+             "causal_parent":None,"craft_focus":["dialogue","restraint"]},
+            {"id":"t02","kind":"interiority","actor":"林槐",
+             "goal":"在真正动手前林槐反复权衡停电时间与医院未知的水压",
+             "causal_parent":"t01","craft_focus":["interiority","pacing"]}]}
+        parsed=parse_turn_outline(json.dumps(author_plan,ensure_ascii=False))
+        self.assertEqual(parsed[0]["actor"],"林槐/许照")
+        self.assertEqual(parsed[1]["kind"],"interiority")
+        self.assertNotIn("interiority",CAUSAL_KINDS)
+        self.assertEqual(parsed[1]["goal"],author_plan["turns"][1]["goal"])
+    def test_0av_interiority_keeps_parent_temporal_not_fake_effect(self):
+        from writerforge.v96_causal_turns import parse_turn_outline,check_turn
+        import json
+        beats=parse_turn_outline(json.dumps({"turns":[
+            {"id":"t01","kind":"interiority","actor":"林槐",
+             "goal":"林槐承认自己尚未知道医院的实际水压",
+             "causal_parent":None,"craft_focus":["interiority"]},
+            {"id":"t02","kind":"quiet","actor":"林槐",
+             "goal":"暂时不决定开阀，在对讲机静默中留白",
+             "causal_parent":"t01","craft_focus":["restraint"]}]},
+             ensure_ascii=False))
+        prose=("她看着屏幕上的刻度，却不敢说数字究竟代表什么。"
+               "城西医院是否已经断水没有回报，井下的人只听见半截对讲机话音。"
+               "林槐想起白天那场争执，但并未因此认定有人改动封签。"
+               "她知道自己的恐惧不等于证据，手指停在控制板边缘。")
+        a=check_turn(json.dumps({"prose":prose,"trace":{
+            "action_quote":None,"effect_quote":None,
+            "parent_effect_quote":None}},ensure_ascii=False),
+            beats[0],mode="causal_guard")
+        b=check_turn(json.dumps({"prose":prose+"她停住了手。",
+            "trace":{"action_quote":None,"effect_quote":None,
+                     "parent_effect_quote":None}},ensure_ascii=False),
+            beats[1],mode="causal_guard",accepted=(a,))
+        self.assertIsNone(a["effect_quote"])
+        self.assertTrue(b["receipt"]["parent_temporal_link_unverified"])
+        self.assertFalse(b["receipt"]["causal_relation_verified"])
+
     def test_G_requires_explicit_opt_in_parameter(self):
         from writerforge.writing_assist import AutonomousWriting
         import inspect
