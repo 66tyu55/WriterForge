@@ -2737,8 +2737,9 @@ class AutonomousWriting:
             self_edit_timing:str="always_offer",
             reader_first_self_review:bool=False,
             cross_chapter_fork:dict|None=None,
-            selected_fork_receipt:dict|None=None) -> dict:
-        if (type(reader_first_self_review) is not bool or
+            selected_fork_receipt:dict|None=None,
+            g_rolling_author_planning:bool=False) -> dict:
+        if type(g_rolling_author_planning) is not bool or (\n                g_rolling_author_planning and draft_mode!="continuity_guard"):\n            raise WritingExecutionError("WF_G_ROLLING_REQUIRES_EXPLICIT_G_MODE")\n        if (type(reader_first_self_review) is not bool or
             reader_first_self_review and (
                 draft_mode!="continuity_guard" or self_edit_rounds==0 or
                 self_edit_timing!="ai_decides")):
@@ -3044,6 +3045,7 @@ class AutonomousWriting:
         self_edit_model_calls=0
         writer_rewind_count=0  # Bounded to one previous-turn branch per job.
         rolling_replan_calls=0
+        g_rolling_source_skips=[]
         previous_emotional_turns=()
         previous_continuity_checkpoint=None
         previous_external_story_checkpoint=earlier_external
@@ -3337,7 +3339,8 @@ class AutonomousWriting:
                                     self_edit_moment_receipts,
                                     self_edit_reader_receipts,source_length_reviews,
                                     prompt_delivery_receipts,plan_execution_checks,
-                                    prompt_shas)
+                                    prompt_shas,rolling_receipts,rolling_goals,
+                                    rolling_prompt_shas,g_rolling_source_skips)
                                 turn_snapshots.append({
                                     "counts":tuple(len(a) for a in
                                                    tracked_rewind_lists),
@@ -3345,7 +3348,7 @@ class AutonomousWriting:
                                     "external":current_external_story_checkpoint,
                                     "lamp":last_lamp_receipt})
                             beat=seed_beat
-                            if draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling") and turn_index>0:
+                            # G's opt-in writer-owned replan is allowed only\n                            # when the IMMEDIATELY previous source offers an\n                            # actual signed effect or pending decision action.\n                            # REVIEW-only and quiet chronological links cannot\n                            # be turned into a supposedly observed cause.\n                            g_replan=False\n                            if g_rolling_author_planning and turn_index>0:\n                                from .v98_rolling_causal_planner import (\n                                    g_source_replan_eligibility)\n                                eligibility=g_source_replan_eligibility(\n                                    tuple(accepted_turns))\n                                if eligibility["eligible"]:\n                                    g_replan=True\n                                else:\n                                    g_rolling_source_skips.append({\n                                        "turn_id":seed_beat["id"],\n                                        "reason":eligibility["reason"],\n                                        "source_sha256":eligibility["source_sha256"],\n                                        "no_plan_model_call":True,\n                                        "literary_truth_proven":False})\n                            if (draft_mode in ("rolling_causal","emotion_rolling","foresight_rolling")\n                                or g_replan) and turn_index>0:
                                 if rolling_replan_calls>=MAX_ROLLING_REPLANS_PER_JOB:
                                     raise V98RollingPlanError(
                                         "WF98_REPLAN_MODEL_CALL_BUDGET_EXCEEDED")
@@ -3375,7 +3378,7 @@ class AutonomousWriting:
                                     rolling_packet,model=self.assist.model,
                                     api_base=self.assist.api_base,max_tokens=650,
                                 )
-                                if draft_mode=="foresight_rolling":
+                                if draft_mode in ("foresight_rolling","continuity_guard"):
                                     (job/f"chapter-{index:03d}-replan-"
                                          f"{turn_index+1:02d}-raw.json").write_text(
                                         last_turn_response,encoding="utf8")
