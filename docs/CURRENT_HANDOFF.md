@@ -1,6 +1,19 @@
 # WriterForge 当前有效交接｜2026-10-27
 
 
+## 0.BE 最新已执行｜有用才迭代：保留祖先认知、宿主主动 NO_CHANGE、v2 价值待证伪（2026-10-27）
+
+**下一轮第一读：[WF_0BE_V2_HABIT_FALSIFICATION_AND_VALUE_STOP_HANDOFF_20261027.md](WF_0BE_V2_HABIT_FALSIFICATION_AND_VALUE_STOP_HANDOFF_20261027.md)**。它覆盖下方 0.BD/0.BC/0.BB 中“下一步还需确认是否保留新习惯”的旧时态；原 0.AY/0.AZ provider 429 必须继续冻结。
+
+- **真实发现了遗传退化漏洞**：0.BD v2 procedure[1] 用面向接收者/延迟结果的 417 字符窄步骤替换了 v1 适用广泛的 138 字符旧步骤（增加 279）；falsifier 增 183 字符；全文增长 462 字符。这是**精确字符负担而非真实 token 账单**。v1 本来就知道区分已发生、认知误判、未知与只有计划。v2 尚无独立价值证据，新增特殊化可能造成安静文学片段和有限 POV 负迁移，不能称为升级成功、也不能改动原封存 v2 SHADOW SHA 0d43a023bc278ac12e3165e319d2acb73dcf40c0d9af453e623c786f3b476a10。
+- **在真正原 Evolution 宿主营养入口修复**：原 FirstHostNutrientLoop.acquire_once 的合成 RED 表明，任一宿主只要 JSON 结构正确就可覆盖父习惯的通用步骤与证伪条件。现 host 提议前可读到父 procedure 和 falsifiers，必须完整保留选中父步骤、在单字段 450 字符上限内追加明确限定的内容；丢父、丢 falsifier、太长或者只有换皮都拒绝。旧 v2 历史证据不重写；人工签名申请的其他流程仍由原策展审查决定。即便保留字面前缀，语义上的隐性矛盾仍需要独立验证。
+- **实现可主动停止而不强迫继续进化**：宿主可以返回真实结构化 NO_CHANGE，即本次观察没有新可迁移认知。已使用的一次宿主回调不会被退款或自动重试；兼容存入旧 SQLite 终态及明确 WF0BE_VOLUNTARY_NO_CHANGE 原因，公开决议 DORMANT_NO_NEW_TRANSFERABLE_HABIT。新进程、另一个 host_id 从相同数据库恢复该实验状态后，原候选仍不增加、宿主调用次数仍 0。该休眠只属于这次实验，不自动删除或退休现有技能。
+- **正式证伪只完成零模型预检**：预先冻结 [8 个全新不同文学/工具情境](../experiments/wf_0be_v1_v2_falsification_cases_20261027.json)，用 [source-first v1/v2 离线预检](../experiments/wf_0be_v1_v2_preflight_only.py) 生成 16 份“未来才可能运行”的成对宿主输入；v1/v2 同任务、同原文、同预定输出上限，真正输入 token/文学质量一概尚无实测。原 0.AY GLM 429 不重试，新增 provider 调用 **0**。尚未指定模型/预算/独立读者的当前状态：DORMANT_NEEDS_AUTHORIZED_MODEL_AND_READER_EVIDENCE；不强行淘汰 v2，也不提升它。公开的病例风险列表不是对具备仓库读权限的模型保密的真正 heldout。
+- **RED→GREEN 源证据**：[覆盖祖先认知 RED #40460812111](https://github.com/66tyu55/WriterForge/actions/runs/40460812111)；[不会主动 NO_CHANGE RED #40460994296](https://github.com/66tyu55/WriterForge/actions/runs/40460994296)；[底层 GREEN #40461652510](https://github.com/66tyu55/WriterForge/actions/runs/40461652510) **1962 tests、6 skipped、零失败**。新 v1/v2 价值预检缺接口 [#40462265023 RED](https://github.com/66tyu55/WriterForge/actions/runs/40462265023)；最新 [**0.BE #40462868945 全量 GREEN**](https://github.com/66tyu55/WriterForge/actions/runs/40462868945) 和 [**0.BA 交叉全量 #40462868938 GREEN**](https://github.com/66tyu55/WriterForge/actions/runs/40462868938)：均 **1971 tests、6 skipped、零失败**。旧 0.BA 全回归已修复正确下载真实 0.AY 依赖工件，不伪造或跳过原件。
+- **下一步不是继续给 v2 增加审稿器**：在新明确模型费用预算与独立读者协议下，真正执行新案例 v1/v2 同预算对照，证伪“只是把 v1 讲长了”或“只会无线电回执”。没独立增益/额外代价过高就 DORMANT，不自动升级。只有确定有价值才在现有外部签名流程考虑晋级。不得自行拿 GitHub Secrets 发付费请求；main/Railway/R2 原著/正式 Canon 零修改，V26/V98/V119、唯一 NarrativeCore 与作家 AI 创作主权全部保留。
+
+---
+
 ## 0.BD 最新已执行｜真实源→ChatGPT 元认知提议→SHADOW 候选→断开原宿主也能恢复（2026-10-27）
 
 **新窗口优先读：[WF_0BD_FIRST_LIVE_CHAT_NUTRIENT_HYPOTHESIS_AND_HOST_EXIT_HANDOFF_20261027.md](WF_0BD_FIRST_LIVE_CHAT_NUTRIENT_HYPOTHESIS_AND_HOST_EXIT_HANDOFF_20261027.md)**；此节覆盖下方 0.BC/0.BB/0.BA 的旧“下一步未实现”时态。原有 0.AZ 429 原始失败及 0.AY provider wire 不修改。
