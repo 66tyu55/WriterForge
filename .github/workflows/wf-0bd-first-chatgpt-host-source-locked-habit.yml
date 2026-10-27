@@ -1,0 +1,72 @@
+name: WF 0.BD First Host Conversational Habit from REAL DeepSeek A/B - NO PROVIDER
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0bd-first-chatgpt-host-source-locked-habit.yml
+      - experiments/wf_0bd_chatgpt_first_host_cognitive_proposal_20261027.json
+      - experiments/wf_0bd_chatgpt_first_host_source_reanalysis_20261027.py
+      - tests/test_wf_0bd_first_live_chat_meta_proposal.py
+      - writerforge/evolution.py
+      - writerforge/db.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wf-0bd-first-real-source-conversational-hypothesis
+  cancel-in-progress: true
+
+jobs:
+  real-writer-source-unverified-chat-meta-proposal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Refuse provider credentials and private R2
+        run: python -c 'import os; assert not any(os.getenv(n) for n in ("DISCOVERY_API_KEY","DEEPSEEK_API_KEY","OPENAI_API_KEY","OPENROUTER_API_KEY","R2_ACCESS_KEY_ID","R2_SECRET_ACCESS_KEY"))'
+      - name: Install offline source + public-key verifier
+        run: python -m pip install -e '.[r2,evidence]'
+      - name: Retrieve the EXACT original 0.AY source, not regenerated fiction
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40354436598
+          name: WF-0AY-Two-REAL-Model-Hosts-Portable-Habit-Eight-Capped-Original-Wires
+          github-token: ${{ github.token }}
+          path: wf0ay_real_two_hosts_partial_source
+      - name: Source-first adversarial candidate tests (no model requests)
+        run: python -m unittest discover -s tests -p 'test_wf_0bd_first_live_chat_meta_proposal.py' -v
+      - name: Stage GPT-6 conversation-authored candidate from original DeepSeek pair
+        run: |
+          python -m experiments.wf_0bd_chatgpt_first_host_source_reanalysis_20261027
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("wf0bd_conversational_first_host_nutrient_source_locked_20261027/STATUS.json")
+          s=json.loads(p.read_text("utf8"))
+          assert s["new_paid_provider_calls"] == 0
+          assert s["replayed_host_model_callbacks"] == 0
+          assert s["source_pair_original_wires_verified"] == 2
+          assert s["chatgpt_meta_reply_authenticated_provider_wire"] is False
+          assert s["candidate_state"] == "SHADOW"
+          assert s["quality_improvement_proven"] is False
+          assert s["original_experiment_state"] == "DORMANT_HOST_RESOURCE_UNCHANGED"
+          PY
+      - name: Whole project regression with original 0.BA/B/C safety boundaries
+        run: python -m unittest discover -s tests -q
+      - name: Preserve only verified SHA references and ungraded SHADOW candidate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0BD-Real-DeepSeek-Source-ChatGPT-Unverified-Meta-Hypothesis-SHADOW
+          path: wf0bd_conversational_first_host_nutrient_source_locked_20261027/
+          retention-days: 90
+          if-no-files-found: warn
