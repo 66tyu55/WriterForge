@@ -2552,6 +2552,20 @@ class FirstHostNutrientLoop:
                 if (type(proposal[key]) is not str or
                         not 35 <= len(proposal[key]) <= 450):
                     raise ValueError("WF0BC_HABIT_PROCEDURE_SIZE_INVALID")
+            # The transferable procedure cannot simply carry verbatim host
+            # source fiction. Check longest literal overlap against every
+            # authenticated transient source. This is a narrow byte/character
+            # leakage guard, NOT semantic privacy proof or literary scoring.
+            from difflib import SequenceMatcher
+            for field in ("procedure_replacement","falsifier_replacement"):
+                proposed = proposal[field]
+                for original in visible.values():
+                    span = SequenceMatcher(
+                        None, proposed, original, autojunk=False
+                    ).find_longest_match(
+                        0, len(proposed), 0, len(original))
+                    if span.size >= 18:
+                        raise ValueError("WF0BC_HOST_SOURCE_PROSE_IN_HABIT")
             candidate = json.loads(self.root_capsule_bytes.decode("utf-8"))
             candidate["revision"] += 1
             candidate["procedure"][proposal["procedure_index"]] = (
