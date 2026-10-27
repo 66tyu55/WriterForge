@@ -1,0 +1,132 @@
+{
+  "format": "wf.0be.v1-v2-prospective-falsification.v1",
+  "created": "2026-10-27",
+  "status": "PRE_REGISTERED_UNRUN_NO_MODEL_EVIDENCE",
+  "writer_compared": "observe-before-next-choice",
+  "v1_capsule_sha256": "42cad98118dea662cea472f708ef1de22f4bb139da3210b1f5c3c1f9ac12664d",
+  "v2_capsule_sha256": "0d43a023bc278ac12e3165e319d2acb73dcf40c0d9af453e623c786f3b476a10",
+  "original_0ay_glm_429_requires_permanent_no_retry": true,
+  "fresh_cases_only": true,
+  "task_family": "new original fiction plus one cross-domain tool receipt",
+  "experimental_treatment": "v1 versus v2 only; no retrofitting based on old outputs",
+  "real_provider_calls_performed": 0,
+  "new_paid_provider_calls_authorized": 0,
+  "prospective_max_pairs": 8,
+  "prospective_total_requests_if_separately_authorized": 16,
+  "prospective_max_completion_tokens_per_request": 1800,
+  "provider_or_model": "UNSPECIFIED_REQUIRES_FRESH_EXPLICIT_AUTHORIZATION",
+  "same_model_same_task_same_output_cap_required": true,
+  "inputs_contain_no_original_novel_R2_or_Canon": true,
+  "blind_plan": {
+    "score_on_actual_model_outputs_only": true,
+    "require_independent_reviewers": 2,
+    "blinded_arm_labels_only": true,
+    "outcomes_of_interest": [
+      "observable causal fidelity to literal actions rather than inferred success",
+      "preserve legitimate omission and deliberate repetition",
+      "character bounded knowledge not converted into omniscient fact",
+      "meaningful author-owned next choices",
+      "prose readability and genre-appropriate pacing",
+      "actual provider input/output tokens and calls rather than reserved tokens"
+    ],
+    "negative_controls": [
+      "completed-delivery",
+      "quiet-household-pause",
+      "unfulfilled-promise",
+      "plan-on-board-not-executed"
+    ],
+    "allow_no_clear_winner": true,
+    "no_bonus_for_more_specific_prompt": true,
+    "no_automatic_promotion": true
+  },
+  "cases": [
+    {
+      "case_id": "completed-delivery",
+      "genre": "historical",
+      "type": "completed-action-negative-control",
+      "prior_prose": [
+        "陆凝看着驿站的柜前铺开交接账，两位值守人当面检查红封完好，签下自己的名字。",
+        "一个时辰后，巡河营的回执与已经升起的渡口停航旗一同送回县衙。陆凝透过窗看见旗帜，知道停航令已执行，但未知道河外还有几条船。"
+      ],
+      "task": "续写一小段。让陆凝在已经完成的交接与停航行动之后，处理眼下仍不确定的河外船只信息。不得强迫他重复已完成的交接。",
+      "risk": "v2 may hallucinate uncertainty about already verified completion"
+    },
+    {
+      "case_id": "purposeful-second-attempt",
+      "genre": "science-fiction",
+      "type": "legitimate-repeat",
+      "prior_prose": [
+        "月面站的水闸按钮第一次按下时，控制台显示机械锁仍在保护位。技师周弈听见保护销未收回的滴答声，立即切断了驱动电源。",
+        "他亲手拔出卡在齿轮旁的断线，重新接好检修口的接头。锁定灯灭了，但新的测试还没开始；控制台记录了第一次失败，没人把它写成已成功开闸。"
+      ],
+      "task": "续写周弈下一项可信的操作选择。允许他在条件改变后再次尝试相同按钮，但不要把重复本身当成错误或成功。",
+      "risk": "v2 may over-penalize or over-encourage retry"
+    },
+    {
+      "case_id": "quiet-household-pause",
+      "genre": "literary-realism",
+      "type": "quiet-pacing-negative-control",
+      "prior_prose": [
+        "晚饭后，阿岚把父亲留下的两只旧瓷碗洗净，倒扣在窗边。风掠过院角时，晾衣绳只轻轻响了一下。",
+        "母亲回屋睡了，桌上的信还没有拆。阿岚坐着，突然想起父亲洗碗时总会多留一道水痕，却没有急着去看信。"
+      ],
+      "task": "以克制、自然的节奏续写这一段安静场景。可以什么也不交接，不必把所有沉默转换成行动、确认与结果。",
+      "risk": "v2 scope-specific bookkeeping may disrupt prose or invent receiver"
+    },
+    {
+      "case_id": "bounded-eyewitness",
+      "genre": "mystery",
+      "type": "limited-pov-and-false-confirmation",
+      "prior_prose": [
+        "许霁把带有印记的便条塞到书房门缝，听见门里有椅脚划过木板的声音。她没有看见是谁走动，也没听见有人念出便条。",
+        "过了一会儿，走廊尽头亮起一盏小灯。许霁想起昨夜管家说过的暗号，可那盏灯也可能只是夜班仆人经过留下的。"
+      ],
+      "task": "限于许霁能看到、听到的事实续写，允许误判与犹疑。不得把走动声或亮灯当成收信人已经读懂便条的证据。",
+      "risk": "v2 may force a receiver stage despite POV uncertainty"
+    },
+    {
+      "case_id": "custody-without-fulfillment",
+      "genre": "wuxia",
+      "type": "handoff-versus-objective",
+      "prior_prose": [
+        "卫蘅将写着暗号的木盒交给渡口的女船夫，亲眼见她在账本上按下红指印。卫蘅确信交接已经完成。",
+        "但船夫只答应把木盒放进船舱，并未答应何时渡江。雨势更大，江面巡船还在上游。卫蘅并不知道木盒能否送到对岸。"
+      ],
+      "task": "续写卫蘅下一项有理由的选择，分清木盒交给船夫、船夫理解托付和木盒真正送达三种可能。允许人物根据立场选择继续等待。",
+      "risk": "v2 may help identify staged delivery but must not mandate a choice"
+    },
+    {
+      "case_id": "unfulfilled-promise",
+      "genre": "family-drama",
+      "type": "intention-is-not-action",
+      "prior_prose": [
+        "叔父昨夜答应带小林去县城看病，话说得郑重，还让孩子把鞋放在门口。",
+        "第二天清晨，车票仍在抽屉里，叔父没有起床。小林望见窗外第一班车驶过，却不知道叔父是否真有难处。"
+      ],
+      "task": "续写小林如何面对承诺与未发生的行动。尊重人物的局限性，不能把说过要去看病写成已经乘车，也不能替叔父下定论。",
+      "risk": "v1 already blocks planned-to-completed confusion; v2 may add no value"
+    },
+    {
+      "case_id": "asynchronous-tool-return",
+      "genre": "software-operations",
+      "type": "cross-domain-tool-attempt-and-effect",
+      "prior_prose": [
+        "值班工程师林曜通过备份系统提交了一个数据库快照任务，系统返回了HTTP 202和任务编号。",
+        "任务页面只显示排队中；还没有快照文件，也没有校验和。林曜知道请求已被接收，却不敢告诉同事恢复文件已经准备好。"
+      ],
+      "task": "用简洁工作纪要写下一项正确操作决策，区分提交请求、任务排队确认与备份真正完成。不要把状态202当作快照已验证完成。",
+      "risk": "transfer beyond fiction; legitimate positive opportunity for v2"
+    },
+    {
+      "case_id": "plan-on-board-not-executed",
+      "genre": "fantasy",
+      "type": "plan-versus-executed-negative-control",
+      "prior_prose": [
+        "祭司把三根银针放在祭坛边的铜盘里，和学生讨论什么时候开启封印。黑板上的方案写着‘黄昏时将第三根针插入刻槽’，那只是预案。",
+        "黄昏到了，盘中的三根银针仍整齐放着。学生以为祭司忘了，祭司却正听远处的山鸣，并没有伸手。"
+      ],
+      "task": "续写封印是否行动的抉择，由祭司自己决定何时动手。不能因为黑板计划已有文字，就默认第三根银针已经插入刻槽。",
+      "risk": "v1 already covers planned vs actual; v2 may be narrower or redundant"
+    }
+  ]
+}
