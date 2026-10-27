@@ -2360,12 +2360,19 @@ class FirstHostNutrientLoop:
             "WHERE scope=? AND experiment_id=?",
             (self.scope, experiment_id)).fetchone()[0]
         attempt_rows = self.db.conn.execute(
-            "SELECT status FROM host_nutrient_attempts "
+            "SELECT status,failure_code FROM host_nutrient_attempts "
             "WHERE scope=? AND experiment_id=?",
             (self.scope, experiment_id)).fetchall()
         host_attempt_dormant = any(
             a["status"] == "DORMANT_HOST_RESOURCE" for a in attempt_rows)
+        # The original attempt table already accepts REJECTED as a terminal
+        # archival status. Preserve compatibility with existing SQLite files,
+        # but distinguish a host's VOLUNTARY NO_CHANGE via a specific reason.
+        host_declined_new_habit = any(
+            a["failure_code"] == "WF0BE_VOLUNTARY_NO_CHANGE"
+            for a in attempt_rows)
         state = ("DORMANT_HOST_RESOURCE" if failed or host_attempt_dormant else
+                 "DORMANT_NO_NEW_TRANSFERABLE_HABIT" if host_declined_new_habit else
                  "SHADOW_NEEDS_INDEPENDENT_EVIDENCE" if count else
                  "OBSERVED_NEEDS_META_PROPOSAL" if successes else
                  "NO_VERIFIED_HOST_OBSERVATION")
@@ -2402,6 +2409,10 @@ class FirstHostNutrientLoop:
         existing = self.disposition(experiment_id)
         if existing["host_resource_failures"]:
             return {"status": "DORMANT_HOST_RESOURCE",
+                    "model_calls": 0, "activated": False,
+                    "literary_improvement_proven": False}
+        if existing["status"] == "DORMANT_NO_NEW_TRANSFERABLE_HABIT":
+            return {"status": "DORMANT_NO_NEW_TRANSFERABLE_HABIT",
                     "model_calls": 0, "activated": False,
                     "literary_improvement_proven": False}
         selected = [r for r in self._observations(experiment_id)
@@ -2488,6 +2499,12 @@ class FirstHostNutrientLoop:
             "source_observation_ids": list(ids),
             "source_sha256": arms["control"]["source_sha256"],
             "parent_capsule_sha256": self.root_sha,
+            # The host must be able to see the inherited general cognitive
+            # procedure before deciding whether any extra context-specific
+            # insight is genuinely worth the additional input budget.
+            "current_procedure":list(self.root["procedure"]),
+            "current_falsifiers":list(self.root["falsifiers"]),
+            "parent_steps_must_be_preserved":True,
             "observed_work_data": [
                 {"label":label,"literal_text":visible[label],
                  "source_sha256":self._digest(source_window[label]),
@@ -2501,8 +2518,14 @@ class FirstHostNutrientLoop:
             "task": ("Propose at most one transferable cognitive procedure "
                      "derived from verified host work. Distinguish observation "
                      "from inference; do not author or judge novel prose. "
-                     "Return wf.host-nutrient-proposal.v1 JSON only, and it "
-                     "will remain unverified SHADOW."),
+                     "Keep the chosen existing procedure AND falsifier intact, "
+                     "appending only a compact, scoped refinement within the "
+                     "existing field length cap. Never replace the inherited "
+                     "general habit. If no valuable transferable difference "
+                     "exists, return NO_CHANGE with a concrete reason instead "
+                     "of manufacturing a patch. Return only the strict "
+                     "wf.host-nutrient-proposal.v1 JSON schema; any accepted "
+                     "patch will remain unverified SHADOW."),
         }
         def conclude(status, reply_sha=None, candidate_sha=None, failure=None):
             self.db.conn.execute(
@@ -2531,6 +2554,27 @@ class FirstHostNutrientLoop:
         try:
             proposal = self._json_bytes(
                 raw, max_bytes=self.MAX_HOST_PROPOSAL_BYTES)
+            # Evolution is optional. The host is explicitly allowed to
+            # conclude that its current observations support NO novel habit,
+            # instead of endlessly rephrasing an already-working procedure.
+            # Keep the existing attempt row (and spent resource); stop the
+            # whole experiment without creating a candidate or retry loop.
+            if set(proposal) == {
+                "format","task_id","source_observation_ids","target_skill",
+                "parent_capsule_sha256","decision","reason",
+            } and proposal.get("decision") == "NO_CHANGE":
+                if (proposal.get("format") != "wf.host-nutrient-proposal.v1" or
+                    proposal.get("task_id") != task_id or
+                    proposal.get("source_observation_ids") != list(ids) or
+                    proposal.get("target_skill") != self.root["id"] or
+                    proposal.get("parent_capsule_sha256") != self.root_sha or
+                    type(proposal.get("reason")) is not str or
+                    not 25 <= len(proposal["reason"]) <= 450):
+                    raise ValueError("WF0BE_HOST_NO_CHANGE_FIELDS_INVALID")
+                record = conclude(
+                    "REJECTED_HOST_HABIT_PROPOSAL",reply_sha,
+                    failure="WF0BE_VOLUNTARY_NO_CHANGE")
+                return dict(record,status="DORMANT_NO_NEW_TRANSFERABLE_HABIT")
             if set(proposal) != {
                 "format","task_id","source_observation_ids","target_skill",
                 "parent_capsule_sha256","procedure_index",
@@ -2552,6 +2596,20 @@ class FirstHostNutrientLoop:
                 if (type(proposal[key]) is not str or
                         not 35 <= len(proposal[key]) <= 450):
                     raise ValueError("WF0BC_HABIT_PROCEDURE_SIZE_INVALID")
+            # Do not trade away a portable, GENERAL habit for an isolated
+            # example. The prospective model can add a bounded qualification
+            # but cannot silently erase the parent cognitive step or its
+            # original falsifiability. Independent human review is still
+            # needed to catch semantic contradictions in any appended text.
+            for field,collection,index_field in (
+                ("procedure_replacement","procedure","procedure_index"),
+                ("falsifier_replacement","falsifiers","falsifier_index"),
+            ):
+                previous=self.root[collection][proposal[index_field]]
+                amended=proposal[field]
+                if (not amended.startswith(previous+" ") or
+                    len(amended[len(previous)+1:].strip()) < 25):
+                    raise ValueError("WF0BE_PARENT_COGNITION_ERASED_OR_NO_GAIN")
             # The transferable procedure cannot simply carry verbatim host
             # source fiction. Check longest literal overlap against every
             # authenticated transient source. This is a narrow byte/character
