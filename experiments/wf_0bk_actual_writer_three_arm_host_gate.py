@@ -144,7 +144,7 @@ def _published_source_scope(assist)->dict:
          (sid,)),
         ("source_spans",
          "SELECT work_id,chapter,paragraph,sentence,excerpt,source_sha256 "
-         "FROM source_spans ORDER BY work_id,chapter,paragraph,sentence,id",
+         "FROM source_spans ORDER BY work_id,chapter,paragraph,sentence",
          ()),
     )
     document={}
