@@ -8,6 +8,8 @@ on:
       - tests/test_wf_0ba_optional_habit_dispatch.py
       - tests/test_wf_0ba_portable_habit_candidate_ecology.py
       - tests/test_wf_0bb_signed_lineage_execution.py
+      - tests/test_wf_0bc_first_host_nutrient_loop.py
+      - experiments/wf_0ay_real_two_host_429_source_only_dormancy_20261026.py
       - writerforge/evolution.py
       - writerforge/scheduler.py
       - writerforge/lane_scheduler.py
@@ -42,6 +44,8 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_wf_0ba_portable_habit_candidate_ecology.py' -v
       - name: P2 RED first / GREEN afterward - trusted lineage execution and ancestor quarantine
         run: python -m unittest discover -s tests -p 'test_wf_0bb_signed_lineage_execution.py' -v
+      - name: 0.BC RED first / GREEN afterward - first host nutrient source-to-shadow storage
+        run: python -m unittest discover -s tests -p 'test_wf_0bc_first_host_nutrient_loop.py' -v
       - name: Full zero-model WriterForge regression
         run: python -m unittest discover -s tests -q
       - name: Studio JavaScript syntax check
