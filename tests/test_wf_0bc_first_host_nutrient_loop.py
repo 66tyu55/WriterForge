@@ -242,6 +242,9 @@ class WF0BCFirstHostNutrientTests(unittest.TestCase):
                 "recorded delivery from its consequence when a receiver exists.")
             # This no longer drops the general procedure, but it still
             # overwrites the original test of whether the habit helps.
+            obj["falsifier_replacement"]=(
+                "This candidate fails when the receiver does not acknowledge "
+                "the signal, even if the novel deliberately leaves it uncertain.")
             self.assertLess(len(obj["procedure_replacement"]),450)
             return canonical(obj)
         out=self.loop.acquire_once(
