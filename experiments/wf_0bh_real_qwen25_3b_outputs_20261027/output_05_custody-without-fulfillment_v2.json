@@ -1,0 +1,1 @@
+{"choices":[{"finish_reason":"stop","index":0,"logprobs":null,"text":"雨势愈发猛烈，卫蘅站在渡口，望着江面愈发浑浊的水流，心中焦急。他深吸一口气，决定再次向船夫询问，希望得到一个明确的答复。"}],"created":1793102261,"id":"cmpl-d5219f1d-c434-4492-aaf1-fe9030500f9c","model":"/home/runner/work/_temp/wf0bh-qwen25-3b.gguf","object":"text_completion","usage":{"completion_tokens":42,"prompt_tokens":415,"total_tokens":457}}
