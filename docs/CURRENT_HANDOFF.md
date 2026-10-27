@@ -1,5 +1,19 @@
 # WriterForge 当前有效交接｜2026-10-27
 
+
+## 0.BA 最新已执行｜可选元 Skill 可信执行、宿主配额、候选谱系、公钥只读发行（2026-10-27）
+
+**本节覆盖下方仍称“0.BA 还未实施”的历史计划时态。新接续第一阅读：[WF_0BA_P0_P1_META_HABIT_TRUST_EXECUTION_PUBLIC_RELEASE_20261027.md](WF_0BA_P0_P1_META_HABIT_TRUST_EXECUTION_PUBLIC_RELEASE_20261027.md)**。旧 [0.BA 原方案](WF_0BA_NEXT_SESSION_PORTABLE_META_HABIT_EVOLUTION_HANDOFF_20261027.md)、[0.AZ 真实 429](WF_0AZ_REAL_HOST_429_HABIT_DORMANCY_SOURCE_FIRST_20261026.md) 与 [0.AX 元 Skill 审计](WF_0AX_META_SKILL_ECOLOGY_ACTUAL_CAPABILITY_AUDIT_20261026.md) 均不覆盖。
+
+- **P0 真正修复**：原 `writerforge/evolution.py` 的 `SkillRegistry` 负责外部签名的可选 `OptionalExecutionPermit`、完整契约/版本/依赖/胶囊 SHA/实时 SQLite 与宿主权限；原 `scheduler.py` 的 `SkillScheduler` 只对显式 `optional_habit`（默认关闭）接入 select/batch/flush/真正 callback dispatch；原 `lane_scheduler.py` 在真正取出已排队事件前重新验证，取消撤销或过期任务。绝不能让空 Registry 关掉旧核心，保留 V26/V98/V119、唯一 NarrativeCore。
+- **额外真实 RED 补漏洞**：一次授权的 `ScheduleDecision` 曾可重复执行甚至并发重入；现用单次随机凭证、原子兑现、失败即耗尽、256 未兑现凭证容量上限。[修复 GREEN #40442718121](https://github.com/66tyu55/WriterForge/actions/runs/40442718121)。
+- **宿主资源而非免费无限推理**：新 `OptionalHostResourceLease` 默认缺失即拒绝可选 Skill，由合法宿主显式注入共享有限次数并发扣减。结构化 `HTTP_429` 令该次宿主租约上相关 Skill 休眠，不重试、不污染其他 Skill，也不把一次宿主资源失败当文学能力失败。[资源 GREEN #40443099752](https://github.com/66tyu55/WriterForge/actions/runs/40443099752)。**仍只是本地 callback 次数，不是 token 真实账单、跨进程权限沙箱或生产 API 预算。**
+- **P1 真的有候选谱系**：`PortableHabitCandidatePool` 受控接收 A 对 B 的 SHADOW patch 候选，只允许认知步骤等有限字段变更；独立 signed heldout 竞争，保留受污染 parent→descendant 隔离，兄弟候选不连坐。`export_manifest/from_manifest` 有完整 SHA/裁决重放。接收方不必拿到对称签名密钥：另有 Ed25519 公钥只读发行验证与发行序号防旧版回滚，仍禁止执行/自动晋级。生产发行者、公钥与真正独立 Agent 应用尚未验证。[最新 0.BA 全量 GREEN #40443577341](https://github.com/66tyu55/WriterForge/actions/runs/40443577341)：**1,913 tests、6 skipped、零失败**（安装已有 `[evidence]` 可选依赖导致 skip 数变化），29 项 P0 定向 + 16 项 P1 定向。
+- **0.AY/0.AZ 原始来源冻结**：真实 4 次请求、3 份有效 DeepSeek/GLM 回包、GLM habit **HTTP 429 无有效正文**，本次实验 `DORMANT_HOST_RESOURCE / NOT_TESTED_INCOMPLETE`；原 `.agents/skills/observe-before-next-choice/capsule.json` SHA256 **42cad98118dea662cea472f708ef1de22f4bb139da3210b1f5c3c1f9ac12664d**，**仍 SHADOW**。最新原件只读复核 [#40443577515](https://github.com/66tyu55/WriterForge/actions/runs/40443577515) 成功、0 次新模型调用。跨真正独立 Agent、文学增益、自动成熟升级**均 UNPROVEN**。
+- **下一阶段不能误报**：若继续 P2，先审查第二个真正独立 Agent 应用的明确来源/预算/工具许可，建立不可伪造的实时宿主调用边界及污染谱系到 ACTIVE 运行时的联动。新增付费实写必须用户重新授权；不能用两个 API 模型/两个 envelope 或两个 Python 函数冒充跨 Agent 实证。main、Railway、私有 R2 原著、正式 Canon、旧付费文学原稿、第二 NarrativeCore **绝不改动**。
+
+---
+
 ## 0.BA｜下一窗口首先解决元 Skill 可信执行与跨宿主迁移，不是继续刷文学评分
 
 **第一读取：[WF_0BA_NEXT_SESSION_PORTABLE_META_HABIT_EVOLUTION_HANDOFF_20261027.md](WF_0BA_NEXT_SESSION_PORTABLE_META_HABIT_EVOLUTION_HANDOFF_20261027.md)**。然后 0.AZ 429 真实源、0.AX 现有元 Skill 生态审计、现有 SkillRegistry/Scheduler、已封存 .agents/skills/observe-before-next-choice 胶囊。0.BA 此刻只是**方案/交接**，未完成新 runtime 修复；零模型新调用。
