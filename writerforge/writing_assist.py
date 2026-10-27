@@ -2756,7 +2756,14 @@ class AutonomousWriting:
             reader_first_self_review:bool=False,
             cross_chapter_fork:dict|None=None,
             selected_fork_receipt:dict|None=None,
-            g_rolling_author_planning:bool=False) -> dict:
+            g_rolling_author_planning:bool=False,
+            host_nutrient_observer=None) -> dict:
+        # First host completion SHA capture is opt-in and source-only.
+        if (host_nutrient_observer is not None and
+                not callable(host_nutrient_observer)):
+            raise ValueError("WF0BC_HOST_NUTRIENT_OBSERVER_INVALID")
+        host_nutrient_application_events=0
+        host_nutrient_observer_failures=0
         if type(g_rolling_author_planning) is not bool or (
                 g_rolling_author_planning and draft_mode!="continuity_guard"):
             raise WritingExecutionError("WF_G_ROLLING_REQUIRES_EXPLICIT_G_MODE")
@@ -2794,12 +2801,39 @@ class AutonomousWriting:
                 raise WriterDraftCancelled("WF_STUDIO_DRAFT_CANCELLED")
 
         def ask_model(packet,*,model,api_base,max_tokens):
+            nonlocal host_nutrient_application_events
+            nonlocal host_nutrient_observer_failures
             check_cancel()
             answer=local_chat_completion(
                 packet,model=model,api_base=api_base,max_tokens=max_tokens)
             # Current synchronous request cannot be forcibly killed. Stop
             # immediately after it returns; do not start the next step.
             check_cancel()
+            if host_nutrient_observer is not None:
+                # APPLICATION model response, not verified provider wire.
+                # Never reveal original prompt, model body or Canon to
+                # an observer; authentic wire is checked elsewhere.
+                event={
+                    "format":"wf.first-host.application-payload-only.v1",
+                    "model_id":model,
+                    "application_request_sha256":sha256(
+                        packet.prompt.encode("utf8")).hexdigest(),
+                    "application_response_sha256":sha256(
+                        answer.encode("utf8")).hexdigest(),
+                    "max_completion_tokens_reserved_not_usage":max_tokens,
+                    "source_is_untrusted_application_payload":True,
+                    "provider_wire_verified":False,
+                    "author_accepted_prose":False,
+                    "new_host_requests_for_observation":0,
+                    "literary_improvement_proven":False,
+                }
+                host_nutrient_application_events+=1
+                try:
+                    host_nutrient_observer(dict(event))
+                except Exception:
+                    # Failed observers cannot make the writer regenerate or
+                    # discard real author candidates to satisfy a meta-Skill.
+                    host_nutrient_observer_failures+=1
             return answer
 
         check_cancel()
@@ -4717,6 +4751,12 @@ class AutonomousWriting:
             "wf_self_edit_canon_writes":0,
             "literary_quality_verified":False,
             "all_generated_prose_requires_author_review":True,
+            "host_nutrient_application_events":
+                host_nutrient_application_events,
+            "host_nutrient_observer_failures":
+                host_nutrient_observer_failures,
+            "host_nutrient_provider_wires_verified":0,
+            "host_nutrient_candidates_promoted":0,
         }
         if draft_mode!="single":
             receipt.update({
