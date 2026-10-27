@@ -708,6 +708,75 @@ CREATE TABLE IF NOT EXISTS experience_literary_reviews (
 );
 CREATE INDEX IF NOT EXISTS idx_experience_literary_reviews
 ON experience_literary_reviews(project_id,experience_id,review_seq);
+
+-- WF 0.BC: first-host nutrient observation/retained habit evidence.
+-- These are references to byte-verified host work, never source fiction,
+-- raw model wire, hidden reasoning, credentials, private R2, or Novel Canon.
+-- A learned *hypothesis* remains SHADOW until independent held-out review.
+CREATE TABLE IF NOT EXISTS host_nutrient_observations (
+    scope TEXT NOT NULL,
+    observation_id TEXT NOT NULL,
+    experiment_id TEXT NOT NULL,
+    host_id TEXT NOT NULL,
+    model_id TEXT NOT NULL,
+    task_id TEXT NOT NULL,
+    arm TEXT NOT NULL CHECK(arm IN ('control','habit')),
+    source_sha256 TEXT NOT NULL,
+    request_sha256 TEXT NOT NULL,
+    provider_wire_sha256 TEXT,
+    prose_sha256 TEXT,
+    status TEXT NOT NULL CHECK(status IN ('SUCCESS','HTTP_429')),
+    failure_code TEXT,
+    verification_origin TEXT NOT NULL,
+    signature TEXT NOT NULL,
+    observation_sha256 TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(scope,observation_id)
+);
+CREATE INDEX IF NOT EXISTS idx_host_nutrient_trial
+ON host_nutrient_observations(scope,experiment_id,host_id,task_id,arm);
+CREATE TRIGGER IF NOT EXISTS host_nutrient_observations_immutable_update
+BEFORE UPDATE ON host_nutrient_observations
+BEGIN SELECT RAISE(ABORT,'WF0BC_HOST_OBSERVATION_IMMUTABLE'); END;
+CREATE TRIGGER IF NOT EXISTS host_nutrient_observations_immutable_delete
+BEFORE DELETE ON host_nutrient_observations
+BEGIN SELECT RAISE(ABORT,'WF0BC_HOST_OBSERVATION_IMMUTABLE'); END;
+
+CREATE TABLE IF NOT EXISTS host_nutrient_attempts (
+    scope TEXT NOT NULL,
+    experiment_id TEXT NOT NULL,
+    host_id TEXT NOT NULL,
+    task_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN
+      ('CLAIMED','SHADOW_NEEDS_INDEPENDENT_EVIDENCE',
+       'REJECTED_HOST_HABIT_PROPOSAL','DORMANT_HOST_RESOURCE',
+       'HOST_CALLBACK_FAILED')),
+    reply_sha256 TEXT,
+    candidate_sha256 TEXT,
+    failure_code TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(scope,experiment_id,host_id,task_id)
+);
+
+CREATE TABLE IF NOT EXISTS host_nutrient_candidates (
+    scope TEXT NOT NULL,
+    candidate_sha256 TEXT NOT NULL,
+    experiment_id TEXT NOT NULL,
+    host_id TEXT NOT NULL,
+    task_id TEXT NOT NULL,
+    parent_sha256 TEXT NOT NULL,
+    proposal_id TEXT NOT NULL,
+    proposer_skill TEXT NOT NULL,
+    evidence_sha256 TEXT NOT NULL,
+    source_observation_ids_json TEXT NOT NULL,
+    model_proposal_sha256 TEXT NOT NULL,
+    capsule_bytes BLOB NOT NULL,
+    status TEXT NOT NULL CHECK(status='SHADOW'),
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(scope,candidate_sha256)
+);
+CREATE INDEX IF NOT EXISTS idx_host_nutrient_candidates
+ON host_nutrient_candidates(scope,experiment_id,host_id,task_id);
 """
 
 class WriterForgeDB:
