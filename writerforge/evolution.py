@@ -2690,3 +2690,380 @@ class FirstHostNutrientLoop:
                 "model_proposal_sha256":r["model_proposal_sha256"],
                 "status":"SHADOW",
                 "activated":False,"literary_improvement_proven":False}
+
+
+# WF 0.BF: actual-output VALUE evidence barrier (no model, grader or prose).
+# A source-locked host attests complete original on-wire model bytes and usage;
+# two separately trusted reviewers sign blinded pairwise preferences. Until
+# those INPUTS exist, a Boolean saying "independent_review=True" is not an
+# evidenced stopping or literary-gain claim. This is a pure verifier; it can
+# NEVER activate a Skill or alter the author's prose or the SkillRegistry.
+
+
+@dataclass(frozen=True)
+class HostValueWireAttestation:
+    """Trusted host's Ed25519 receipt, NOT a provider's signed response."""
+    trial_id: str
+    case_id: str
+    arm: str
+    host_id: str
+    model_id: str
+    source_sha256: str
+    task_sha256: str
+    author_input_sha256: str
+    provider_wire_sha256: str
+    authored_text_sha256: str
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    signature_hex: str
+    evidence_class: str = "HOST_ATTESTED_NOT_PROVIDER_SIGNED"
+
+    def signing_payload(self) -> dict:
+        return {
+            "kind": "wf.host-value-original-wire-ed25519.v1",
+            "trial_id": self.trial_id,
+            "case_id": self.case_id,
+            "arm": self.arm,
+            "host_id": self.host_id,
+            "model_id": self.model_id,
+            "source_sha256": self.source_sha256,
+            "task_sha256": self.task_sha256,
+            "author_input_sha256": self.author_input_sha256,
+            "provider_wire_sha256": self.provider_wire_sha256,
+            "authored_text_sha256": self.authored_text_sha256,
+            "prompt_tokens": self.prompt_tokens,
+            "completion_tokens": self.completion_tokens,
+            "total_tokens": self.total_tokens,
+            "evidence_class": self.evidence_class,
+            "fiction_is_not_canon": True,
+            "auto_skill_promotion": False,
+        }
+
+
+@dataclass(frozen=True)
+class IndependentBlindValueVote:
+    """Independent reader signs two literal authored text hashes, not model labels."""
+    trial_id: str
+    case_id: str
+    reviewer_id: str
+    blinded_a_text_sha256: str
+    blinded_b_text_sha256: str
+    preference: str
+    signature_hex: str
+
+    def signing_payload(self) -> dict:
+        return {
+            "kind": "wf.blinded-pair-reader-ed25519.v1",
+            "trial_id": self.trial_id,
+            "case_id": self.case_id,
+            "reviewer_id": self.reviewer_id,
+            "blinded_a_text_sha256": self.blinded_a_text_sha256,
+            "blinded_b_text_sha256": self.blinded_b_text_sha256,
+            "preference": self.preference,
+            "auto_promotion": False,
+        }
+
+
+def adjudicate_portable_habit_value(
+    *,
+    preflight: dict,
+    expected_preflight_sha256: str,
+    host_public_key: bytes,
+    reviewer_public_keys: dict[str, bytes],
+    proposer_id: str,
+    source_locked_wires: list[tuple[HostValueWireAttestation,bytes,bytes]],
+    blind_reader_votes: list[IndependentBlindValueVote],
+) -> dict:
+    """Evidence-only value decision for the sealed WF 0.BE v1-v2 8-pair trial.
+
+    NO model/HTTP calls, no text generation, no internal quality scoring.
+    Source/model wire bytes and provider-reported token usage must match a
+    signed host receipt. A separately trusted set of 2 DISTINCT Ed25519 public
+    keys attests blind *preferences*, not that their readers are subjectively
+    correct or truly independent in the human world. No production writer
+    change or SkillRegistry mutation follows from this decision. Synthetically
+    generated test inputs remain SYNTHETIC, not independent literary evidence.
+    """
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+    hex64 = re.compile(r"[0-9a-f]{64}\Z")
+    hex128 = re.compile(r"[0-9a-f]{128}\Z")
+    ident = re.compile(r"[a-zA-Z][a-zA-Z0-9_-]{2,79}\Z")
+
+    def canonical(obj):
+        return json.dumps(obj,ensure_ascii=False,sort_keys=True,
+                          separators=(",",":"),allow_nan=False).encode("utf8")
+
+    def require(ok, code):
+        if not ok:
+            raise ValueError(code)
+
+    def verify(public: bytes, signed: object):
+        if (type(public) is not bytes or len(public) != 32 or
+                type(signed.signature_hex) is not str or
+                hex128.fullmatch(signed.signature_hex) is None):
+            raise PermissionError("WF0BF_SIGNATURE_OR_TRUST_ROOT_MISSING")
+        try:
+            Ed25519PublicKey.from_public_bytes(public).verify(
+                bytes.fromhex(signed.signature_hex),
+                canonical(signed.signing_payload()))
+        except (InvalidSignature, ValueError, TypeError) as exc:
+            raise PermissionError("WF0BF_EXTERNAL_ATTESTATION_INVALID") from exc
+
+    require(type(preflight) is dict and
+            type(expected_preflight_sha256) is str and
+            hex64.fullmatch(expected_preflight_sha256) is not None and
+            sha256(canonical(preflight)).hexdigest() == expected_preflight_sha256,
+            "WF0BF_EXTERNAL_PREFLIGHT_SHA_MISMATCH")
+    require(preflight.get("format")=="wf.0be.falsification-preflight-only.v1" and
+            preflight.get("status")==
+            "DORMANT_NEEDS_AUTHORIZED_MODEL_AND_READER_EVIDENCE" and
+            preflight.get("new_provider_calls")==0 and
+            preflight.get("new_paid_model_calls_authorized")==0 and
+            preflight.get("model_outputs_present")==0 and
+            preflight.get("literary_improvement_proven") is False and
+            preflight.get("historical_glm_429_retries")==0 and
+            preflight.get("writer_model")==
+            "UNSPECIFIED_REQUIRES_FRESH_EXPLICIT_AUTHORIZATION" and
+            preflight.get("v1_capsule_sha256")==
+            "42cad98118dea662cea472f708ef1de22f4bb139da3210b1f5c3c1f9ac12664d" and
+            preflight.get("v2_capsule_sha256")==
+            "0d43a023bc278ac12e3165e319d2acb73dcf40c0d9af453e623c786f3b476a10",
+            "WF0BF_UNTRUSTED_OR_NONFROZEN_PREFLIGHT")
+    cases=preflight.get("cases")
+    envelopes=preflight.get("envelopes")
+    require(type(cases) is list and len(cases)==8 and
+            type(envelopes) is list and len(envelopes)==16 and
+            preflight.get("prospective_total_requests_if_authorized")==16 and
+            type(source_locked_wires) is list and len(source_locked_wires)<=16 and
+            type(blind_reader_votes) is list and len(blind_reader_votes)<=16,
+            "WF0BF_OVERLONG_OR_NONPAIR_INPUTS")
+    expected={}
+    for env in envelopes:
+        require(type(env) is dict and
+                env.get("format")=="wf.0be.prepared-author-input.v1" and
+                env.get("arm") in ("v1","v2") and
+                type(env.get("case_id")) is str and
+                (env["case_id"],env["arm"]) not in expected and
+                env.get("model")==
+                "UNSPECIFIED_REQUIRES_FRESH_EXPLICIT_AUTHORIZATION" and
+                type(env.get("max_completion_tokens")) is int and
+                env["max_completion_tokens"]==1800 and
+                env.get("writer_retains_next_choice") is True,
+                "WF0BF_PREPARED_INPUT_INVALID")
+        expected[(env["case_id"],env["arm"])]=env
+    require(set(e["case_id"] for e in envelopes)==
+            set(c["case_id"] for c in cases) and len(expected)==16 and
+            all((c["case_id"],a) in expected for c in cases for a in ("v1","v2")),
+            "WF0BF_EXPECTED_ARM_SET_MISMATCH")
+    require(type(proposer_id) is str and ident.fullmatch(proposer_id) is not None and
+            type(reviewer_public_keys) is dict and len(reviewer_public_keys)==2 and
+            all(type(n) is str and ident.fullmatch(n) and
+                n!=proposer_id and type(k) is bytes and len(k)==32
+                for n,k in reviewer_public_keys.items()),
+            "WF0BF_INDEPENDENT_READER_TRUST_REQUIRED")
+    if (len(set(reviewer_public_keys.values()))!=2 or
+            type(host_public_key) is not bytes or len(host_public_key)!=32 or
+            host_public_key in reviewer_public_keys.values()):
+        raise PermissionError("WF0BF_HOST_OR_REVIEWERS_SHARE_SIGNATURE_AUTHORITY")
+
+    def unique_json(pairs):
+        found={}
+        for k,v in pairs:
+            if k in found:
+                raise ValueError("WF0BF_DUPLICATE_ORIGINAL_JSON_FIELD")
+            found[k]=v
+        return found
+
+    found={}
+    real_class=None
+    first_host=None
+    first_model=None
+    first_trial=None
+    for line in source_locked_wires:
+        require(type(line) is tuple and len(line)==3 and
+                isinstance(line[0],HostValueWireAttestation) and
+                type(line[1]) is bytes and 0<len(line[1])<30_000 and
+                type(line[2]) is bytes and 0<len(line[2])<150_000,
+                "WF0BF_INVALID_OR_UNBOUNDED_WIRE")
+        receipt,request,wire=line
+        require(receipt.evidence_class in (
+                "SYNTHETIC_TEST_ONLY","HOST_ATTESTED_NOT_PROVIDER_SIGNED") and
+                type(receipt.trial_id) is str and ident.fullmatch(receipt.trial_id) is not None and
+                type(receipt.host_id) is str and ident.fullmatch(receipt.host_id) is not None and
+                type(receipt.model_id) is str and ident.fullmatch(receipt.model_id) is not None and
+                type(receipt.case_id) is str and
+                receipt.arm in ("v1","v2") and
+                (receipt.case_id,receipt.arm) in expected and
+                all(type(d) is str and hex64.fullmatch(d) is not None for d in (
+                    receipt.source_sha256,receipt.task_sha256,
+                    receipt.author_input_sha256,receipt.provider_wire_sha256,
+                    receipt.authored_text_sha256)) and
+                type(receipt.prompt_tokens) is int and receipt.prompt_tokens>0 and
+                type(receipt.completion_tokens) is int and receipt.completion_tokens>0 and
+                type(receipt.total_tokens) is int and
+                receipt.total_tokens==receipt.prompt_tokens+receipt.completion_tokens and
+                receipt.completion_tokens <= expected[
+                    (receipt.case_id,receipt.arm)]["max_completion_tokens"],
+                "WF0BF_WIRE_RECEIPT_FIELDS_INVALID")
+        require(receipt.trial_id!="wf0ay-original" and
+                not receipt.trial_id.startswith("wf0ay"),
+                "WF0BF_ORIGINAL_429_EXPERIMENT_CANNOT_BE_RETRIED")
+        require((receipt.case_id,receipt.arm) not in found,
+                "WF0BF_DUPLICATE_SOURCE_ARM")
+        require(first_host is None or first_host==receipt.host_id,
+                "WF0BF_MATCHED_HOST_CHANGED")
+        require(first_model is None or first_model==receipt.model_id,
+                "WF0BF_MATCHED_MODEL_CHANGED")
+        require(first_trial is None or first_trial==receipt.trial_id,
+                "WF0BF_MIXED_TRIAL_ID")
+        require(real_class is None or real_class==receipt.evidence_class,
+                "WF0BF_TEST_AND_REAL_EVIDENCE_MIXED")
+        first_host=receipt.host_id
+        first_model=receipt.model_id
+        first_trial=receipt.trial_id
+        real_class=receipt.evidence_class
+        e=expected[(receipt.case_id,receipt.arm)]
+        require(receipt.source_sha256==e["source_sha256"] and
+                receipt.task_sha256==e["task_sha256"] and
+                receipt.author_input_sha256==sha256(request).hexdigest() and
+                request==canonical(dict(e,model=receipt.model_id)) and
+                receipt.provider_wire_sha256==sha256(wire).hexdigest(),
+                "WF0BF_WRITER_REQUEST_OR_ORIGINAL_WIRE_DRIFT")
+        verify(host_public_key,receipt)
+        try:
+            model_response=json.loads(wire.decode("utf8","strict"),
+                                      object_pairs_hook=unique_json)
+            content=model_response["choices"][0]["message"]["content"]
+            finish=model_response["choices"][0]["finish_reason"]
+            tokens=model_response["usage"]
+        except (UnicodeError, ValueError, TypeError, IndexError, KeyError) as exc:
+            raise ValueError("WF0BF_NO_ACTUAL_PROVIDER_WIRE_AND_USAGE") from exc
+        require(type(model_response) is dict and
+                model_response.get("model")==receipt.model_id and
+                finish=="stop" and type(content) is str and bool(content.strip()) and
+                sha256(content.encode("utf8")).hexdigest()==
+                    receipt.authored_text_sha256 and
+                type(tokens) is dict and
+                type(tokens.get("prompt_tokens")) is int and
+                type(tokens.get("completion_tokens")) is int and
+                type(tokens.get("total_tokens")) is int and
+                tokens["prompt_tokens"]==receipt.prompt_tokens and
+                tokens["completion_tokens"]==receipt.completion_tokens and
+                tokens["total_tokens"]==receipt.total_tokens,
+                "WF0BF_PROVIDER_WIRE_MODEL_OUTPUT_OR_USAGE_MISMATCH")
+        found[(receipt.case_id,receipt.arm)]=receipt
+
+    def state(disposition,**,more):
+        sums={arm:sum(r.total_tokens for (_,a),r in found.items() if a==arm)
+              for arm in ("v1","v2")}
+        return {
+            "format":"wf.portable-habit-source-verified-value-decision.v1",
+            "disposition":disposition,
+            "trial_id":first_trial,
+            "evidence_kind":real_class or "NONE",
+            "verified_pairs":sum(
+                (c["case_id"],"v1") in found and
+                (c["case_id"],"v2") in found for c in cases),
+            "matched_independent_reader_cases":0,
+            "v2_clear_reader_wins":0,
+            "v1_clear_reader_wins":0,
+            "ties_or_both_bad":0,
+            "v1_total_actual_tokens":sums["v1"],
+            "v2_total_actual_tokens":sums["v2"],
+            "reader_independence_human_verified":False,
+            "literary_improvement_proven":False,
+            "habit_falsified":False,
+            "auto_promote":False,
+            "winner_sha256":None,
+            "new_model_calls":0,
+            "original_0ay_429_retried":False,
+            "production_actionable":False,
+            **more,
+        }
+
+    if len(found)!=16:
+        require(len(blind_reader_votes)==0,
+                "WF0BF_INCOMPLETE_PAIRS_CANNOT_HAVE_FINAL_REVIEW")
+        return state("DORMANT_INCOMPLETE_REAL_PAIRS")
+
+    # Host's signed attestation proves bytes were submitted by that trusted
+    # adapter, not that its model was independent, clever or actually better.
+    # Reviewers must sign literal anonymized output hashes and their own
+    # preference. The app/human must independently ensure they did not
+    # learn A/B mappings via another channel; code cannot prove that.
+    expected_voter_shas={}
+    for c in cases:
+        cid=c["case_id"]
+        arms={a:found[(cid,a)].authored_text_sha256 for a in ("v1","v2")}
+        a_is_v1=int(sha256(("wf.0bf.blind|"+cid).encode("utf8")).hexdigest()[:2],16)%2==0
+        expected_voter_shas[cid]=(
+            arms["v1" if a_is_v1 else "v2"],
+            arms["v2" if a_is_v1 else "v1"],a_is_v1)
+    opinions={}
+    for vote in blind_reader_votes:
+        require(isinstance(vote,IndependentBlindValueVote) and
+                vote.case_id in expected_voter_shas and
+                vote.preference in ("A","B","TIE","BOTH_BAD") and
+                vote.reviewer_id in reviewer_public_keys and
+                vote.trial_id==first_trial and
+                type(vote.blinded_a_text_sha256) is str and
+                type(vote.blinded_b_text_sha256) is str and
+                hex64.fullmatch(vote.blinded_a_text_sha256) is not None and
+                hex64.fullmatch(vote.blinded_b_text_sha256) is not None,
+                "WF0BF_BLIND_REVIEW_SCHEMA_OR_ID_INVALID")
+        pair=expected_voter_shas[vote.case_id]
+        require((vote.blinded_a_text_sha256,vote.blinded_b_text_sha256)==pair[:2],
+                "WF0BF_BLINDED_AUTHOR_OUTPUT_HASH_MISMATCH")
+        verify(reviewer_public_keys[vote.reviewer_id],vote)
+        key=(vote.case_id,vote.reviewer_id)
+        require(key not in opinions,
+                "WF0BF_DUPLICATE_REVIEWER_VOTE")
+        opinions[key]=vote.preference
+
+    unanimous={}
+    mixed=False
+    for c in cases:
+        cid=c["case_id"]
+        values=[opinions.get((cid,rid)) for rid in sorted(reviewer_public_keys)]
+        if None in values: continue
+        if values[0]!=values[1]:
+            mixed=True
+            continue
+        unanimous[cid]=values[0]
+    if len(opinions)<len(cases)*2:
+        return state(
+            "SHADOW_NEEDS_INDEPENDENT_READERS",
+            matched_independent_reader_cases=len(unanimous))
+    if mixed:
+        return state(
+            "SHADOW_MIXED_READER_EVIDENCE",
+            matched_independent_reader_cases=len(unanimous))
+    v1_wins=0
+    v2_wins=0
+    ties=0
+    for cid,preferred in unanimous.items():
+        a_is_v1=expected_voter_shas[cid][2]
+        if preferred in ("TIE","BOTH_BAD"):
+            ties+=1
+        elif (preferred=="A" and a_is_v1) or (preferred=="B" and not a_is_v1):
+            v1_wins+=1
+        else:
+            v2_wins+=1
+    all_token_v1=sum(found[(c["case_id"],"v1")].total_tokens for c in cases)
+    all_token_v2=sum(found[(c["case_id"],"v2")].total_tokens for c in cases)
+
+    if v2_wins==0 and all_token_v2>=all_token_v1:
+        final="DORMANT_NO_PROVEN_VALUE"
+    elif v2_wins>v1_wins:
+        final="SHADOW_REVIEW_FOR_VALUE_ONLY"
+    else:
+        final="SHADOW_UNRESOLVED_VALUE_VS_COST"
+    return state(
+        final,
+        matched_independent_reader_cases=len(unanimous),
+        v1_clear_reader_wins=v1_wins,
+        v2_clear_reader_wins=v2_wins,
+        ties_or_both_bad=ties)
