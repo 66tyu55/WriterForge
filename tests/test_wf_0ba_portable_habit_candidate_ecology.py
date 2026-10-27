@@ -214,7 +214,11 @@ class WF0BAPortableHabitCandidateEcologyTests(unittest.TestCase):
         manifest_raw = canonical(bundle)
         pinned = sha256(manifest_raw).hexdigest()
         self.assertNotIn(b"DEEPSEEK_API_KEY", manifest_raw)
-        self.assertNotIn(b"provider_wire", manifest_raw)
+        self.assertNotIn("provider_wire", bundle)
+        self.assertTrue(all(
+            json.loads(entry["capsule_utf8"])["provenance"]
+            ["original_provider_wires_outside_capsule"]
+            for entry in bundle["candidates"]))
         restored = PortableHabitCandidatePool.from_manifest(
             bundle, pinned_roots={ROOT_SHA: self.original},
             reviewer_verifier_key=KEY, frozen_heldout_sha256=HOLDOUT_SHA,
