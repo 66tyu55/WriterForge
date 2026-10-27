@@ -2956,7 +2956,7 @@ def adjudicate_portable_habit_value(
                 "WF0BF_PROVIDER_WIRE_MODEL_OUTPUT_OR_USAGE_MISMATCH")
         found[(receipt.case_id,receipt.arm)]=receipt
 
-    def state(disposition,**,more):
+    def state(disposition, **more):
         sums={arm:sum(r.total_tokens for (_,a),r in found.items() if a==arm)
               for arm in ("v1","v2")}
         return {
