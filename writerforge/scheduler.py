@@ -1,5 +1,8 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
+from collections import OrderedDict
+import secrets
+import threading
 from enum import IntEnum
 from typing import Callable, Iterable, Mapping
 
@@ -168,10 +171,12 @@ class SkillScheduler:
     V15 hybrid scheduler.
 
     Compatibility methods (`drafting_decision`, `boundary_decision`,
-    `offline_decision`) remain stateless. Production runtimes can use
-    `enqueue_event` + `flush_pending` to gain event batching, stale-work
-    cancellation, starvation protection and transition yielding.
+    `offline_decision`) preserve their historical core routing. Optional
+    habits are independently gated and every selected execution is single-use.
+    Production runtimes can use event batching and stale-work cancellation.
     """
+
+    MAX_OUTSTANDING_OPTIONAL_RECEIPTS = 256
 
     def __init__(
         self, capabilities: Iterable[Capability] = DEFAULT_CAPABILITIES, *,
@@ -203,6 +208,14 @@ class SkillScheduler:
         self._artifact_loader = artifact_loader
         self._host_capabilities = host_capabilities
         self._enable_optional_habits = enable_optional_habits
+        # A static approval signature is NOT a spendable run token. Without
+        # single-use issuance a selection result could be replayed indefinitely
+        # against an authorized host's inference budget. This per-scheduler
+        # bounded ledger never persists private credentials or story content.
+        self._optional_receipts_lock = threading.Lock()
+        self._outstanding_optional_receipts: OrderedDict[str, tuple[str, str]] = (
+            OrderedDict()
+        )
 
     def _optional_reason(self, cap: Capability) -> str | None:
         if not cap.optional_habit:
@@ -238,9 +251,29 @@ class SkillScheduler:
         return permit.fingerprint() if isinstance(permit, OptionalExecutionPermit) else ""
 
     def _optional_receipts(self, names: Iterable[str]) -> dict[str, str]:
-        return {name: self._optional_binding(name) for name in names
-                if name in self._caps_by_name and
-                self._caps_by_name[name].optional_habit}
+        """Issue fresh single-use capability tokens ONLY for selected jobs.
+
+        Old core dispatch never enters this ledger. Bounded FIFO evicts stale
+        unused grants rather than leaking memory under repeated scheduling.
+        These tokens attest this scheduler's selected work; they cannot be
+        transferred to another instance or mint new authorizations.
+        """
+        result: dict[str, str] = {}
+        for name in names:
+            cap = self._caps_by_name.get(name)
+            if cap is None or not cap.optional_habit:
+                continue
+            binding = self._optional_binding(name)
+            with self._optional_receipts_lock:
+                nonce = secrets.token_hex(24)
+                while nonce in self._outstanding_optional_receipts:
+                    nonce = secrets.token_hex(24)
+                self._outstanding_optional_receipts[nonce] = (name, binding)
+                while (len(self._outstanding_optional_receipts) >
+                       self.MAX_OUTSTANDING_OPTIONAL_RECEIPTS):
+                    self._outstanding_optional_receipts.popitem(last=False)
+            result[name] = nonce
+        return result
 
     def execute_optional(
         self, decision: ScheduleDecision, name: str, executor: Callable[[], object],
@@ -259,11 +292,24 @@ class SkillScheduler:
                 name not in decision.optional_receipts or
                 not callable(executor)):
             raise PermissionError("OPTIONAL_HABIT_DISPATCH_NOT_SELECTED")
+        nonce = decision.optional_receipts.get(name)
+        if not isinstance(nonce, str):
+            raise PermissionError("OPTIONAL_HABIT_DISPATCH_NOT_SELECTED")
+        # Consume BEFORE invoking the host. Consumption is atomic, so neither
+        # two threads nor a recursive callback can double-spend this receipt.
+        # Failed callbacks, including HTTP 429, do NOT restore the token.
+        with self._optional_receipts_lock:
+            pair = self._outstanding_optional_receipts.get(nonce)
+            if pair is None:
+                raise PermissionError("OPTIONAL_HABIT_RECEIPT_ALREADY_USED")
+            if pair[0] != name:
+                raise PermissionError("OPTIONAL_HABIT_RECEIPT_WRONG_SKILL")
+            del self._outstanding_optional_receipts[nonce]
+        if pair[1] != self._optional_binding(name):
+            raise PermissionError("OPTIONAL_HABIT_DISPATCH_BINDING_CHANGED")
         reason = self._optional_reason(cap)
         if reason is not None:
             raise PermissionError(reason)
-        if decision.optional_receipts[name] != self._optional_binding(name):
-            raise PermissionError("OPTIONAL_HABIT_DISPATCH_BINDING_CHANGED")
         return executor()
 
     @staticmethod
