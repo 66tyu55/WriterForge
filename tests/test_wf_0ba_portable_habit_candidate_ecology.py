@@ -129,7 +129,7 @@ class WF0BAPortableHabitCandidateEcologyTests(unittest.TestCase):
     def test_proposer_cannot_evaluate_own_candidate_or_forge_signature(self):
         a = self.propose()
         forged = replace(
-            competition(a.candidate_sha256), signature="0" * 64)
+            competition(a.candidate_sha256, successes=2), signature="0" * 64)
         with self.assertRaises(PermissionError):
             self.pool.record_competition(forged)
         self_signed = competition(a.candidate_sha256, evaluator="companion-reasoner")
