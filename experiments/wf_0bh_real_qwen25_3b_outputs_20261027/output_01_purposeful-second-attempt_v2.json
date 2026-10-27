@@ -1,0 +1,1 @@
+{"choices":[{"finish_reason":"stop","index":0,"logprobs":null,"text":"周弈深吸一口气，再次按下水闸按钮。这次，控制台上的锁定灯迅速亮起，机械锁缓缓收回。他松了一口气，确认了所有设备的正常运作，才缓缓松开双手。"}],"created":1793102208,"id":"cmpl-9b58ce4c-7cb1-411f-9ca7-3b9d87380ccb","model":"/home/runner/work/_temp/wf0bh-qwen25-3b.gguf","object":"text_completion","usage":{"completion_tokens":46,"prompt_tokens":417,"total_tokens":463}}
