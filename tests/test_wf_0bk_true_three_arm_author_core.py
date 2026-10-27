@@ -131,6 +131,10 @@ class WF0BKRealCoreThreeArm(unittest.TestCase):
         self.assertEqual(receipt["canonical_fact_writes"],0)
         self.assertTrue(receipt["arm_results"]["bare"]["no_wf_core_invoked"])
         for arm in ("wf_core","wf_habit"):
+            self.assertEqual(
+                sum(x.get("actual_g_v98_replan_prompt",False)
+                    for x in receipt["events"] if x["arm"]==arm),1)
+        for arm in ("wf_core","wf_habit"):
             info=receipt["arm_results"][arm]
             self.assertEqual(info["origin"],"REAL_AUTONOMOUS_WRITING_CORE")
             self.assertEqual(info["writing_mode"],"continuity_guard")
@@ -193,6 +197,20 @@ class WF0BKRealCoreThreeArm(unittest.TestCase):
                     outer.assertIn("source-verified facts separate",packet.prompt)
                 return super().__call__(packet,**kwargs)
         self.invoke(host=Checking())
+
+    def test_studied_shadow_capsule_cannot_be_executed_as_active_skill(self):
+        from writerforge.scheduler import SkillScheduler
+        from unittest.mock import patch
+        with patch.object(SkillScheduler,"execute_optional",
+                          side_effect=AssertionError("SHADOW was executed")) as guard:
+            receipt,_,_=self.invoke(directory="shadow-only-not-active")
+        guard.assert_not_called()
+        self.assertEqual(receipt["production_skill_executions"],0)
+        self.assertFalse(receipt["auto_promote"])
+        self.assertTrue(receipt["arm_results"]["wf_habit"][
+            "experimental_candidate_context_used"])
+        self.assertFalse(receipt["arm_results"]["wf_habit"][
+            "was_an_active_skill_invocation"])
 
     def test_missing_host_budget_no_any_model_or_WF_run(self):
         cb=SyntheticHost()
