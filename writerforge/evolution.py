@@ -2242,8 +2242,11 @@ class FirstHostNutrientLoop:
         if type(observation) is not HostNutrientObservation:
             raise TypeError("WF0BC_HOST_OBSERVATION_SCHEMA_INVALID")
         values = (observation.observation_id, observation.experiment_id,
-                  observation.host_id, observation.model_id, observation.task_id)
-        if (not all(self._id(v) for v in values) or
+                  observation.host_id, observation.task_id)
+        model_valid = (type(observation.model_id) is str and
+                       re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]{1,95}",
+                                    observation.model_id) is not None)
+        if (not all(self._id(v) for v in values) or not model_valid or
                 observation.arm not in ("control", "habit") or
                 observation.status not in ("SUCCESS", "HTTP_429") or
                 observation.verification_origin not in (
@@ -2354,7 +2357,13 @@ class FirstHostNutrientLoop:
             "SELECT COUNT(*) FROM host_nutrient_candidates "
             "WHERE scope=? AND experiment_id=?",
             (self.scope, experiment_id)).fetchone()[0]
-        state = ("DORMANT_HOST_RESOURCE" if failed else
+        attempt_rows = self.db.conn.execute(
+            "SELECT status FROM host_nutrient_attempts "
+            "WHERE scope=? AND experiment_id=?",
+            (self.scope, experiment_id)).fetchall()
+        host_attempt_dormant = any(
+            a["status"] == "DORMANT_HOST_RESOURCE" for a in attempt_rows)
+        state = ("DORMANT_HOST_RESOURCE" if failed or host_attempt_dormant else
                  "SHADOW_NEEDS_INDEPENDENT_EVIDENCE" if count else
                  "OBSERVED_NEEDS_META_PROPOSAL" if successes else
                  "NO_VERIFIED_HOST_OBSERVATION")
@@ -2379,6 +2388,15 @@ class FirstHostNutrientLoop:
             raise ValueError("WF0BC_ACQUISITION_IDS_INVALID")
         if not callable(host_call):
             raise TypeError("WF0BC_AUTHORIZED_HOST_CALLBACK_REQUIRED")
+        # A past attempt is a terminal cost, even if the host model errored
+        # or the process restarted. Never call the provider twice to fix JSON
+        # or to fill in the old 429 counterfactual.
+        attempted = self.db.conn.execute(
+            "SELECT status FROM host_nutrient_attempts "
+            "WHERE scope=? AND experiment_id=? AND task_id=? AND host_id=?",
+            (self.scope, experiment_id, task_id, host_id)).fetchone()
+        if attempted is not None:
+            raise PermissionError("WF0BC_HOST_PROPOSAL_ALREADY_ATTEMPTED")
         existing = self.disposition(experiment_id)
         if existing["host_resource_failures"]:
             return {"status": "DORMANT_HOST_RESOURCE",
