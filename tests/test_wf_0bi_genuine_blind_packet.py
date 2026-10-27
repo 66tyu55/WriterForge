@@ -96,7 +96,13 @@ class WF0BIBlindRealModelEvidence(unittest.TestCase):
             self.assertEqual(x["candidate_b"],y["candidate_a"])
             self.assertEqual(x["prior_prose"],y["prior_prose"])
             self.assertEqual(x["task"],y["task"])
-            self.assertNotEqual(x["candidate_a"],x["candidate_b"])
+            # In the genuine 0.BG asynchronous-tool task, BOTH versions
+            # generated literally identical text. Preserve that failure
+            # signal in the blind packet; never invent a difference.
+            self.assertEqual(x["candidate_a"]==x["candidate_b"],
+                             y["candidate_a"]==y["candidate_b"])
+        self.assertEqual(sum(item["candidate_a"]==item["candidate_b"]
+                             for item in left.values()),1)
 
     def test_do_not_create_votes_or_score_on_export(self):
         status=self.generate()
