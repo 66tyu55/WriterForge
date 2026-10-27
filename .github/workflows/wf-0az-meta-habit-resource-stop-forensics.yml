@@ -8,6 +8,7 @@ on:
       - tests/test_wf_0az_meta_habit_resource_stop.py
       - tests/test_wf_0ba_optional_habit_dispatch.py
       - tests/test_wf_0ba_portable_habit_candidate_ecology.py
+      - tests/test_wf_0bb_signed_lineage_execution.py
       - experiments/wf_0ay_real_two_host_429_source_only_dormancy_20261026.py
       - .github/workflows/wf-0az-meta-habit-resource-stop-forensics.yml
 
