@@ -1,6 +1,17 @@
 # WriterForge 当前有效交接｜2026-10-27
 
 
+## 0.BI 最新已执行｜真实模型原稿已拆成两份独立盲评材料（2026-10-27）
+
+**下一次首先读：[WF_0BI_TWO_REAL_LOCAL_MODEL_HUMAN_BLIND_REVIEW_HANDOFF_20261027.md](WF_0BI_TWO_REAL_LOCAL_MODEL_HUMAN_BLIND_REVIEW_HANDOFF_20261027.md)**，再读下方 0.BH/BG 两次原始本地模型推理与来源 SHA。尚无真人评阅结果，因此所有先前“准备独立评审”的历史段落不能当作已经证明文学改善。
+
+- **真正面向人的盲评入口（不是新增 AI 审稿器）**：在 `experiments/wf_0bi_genuine_blind_review_packet.py` 从永久保留的 0.BG Qwen3-0.6B 真实四份原稿与 0.BH Qwen2.5-3B 真实六份原稿，先重放 source SHA/作者输入/原始 response/token 记录，才生成 **5 对真实同题 v1/v2 续写**。两名真正独立读者的阅读包各自含离线 HTML、匿名病例 JSON、说明，**每题 A/B 顺序在两份包中完全相反**。文本、任务原样显示，但版本、模型身份和 token 成本不写给读者；1 对真实模型原文逐字相同也不篡改。协调者单独得到 `curator_ONLY/UNBLIND.json`（禁止分发给读者），以后才能恢复实际版本、跨宿主成本与源码 SHA。
+- **人类导出而不是模型拟评**：打开 `REVIEW.html` 可五题分别选择 A、B、难分高下、两篇均差，且可留简短理由；“导出评阅结果 JSON”只在读者电脑本地下载，页面无网络、无自动提交。没有真正两名不同读者参与或外部身份信任根前，评阅尚未完成。已提供 ZIP 工件在 [**Actions #40509345813 GREEN**](https://github.com/66tyu55/WriterForge/actions/runs/40509345813)：分别是 `WF-0BI-HUMAN-READER-ONE-ANONYMOUS-REVIEW`、`WF-0BI-HUMAN-READER-TWO-REVERSED-ANONYMOUS-REVIEW`、`WF-0BI-CURATOR-ONLY-HOLD-BACK-UNBLIND-MAPPING`。**全量 2,016 tests、6 skipped、零失败**。新推理调用 0，实际真人评阅 0，文学胜负未出。
+- **重要诚实边界**：这两份盲评包从两个不同本地模型与不同 prompt template 来，**不能把两个队列混起来做一个 v2 总体因果胜者**。由于原始实验保存在 GitHub 上，掌握仓库访问的人仍可主动查找到版本，匿名呈现依赖读者不查询仓库的协议；不能称为密码学完全盲法。读者 JSON 尚未由外部真实可信 Ed25519 身份签署，现有函数对两张未认证票只返回 `NOT_AUTHENTICATED_HUMAN_EVIDENCE`、不会改 Registry 或 v2。0.BF 的完整 8 组实际 provider wire + 双独立签名门禁**也不能被这5组本地论文替换**。
+- **真下一步不应再采样小模型**：让两位独立读者各拿各的离线包，无版本信息地审读并导出结果；在独立信任方式下认证身份，再按协调者私有映射核对分歧与成本，明确报告 **2 例小宿主、3 例大宿主** 的局限。没有真人票则持续 SHADOW 并停止自行追加规则、改 v3 或调用模型。新强远端付费作者模型必须另获明确模型/次数/费用上限。GLM 历史 429 仍休眠；只改开发分支，不改 main、Railway、R2 原著、正式 Canon、V26/V98/V119 或唯一 NarrativeCore。
+
+---
+
 ## 0.BH 最新已执行｜更强本地 3B 作者宿主真实六次对照、永久来源 SHA 和失败保留（2026-10-27）
 
 **下一次优先读：[WF_0BH_STRONGER_LOCAL_AUTHOR_THREE_PAIR_REAL_SOURCE_FAILURE_HANDOFF_20261027.md](WF_0BH_STRONGER_LOCAL_AUTHOR_THREE_PAIR_REAL_SOURCE_FAILURE_HANDOFF_20261027.md)**，再读下方 0.BG → 0.BF。下方“没有能力更强的本地作者模型真实输出”的历史句子已经过时；0.BH 实际完成六次模型调用，但仍非两名独立读者所评定的文学胜负。
