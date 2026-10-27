@@ -11,6 +11,7 @@ import hmac
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import threading
 import unittest
 
 from writerforge.db import WriterForgeDB
@@ -19,7 +20,7 @@ from writerforge.evolution import (
 )
 from writerforge.lane_scheduler import DirtyDomain, EventEnvelope, Lane
 from writerforge.scheduler import (
-    Capability, DEFAULT_CAPABILITIES, Priority, SkillScheduler,
+    Capability, DEFAULT_CAPABILITIES, Priority, SkillScheduler, ScheduleDecision,
 )
 
 BOOT_KEY = b"wf-0ba-synthetic-bootstrap-authority"
@@ -92,6 +93,112 @@ class WF0BAOptionalHabitDispatchTests(unittest.TestCase):
             "synthetic_choice", 1, "synthetic optional writer cognition",
             status=SkillStatus.ACTIVE)
         self.permit = approved_permit(self.contract)
+
+    def test_each_optional_dispatch_selection_is_single_use(self):
+        register_signed(self.registry, self.contract)
+        sch = scheduler_for(self.registry, permits={"synthetic_choice": self.permit})
+        selected = select(sch)
+        effects = []
+        self.assertEqual(
+            sch.execute_optional(selected, "synthetic_choice",
+                                 lambda: (effects.append("first"), "ok")[1]), "ok")
+        with self.assertRaisesRegex(PermissionError, "RECEIPT_ALREADY_USED"):
+            sch.execute_optional(selected, "synthetic_choice",
+                                 lambda: effects.append("unexpected second"))
+        self.assertEqual(effects, ["first"])
+
+    def test_callback_failure_burns_receipt_no_automatic_429_retry(self):
+        register_signed(self.registry, self.contract)
+        sch = scheduler_for(self.registry, permits={"synthetic_choice": self.permit})
+        selected = select(sch)
+        invoked = []
+        def offline_429():
+            invoked.append("attempt")
+            raise RuntimeError("synthetic HTTP 429 host capacity")
+        with self.assertRaisesRegex(RuntimeError, "429"):
+            sch.execute_optional(selected, "synthetic_choice", offline_429)
+        with self.assertRaisesRegex(PermissionError, "RECEIPT_ALREADY_USED"):
+            sch.execute_optional(selected, "synthetic_choice", offline_429)
+        self.assertEqual(invoked, ["attempt"])
+
+    def test_reentrant_callback_does_not_double_execute(self):
+        register_signed(self.registry, self.contract)
+        sch = scheduler_for(self.registry, permits={"synthetic_choice": self.permit})
+        selected = select(sch)
+        called = []
+        def nested():
+            called.append("outer")
+            with self.assertRaisesRegex(PermissionError, "RECEIPT_ALREADY_USED"):
+                sch.execute_optional(selected, "synthetic_choice",
+                                     lambda: called.append("nested"))
+            return "done"
+        self.assertEqual(
+            sch.execute_optional(selected, "synthetic_choice", nested), "done")
+        self.assertEqual(called, ["outer"])
+
+    def test_cross_instance_or_forged_decision_cannot_redeem_receipt(self):
+        register_signed(self.registry, self.contract)
+        first = scheduler_for(self.registry, permits={"synthetic_choice": self.permit})
+        second = scheduler_for(self.registry, permits={"synthetic_choice": self.permit})
+        selected = select(first)
+        with self.assertRaises(PermissionError):
+            second.execute_optional(selected, "synthetic_choice",
+                                    lambda: "must-not-run")
+        forged = ScheduleDecision(
+            "habit_trigger", ["synthetic_choice"], 0,
+            optional_receipts={"synthetic_choice": self.permit.fingerprint()})
+        with self.assertRaises(PermissionError):
+            first.execute_optional(forged, "synthetic_choice",
+                                   lambda: "must-not-run")
+        self.assertEqual(
+            first.execute_optional(selected, "synthetic_choice", lambda: "ok"), "ok")
+
+    def test_parallel_replay_executes_single_callback_only(self):
+        register_signed(self.registry, self.contract)
+        sch = scheduler_for(self.registry, permits={"synthetic_choice": self.permit})
+        selected = select(sch)
+        started, release = threading.Event(), threading.Event()
+        called = []
+        result = []
+        def once():
+            called.append("executing")
+            started.set()
+            self.assertTrue(release.wait(5))
+            return "once"
+        def worker():
+            try:
+                result.append(sch.execute_optional(selected, "synthetic_choice", once))
+            except PermissionError as exc:
+                result.append(str(exc))
+        first = threading.Thread(target=worker)
+        second = threading.Thread(target=worker)
+        try:
+            first.start()
+            self.assertTrue(started.wait(5))
+            second.start()
+            second.join(5)
+        finally:
+            release.set()
+            first.join(5)
+            second.join(5)
+        self.assertFalse(first.is_alive())
+        self.assertFalse(second.is_alive())
+        self.assertEqual(called, ["executing"])
+        self.assertEqual(result.count("once"), 1)
+        self.assertTrue(any("RECEIPT_ALREADY_USED" in x for x in result))
+
+    def test_optional_receipt_storage_is_bounded(self):
+        register_signed(self.registry, self.contract)
+        sch = scheduler_for(self.registry, permits={"synthetic_choice": self.permit})
+        earliest = select(sch)
+        for _ in range(sch.MAX_OUTSTANDING_OPTIONAL_RECEIPTS + 3):
+            select(sch)
+        self.assertLessEqual(
+            len(sch._outstanding_optional_receipts),
+            sch.MAX_OUTSTANDING_OPTIONAL_RECEIPTS)
+        with self.assertRaises(PermissionError):
+            sch.execute_optional(earliest, "synthetic_choice",
+                                 lambda: "expired")
 
     def test_empty_registry_and_default_scheduler_leave_core_alive(self):
         result = SkillScheduler().select("sentence_accepted", budget=20)
