@@ -1,0 +1,56 @@
+name: WF 0.BH Permanent Qwen2.5 3B SOURCE SHA Audit - NO INFERENCE
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0bh-permanent-3b-source-audit.yml
+      - 'experiments/wf_0bh_real_qwen25_3b_outputs_20261027/**'
+      - experiments/wf_0bh_verify_stronger_local_origins.py
+      - tests/test_wf_0bh_actual_stronger_model_evidence.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wf-0bh-permanent-3b-source-only-not-inference
+  cancel-in-progress: true
+
+jobs:
+  verify-originals-without-local-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: No hosted-model or user-private storage credentials
+        run: python -c 'import os; assert not any(os.getenv(n) for n in ("OPENAI_API_KEY","DEEPSEEK_API_KEY","DISCOVERY_API_KEY","OPENROUTER_API_KEY","R2_ACCESS_KEY_ID","R2_SECRET_ACCESS_KEY"))'
+      - name: Install repository evidence-only, NOT inference engine
+        run: python -m pip install -e '.[r2,evidence]'
+      - name: Independent direct-byte model outputs and cost re-verification
+        run: python -m unittest discover -s tests -p 'test_wf_0bh_actual_stronger_model_evidence.py' -v
+      - name: Rebuild source-only observational summary NO MODEL CALLS
+        run: python -m experiments.wf_0bh_verify_stronger_local_origins
+      - name: Retrieve frozen old historical 0.AY provider originals for unrelated suite
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40354436598
+          name: WF-0AY-Two-REAL-Model-Hosts-Portable-Habit-Eight-Capped-Original-Wires
+          github-token: ${{ github.token }}
+          path: wf0ay_real_two_hosts_partial_source
+      - name: Full WriterForge offline regression
+        run: python -m unittest discover -s tests -q
+      - name: Archive source-verified facts not independent scores
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0BH-Real-Qwen25-3B-Original-SHA-Token-Audit-NO-RATINGS
+          path: wf0bh_verified_three_pair_source_summary/
+          if-no-files-found: warn
+          retention-days: 90
