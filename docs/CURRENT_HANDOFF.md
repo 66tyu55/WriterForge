@@ -1,6 +1,24 @@
 # WriterForge 当前有效交接｜2026-10-27
 
 
+## 0.BC 最新已执行｜第一个宿主获得真实工作观察，真实新认知习惯尚未证明（2026-10-27）
+
+**下一次第一阅读：[WF_0BC_FIRST_HOST_REAL_NUTRIENT_LOOP_SOURCE_FIRST_20261027.md](WF_0BC_FIRST_HOST_REAL_NUTRIENT_LOOP_SOURCE_FIRST_20261027.md)**。覆盖下方 0.BB/0.BA 的旧时态；历史 0.AY/0.AZ 失败原件仍冻结。
+
+**真正开始吸收，而非再搭一个执行守卫**：原 writerforge/evolution.py 新增 HostNutrientObservation / FirstHostNutrientLoop，核验宿主真实 source、application request、provider wire、逐字原作者 prose 与外部核验者回执；只有验原字节才能记录。原 db.py 的有上限 SQLite 观察、宿主尝试、候选表只存 SHA/状态和候选认知过程，不存原著、真实 provider wire、密钥；观察 append-only。
+
+**真宿主历史已进入 SQLite**：[0.AZ 原始源回放 #40454231888](https://github.com/66tyu55/WriterForge/actions/runs/40454231888) 核验 0.AY 旧 4 次请求、3 份实际返回和第 4 次 GLM habit HTTP 429 无正文，获得 verified_observations=4 / new_habit_candidates=0 / new_provider_calls=0 的 SHA-only 首宿主观察；实验继续 DORMANT_HOST_RESOURCE。原 observe-before-next-choice v1 SHA256 42cad98118dea662cea472f708ef1de22f4bb139da3210b1f5c3c1f9ac12664d，依然 SHADOW。**不能把三份小说续写答案解释成模型已经给出新的元 Skill 候选。**
+
+**宿主提出新认知程序已有执行入口但仍只是合成成功**：同一宿主、同题、同 SHA 前文的 control/habit 原字节必须齐全，宿主明确授权有限 nutrient_acquisition 调用，提供真实前文和两份回包作为临时非指令数据，宿主回调才可提出一个具体认知步骤与证伪条件。WF 只把它变成 SHADOW 候选，经过 PortableHabitCandidatePool 审核并保存在 SQLite；以后即使离开宿主，也可按 SHA 恢复，不自动 ACTIVE。429 及重复尝试、伪造来源、只给 hash、不合规 JSON、原著逐字泄漏都必须停止。**本次没有得到一份真实宿主的元认知提议 provider wire，文学进步仍 UNPROVEN。**
+
+**真实写作调用点已挂接可选观察**：原 writing_assist.py 的 AutonomousWriting.run 支持默认关闭的 host_nutrient_observer，在既有模型调用后输出 application request/response SHA，不透露原文；监听错误只记数不重问、不丢稿。应用层 hash 不是原 provider wire，不能冒充已验证的真正认知学习。
+
+**失败优先的完整工程证据**：初始无入口 RED [#40452250152](https://github.com/66tyu55/WriterForge/actions/runs/40452250152)、宿主 429 二次迭代漏洞 [#40452654017](https://github.com/66tyu55/WriterForge/actions/runs/40452654017)、缺少真实源仍推理 [#40453792267](https://github.com/66tyu55/WriterForge/actions/runs/40453792267)、原著段落污染 portable 候选 [#40454156077](https://github.com/66tyu55/WriterForge/actions/runs/40454156077) 均完成 RED→底层修复。最终 [#40454231887 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40454231887) **1,944 tests、6 skipped、0 failures**；原证据 [#40454231888 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40454231888) 同一基线，0 次新模型调用。新增营养主线 14 测试、真实 writer 调用点 3 测试。
+
+**下一步不是急着更换第二宿主**：先解决首次真实由宿主提出可证伪元认知过程及独立反例评审；如需新的付费模型资源，须用户再次给出明确次数/预算授权。绝不能自动重试旧 GLM 429、补造缺失正文或重复旧付费文学训练。唯一开发分支 refactor-unified-scene-delivery-audit，不改 main，不部署 Railway，不触碰私有 R2 原著和正式 Canon；保留 V26/V98/V119 与唯一 NarrativeCore。
+
+---
+
 ## 0.BB 最新已执行｜签名候选来源→ACTIVE 执行闸门、污染后代实时拒绝（2026-10-27）
 
 **本节覆盖下方 0.BA 仍称“待做 P2”的历史时态。下一次首先阅读：[WF_0BB_SIGNED_LINEAGE_ACTIVE_RUNTIME_HANDOFF_20261027.md](WF_0BB_SIGNED_LINEAGE_ACTIVE_RUNTIME_HANDOFF_20261027.md)**，再读 [上轮 0.BA P0/P1 真实源码记录](WF_0BA_P0_P1_META_HABIT_TRUST_EXECUTION_PUBLIC_RELEASE_20261027.md) 与 [0.AZ 真实 429](WF_0AZ_REAL_HOST_429_HABIT_DORMANCY_SOURCE_FIRST_20261026.md)，禁止重新付费补旧样本。
