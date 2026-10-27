@@ -179,6 +179,39 @@ class WF0BBTrustedPortableLineageRuntime(unittest.TestCase):
                          self.a.candidate_sha256)
         self.assertIn(NAME, sch.select("habit_trigger", budget=40).selected)
 
+    def test_full_portable_schema_cannot_use_legacy_unpinned_permission(self):
+        # The full standard capsule format itself should force a signed
+        # source binding. Otherwise a mistaken Capability flag plus a generic
+        # reviewer permit can bypass the quarantined ancestry entirely.
+        raw = self.active_capsule(self.a)
+        reg, c = self.signed_registry()
+        unsigned = OptionalExecutionPermit(
+            name=NAME, revision=c.revision,
+            contract_sha256=SkillRegistry.execution_contract_sha256(c),
+            capsule_sha256=sha256(raw).hexdigest(),
+            dependency_revisions=(),
+            required_host_capabilities=("generate_text", "read_prose_bytes"),
+            reviewer_id="externalReviewer", review_id="legacyWrongRoute",
+            signature="", lineage_candidate_sha256=None)
+        permit = replace(unsigned, signature=sign_hmac(
+            EXEC_KEY, unsigned.signing_payload()))
+        sch = SkillScheduler(
+            capabilities=(*DEFAULT_CAPABILITIES,
+                Capability(NAME, Priority.P1, 3, ("habit_trigger",),
+                           optional_habit=True, portable_habit=False)),
+            registry=reg, optional_permits={NAME: permit},
+            artifact_loader=lambda name: raw,
+            execution_verifier_key=EXEC_KEY,
+            host_capabilities=lambda: {"generate_text", "read_prose_bytes"},
+            host_resource_lease=OptionalHostResourceLease(
+                authorization_id="host-legacy-path-should-close",
+                allowances={NAME: 1}),
+            enable_optional_habits=True)
+        d = sch.select("habit_trigger", budget=40)
+        self.assertEqual(d.skipped_authority[NAME],
+                         "OPTIONAL_HABIT_LINEAGE_SOURCE_PIN_REQUIRED")
+        self.assertIn("runtime_guard", d.selected)
+
     def test_signed_origin_cannot_downgrade_portable_flag_and_skip_lineage(self):
         raw = self.approve()
         sch, lease, registry = self.scheduler(raw, self.lineage)
