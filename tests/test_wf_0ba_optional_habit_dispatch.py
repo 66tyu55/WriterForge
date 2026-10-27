@@ -24,7 +24,8 @@ from writerforge.scheduler import (
 
 BOOT_KEY = b"wf-0ba-synthetic-bootstrap-authority"
 EXEC_KEY = b"wf-0ba-synthetic-execution-authority"
-CAPSULE = b'{"format":"wf.habit.capsule.v1","id":"synthetic_choice"}'
+CAPSULE = b'{"format":"wf.habit.capsule.v1","id":"synthetic_choice","revision":1,"lifecycle":"ACTIVE"}'
+SECOND_CAPSULE = b'{"format":"wf.habit.capsule.v1","id":"second_choice","revision":1,"lifecycle":"ACTIVE"}'
 SOURCE_SHA = sha256(CAPSULE).hexdigest()
 HOST_CAPS = ("read_prose_bytes", "generate_text", "respect_input_budget")
 
@@ -43,11 +44,14 @@ def register_signed(reg, contract):
         signature=signature)
 
 
-def approved_permit(contract, *, dependencies=(), requirements=HOST_CAPS):
+def approved_permit(contract, *, dependencies=(), requirements=HOST_CAPS,
+                    capsule_sha=None):
     unsigned = OptionalExecutionPermit(
         name=contract.name, revision=contract.revision,
         contract_sha256=SkillRegistry.execution_contract_sha256(contract),
-        capsule_sha256=SOURCE_SHA, dependency_revisions=tuple(dependencies),
+        capsule_sha256=(capsule_sha or (sha256(SECOND_CAPSULE).hexdigest()
+                         if contract.name == "second_choice" else SOURCE_SHA)),
+        dependency_revisions=tuple(dependencies),
         required_host_capabilities=tuple(requirements),
         reviewer_id="externalReviewer", review_id="syntheticP0",
         signature="")
@@ -64,7 +68,7 @@ def optional_capability(name="synthetic_choice"):
 
 def scheduler_for(reg, *caps, permits=None, blobs=None, host_caps=None,
                   enabled=True):
-    cap_map = {"synthetic_choice": CAPSULE, "second_choice": CAPSULE}
+    cap_map = {"synthetic_choice": CAPSULE, "second_choice": SECOND_CAPSULE}
     if blobs is not None:
         cap_map = blobs
     rights = set(HOST_CAPS) if host_caps is None else host_caps
@@ -113,8 +117,9 @@ class WF0BAOptionalHabitDispatchTests(unittest.TestCase):
 
     def test_unreviewed_active_must_not_execute_without_signed_permit(self):
         self.registry.register(self.contract)
-        sch = scheduler_for(self.registry, permits={"synthetic_choice": self.permit})
-        self.assertIn("synthetic_choice", select(sch).selected)
+        empty = scheduler_for(self.registry, permits={})
+        self.assertEqual(select(empty).skipped_authority["synthetic_choice"],
+                         "OPTIONAL_HABIT_APPROVAL_MISSING")
         fake = replace(self.permit, signature="0" * 64)
         d = select(scheduler_for(
             self.registry, permits={"synthetic_choice": fake}))
@@ -196,7 +201,7 @@ class WF0BAOptionalHabitDispatchTests(unittest.TestCase):
         child = replace(self.contract, depends_on={"middle": 2})
         for obj in (basis, middle, child):
             register_signed(self.registry, obj)
-        permit = approved_permit(child, dependencies=(("middle", 1),))
+        permit = approved_permit(child, dependencies=(("basis", 1), ("middle", 1)))
         sch = scheduler_for(self.registry, permits={"synthetic_choice": permit})
         self.assertIn("synthetic_choice", select(sch).selected)
         self.registry.revalidate("basis", passed=False)
@@ -277,6 +282,27 @@ class WF0BAOptionalHabitDispatchTests(unittest.TestCase):
                 *DEFAULT_CAPABILITIES,
                 Capability("runtime_guard", Priority.P1, 1,
                            ("habit_trigger",), optional_habit=True)))
+
+    def test_real_shadow_capsule_cannot_be_executed_as_fake_active_release(self):
+        root = Path(__file__).resolve().parents[1]
+        real_bytes = (root / ".agents/skills/observe-before-next-choice/capsule.json").read_bytes()
+        self.assertEqual(sha256(real_bytes).hexdigest(),
+                         "42cad98118dea662cea472f708ef1de22f4bb139da3210b1f5c3c1f9ac12664d")
+        # Even a forged future ACTIVE registry/permit must not override the
+        # immutable existing capsule's own explicit SHADOW stage.
+        fake_active = CapabilityContract(
+            "observe-before-next-choice", 1, "synthetic forged release identity")
+        register_signed(self.registry, fake_active)
+        permit = approved_permit(
+            fake_active, capsule_sha=sha256(real_bytes).hexdigest())
+        sch = scheduler_for(
+            self.registry, optional_capability("observe-before-next-choice"),
+            permits={"observe-before-next-choice": permit},
+            blobs={"observe-before-next-choice": real_bytes})
+        d = select(sch)
+        self.assertEqual(
+            d.skipped_authority["observe-before-next-choice"],
+            "OPTIONAL_HABIT_CAPSULE_NOT_ACTIVE")
 
     def test_actual_shadow_capsule_is_not_automatically_promoted(self):
         root = Path(__file__).resolve().parents[1]
