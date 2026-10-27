@@ -28,7 +28,7 @@
       "arm": "v1",
       "original_local_completion_sha256": "3fc9fe81e1bf4d22168817b8bf5c50487270f96154add86e69f0d22de87fb2b5",
       "authored_text_sha256": "12d85360ae9bf68ff843d66422a68ac3a4717f86fd13b2dc259684e12f8789ca",
-      "prompt_sha256": "2527e530481ef79efeb0f64d040ce31c4e0241a18f65faa8c2c7b8fa37251668",
+      "prompt_sha256": "2527e530481ef79efeb0f64d040ce31c4e0241a18f65faa9c2c7b8fa37251668",
       "source_sha256": "0104558830dbf7d17c80304f9b7eb1c77cc98e67fbcc856edfb64e8fb0ce81b1",
       "prompt_tokens": 368,
       "completion_tokens": 56,
