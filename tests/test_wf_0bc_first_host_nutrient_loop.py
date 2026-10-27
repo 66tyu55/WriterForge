@@ -220,6 +220,44 @@ class WF0BCFirstHostNutrientTests(unittest.TestCase):
                 host_call=host,host_lease=self.lease())
         self.assertEqual(attempts,["called"])
 
+    def test_voluntary_no_change_persists_across_new_host_session(self):
+        self.pair()
+        def no_change(challenge):
+            return canonical({
+                "format":"wf.host-nutrient-proposal.v1",
+                "task_id":challenge["task_id"],
+                "source_observation_ids":challenge["source_observation_ids"],
+                "target_skill":challenge["target_skill"],
+                "parent_capsule_sha256":challenge["parent_capsule_sha256"],
+                "decision":"NO_CHANGE",
+                "reason":"No incremental technique worth the existing procedure overhead was observed.",
+            })
+        done=self.loop.acquire_once(
+            experiment_id="first-host-demo",task_id="light-failure",
+            host_id="synthetic-app",source_window=self.window(),
+            host_call=no_change,host_lease=self.lease())
+        self.assertEqual(done["status"],"DORMANT_NO_NEW_TRANSFERABLE_HABIT")
+        separate=WriterForgeDB(self.db.path)
+        try:
+            inherited=FirstHostNutrientLoop(
+                db=separate,scope="first-host-synthetic",
+                verifier_key=VERIFY_KEY,root_capsule_bytes=self.raw,
+                expected_capsule_sha256=ROOT_SHA,candidate_pool=self.pool)
+            self.assertEqual(
+                inherited.disposition("first-host-demo")["status"],
+                "DORMANT_NO_NEW_TRANSFERABLE_HABIT")
+            new_budget=self.lease()
+            stopped=inherited.acquire_once(
+                experiment_id="first-host-demo",task_id="light-failure",
+                host_id="second-agent",host_call=lambda x:self.fail("no host calls"),
+                host_lease=new_budget)
+            self.assertEqual(stopped["status"],"DORMANT_NO_NEW_TRANSFERABLE_HABIT")
+            self.assertEqual(stopped["model_calls"],0)
+            self.assertEqual(new_budget.remaining("nutrient_acquisition"),1)
+            self.assertEqual(inherited.disposition("first-host-demo")["shadow_candidates"],0)
+        finally:
+            separate.close()
+
     def test_root_general_procedure_must_survive_narrow_host_proposal(self):
         self.pair()
         # This is the old 0.BC synthetic host proposal: it captures a
