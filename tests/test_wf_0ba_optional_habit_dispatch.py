@@ -276,6 +276,38 @@ class WF0BAOptionalHabitDispatchTests(unittest.TestCase):
         self.assertNotIn("synthetic_choice", newer.selected)
         self.assertIn("second_choice", newer.selected)
 
+    def test_batch_decision_enforces_the_same_signed_optional_grant(self):
+        register_signed(self.registry, self.contract)
+        sch = scheduler_for(self.registry, permits={"synthetic_choice": self.permit})
+        events = (EventEnvelope("habit_trigger", scope="fixture",
+                                dirty=DirtyDomain.NONE, generation=1),)
+        authorized = sch.batch_decision(events, budget=20)
+        self.assertIn("runtime_guard", authorized.selected)
+        self.assertIn("synthetic_choice", authorized.selected)
+        self.registry.revalidate("synthetic_choice", passed=False)
+        later = sch.batch_decision(events, budget=20)
+        self.assertNotIn("synthetic_choice", later.selected)
+        self.assertEqual(later.skipped_authority["synthetic_choice"],
+                         "OPTIONAL_HABIT_NOT_ACTIVE")
+
+    def test_deferred_job_detects_capsule_sha_change_after_queueing(self):
+        register_signed(self.registry, self.contract)
+        blobs = {"synthetic_choice": CAPSULE}
+        sch = scheduler_for(self.registry,
+                            permits={"synthetic_choice": self.permit},
+                            blobs=blobs)
+        sch.enqueue_event(EventEnvelope(
+            "habit_trigger", scope="fixture", dirty=DirtyDomain.NONE,
+            generation=1))
+        held = sch.flush_pending(budget=0, now_tick=0)
+        self.assertFalse(held.selected)
+        blobs["synthetic_choice"] += b"forged"
+        later = sch.flush_pending(budget=10, now_tick=1)
+        self.assertIn("synthetic_choice", later.dropped_unauthorized)
+        self.assertEqual(later.skipped_authority["synthetic_choice"],
+                         "OPTIONAL_HABIT_CAPSULE_SHA_MISMATCH")
+        self.assertEqual(later.total_cost, 2)
+
     def test_optional_cannot_shadow_existing_core_guard(self):
         with self.assertRaises(ValueError):
             SkillScheduler(capabilities=(
