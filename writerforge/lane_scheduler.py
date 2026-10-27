@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from enum import IntFlag
 import heapq
 import itertools
-from typing import Iterable
+from typing import Callable, Iterable
 
 
 class Lane(IntFlag):
@@ -357,6 +357,9 @@ class LaneTask:
     transition_id: str | None = None
     cancel_if_stale: bool = True
     source_priority: int | None = None
+    # Signed optional artifact binding captured when this queued task arose.
+    # Empty for all historical core jobs; no effect on their priority.
+    execution_grant_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -367,6 +370,7 @@ class DispatchSlice:
     yielded: bool
     dropped_stale: tuple[str, ...] = ()
     deferred: tuple[str, ...] = ()
+    dropped_unauthorized: tuple[str, ...] = ()
 
 
 @dataclass(order=True)
@@ -457,7 +461,8 @@ class LaneTaskQueue:
     def _expired(self, item: _HeapItem, now_tick: int) -> bool:
         return item.task.timeout_ticks > 0 and now_tick >= item.enqueued_tick + item.task.timeout_ticks
 
-    def flush(self, *, budget: int, now_tick: int = 0, allowed: Lane = Lane(~0)) -> DispatchSlice:
+    def flush(self, *, budget: int, now_tick: int = 0, allowed: Lane = Lane(~0),
+              authorize_task: Callable[[LaneTask], bool] | None = None) -> DispatchSlice:
         if budget < 0:
             raise ValueError("budget must be >= 0")
 
@@ -479,6 +484,7 @@ class LaneTaskQueue:
         selected: list[LaneTask] = []
         deferred_items: list[_HeapItem] = []
         dropped: list[str] = []
+        denied: list[str] = []
         spent = 0
 
         while self._heap:
@@ -490,6 +496,19 @@ class LaneTaskQueue:
                 self._release_task(task, key)
                 dropped.append(task.name)
                 continue
+
+            # Recheck after queueing, before budget is charged. An optional
+            # skill may have been retired, reversioned, deauthorized or changed
+            # while this task sat deferred. A denial MUST NOT steal core budget.
+            if authorize_task is not None:
+                try:
+                    eligible = authorize_task(task) is True
+                except Exception:
+                    eligible = False
+                if not eligible:
+                    self._release_task(task, key)
+                    denied.append(task.name)
+                    continue
 
             if not (task.lane & allowed):
                 deferred_items.append(item)
@@ -519,6 +538,7 @@ class LaneTaskQueue:
             yielded=bool(deferred_items),
             dropped_stale=tuple(dropped),
             deferred=deferred_names,
+            dropped_unauthorized=tuple(denied),
         )
 
     def pending_count(self) -> int:
