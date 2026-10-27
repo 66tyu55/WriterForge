@@ -1,0 +1,47 @@
+{
+  "format": "wf.0bd.conversational-host-proposal-source-bound.v1",
+  "source_origin": {
+    "historical_run_id": 40354436598,
+    "historical_artifact_id": 12664209371,
+    "source_writer_host_id": "deepseek",
+    "source_writer_model_id": "deepseek-flash",
+    "source_task_id": "flood-radio",
+    "source_control_wire_sha256": "daa44c87493e5329b949d178a99eea00817ce8901b07b3525d1c4cbcb8ea4810",
+    "source_habit_wire_sha256": "81827cf112daf0241c085726c989bf44a5e086b250bd66dc8823fa54a0ec5e17",
+    "frozen_source_sha256": "aa16fa7696440b86a942ddd2d4071dd8d13a6b6ad561c3456a841e700bb76373",
+    "absent_glm_habit_wire": true
+  },
+  "meta_proposal_origin": {
+    "producer": "GPT-6 ChatGPT interactive conversation",
+    "source": "assistant-authored-in-current-user-approved-chat",
+    "actual_chat_model_contribution": true,
+    "verified_meta_provider_wire_sha256": null,
+    "trusted_host_signed_completion": false,
+    "paid_external_provider_calls_in_replay": 0,
+    "independent_evaluator_approved": false
+  },
+  "proposal": {
+    "format": "wf.host-nutrient-proposal.v1",
+    "task_id": "flood-radio",
+    "source_observation_ids": [
+      "obs0bd-deepseek-control",
+      "obs0bd-deepseek-habit"
+    ],
+    "target_skill": "observe-before-next-choice",
+    "parent_capsule_sha256": "42cad98118dea662cea472f708ef1de22f4bb139da3210b1f5c3c1f9ac12664d",
+    "procedure_index": 1,
+    "procedure_replacement": "For actions with a receiver or delayed effect (signals, handoffs, promises or tool requests), keep three source-verified facts separate: the actor's attempted action, any independently observed acknowledgment, and whether the intended consequence occurred. Compare confirming, retrying, waiting or changing means as possible next choices; a deliberate repeat may be valid. Never decide the plot instead of the author.",
+    "falsifier_index": 0,
+    "falsifier_replacement": "On fresh matched held-out tasks, reject this three-stage distinction if it invents uncertainty after a clearly completed effect, treats all repetitions as defects, replaces the author's own next choice, leaks another character's knowledge, or fails to improve observable causal accuracy over v1 at equal context and total host cost.",
+    "reason": "The archived DeepSeek control and habit continuations made different, potentially lawful choices after the same prior action. Both leave delivery and downstream success unresolved. A source-visible sending attempt and an apparent receipt do not establish recipient knowledge or completed impact. This is a testable process distinction, not a proven literary benefit."
+  },
+  "inference_limits": {
+    "authentic_writer_source_pair": true,
+    "meta_reply_self_attributed_but_not_provider_authenticated": true,
+    "independent_literary_gain_proven": false,
+    "expected_status": "SHADOW_NEEDS_INDEPENDENT_EVIDENCE",
+    "new_external_api_calls_authorized": 0,
+    "trial_0ay_dormant_preserved": true,
+    "no_canon_or_r2_writes": true
+  }
+}
