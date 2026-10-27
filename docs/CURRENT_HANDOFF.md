@@ -1,6 +1,19 @@
 # WriterForge 当前有效交接｜2026-10-27
 
 
+## 0.BD 最新已执行｜真实源→ChatGPT 元认知提议→SHADOW 候选→断开原宿主也能恢复（2026-10-27）
+
+**新窗口优先读：[WF_0BD_FIRST_LIVE_CHAT_NUTRIENT_HYPOTHESIS_AND_HOST_EXIT_HANDOFF_20261027.md](WF_0BD_FIRST_LIVE_CHAT_NUTRIENT_HYPOTHESIS_AND_HOST_EXIT_HANDOFF_20261027.md)**；此节覆盖下方 0.BC/0.BB/0.BA 的旧“下一步未实现”时态。原有 0.AZ 429 原始失败及 0.AY provider wire 不修改。
+
+- **真正产生第一份新认知假设（但不算文学能力已提高）**：核验 0.AY 真正旧 [DeepSeek 同题 control/habit 两份原始 provider wire](https://github.com/66tyu55/WriterForge/actions/runs/40354436598)（control 验证号码、habit 重发警报，两种文学行动都可以成立），由**本次 GPT-6 ChatGPT 对话模型**提出可证伪过程“行动尝试／对方确认／实际后果”三层不要混为一谈。必须明确区分：DeepSeek 是原始文学 source host，**ChatGPT 才是新元认知建议者**，本次 ChatGPT meta reply **没有独立可认证的 provider 原始 wire**，不是 DeepSeek 自己提出元 Skill，也未取得真实独立文学盲评。实现文件 [0.BD source-first script](../experiments/wf_0bd_chatgpt_first_host_source_reanalysis_20261027.py) 与 [ChatGPT 文字提议原件](../experiments/wf_0bd_chatgpt_first_host_cognitive_proposal_20261027.json)。没有新增任何付费模型调用，不能补造原 429。
+- **第一次可迁移候选永久留存**：原 `.agents/skills/observe-before-next-choice/capsule.json` SHA256 `42cad98118dea662cea472f708ef1de22f4bb139da3210b1f5c3c1f9ac12664d` 仍 v1 SHADOW 且原字节未改；新 v2 **SHADOW** SHA256 `0d43a023bc278ac12e3165e319d2acb73dcf40c0d9af453e623c786f3b476a10` 已存至 [SHA 命名候选目录](../experiments/wf_0bd_portable_habit_snapshots/0d43a023bc278ac12e3165e319d2acb73dcf40c0d9af453e623c786f3b476a10/README.md)，同目录 capsule.json + portable_manifest.json；清单 SHA `6bb2c9507edbe8be95e79bb098dca210f87da085e04c7bb2a2650a683b01956f`。无正式 curator 签名、无 independent heldout、无 ACTIVE 许可，不能把 source-bound 当成已审文学技能。
+- **来源与生存真实 CI**：[首次原作源核验→SHADOW #40457219260](https://github.com/66tyu55/WriterForge/actions/runs/40457219260) **1,952 tests、6 skipped、0 failures**。之后先在未下载旧 DeepSeek artifact 的新 CI 实例验证候选能只凭 GitHub root v1 + 存档清单按 SHA 重建，再下载原付费 source 核对，完整 [**#40457864844 GREEN**](https://github.com/66tyu55/WriterForge/actions/runs/40457864844)：**1,956 tests、6 skipped、0 failures**。不把重复播放预写的 ChatGPT 提议当新的网络模型调用；此次 `new_paid_provider_calls=0`、`replayed_host_model_callbacks=0`。
+- **第一个宿主“汲取营养”的真实边界**：WF 现在能保存由模型实际提出、来源真实、可携带且可在宿主消失后恢复的**认知假设**；**它是否有价值仍 UNPROVEN**，旧 v1 可能同样正确。0.AY 第四次 GLM habit HTTP 429 无有效正文，原实验 DORMANT_HOST_RESOURCE，不重新开启。下一步不是多搭审稿器/污染守卫，而是新鲜题材下 v1-v2 同宿主同预算、真正合法重复/有限认知/安静场景/明确后果/跨域交接的独立盲评反例测试；证明失败或成本劣势时 DORMANT。新增付费实验需独立批准调用次数/费用，不能自行获取 GH Secrets。
+
+**守则保持**：只操作 refactor-unified-scene-delivery-audit，不修改 main、不部署 Railway、不读写用户私有 R2 原著和正式 Canon、不重跑旧付费小说训练；唯一 NarrativeCore 与 V26/V98/V119、作家 AI 对情节和修订主权全部保留。
+
+---
+
 ## 0.BC 最新已执行｜第一个宿主获得真实工作观察，真实新认知习惯尚未证明（2026-10-27）
 
 **下一次第一阅读：[WF_0BC_FIRST_HOST_REAL_NUTRIENT_LOOP_SOURCE_FIRST_20261027.md](WF_0BC_FIRST_HOST_REAL_NUTRIENT_LOOP_SOURCE_FIRST_20261027.md)**。覆盖下方 0.BB/0.BA 的旧时态；历史 0.AY/0.AZ 失败原件仍冻结。
