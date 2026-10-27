@@ -34,7 +34,7 @@ jobs:
           node-version: '22'
       - name: No provider credentials, no R2 and no model inference
         run: python -c 'import os; assert not any(os.getenv(n) for n in ("DISCOVERY_API_KEY","DEEPSEEK_API_KEY","OPENAI_API_KEY","OPENROUTER_API_KEY","R2_ACCESS_KEY_ID","R2_SECRET_ACCESS_KEY"))'
-      - run: python -m pip install -e '.[r2]'
+      - run: python -m pip install -e '.[r2,evidence]'
       - name: RED first / GREEN afterward - optional habit actual dispatch
         run: python -m unittest discover -s tests -p 'test_wf_0ba_optional_habit_dispatch.py' -v
       - name: P1 RED first / GREEN afterward - candidate competition and pollution lineage
