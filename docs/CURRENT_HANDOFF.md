@@ -1,6 +1,18 @@
 # WriterForge 当前有效交接｜2026-10-27
 
 
+## 0.BG 最新已执行｜第一次真正本地模型 v1/v2 对照，获得可重放的部分负面证据（2026-10-27）
+
+**下一轮首先读：[WF_0BG_REAL_LOCAL_OPEN_WEIGHT_FIRST_VALUE_EVIDENCE_HANDOFF_20261027.md](WF_0BG_REAL_LOCAL_OPEN_WEIGHT_FIRST_VALUE_EVIDENCE_HANDOFF_20261027.md)**，再读下方 0.BF 可信证据门禁和 0.BE 冻结实验。不能把下方旧段落“所有 v1/v2 结果仍只有合成回包”当作当前状态：**现在已经有四份来自真正本地开源模型的输出**，但仍没有独立文学评价。0.AY 原始 GLM HTTP 429 继续休眠。
+
+- **本轮真正做了推理**：在独立 [Actions #40496101857](https://github.com/66tyu55/WriterForge/actions/runs/40496101857) 的 CPU 上锁定公开 GGUF `Qwen3-0.6B Q4_K_M` 模型权重 SHA256 `9acfc1e001311f34b4252001b626f2e466d592a42065f66571bff3790d4e1b14`，一次加载后用固定 seed、temperature=0，依照 0.BE 的**两个新场景**执行四次真正的 v1/v2 原创生成。**这不是 GPT/DeepSeek/GLM 的新付费 API 推理，不是完整八组实验，更不是两个真实独立 Agent 应用。** GitHub Actions CPU 分钟可能计入平台额度；没有消耗外部模型 API 金额。
+- **真实负面信号**：安静家庭场景 v1 总 token 417、v2 463，正文相似但非完全相同；HTTP 202 异步工具场景 v1 400、v2 449，**两份生成正文逐字完全相同、两者都是原前文的逐字复述，没有写出新的操作选择**。两例总计 v1 817、v2 912：v2 多 **95 个实际本地模型 token**。这仅证明该 0.6B 小模型在这两例没有可观察的稳定增益，**不能冒称 v2 全局无益或文学质量劣于 v1**；它可能只是模型太弱，不能完成最基本续写。两位独立盲评者数量仍为 0。
+- **负面经验已永久保留而非过期临时工件**：[0.BG 四份实际模型 JSON 原字节与来源清单](../experiments/wf_0bg_local_cpu_actual_outputs_20261027/SOURCE_MANIFEST.json)，原证据 Actions 工件 ID 12730279357； [离线逐字 SHA + 实际使用量审计 #40497431449 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40497431449) 通过 **1,995 tests、6 skipped、零失败**。脚本 `experiments/wf_0bg_verify_real_local_value_observations.py` 在**不再运行模型、不需要原工件**的情况下重新计算两例字节相等与成本差，并输出 `should_next_autonomous_revision_run=False`，只暂停**这个弱宿主的无益自动重复**；不会修改正式 SkillRegistry 或晋级候选。
+- **v1/v2 遗传信息保持不变**：父 v1 SHA `42cad98118dea662cea472f708ef1de22f4bb139da3210b1f5c3c1f9ac12664d`，0.BD 存档 v2 SHA `0d43a023bc278ac12e3165e319d2acb73dcf40c0d9af453e623c786f3b476a10`，仍 SHADOW，原胶囊文件、候选 capsule.json 与 manifest 原始字节均未动，只在候选 README 链接这条来源负证据。Qwen3 原始本地输出不是服务商 HTTP provider wire，不能塞进 0.BF 假装已独立签名双读者的文学证据。
+- **下阶段焦点**：让能力足够的作者模型真正跑同题同预算 v1/v2，对 0.BE 的负对照进行独立双读者评判；新付费 API 必须有新的明确模型/次数/价格上限。没有这个证据，就让 v2 保持 SHADOW/试验保持 DORMANT，不为了“寄生虫不断成长”无限增加规则或训练。继续只改开发分支，不碰 main、Railway、用户 R2 原著、正式 Canon；保留 V26/V98/V119 与唯一 NarrativeCore。
+
+---
+
 ## 0.BF 最新已执行｜原始回包 + 实际使用量 + 双独立签名评价 → 有价值才继续（2026-10-27）
 
 **下一对话必须先读：[WF_0BF_VERIFIED_VALUE_EVIDENCE_STOP_GATE_SOURCE_FIRST_20261027.md](WF_0BF_VERIFIED_VALUE_EVIDENCE_STOP_GATE_SOURCE_FIRST_20261027.md)**，再读 [0.BE 原始 v1/v2 停止预检](WF_0BE_V2_HABIT_FALSIFICATION_AND_VALUE_STOP_HANDOFF_20261027.md)。此节取代下方 0.BE“等待真实可信评价入口”的旧时态；但未改变 0.AY/0.AZ 历史 GLM HTTP 429 和 0.BD v2 的 SHADOW。
