@@ -1,6 +1,18 @@
 # WriterForge 当前有效交接｜2026-10-27
 
 
+## 0.BB 最新已执行｜签名候选来源→ACTIVE 执行闸门、污染后代实时拒绝（2026-10-27）
+
+**本节覆盖下方 0.BA 仍称“待做 P2”的历史时态。下一次首先阅读：[WF_0BB_SIGNED_LINEAGE_ACTIVE_RUNTIME_HANDOFF_20261027.md](WF_0BB_SIGNED_LINEAGE_ACTIVE_RUNTIME_HANDOFF_20261027.md)**，再读 [上轮 0.BA P0/P1 真实源码记录](WF_0BA_P0_P1_META_HABIT_TRUST_EXECUTION_PUBLIC_RELEASE_20261027.md) 与 [0.AZ 真实 429](WF_0AZ_REAL_HOST_429_HABIT_DORMANCY_SOURCE_FIRST_20261026.md)，禁止重新付费补旧样本。
+
+- **原 P1 污染隔离真正进入运行时**：原 writerforge/evolution.py 的 PortableHabitActivationAttestation、TrustedPortableHabitLineage 以经独立 Ed25519 签名的发行 + 人工签名激活绑定 SHADOW candidate SHA → 仅改 lifecycle 的 ACTIVE 制品 SHA；新签名发行单调前进，不得擦除已有失败、隔离及其子孙。已确认污染的祖先/后代，当前已选中/排队任务在真实调度校验中失效，不挤占旧核心或再消耗宿主预算。SHADOW 原始胶囊未升级。
+- **执行许可防降级**：OptionalExecutionPermit v2 签名内容固定 lineage_candidate_sha256。既不能伪造另一个候选，也不能把 Capability 的 portable_habit 标志错误关闭后绕开审查；完整版便携 capsule 即便误走 legacy optional 仍强制来源 SHA。原 SkillScheduler.select/batch_decision/flush_pending/execute_optional 同一闭环。29 项 P0、16 项 P1、14 项 P2 定向对抗全通过。
+- **实际 RED→GREEN**：最初缺失激活接口 RED [#40444758307](https://github.com/66tyu55/WriterForge/actions/runs/40444758307)，源码初步修复 GREEN [#40445051086](https://github.com/66tyu55/WriterForge/actions/runs/40445051086)；随后发现来源签名降级 RED [#40445279475](https://github.com/66tyu55/WriterForge/actions/runs/40445279475) 并修复，最后完整 portable legacy 漏洞 RED [#40445638626](https://github.com/66tyu55/WriterForge/actions/runs/40445638626) → 最新全量 [**#40445705341 GREEN**](https://github.com/66tyu55/WriterForge/actions/runs/40445705341)：**1,927 tests、6 skipped、零失败**。
+- **原失败证据未动**：最新 0.AZ source-only [#40445705377 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40445705377) 同一基线 **1,927 tests、6 skipped、零失败**，原始 0.AY 四次尝试、三份有效正文、GLM habit HTTP 429 第四份不存在；**0 次新模型调用**。会话 DORMANT_HOST_RESOURCE / NOT_TESTED_INCOMPLETE。原 observe-before-next-choice v1 SHA256 42cad98118dea662cea472f708ef1de22f4bb139da3210b1f5c3c1f9ac12664d 仍 SHADOW。**文学增益/真正两个独立 Agent 宿主/自动 Skill 晋级均 UNPROVEN**。
+- **下一步仍缺**：真正第二个 Agent 应用的授权能力/预算与离线 conformance、跨进程配额、正式 curator 公钥分发与及时撤销、第三方代码沙箱、真实独立文学 A/B 和可靠成本评测。现有合成策展密钥只用于离线测试，签名验证不等于文学胜利。严禁改 main、部署 Railway、碰私有 R2 原著、正式 Canon、旧付费小说；保留 V26/V98/V119 与唯一 NarrativeCore。
+
+---
+
 ## 0.BA 最新已执行｜可选元 Skill 可信执行、宿主配额、候选谱系、公钥只读发行（2026-10-27）
 
 **本节覆盖下方仍称“0.BA 还未实施”的历史计划时态。新接续第一阅读：[WF_0BA_P0_P1_META_HABIT_TRUST_EXECUTION_PUBLIC_RELEASE_20261027.md](WF_0BA_P0_P1_META_HABIT_TRUST_EXECUTION_PUBLIC_RELEASE_20261027.md)**。旧 [0.BA 原方案](WF_0BA_NEXT_SESSION_PORTABLE_META_HABIT_EVOLUTION_HANDOFF_20261027.md)、[0.AZ 真实 429](WF_0AZ_REAL_HOST_429_HABIT_DORMANCY_SOURCE_FIRST_20261026.md) 与 [0.AX 元 Skill 审计](WF_0AX_META_SKILL_ECOLOGY_ACTUAL_CAPABILITY_AUDIT_20261026.md) 均不覆盖。
