@@ -200,6 +200,57 @@ class WF0BAPortableHabitCandidateEcologyTests(unittest.TestCase):
         self.assertEqual(self.pool.status(b.candidate_sha256),
                          "REVIEW_QUARANTINE_LINEAGE")
 
+    def test_pinned_manifest_replays_candidate_lineage_without_erasing_quarantine(self):
+        a = self.propose()
+        b = self.propose(proposal_id="patch-beta",
+                         prose="Permit motivated repetition in the next action.")
+        child = self.propose(a.candidate_sha256,
+                             proposal_id="patch-alpha-child",
+                             prose="Keep a character's wrong inference provisional.")
+        self.pool.record_competition(
+            competition(b.candidate_sha256, successes=3))
+        self.pool.quarantine_lineage(contamination(a.candidate_sha256))
+        bundle = self.pool.export_manifest()
+        manifest_raw = canonical(bundle)
+        pinned = sha256(manifest_raw).hexdigest()
+        self.assertNotIn(b"DEEPSEEK_API_KEY", manifest_raw)
+        self.assertNotIn(b"provider_wire", manifest_raw)
+        restored = PortableHabitCandidatePool.from_manifest(
+            bundle, pinned_roots={ROOT_SHA: self.original},
+            reviewer_verifier_key=KEY, frozen_heldout_sha256=HOLDOUT_SHA,
+            expected_manifest_sha256=pinned)
+        self.assertEqual(restored.export_manifest(), bundle)
+        self.assertEqual(restored.status(a.candidate_sha256),
+                         "REVIEW_QUARANTINE_LINEAGE")
+        self.assertEqual(restored.status(child.candidate_sha256),
+                         "REVIEW_QUARANTINE_LINEAGE")
+        self.assertEqual(restored.status(b.candidate_sha256), "SHADOW")
+        self.assertFalse(restored.has_execution_authority)
+
+    def test_manifest_pin_rejects_removed_quarantine_and_changed_candidate(self):
+        a = self.propose()
+        self.pool.quarantine_lineage(contamination(a.candidate_sha256))
+        bundle = self.pool.export_manifest()
+        pinned = sha256(canonical(bundle)).hexdigest()
+        options = dict(pinned_roots={ROOT_SHA: self.original},
+                       reviewer_verifier_key=KEY,
+                       frozen_heldout_sha256=HOLDOUT_SHA)
+        with self.assertRaises(ValueError):
+            PortableHabitCandidatePool.from_manifest(
+                bundle, expected_manifest_sha256="0"*64, **options)
+        def corrupt(edit):
+            value = json.loads(json.dumps(bundle))
+            edit(value)
+            with self.assertRaises(ValueError):
+                PortableHabitCandidatePool.from_manifest(
+                    value, expected_manifest_sha256=pinned, **options)
+        corrupt(lambda data: data["quarantine_attestations"].clear())
+        corrupt(lambda data: data["candidates"][0].update(
+            capsule_utf8='{"id":"forged"}'))
+        with self.assertRaises(ValueError):
+            PortableHabitCandidatePool.from_manifest(
+                bundle, **options)
+
     def test_export_is_sha_pinned_but_is_not_an_independent_host_test(self):
         candidate = self.propose()
         exported = self.pool.export_candidate(candidate.candidate_sha256)
