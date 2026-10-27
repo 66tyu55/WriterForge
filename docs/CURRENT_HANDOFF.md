@@ -1,6 +1,18 @@
 # WriterForge 当前有效交接｜2026-10-27
 
 
+## 0.BH 最新已执行｜更强本地 3B 作者宿主真实六次对照、永久来源 SHA 和失败保留（2026-10-27）
+
+**下一次优先读：[WF_0BH_STRONGER_LOCAL_AUTHOR_THREE_PAIR_REAL_SOURCE_FAILURE_HANDOFF_20261027.md](WF_0BH_STRONGER_LOCAL_AUTHOR_THREE_PAIR_REAL_SOURCE_FAILURE_HANDOFF_20261027.md)**，再读下方 0.BG → 0.BF。下方“没有能力更强的本地作者模型真实输出”的历史句子已经过时；0.BH 实际完成六次模型调用，但仍非两名独立读者所评定的文学胜负。
+
+- **第二个真实本地作者模型产生实际新正文**：用 Hugging Face 发布的固定版 Qwen2.5-3B-Instruct GGUF Q4_K_M，完整文件 SHA256 9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94，GitHub Actions CPU 一次模型加载、6 次生成、固定 seed 与 temperature=0；场景是合理重试、有限认知与武侠交接三个未被原 0.BG 小模型执行过的冻结案例，同题 v1/v2 只换认知步骤。真正 [生成 CI #40499625320 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40499625320) **2,002 tests、6 skipped、0 failures**；没有付费 provider API，仍没有独立 Agent 宿主双验证或两个真正独立读者。
+- **真正的负面表现与可测成本**：本地原始 output 的 actual prompt/completion/total token：三个 v1 **1100/212/1312**，v2 **1247/182/1429**，v2 额外 **117 total token**。v1/v2 两版都允许条件改变后合理再次按水闸，v2 有可能矛盾的锁定灯描述；人物有限 POV 中 v2 无新证据又重复塞便条，v1 较多空洞比喻；武侠交接 v2 把前文“她”指代的卫蘅写成“他”，v1 可自选等待。所有六篇大多不足任务的120至220字，不能当成熟文学作者质量认证。两次小模型对照案例不同，所以不能仅凭变化就认为模型参数量是原因。
+- **真实原件永久保留**：[六份 Qwen2.5-3B 原始 JSON 与固定 SOURCE_MANIFEST](../experiments/wf_0bh_real_qwen25_3b_outputs_20261027/SOURCE_MANIFEST.json)，源 Actions artifact 12732213344。不是付费供应商 HTTP wire。0.BH 独立审计发现人工转存第一条 prompt SHA 有一个字符抄错，真实 RED 拒绝；只修索引一位、不改模型原字节，最后 [**#40501903317 SOURCE GREEN**](https://github.com/66tyu55/WriterForge/actions/runs/40501903317)：**2,007 tests、6 skipped、0 failures**，再次完全不执行模型，凭长期保存真实 JSON 和源输入重建全体 SHA、usage 和成本。v2 SHA 0d43a023bc278ac12e3165e319d2acb73dcf40c0d9af453e623c786f3b476a10 原 capsule 和 manifest 仍 SHADOW 字节未改；这次负面证据仅追加到 candidate README，永久保留。
+- **停止而不是凑新版本**：本地 3B 能作出新文学动作，说明 0.BG 的 0.6B 直接复述并非所有宿主都如此，但两次题材/prompt格式不同，不能断言增量是模型规模造成。v2 的 +117 token 换不到已证实的文学收益；**当前仍未完成全部8题、两位真正独立评审、生产 provider wire 的实际同模型强作者对照**，不能自动 ACTIVE、不能标记全局彻底证伪、不能为了洗掉负样本重跑同题或盲造 v3。后续真正上强付费作者模型需要用户另行明确模型、次数、费用上限，0.BF 已有来源签名与评审验证接口。
+- **原试验及系统边界冻结**：0.AY GLM 第四次 HTTP 429 没有有效正文、继续 DORMANT_HOST_RESOURCE，不能补造或重试；只操作 refactor-unified-scene-delivery-audit，不修改 main、Railway、用户私有 R2 原著、正式 Canon、V26/V98/V119、唯一 NarrativeCore。
+
+---
+
 ## 0.BG 最新已执行｜第一次真正本地模型 v1/v2 对照，获得可重放的部分负面证据（2026-10-27）
 
 **下一轮首先读：[WF_0BG_REAL_LOCAL_OPEN_WEIGHT_FIRST_VALUE_EVIDENCE_HANDOFF_20261027.md](WF_0BG_REAL_LOCAL_OPEN_WEIGHT_FIRST_VALUE_EVIDENCE_HANDOFF_20261027.md)**，再读下方 0.BF 可信证据门禁和 0.BE 冻结实验。不能把下方旧段落“所有 v1/v2 结果仍只有合成回包”当作当前状态：**现在已经有四份来自真正本地开源模型的输出**，但仍没有独立文学评价。0.AY 原始 GLM HTTP 429 继续休眠。
