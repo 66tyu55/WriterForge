@@ -2089,3 +2089,473 @@ class TrustedPortableHabitLineage:
                     approved.active_capsule_sha256):
                 return "OPTIONAL_HABIT_LINEAGE_ACTIVE_SHA_MISMATCH"
             return None
+
+
+# WF 0.BC: FIRST HOST NUTRIENT LOOP.
+#
+# This is an append-only source-reference bridge onto EXISTING Evolution and
+# the same WF SQLite database. It neither holds a model nor authors prose.
+# Host observers must supply real source and complete provider wire bytes;
+# trusted code verifies both before storing ONLY checksums. A later, explicitly
+# authorized host callback may propose one procedural SHADOW change, never
+# approve it or silently restart a dormant 429 experiment.
+
+
+@dataclass(frozen=True)
+class HostNutrientObservation:
+    observation_id: str
+    experiment_id: str
+    host_id: str
+    model_id: str
+    task_id: str
+    arm: str
+    source_sha256: str
+    request_sha256: str
+    provider_wire_sha256: str | None
+    prose_sha256: str | None
+    status: str
+    failure_code: str | None
+    verification_origin: str
+    signature: str
+
+    def signing_payload(self) -> dict:
+        return {
+            "format": "wf.first-host.source-observation.v1",
+            "observation_id": self.observation_id,
+            "experiment_id": self.experiment_id,
+            "host_id": self.host_id,
+            "model_id": self.model_id,
+            "task_id": self.task_id,
+            "arm": self.arm,
+            "source_sha256": self.source_sha256,
+            "request_sha256": self.request_sha256,
+            "provider_wire_sha256": self.provider_wire_sha256,
+            "prose_sha256": self.prose_sha256,
+            "status": self.status,
+            "failure_code": self.failure_code,
+            "verification_origin": self.verification_origin,
+            "literary_improvement_proven": False,
+            "new_model_calls_for_observation": 0,
+        }
+
+
+class FirstHostNutrientLoop:
+    """Source-locked first-host feedback -> bounded SHADOW candidate.
+
+    Real host outputs may suggest a procedural mutation, but the mutation is
+    ONLY a hypothesis until independent holdout/reader evidence. Neither
+    source prose nor raw provider wires nor provider keys are stored. Requires
+    a separately trusted observation-attesting key: a model's own signature
+    text, merely declared hashes or a claimed independent reader are NOT
+    permission to learn. Live calls are never initiated by importing this.
+    """
+
+    MAX_OBSERVATIONS_PER_SCOPE = 128
+    MAX_ACQUISITIONS_PER_SCOPE = 32
+    MAX_SOURCE_BYTES = 120_000
+    MAX_REQUEST_BYTES = 80_000
+    MAX_PROVIDER_BYTES = 150_000
+    MAX_HOST_PROPOSAL_BYTES = 8_000
+    _ID = re.compile(r"[a-z0-9][a-z0-9_-]{2,79}\Z")
+    _SHA = re.compile(r"[0-9a-f]{64}\Z")
+
+    def __init__(
+        self, *, db, scope: str, verifier_key: bytes,
+        root_capsule_bytes: bytes, expected_capsule_sha256: str,
+        candidate_pool: PortableHabitCandidatePool | None = None,
+    ):
+        if (not isinstance(scope, str) or not self._ID.fullmatch(scope) or
+                type(verifier_key) is not bytes or len(verifier_key) < 16 or
+                type(root_capsule_bytes) is not bytes or
+                not self._is_sha(expected_capsule_sha256) or
+                sha256(root_capsule_bytes).hexdigest() !=
+                expected_capsule_sha256):
+            raise ValueError("WF0BC_ROOT_HOST_VERIFIER_INVALID")
+        root = PortableHabitCandidatePool._decode(root_capsule_bytes)
+        if root["lifecycle"] != "SHADOW":
+            raise ValueError("WF0BC_ROOT_MUST_REMAIN_SHADOW")
+        if candidate_pool is not None and (
+                not isinstance(candidate_pool, PortableHabitCandidatePool) or
+                candidate_pool._roots.get(expected_capsule_sha256) !=
+                root_capsule_bytes):
+            raise ValueError("WF0BC_CANDIDATE_POOL_ROOT_MISMATCH")
+        if not hasattr(db, "conn"):
+            raise TypeError("WF0BC_EXISTING_SQLITE_REQUIRED")
+        self.db = db
+        self.scope = scope
+        self.verifier_key = verifier_key
+        self.root_capsule_bytes = root_capsule_bytes
+        self.root_sha = expected_capsule_sha256
+        self.root = root
+        self.pool = candidate_pool
+
+    @classmethod
+    def _is_sha(cls, x):
+        return type(x) is str and cls._SHA.fullmatch(x) is not None
+
+    @classmethod
+    def _id(cls, value):
+        return type(value) is str and cls._ID.fullmatch(value) is not None
+
+    @staticmethod
+    def _canonical(obj) -> bytes:
+        return json.dumps(obj, sort_keys=True, ensure_ascii=False,
+                          separators=(",", ":"), allow_nan=False).encode("utf-8")
+
+    @staticmethod
+    def _digest(raw) -> str:
+        return sha256(raw).hexdigest()
+
+    @staticmethod
+    def _json_bytes(raw: bytes, *, max_bytes: int) -> dict:
+        if type(raw) is not bytes or not 2 <= len(raw) <= max_bytes:
+            raise ValueError("WF0BC_UNBOUNDED_OR_NONBYTE_HOST_REPLY")
+        def unique(pairs):
+            obj = {}
+            for key, value in pairs:
+                if key in obj:
+                    raise ValueError("WF0BC_DUPLICATE_SOURCE_FIELD")
+                obj[key] = value
+            return obj
+        try:
+            obj = json.loads(raw.decode("utf-8", "strict"),
+                             object_pairs_hook=unique)
+        except (ValueError, UnicodeError) as exc:
+            raise ValueError("WF0BC_HOST_JSON_INVALID") from exc
+        if type(obj) is not dict:
+            raise ValueError("WF0BC_HOST_JSON_SCHEMA_INVALID")
+        return obj
+
+    def ingest(
+        self, observation: HostNutrientObservation, *,
+        source_bytes: bytes, request_bytes: bytes,
+        provider_wire_bytes: bytes | None,
+        authored_prose_bytes: bytes | None,
+    ) -> dict:
+        """Physically check source/request/provider bytes then store ONLY SHA.
+
+        A forensic archiver can sign a VERIFIED receipt *after* comparing the
+        original artifact with the reported hash. The signature means the
+        supplied verifier checked these bytes, not that a provider signed
+        the response or the model's story was artistically correct.
+        """
+        if type(observation) is not HostNutrientObservation:
+            raise TypeError("WF0BC_HOST_OBSERVATION_SCHEMA_INVALID")
+        values = (observation.observation_id, observation.experiment_id,
+                  observation.host_id, observation.model_id, observation.task_id)
+        if (not all(self._id(v) for v in values) or
+                observation.arm not in ("control", "habit") or
+                observation.status not in ("SUCCESS", "HTTP_429") or
+                observation.verification_origin not in (
+                    "archived_provider_wire", "host_resource_error_receipt") or
+                not self._is_sha(observation.source_sha256) or
+                not self._is_sha(observation.request_sha256) or
+                not self._is_sha(observation.signature)):
+            raise ValueError("WF0BC_HOST_OBSERVATION_FIELDS_INVALID")
+        want = hmac.new(self.verifier_key, self._canonical(
+            observation.signing_payload()), "sha256").hexdigest()
+        if not hmac.compare_digest(want, observation.signature):
+            raise PermissionError("WF0BC_OBSERVATION_VERIFIER_INVALID")
+        if (type(source_bytes) is not bytes or
+                not 1 <= len(source_bytes) <= self.MAX_SOURCE_BYTES or
+                self._digest(source_bytes) != observation.source_sha256 or
+                type(request_bytes) is not bytes or
+                not 2 <= len(request_bytes) <= self.MAX_REQUEST_BYTES or
+                self._digest(request_bytes) != observation.request_sha256):
+            raise ValueError("WF0BC_HOST_SOURCE_OR_REQUEST_SHA_MISMATCH")
+        if observation.status == "HTTP_429":
+            if (observation.failure_code != "HTTP_429" or
+                    observation.provider_wire_sha256 is not None or
+                    observation.prose_sha256 is not None or
+                    provider_wire_bytes is not None or
+                    authored_prose_bytes is not None or
+                    observation.verification_origin !=
+                    "host_resource_error_receipt"):
+                raise ValueError("WF0BC_UNRETURNED_429_WAS_FABRICATED")
+        else:
+            if (observation.failure_code is not None or
+                    observation.verification_origin !=
+                    "archived_provider_wire" or
+                    not self._is_sha(observation.provider_wire_sha256) or
+                    not self._is_sha(observation.prose_sha256) or
+                    type(provider_wire_bytes) is not bytes or
+                    type(authored_prose_bytes) is not bytes or
+                    not 2 <= len(provider_wire_bytes) <= self.MAX_PROVIDER_BYTES or
+                    not 1 <= len(authored_prose_bytes) <= self.MAX_SOURCE_BYTES or
+                    self._digest(provider_wire_bytes) !=
+                    observation.provider_wire_sha256 or
+                    self._digest(authored_prose_bytes) !=
+                    observation.prose_sha256):
+                raise ValueError("WF0BC_PROVIDER_OR_PROSE_SHA_MISMATCH")
+            provider = self._json_bytes(
+                provider_wire_bytes, max_bytes=self.MAX_PROVIDER_BYTES)
+            try:
+                if (provider["model"] != observation.model_id or
+                        provider["choices"][0]["finish_reason"] != "stop"):
+                    raise ValueError("WF0BC_PROVIDER_MODEL_OR_FINISH_INVALID")
+                content = provider["choices"][0]["message"]["content"]
+                if type(content) is not str:
+                    raise ValueError("WF0BC_PROVIDER_PROSE_CONTENT_INVALID")
+                story = self._json_bytes(
+                    content.encode("utf-8"), max_bytes=self.MAX_PROVIDER_BYTES)
+                if (set(story) != {"prose", "chosen_step", "still_unknown"} or
+                        type(story["prose"]) is not str or
+                        story["prose"].encode("utf-8") != authored_prose_bytes):
+                    raise ValueError("WF0BC_PROVIDER_PROSE_NOT_LITERAL")
+            except (IndexError, KeyError, TypeError) as exc:
+                raise ValueError("WF0BC_PROVIDER_WIRE_SCHEMA_INVALID") from exc
+
+        current_count = self.db.conn.execute(
+            "SELECT COUNT(*) FROM host_nutrient_observations WHERE scope=?",
+            (self.scope,)).fetchone()[0]
+        if current_count >= self.MAX_OBSERVATIONS_PER_SCOPE:
+            raise OverflowError("WF0BC_OBSERVATION_CAP_REACHED")
+        record_sha = self._digest(self._canonical(
+            {"receipt": observation.signing_payload(),
+             "signature": observation.signature}))
+        from sqlite3 import IntegrityError
+        try:
+            self.db.conn.execute(
+                "INSERT INTO host_nutrient_observations("
+                "scope,observation_id,experiment_id,host_id,model_id,task_id,"
+                "arm,source_sha256,request_sha256,provider_wire_sha256,"
+                "prose_sha256,status,failure_code,verification_origin,"
+                "signature,observation_sha256) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (self.scope,observation.observation_id,
+                 observation.experiment_id,observation.host_id,
+                 observation.model_id,observation.task_id,observation.arm,
+                 observation.source_sha256,observation.request_sha256,
+                 observation.provider_wire_sha256,observation.prose_sha256,
+                 observation.status,observation.failure_code,
+                 observation.verification_origin,observation.signature,
+                 record_sha))
+            self.db.conn.commit()
+        except IntegrityError as exc:
+            self.db.conn.rollback()
+            raise ValueError("WF0BC_OBSERVATION_DUPLICATE") from exc
+        return {"status": "SOURCE_VERIFIED_NO_SKILL_PROMOTION",
+                "observation_sha256": record_sha,
+                "model_calls": 0, "literary_improvement_proven": False}
+
+    def _observations(self, experiment_id: str):
+        if not self._id(experiment_id):
+            raise ValueError("WF0BC_EXPERIMENT_ID_INVALID")
+        return self.db.conn.execute(
+            "SELECT * FROM host_nutrient_observations "
+            "WHERE scope=? AND experiment_id=? ORDER BY observation_id",
+            (self.scope, experiment_id)).fetchall()
+
+    def disposition(self, experiment_id: str) -> dict:
+        rows = self._observations(experiment_id)
+        successes = sum(x["status"] == "SUCCESS" for x in rows)
+        failed = sum(x["status"] == "HTTP_429" for x in rows)
+        count = self.db.conn.execute(
+            "SELECT COUNT(*) FROM host_nutrient_candidates "
+            "WHERE scope=? AND experiment_id=?",
+            (self.scope, experiment_id)).fetchone()[0]
+        state = ("DORMANT_HOST_RESOURCE" if failed else
+                 "SHADOW_NEEDS_INDEPENDENT_EVIDENCE" if count else
+                 "OBSERVED_NEEDS_META_PROPOSAL" if successes else
+                 "NO_VERIFIED_HOST_OBSERVATION")
+        return {"status": state, "verified_successes": successes,
+                "host_resource_failures": failed,
+                "shadow_candidates": count,
+                "host_requests_in_this_read": 0,
+                "literary_improvement_proven": False,
+                "auto_skill_promotion": False}
+
+    def acquire_once(
+        self, *, experiment_id: str, task_id: str, host_id: str,
+        host_call, host_lease,
+    ) -> dict:
+        """Explicitly use ONE host-authorized call to suggest ONE habit delta.
+
+        Not called automatically from writing_assist or earlier A/B history.
+        A failed/invalid proposal burns the attempt; provider capacity errors
+        DORMANT and cannot be retried with a new budget in this experiment.
+        """
+        if not all(self._id(x) for x in (experiment_id, task_id, host_id)):
+            raise ValueError("WF0BC_ACQUISITION_IDS_INVALID")
+        if not callable(host_call):
+            raise TypeError("WF0BC_AUTHORIZED_HOST_CALLBACK_REQUIRED")
+        existing = self.disposition(experiment_id)
+        if existing["host_resource_failures"]:
+            return {"status": "DORMANT_HOST_RESOURCE",
+                    "model_calls": 0, "activated": False,
+                    "literary_improvement_proven": False}
+        selected = [r for r in self._observations(experiment_id)
+                    if r["host_id"] == host_id and
+                    r["task_id"] == task_id and r["status"] == "SUCCESS"]
+        arms = {r["arm"]: r for r in selected}
+        if (len(selected) != 2 or set(arms) != {"control", "habit"} or
+                arms["control"]["source_sha256"] !=
+                arms["habit"]["source_sha256"]):
+            return {"status": "DORMANT_UNMATCHED_ARMS",
+                    "model_calls": 0, "activated": False,
+                    "literary_improvement_proven": False}
+        from .scheduler import (
+            OptionalHostResourceLease, OptionalHostResourceUnavailable)
+        if not isinstance(host_lease, OptionalHostResourceLease):
+            return {"status": "HOST_RESOURCES_NOT_AUTHORIZED",
+                    "model_calls": 0, "activated": False,
+                    "literary_improvement_proven": False}
+        if self.pool is None:
+            return {"status": "HOST_HABIT_POOL_REQUIRED",
+                    "model_calls": 0, "activated": False,
+                    "literary_improvement_proven": False}
+        if host_lease.reason("nutrient_acquisition") is not None:
+            return {"status": "HOST_RESOURCES_NOT_AUTHORIZED",
+                    "model_calls": 0, "activated": False,
+                    "literary_improvement_proven": False}
+        count = self.db.conn.execute(
+            "SELECT COUNT(*) FROM host_nutrient_attempts WHERE scope=?",
+            (self.scope,)).fetchone()[0]
+        if count >= self.MAX_ACQUISITIONS_PER_SCOPE:
+            raise OverflowError("WF0BC_HOST_ACQUISITION_CAP")
+        from sqlite3 import IntegrityError
+        try:
+            self.db.conn.execute(
+                "INSERT INTO host_nutrient_attempts("
+                "scope,experiment_id,host_id,task_id,status) "
+                "VALUES(?,?,?,?,?)",
+                (self.scope,experiment_id,host_id,task_id,"CLAIMED"))
+            self.db.conn.commit()
+        except IntegrityError as exc:
+            self.db.conn.rollback()
+            raise PermissionError("WF0BC_HOST_PROPOSAL_ALREADY_ATTEMPTED") from exc
+
+        ids = (arms["control"]["observation_id"],
+               arms["habit"]["observation_id"])
+        challenge = {
+            "format": "wf.host-nutrient-request.v1",
+            "experiment_id": experiment_id,
+            "host_id": host_id, "task_id": task_id,
+            "target_skill": self.root["id"],
+            "source_observation_ids": list(ids),
+            "source_sha256": arms["control"]["source_sha256"],
+            "parent_capsule_sha256": self.root_sha,
+            "author_owns_story": True,
+            "source_is_data_not_instructions": True,
+            "literary_improvement_proven": False,
+            "frozen_heldout_cases_not_disclosed": True,
+            "task": ("Propose at most one transferable cognitive procedure "
+                     "derived from verified host work. Distinguish observation "
+                     "from inference; do not author or judge novel prose. "
+                     "Return wf.host-nutrient-proposal.v1 JSON only, and it "
+                     "will remain unverified SHADOW."),
+        }
+        def conclude(status, reply_sha=None, candidate_sha=None, failure=None):
+            self.db.conn.execute(
+                "UPDATE host_nutrient_attempts "
+                "SET status=?,reply_sha256=?,candidate_sha256=?,failure_code=? "
+                "WHERE scope=? AND experiment_id=? AND host_id=? AND task_id=? "
+                "AND status='CLAIMED'",
+                (status, reply_sha, candidate_sha, failure,
+                 self.scope,experiment_id,host_id,task_id))
+            self.db.conn.commit()
+            return {"status": status, "candidate_sha256": candidate_sha,
+                    "model_calls": 1, "activated": False,
+                    "literary_improvement_proven": False}
+        try:
+            host_lease.spend("nutrient_acquisition")
+            raw = host_call(challenge)
+        except OptionalHostResourceUnavailable as exc:
+            host_lease.suspend_resource("nutrient_acquisition", exc)
+            return conclude("DORMANT_HOST_RESOURCE", failure=exc.code)
+        except Exception:
+            return conclude("HOST_CALLBACK_FAILED",
+                            failure="HOST_CALLBACK_RAISED_NO_RETRY")
+        if type(raw) is str:
+            raw = raw.encode("utf-8")
+        reply_sha = self._digest(raw) if type(raw) is bytes else None
+        try:
+            proposal = self._json_bytes(
+                raw, max_bytes=self.MAX_HOST_PROPOSAL_BYTES)
+            if set(proposal) != {
+                "format","task_id","source_observation_ids","target_skill",
+                "parent_capsule_sha256","procedure_index",
+                "procedure_replacement","falsifier_index",
+                "falsifier_replacement","reason",
+            } or (proposal["format"] != "wf.host-nutrient-proposal.v1" or
+                     proposal["task_id"] != task_id or
+                     proposal["source_observation_ids"] != list(ids) or
+                     proposal["target_skill"] != self.root["id"] or
+                     proposal["parent_capsule_sha256"] != self.root_sha or
+                     type(proposal["procedure_index"]) is not int or
+                     not 0 <= proposal["procedure_index"] < 4 or
+                     type(proposal["falsifier_index"]) is not int or
+                     not 0 <= proposal["falsifier_index"] < 4 or
+                     type(proposal["reason"]) is not str or
+                     not 25 <= len(proposal["reason"]) <= 450)):
+                raise ValueError("WF0BC_HOST_MODEL_NOT_PROPOSING_HABIT")
+            for key in ("procedure_replacement","falsifier_replacement"):
+                if (type(proposal[key]) is not str or
+                        not 35 <= len(proposal[key]) <= 450):
+                    raise ValueError("WF0BC_HABIT_PROCEDURE_SIZE_INVALID")
+            candidate = json.loads(self.root_capsule_bytes.decode("utf-8"))
+            candidate["revision"] += 1
+            candidate["procedure"][proposal["procedure_index"]] = (
+                proposal["procedure_replacement"])
+            candidate["falsifiers"][proposal["falsifier_index"]] = (
+                proposal["falsifier_replacement"])
+            bytes_out = self._canonical(candidate)
+            evidence_sha = self._digest(self._canonical({
+                "source_receipts": [r["observation_sha256"]
+                                    for r in (arms["control"],arms["habit"])],
+                "host_model_reply_sha256": reply_sha}))
+            proposal_id = "host-nutrient-" + self._digest(
+                self._canonical({"scope":self.scope,"exp":experiment_id,
+                                 "task":task_id,"host":host_id}))[:20]
+            staged = self.pool.propose(
+                proposer_skill="host-nutrient", target_skill=self.root["id"],
+                parent_sha256=self.root_sha, candidate_bytes=bytes_out,
+                evidence_sha256=evidence_sha, proposal_id=proposal_id)
+            self.db.conn.execute(
+                "INSERT INTO host_nutrient_candidates("
+                "scope,candidate_sha256,experiment_id,host_id,task_id,"
+                "parent_sha256,proposal_id,proposer_skill,evidence_sha256,"
+                "source_observation_ids_json,model_proposal_sha256,"
+                "capsule_bytes,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (self.scope, staged.candidate_sha256, experiment_id,
+                 host_id,task_id,self.root_sha,proposal_id,"host-nutrient",
+                 evidence_sha,json.dumps(ids),reply_sha,
+                 bytes_out,"SHADOW"))
+            self.db.conn.commit()
+            return conclude("SHADOW_NEEDS_INDEPENDENT_EVIDENCE",
+                            reply_sha,staged.candidate_sha256)
+        except (ValueError,TypeError,KeyError,OverflowError,PermissionError):
+            self.db.conn.rollback()
+            return conclude("REJECTED_HOST_HABIT_PROPOSAL",reply_sha)
+
+    def read_shadow_candidate(self, candidate_sha256: str) -> dict:
+        if not self._is_sha(candidate_sha256):
+            raise ValueError("WF0BC_CANDIDATE_SHA_INVALID")
+        r = self.db.conn.execute(
+            "SELECT * FROM host_nutrient_candidates "
+            "WHERE scope=? AND candidate_sha256=?",
+            (self.scope,candidate_sha256)).fetchone()
+        if r is None:
+            raise KeyError("WF0BC_UNKNOWN_NUTRIENT_CANDIDATE")
+        content = r["capsule_bytes"]
+        if (type(content) is not bytes or
+                self._digest(content) != candidate_sha256 or
+                r["status"] != "SHADOW" or
+                r["parent_sha256"] != self.root_sha):
+            raise ValueError("WF0BC_SAVED_HABIT_BYTES_CHANGED")
+        obj = PortableHabitCandidatePool._decode(content)
+        if (obj["id"] != self.root["id"] or
+                obj["revision"] != self.root["revision"] + 1 or
+                obj["lifecycle"] != "SHADOW" or
+                any(obj[field] != self.root[field] for field
+                    in PortableHabitCandidatePool._PROTECTED)):
+            raise ValueError("WF0BC_SAVED_HABIT_CONTRACT_CHANGED")
+        ids = json.loads(r["source_observation_ids_json"])
+        if not isinstance(ids,list) or len(ids) != 2:
+            raise ValueError("WF0BC_SAVED_OBSERVATION_LINKS_INVALID")
+        return {"candidate_sha256":candidate_sha256,
+                "capsule_bytes":content,"parent_sha256":self.root_sha,
+                "source_observation_ids":tuple(ids),
+                "model_proposal_sha256":r["model_proposal_sha256"],
+                "status":"SHADOW",
+                "activated":False,"literary_improvement_proven":False}
