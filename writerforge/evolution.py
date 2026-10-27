@@ -8,6 +8,7 @@ import hmac
 import json
 import os
 import re
+import threading
 from typing import Iterable
 
 
@@ -1821,3 +1822,247 @@ def verify_portable_habit_release(
         "independent_agent_hosts_tested": 0,
         "new_provider_calls": 0,
     }
+
+
+@dataclass(frozen=True)
+class PortableHabitActivationAttestation:
+    """External curator's explicit SHADOW-candidate -> ACTIVE-artifact approval.
+
+    The historical candidate and its source SHA remain unchanged. The ACTIVE
+    artifact differs ONLY in the lifecycle field, and still needs existing
+    signed Registry authorization and a separately granted host budget.
+    """
+
+    target_skill: str
+    candidate_sha256: str
+    active_capsule_sha256: str
+    manifest_sha256: str
+    release_sequence: int
+    curator_id: str
+    reviewer_id: str
+    signature_hex: str
+
+    def signing_payload(self) -> dict:
+        return {
+            "kind": "wf.portable-habit-manual-activation-ed25519.v1",
+            "target_skill": self.target_skill,
+            "candidate_sha256": self.candidate_sha256,
+            "active_capsule_sha256": self.active_capsule_sha256,
+            "manifest_sha256": self.manifest_sha256,
+            "release_sequence": self.release_sequence,
+            "curator_id": self.curator_id,
+            "reviewer_id": self.reviewer_id,
+            "automatic_promotion": False,
+            "literary_benefit_proven": False,
+            "host_budget_included": False,
+        }
+
+
+class TrustedPortableHabitLineage:
+    """Public-key verified evolving SHADOW lineage consulted at actual dispatch.
+
+    Only an externally pinned curator public key plus matching signed
+    activation may connect a SHADOW candidate to an ACTIVE artifact. A new
+    signed release invalidates old approval until explicitly re-attested.
+    Roots/candidates remain immutable and never become ACTIVE in their
+    evidence manifest. This is a same-process trust boundary, NOT a Python
+    sandbox or a remote release monitor.
+    """
+
+    def __init__(
+        self, *, manifest: dict,
+        release_attestation: PortableHabitReleaseAttestation,
+        pinned_roots: dict[str, bytes],
+        trusted_public_key: bytes, expected_curator_id: str,
+        minimum_release_sequence: int, expected_manifest_sha256: str,
+    ):
+        verified = verify_portable_habit_release(
+            manifest, release_attestation, pinned_roots=pinned_roots,
+            trusted_public_key=trusted_public_key,
+            expected_curator_id=expected_curator_id,
+            minimum_release_sequence=minimum_release_sequence,
+            expected_manifest_sha256=expected_manifest_sha256)
+        self._lock = threading.RLock()
+        self._public_key = trusted_public_key
+        self._curator = expected_curator_id
+        self._roots = dict(pinned_roots)
+        self._release_sequence = verified["release_sequence"]
+        self._manifest_sha = verified["manifest_sha256"]
+        self._manifest = self._copy_manifest(manifest)
+        self._quarantined = self._quarantined_from(verified)
+        self._activations: dict[
+            str, PortableHabitActivationAttestation] = {}
+
+    @staticmethod
+    def _copy_manifest(manifest: dict) -> dict:
+        return json.loads(json.dumps(
+            manifest, ensure_ascii=False, sort_keys=True,
+            separators=(",", ":"), allow_nan=False))
+
+    @staticmethod
+    def _quarantined_from(verified: dict) -> frozenset[str]:
+        return frozenset(verified["quarantined_candidate_shas"]) | frozenset(
+            verified["quarantined_root_shas"])
+
+    @property
+    def release_sequence(self) -> int:
+        with self._lock:
+            return self._release_sequence
+
+    def _candidate(self, digest: str) -> dict | None:
+        for x in self._manifest["candidates"]:
+            if x["capsule_sha256"] == digest:
+                return x
+        return None
+
+    def _verify_activation_signature(
+        self, att: PortableHabitActivationAttestation,
+    ) -> None:
+        pool = PortableHabitCandidatePool
+        if (not isinstance(att, PortableHabitActivationAttestation) or
+                not pool._identity_valid(att.target_skill) or
+                not pool._identity_valid(att.curator_id) or
+                not pool._identity_valid(att.reviewer_id) or
+                not pool._hash_valid(att.candidate_sha256) or
+                not pool._hash_valid(att.active_capsule_sha256) or
+                not pool._hash_valid(att.manifest_sha256) or
+                type(att.release_sequence) is not int or
+                att.release_sequence < 1 or
+                type(att.signature_hex) is not str or
+                re.fullmatch(r"[0-9a-f]{128}", att.signature_hex) is None):
+            raise ValueError("OPTIONAL_HABIT_LINEAGE_ACTIVATION_SCHEMA_INVALID")
+        if att.curator_id != self._curator:
+            raise PermissionError("OPTIONAL_HABIT_LINEAGE_CURATOR_MISMATCH")
+        try:
+            from cryptography.exceptions import InvalidSignature
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+                Ed25519PublicKey)
+        except ImportError as exc:
+            raise RuntimeError(
+                "OPTIONAL_HABIT_LINEAGE_EVIDENCE_EXTRA_REQUIRED") from exc
+        try:
+            Ed25519PublicKey.from_public_bytes(self._public_key).verify(
+                bytes.fromhex(att.signature_hex),
+                pool._canonical(att.signing_payload()))
+        except (ValueError, InvalidSignature) as exc:
+            raise PermissionError(
+                "OPTIONAL_HABIT_LINEAGE_ACTIVATION_SIGNATURE_INVALID") from exc
+
+    def approve_activation(
+        self, attestation: PortableHabitActivationAttestation,
+        active_capsule_bytes: bytes,
+    ) -> None:
+        """Approve only a signer-checked exact lifecycle-only transformation.
+
+        No installed callback, Registry update or model inference occurs.
+        Reapproval against a newly signed release is required after revision
+        or contamination. A SHADOW source can never self-declare ACTIVE.
+        """
+        with self._lock:
+            self._verify_activation_signature(attestation)
+            if (attestation.manifest_sha256 != self._manifest_sha or
+                    attestation.release_sequence != self._release_sequence):
+                raise PermissionError(
+                    "OPTIONAL_HABIT_LINEAGE_RELEASE_STALE")
+            item = self._candidate(attestation.candidate_sha256)
+            if item is None:
+                raise ValueError(
+                    "OPTIONAL_HABIT_LINEAGE_SOURCE_CANDIDATE_REQUIRED")
+            if attestation.candidate_sha256 in self._quarantined:
+                raise PermissionError("OPTIONAL_HABIT_LINEAGE_QUARANTINED")
+            if (attestation.target_skill != item["target_skill"] or
+                    attestation.reviewer_id == item["proposer_skill"]):
+                raise PermissionError(
+                    "OPTIONAL_HABIT_LINEAGE_INDEPENDENT_REVIEW_REQUIRED")
+            if (type(active_capsule_bytes) is not bytes or
+                    sha256(active_capsule_bytes).hexdigest() !=
+                    attestation.active_capsule_sha256):
+                raise ValueError("OPTIONAL_HABIT_LINEAGE_ACTIVE_SHA_MISMATCH")
+            pool = PortableHabitCandidatePool
+            source = pool._decode(item["capsule_utf8"].encode("utf-8"))
+            active = pool._decode(active_capsule_bytes)
+            expected = dict(source, lifecycle="ACTIVE")
+            if active != expected:
+                raise ValueError(
+                    "OPTIONAL_HABIT_LINEAGE_LIFECYCLE_ONLY_REQUIRED")
+            self._activations[attestation.target_skill] = attestation
+
+    @staticmethod
+    def _records_by_id(records, field):
+        return {r[field]: r for r in records}
+
+    def install_release(
+        self, *, manifest: dict,
+        release_attestation: PortableHabitReleaseAttestation,
+        expected_manifest_sha256: str,
+    ) -> None:
+        """Advance monotonically. Reject dropped negative evidence/revocation.
+
+        The host must obtain each NEW manifest and checksum through an
+        independently trusted channel; the lock provides local atomicity,
+        not cross-process revocation or proof of freshness during outages.
+        """
+        if not isinstance(release_attestation, PortableHabitReleaseAttestation):
+            raise TypeError("OPTIONAL_HABIT_LINEAGE_RELEASE_REQUIRED")
+        # Verify signature and every digest BEFORE touching the trusted state.
+        # The sequence is checked again with the lock to avoid concurrent
+        # installs racing each other's monotonic history.
+        with self._lock:
+            if release_attestation.release_sequence <= self._release_sequence:
+                raise PermissionError("OPTIONAL_HABIT_LINEAGE_RELEASE_ROLLBACK")
+            verified = verify_portable_habit_release(
+                manifest, release_attestation, pinned_roots=self._roots,
+                trusted_public_key=self._public_key,
+                expected_curator_id=self._curator,
+                minimum_release_sequence=self._release_sequence + 1,
+                expected_manifest_sha256=expected_manifest_sha256)
+            if (manifest["frozen_heldout_sha256"] !=
+                    self._manifest["frozen_heldout_sha256"]):
+                raise PermissionError("OPTIONAL_HABIT_LINEAGE_HELDOUT_CHANGED")
+            old_candidates = self._records_by_id(
+                self._manifest["candidates"], "capsule_sha256")
+            new_candidates = self._records_by_id(
+                manifest["candidates"], "capsule_sha256")
+            for digest, original in old_candidates.items():
+                current = new_candidates.get(digest)
+                if current is None or any(
+                    original[field] != current[field] for field in original
+                    if field != "lifecycle"
+                ):
+                    raise PermissionError(
+                        "OPTIONAL_HABIT_LINEAGE_CANDIDATE_HISTORY_ERASED")
+                if (original["lifecycle"] == "REVIEW_QUARANTINE_LINEAGE"
+                        and current["lifecycle"] != original["lifecycle"]):
+                    raise PermissionError(
+                        "OPTIONAL_HABIT_LINEAGE_QUARANTINE_ERASED")
+            for key in ("quarantine_attestations", "competition_evidence"):
+                former = {json.dumps(x, sort_keys=True, ensure_ascii=False)
+                          for x in self._manifest[key]}
+                current = {json.dumps(x, sort_keys=True, ensure_ascii=False)
+                           for x in manifest[key]}
+                if not former.issubset(current):
+                    raise PermissionError(
+                        "OPTIONAL_HABIT_LINEAGE_NEGATIVE_EVIDENCE_ERASED")
+            self._manifest = self._copy_manifest(manifest)
+            self._release_sequence = verified["release_sequence"]
+            self._manifest_sha = verified["manifest_sha256"]
+            self._quarantined = self._quarantined_from(verified)
+            # Signed activations stay readable as history, but their source
+            # is stale until independently signed for THIS release.
+
+    def reason(self, target_skill: str, active_capsule_bytes: bytes) -> str | None:
+        """Reason checked by Scheduler.select, batch, dequeue AND dispatch."""
+        with self._lock:
+            approved = self._activations.get(target_skill)
+            if approved is None:
+                return "OPTIONAL_HABIT_LINEAGE_ACTIVATION_MISSING"
+            if approved.candidate_sha256 in self._quarantined:
+                return "OPTIONAL_HABIT_LINEAGE_QUARANTINED"
+            if (approved.manifest_sha256 != self._manifest_sha or
+                    approved.release_sequence != self._release_sequence):
+                return "OPTIONAL_HABIT_LINEAGE_RELEASE_STALE"
+            if (type(active_capsule_bytes) is not bytes or
+                    sha256(active_capsule_bytes).hexdigest() !=
+                    approved.active_capsule_sha256):
+                return "OPTIONAL_HABIT_LINEAGE_ACTIVE_SHA_MISMATCH"
+            return None
