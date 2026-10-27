@@ -107,16 +107,23 @@ def verify_stronger_local_originals(*,archive:Path=SOURCE)->dict:
     for i,(expected,item) in enumerate(zip(preflight["items"],manifest["outputs"])):
         filename=f"output_{i:02d}_{expected['case_id']}_{expected['arm']}.json"
         key=(item.get("case_id"),item.get("arm"))
-        if (key!=(expected["case_id"],expected["arm"]) or
-            key in records or
-            item.get("file")!=filename or
-            filename not in KNOWN_ORIGINAL_BYTES or
-            item.get("original_local_completion_sha256")!=
-                KNOWN_ORIGINAL_BYTES[filename] or
-            item.get("source_sha256")!=expected["source_sha256"] or
-            item.get("prompt_sha256")!=expected["prompt_sha256"] or
-            item.get("finish_reason")!="stop"):
-            fail("WF0BH_ORIGINAL_PROMPT_SOURCE_OR_ORDER_CHANGED")
+        # Fail with the exact *category* of changed trust data. Never
+        # suppress a SHA mismatch or relax source matching to get GREEN.
+        checks={
+            "case_arm":key==(expected["case_id"],expected["arm"]),
+            "unique":key not in records,
+            "filename":item.get("file")==filename,
+            "known_source_file":filename in KNOWN_ORIGINAL_BYTES,
+            "original_wire_sha":item.get("original_local_completion_sha256")==
+                KNOWN_ORIGINAL_BYTES.get(filename),
+            "source_sha":item.get("source_sha256")==expected["source_sha256"],
+            "prompt_sha":item.get("prompt_sha256")==expected["prompt_sha256"],
+            "finish":item.get("finish_reason")=="stop",
+        }
+        mismatched=[name for name,passed in checks.items() if not passed]
+        if mismatched:
+            fail("WF0BH_ORIGINAL_PROMPT_SOURCE_OR_ORDER_CHANGED:"+str(i)+
+                 ":"+",".join(mismatched))
         try:
             original=(archive/filename).read_bytes()
         except OSError as exc:
