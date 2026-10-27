@@ -10,11 +10,14 @@ from hashlib import sha256
 import hmac
 import json
 from pathlib import Path
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 import unittest
 
 from writerforge.evolution import (
     HabitCompetitionEvidence, HabitQuarantineAttestation,
     PortableHabitCandidatePool,
+    PortableHabitReleaseAttestation, verify_portable_habit_release,
 )
 
 KEY = b"wf0ba-p1-synthetic-independent-reviewer"
@@ -254,6 +257,118 @@ class WF0BAPortableHabitCandidateEcologyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             PortableHabitCandidatePool.from_manifest(
                 bundle, **options)
+
+    def _signed_release(self, bundle, *, sequence=3, curator="independentCurator"):
+        private = Ed25519PrivateKey.generate()
+        public = private.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+        draft = PortableHabitReleaseAttestation(
+            manifest_sha256=sha256(canonical(bundle)).hexdigest(),
+            curator_id=curator, release_sequence=sequence, signature_hex="")
+        release = replace(
+            draft, signature_hex=private.sign(
+                canonical(draft.signing_payload())).hex())
+        return release, public, private
+
+    def _verified_release(self, bundle, release, public_key, *,
+                          sequence=3, curator="independentCurator"):
+        return verify_portable_habit_release(
+            bundle, release, pinned_roots={ROOT_SHA: self.original},
+            trusted_public_key=public_key,
+            expected_curator_id=curator,
+            minimum_release_sequence=sequence,
+            expected_manifest_sha256=release.manifest_sha256)
+
+    def test_external_agent_reads_signed_habit_history_with_public_key_only(self):
+        a = self.propose()
+        b = self.propose(proposal_id="patch-beta",
+                         prose="Preserve meaningful deliberate repetition.")
+        child = self.propose(a.candidate_sha256,
+                             proposal_id="patch-alpha-child",
+                             prose="Keep character belief uncertainty separate.")
+        self.pool.quarantine_lineage(contamination(a.candidate_sha256))
+        bundle = self.pool.export_manifest()
+        release, public_key, private = self._signed_release(bundle)
+        self.assertEqual(len(public_key), 32)
+        self.assertNotIn("private_key", bundle)
+        self.assertNotIn("private_key", release.signing_payload())
+        self.assertNotIn(private.private_bytes_raw().hex(),
+                         json.dumps(bundle, ensure_ascii=False))
+        imported = self._verified_release(bundle, release, public_key)
+        self.assertEqual(imported["candidate_count"], 3)
+        self.assertEqual(set(imported["quarantined_candidate_shas"]),
+                         {a.candidate_sha256, child.candidate_sha256})
+        self.assertNotIn(b.candidate_sha256,
+                         imported["quarantined_candidate_shas"])
+        self.assertFalse(imported["can_execute"])
+        self.assertEqual(imported["new_provider_calls"], 0)
+        self.assertFalse(imported["literary_improvement_proven"])
+
+    def test_signed_release_rejects_changed_candidate_and_omitted_quarantine(self):
+        a = self.propose()
+        self.pool.quarantine_lineage(contamination(a.candidate_sha256))
+        bundle = self.pool.export_manifest()
+        release, public_key, private = self._signed_release(bundle)
+        for mutator in (
+            lambda x: x["quarantine_attestations"].clear(),
+            lambda x: x["candidates"][0].update(capsule_utf8='{"forged":true}'),
+            lambda x: x["candidates"][0].update(lifecycle="SHADOW"),
+        ):
+            tampered = json.loads(json.dumps(bundle))
+            mutator(tampered)
+            with self.assertRaises(ValueError):
+                self._verified_release(tampered, release, public_key)
+
+        # Even a fresh curator signature on structurally inconsistent lineage
+        # must not override the actual signed ancestor/child SHA graph.
+        changed = json.loads(json.dumps(bundle))
+        changed["candidates"][0]["capsule_sha256"] = "0" * 64
+        fresh, _, _ = self._signed_release(changed)
+        with self.assertRaises(ValueError):
+            self._verified_release(changed, fresh, public_key)
+
+    def test_release_requires_independently_trusted_public_key_and_curator(self):
+        self.propose()
+        bundle = self.pool.export_manifest()
+        release, public_key, _ = self._signed_release(bundle)
+        another = Ed25519PrivateKey.generate().public_key().public_bytes(
+            Encoding.Raw, PublicFormat.Raw)
+        with self.assertRaises(PermissionError):
+            self._verified_release(bundle, release, another)
+        with self.assertRaises(PermissionError):
+            self._verified_release(bundle, release, public_key,
+                                   curator="impersonatedCurator")
+        with self.assertRaises(PermissionError):
+            self._verified_release(bundle, replace(release, signature_hex="0"*128),
+                                   public_key)
+
+    def test_signed_old_manifest_must_not_roll_back_quarantine_history(self):
+        a = self.propose()
+        old, pub_old, old_signer = self._signed_release(
+            self.pool.export_manifest(), sequence=1)
+        self.pool.quarantine_lineage(contamination(a.candidate_sha256))
+        newest, current_public, current_signer = self._signed_release(
+            self.pool.export_manifest(), sequence=2)
+        self.assertEqual(self._verified_release(
+            self.pool.export_manifest(), newest, current_public,
+            sequence=2)["candidate_count"], 1)
+        with self.assertRaises(PermissionError):
+            self._verified_release(
+                {**self.pool.export_manifest(),
+                 "quarantine_attestations": []}, old, pub_old, sequence=2)
+        with self.assertRaises(PermissionError):
+            self._verified_release(
+                self.pool.export_manifest(), newest, current_public,
+                sequence=3)
+
+    def test_release_verifies_capsule_sha_even_with_valid_curator_signature(self):
+        a = self.propose()
+        bundle = self.pool.export_manifest()
+        candidate = bundle["candidates"][0]
+        candidate["capsule_sha256"] = "0"*64
+        release, key, _ = self._signed_release(bundle)
+        with self.assertRaises(ValueError):
+            self._verified_release(bundle, release, key)
+        self.assertEqual(sha256(self.original).hexdigest(), ROOT_SHA)
 
     def test_export_is_sha_pinned_but_is_not_an_independent_host_test(self):
         candidate = self.propose()
