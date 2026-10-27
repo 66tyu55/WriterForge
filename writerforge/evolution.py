@@ -64,14 +64,18 @@ class OptionalExecutionPermit:
     reviewer_id: str
     review_id: str
     signature: str
+    # Reviewed SHADOW origin. If set, omitting the runtime lineage check is a
+    # permission DOWNGRADE, even when a host misconfigures Capability flags.
+    lineage_candidate_sha256: str | None = None
 
     def signing_payload(self) -> dict:
         return {
-            "kind": "wf.optional-habit-execution.v1",
+            "kind": "wf.optional-habit-execution.v2",
             "name": self.name,
             "revision": self.revision,
             "contract_sha256": self.contract_sha256,
             "capsule_sha256": self.capsule_sha256,
+            "lineage_candidate_sha256": self.lineage_candidate_sha256,
             "dependency_revisions": [list(pair) for pair in self.dependency_revisions],
             "required_host_capabilities": list(self.required_host_capabilities),
             "reviewer_id": self.reviewer_id,
@@ -457,6 +461,10 @@ class SkillRegistry:
                 re.fullmatch(sha_pattern, permit.contract_sha256) is not None and
                 isinstance(permit.capsule_sha256, str) and
                 re.fullmatch(sha_pattern, permit.capsule_sha256) is not None and
+                (permit.lineage_candidate_sha256 is None or
+                 (type(permit.lineage_candidate_sha256) is str and
+                  re.fullmatch(sha_pattern,
+                               permit.lineage_candidate_sha256) is not None)) and
                 type(deps) is tuple and
                 all(type(pair) is tuple and len(pair) == 2 and
                     isinstance(pair[0], str) and
@@ -2050,12 +2058,18 @@ class TrustedPortableHabitLineage:
             # Signed activations stay readable as history, but their source
             # is stale until independently signed for THIS release.
 
-    def reason(self, target_skill: str, active_capsule_bytes: bytes) -> str | None:
+    def reason(
+        self, target_skill: str, active_capsule_bytes: bytes, *,
+        expected_candidate_sha256: str | None = None,
+    ) -> str | None:
         """Reason checked by Scheduler.select, batch, dequeue AND dispatch."""
         with self._lock:
             approved = self._activations.get(target_skill)
             if approved is None:
                 return "OPTIONAL_HABIT_LINEAGE_ACTIVATION_MISSING"
+            if (expected_candidate_sha256 is not None and
+                    expected_candidate_sha256 != approved.candidate_sha256):
+                return "OPTIONAL_HABIT_LINEAGE_SOURCE_PIN_MISMATCH"
             if approved.candidate_sha256 in self._quarantined:
                 return "OPTIONAL_HABIT_LINEAGE_QUARANTINED"
             if (approved.manifest_sha256 != self._manifest_sha or
