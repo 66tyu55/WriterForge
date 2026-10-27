@@ -8,6 +8,8 @@ on:
       - experiments/wf_0bd_chatgpt_first_host_cognitive_proposal_20261027.json
       - experiments/wf_0bd_chatgpt_first_host_source_reanalysis_20261027.py
       - tests/test_wf_0bd_first_live_chat_meta_proposal.py
+      - tests/test_wf_0bd_candidate_archive_persistence.py
+      - 'experiments/wf_0bd_portable_habit_snapshots/**'
       - writerforge/evolution.py
       - writerforge/db.py
   workflow_dispatch:
@@ -35,6 +37,8 @@ jobs:
         run: python -c 'import os; assert not any(os.getenv(n) for n in ("DISCOVERY_API_KEY","DEEPSEEK_API_KEY","OPENAI_API_KEY","OPENROUTER_API_KEY","R2_ACCESS_KEY_ID","R2_SECRET_ACCESS_KEY"))'
       - name: Install offline source + public-key verifier
         run: python -m pip install -e '.[r2,evidence]'
+      - name: First host GONE - restore persisted candidate BEFORE downloading any source artifacts
+        run: python -m unittest discover -s tests -p 'test_wf_0bd_candidate_archive_persistence.py' -v
       - name: Retrieve the EXACT original 0.AY source, not regenerated fiction
         uses: actions/download-artifact@v4
         with:
