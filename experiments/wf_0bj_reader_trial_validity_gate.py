@@ -142,6 +142,7 @@ def assess_saved_trial_adequacy()->dict:
         "quality_gate_is_post_hoc_trial_validity_not_causal_inference":True,
         "request_second_blind_reader":not stop,
         "new_model_calls":0,
+        "new_cpu_model_calls":0,
         "new_paid_provider_calls":0,
         "local_model_calls_replayed":0,
         "original_v1_state":"SHADOW",
