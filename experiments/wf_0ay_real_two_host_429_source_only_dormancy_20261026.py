@@ -12,6 +12,7 @@ No new memory, no new rule/judge, no API/network/R2/Canon interactions.
 from __future__ import annotations
 
 from hashlib import sha256
+import hmac
 import json
 from pathlib import Path
 import re
@@ -236,6 +237,115 @@ def replay_provider_originals(status,requests):
     return inspected,prior_success
 
 
+
+def record_archived_first_host_nutrients(requests, originals, events):
+    """Zero-provider-call first-host feeding from REAL already-verified wires.
+
+    The local HMAC signs this *forensic re-attestation now*, NOT a signature
+    allegedly made by DeepSeek or GLM in October 2026. The original raw bytes
+    live only in 0.AY's immutable artifact / read-only forensic copies; the
+    SQLite journal stores SHA pointers, not original fiction or model text.
+    A 429 is an observed HOST resource stop, never a missing literary answer.
+    """
+    from writerforge.db import WriterForgeDB
+    from writerforge.evolution import (
+        FirstHostNutrientLoop, HostNutrientObservation)
+    real_tasks={t["task_id"]:t for t in read(FROZEN)["tasks"]}
+    verify_key=b"wf0bc-nonproduction-forensic-source-checker-not-provider-key"
+    db_path=OUTPUT/"WF0BC_FIRST_HOST_OBSERVATIONS_SHA_ONLY.sqlite"
+    db=WriterForgeDB(db_path)
+    try:
+        loop=FirstHostNutrientLoop(
+            db=db,scope="wf0bc-archive",
+            verifier_key=verify_key,
+            root_capsule_bytes=CAPSULE.read_bytes(),
+            expected_capsule_sha256=CAPSULE_SHA)
+        recorded=[]
+        for ix,evt in enumerate(events):
+            key=(evt["host"],evt["scene"],evt["arm"])
+            request=requests[key]
+            # Full source-bearing task is passed only transiently. The
+            # previously verified individual prior prose hashes remain in
+            # the original frozen fixture; no excerpts go into the DB.
+            source_bytes=json.dumps(
+                real_tasks[evt["scene"]]["prior_prose"],
+                ensure_ascii=False,sort_keys=True,separators=(",",":"),
+                allow_nan=False).encode("utf8")
+            envelope_bytes=json.dumps(
+                request["actual_provider_input_envelope"],
+                ensure_ascii=False,sort_keys=True,separators=(",",":"),
+                allow_nan=False).encode("utf8")
+            success=evt["completion"]=="REAL_STOPPED_PROVIDER_RESPONSE"
+            provider_bytes=(SOURCE/"original-provider-wires"/evt["host"]/(
+                evt["scene"]+"-"+evt["arm"]+".json")).read_bytes() if success else None
+            author_bytes=(originals[key]["prose"].encode("utf8")
+                          if success else None)
+            receipt=HostNutrientObservation(
+                observation_id=f"obs0ay-{ix+1:02d}-{evt['arm']}",
+                experiment_id="wf0ay-original",
+                host_id=evt["host"], model_id=request["model"],
+                task_id=evt["scene"],arm=evt["arm"],
+                source_sha256=h(source_bytes),
+                request_sha256=h(envelope_bytes),
+                provider_wire_sha256=h(provider_bytes) if success else None,
+                prose_sha256=h(author_bytes) if success else None,
+                status="SUCCESS" if success else "HTTP_429",
+                failure_code=None if success else "HTTP_429",
+                verification_origin=("archived_provider_wire" if success
+                                     else "host_resource_error_receipt"),
+                signature="")
+            signed=hmac.new(
+                verify_key,
+                json.dumps(receipt.signing_payload(),sort_keys=True,
+                           ensure_ascii=False,separators=(",",":"),
+                           allow_nan=False).encode("utf8"),
+                "sha256").hexdigest()
+            from dataclasses import replace
+            receipt=replace(receipt,signature=signed)
+            seen=loop.ingest(
+                receipt,source_bytes=source_bytes,
+                request_bytes=envelope_bytes,
+                provider_wire_bytes=provider_bytes,
+                authored_prose_bytes=author_bytes)
+            recorded.append({
+                "observation_id":receipt.observation_id,
+                "host_id":receipt.host_id,"arm":receipt.arm,
+                "status":receipt.status,
+                "verified_observation_sha256":seen["observation_sha256"],
+                "provider_wire_sha256":receipt.provider_wire_sha256,
+                "source_sha256":receipt.source_sha256})
+        state=loop.disposition("wf0ay-original")
+        need(state["status"]=="DORMANT_HOST_RESOURCE" and
+             state["verified_successes"]==3 and
+             state["host_resource_failures"]==1 and
+             state["shadow_candidates"]==0,
+             "WF0BC_429_CANNOT_BE_HOST_NUTRIENT_PROMOTION")
+        # No new host callback, no reply invented, no model budget reserved.
+        result={
+            "format":"wf.0bc.first-host-real-archival-nutrient.v1",
+            "source_only":True, "host_attestation":"offline_forensic_replay_now",
+            "old_paid_run":TRIAL_RUN,"old_original_artifact":TRIAL_ARTIFACT_ID,
+            "observations":recorded,"disposition":state,
+            "new_provider_calls":0,"new_habit_candidates":0,
+            "habit_version_promoted":False,"literary_gain_proven":False,
+            "original_capsule_sha256":CAPSULE_SHA,
+            "original_capsule_stage":"SHADOW",
+            "journal_contains_original_prose":False,
+            "different_model_APIs_not_independent_agent_hosts":True,
+        }
+        save(OUTPUT/"WF0BC_FIRST_HOST_NUTRIENT_INGEST_STATUS.json",result)
+        print("WF0BC_REAL_FIRST_HOST_NUTRIENT_OBSERVATION_GREEN "+
+              json.dumps({"authentic_provider_responses":3,
+                          "host_http_429":1,
+                          "verified_observations":len(recorded),
+                          "new_provider_calls":0,
+                          "new_habit_candidates":0,
+                          "status":state["status"]},sort_keys=True),flush=True)
+        return result
+    finally:
+        db.close()
+
+
 def main():
     need(not OUTPUT.exists(),"WF0AZ_SOURCE_FIRST_EVIDENCE_NEVER_OVERWRITE")
     OUTPUT.mkdir(parents=True)
@@ -252,6 +362,12 @@ def main():
         old=replay_status()
         requests=replay_requests()
         events,originals=replay_provider_originals(old,requests)
+        # Feed the FIRST host only from exact archived provider wires and
+        # signed 429 source receipts. Never invent the missing fourth text.
+        nutrient=record_archived_first_host_nutrients(requests,originals,events)
+        need(nutrient["new_provider_calls"]==0 and
+             nutrient["new_habit_candidates"]==0,
+             "WF0BC_ARCHIVE_CANNOT_FAKE_HOST_ACQUIRED_HABIT")
         # Exactly one FULL matched pair (DeepSeek/flood-radio).
         # GLM habit arm does NOT exist, nor either historic-seal arm.
         observed=HabitTrialEvidence(
