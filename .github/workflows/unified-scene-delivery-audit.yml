@@ -119,7 +119,7 @@ jobs:
           node-version: '22'
       - name: Do not use model credentials
         run: python -c 'import os; assert not any(os.getenv(n) for n in ("DISCOVERY_API_KEY","DEEPSEEK_API_KEY","OPENAI_API_KEY","OPENROUTER_API_KEY"))'
-      - run: python -m pip install -e '.[r2]'
+      - run: python -m pip install -e '.[r2,evidence]'
       - name: Full WriterForge suite including source-backed scene commitments
         run: python -m unittest discover -s tests -q
       - name: Validate packaged Studio JavaScript without a browser or model
