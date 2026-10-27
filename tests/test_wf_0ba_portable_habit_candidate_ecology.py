@@ -38,7 +38,7 @@ def proposal_bytes(old_raw, *, text, revise=lambda x: x):
     return canonical(document)
 
 
-def competition(sha, *, successes, regressions=0, cost=8,
+def competition(sha, *, successes=2, regressions=0, cost=8,
                 evaluator="independentReviewer", holdout=HOLDOUT_SHA):
     draft = HabitCompetitionEvidence(
         candidate_sha256=sha, evaluator_id=evaluator,
