@@ -68,7 +68,7 @@ class WF0BIBlindRealModelEvidence(unittest.TestCase):
             self.assertEqual(packet["format"],"wf.0bi.blinded-human-review-packet.v1")
             self.assertEqual(len(packet["items"]),5)
             self.assertEqual({item["host_group"] for item in packet["items"]},
-                             {"local_0bg","local_0bh"})
+                             {"group_a","group_b"})
             self.assertTrue(all(len(x["prior_prose"])==2 for x in packet["items"]))
             self.assertTrue(all(x["candidate_a"] and x["candidate_b"] for x in packet["items"]))
             html_text=html.read_text("utf8")
