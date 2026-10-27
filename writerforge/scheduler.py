@@ -1,7 +1,9 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Iterable
+from typing import Callable, Iterable, Mapping
+
+from .evolution import OptionalExecutionPermit, SkillRegistry
 
 from .lane_scheduler import (
     Lane, DirtyDomain, EventEnvelope, EventBatcher,
@@ -29,6 +31,8 @@ class Capability:
     domains: DirtyDomain = DirtyDomain.NONE
     timeout_ticks: int = 0
     cancel_if_stale: bool = True
+    # Deliberate opt-in ONLY; never reinterpret old core capabilities as habits.
+    optional_habit: bool = False
 
 
 @dataclass
@@ -41,6 +45,10 @@ class ScheduleDecision:
     skipped_dirty: list[str] = field(default_factory=list)
     deferred: list[str] = field(default_factory=list)
     dropped_stale: list[str] = field(default_factory=list)
+    skipped_authority: dict[str, str] = field(default_factory=dict)
+    dropped_unauthorized: list[str] = field(default_factory=list)
+    # Execution receipts are internal revalidation bindings, not permissions.
+    optional_receipts: dict[str, str] = field(default_factory=dict)
 
 
 DEFAULT_CAPABILITIES = (
@@ -165,10 +173,98 @@ class SkillScheduler:
     cancellation, starvation protection and transition yielding.
     """
 
-    def __init__(self, capabilities: Iterable[Capability] = DEFAULT_CAPABILITIES):
+    def __init__(
+        self, capabilities: Iterable[Capability] = DEFAULT_CAPABILITIES, *,
+        registry: SkillRegistry | None = None,
+        optional_permits: Mapping[str, OptionalExecutionPermit] | None = None,
+        execution_verifier_key: bytes | None = None,
+        artifact_loader: Callable[[str], bytes] | None = None,
+        host_capabilities: Callable[[], Iterable[str]] | None = None,
+        enable_optional_habits: bool = False,
+    ):
         self.capabilities = tuple(capabilities)
         self.event_batcher = EventBatcher()
         self.task_queue = LaneTaskQueue()
+        # A sealed core cannot be disabled or shadowed by naming an optional
+        # Skill after it. The registry is not a dependency of the old kernel.
+        core_names = frozenset(c.name for c in DEFAULT_CAPABILITIES)
+        seen: dict[str, Capability] = {}
+        for cap in self.capabilities:
+            if cap.optional_habit and cap.name in core_names:
+                raise ValueError("OPTIONAL_HABIT_CANNOT_SHADOW_CORE")
+            if cap.name in seen and (cap.optional_habit or seen[cap.name].optional_habit):
+                raise ValueError("OPTIONAL_HABIT_DUPLICATE_CAPABILITY")
+            seen[cap.name] = cap
+        self._caps_by_name = seen
+        self._has_optional = any(c.optional_habit for c in self.capabilities)
+        self.registry = registry
+        self._optional_permits = dict(optional_permits or {})
+        self._execution_verifier_key = execution_verifier_key
+        self._artifact_loader = artifact_loader
+        self._host_capabilities = host_capabilities
+        self._enable_optional_habits = enable_optional_habits
+
+    def _optional_reason(self, cap: Capability) -> str | None:
+        if not cap.optional_habit:
+            return None
+        if not self._enable_optional_habits:
+            return "OPTIONAL_HABIT_DISABLED"
+        if not isinstance(self.registry, SkillRegistry):
+            return "OPTIONAL_HABIT_AUTHORITY_UNAVAILABLE"
+        permit = self._optional_permits.get(cap.name)
+        if permit is None:
+            return "OPTIONAL_HABIT_APPROVAL_MISSING"
+        if not isinstance(permit, OptionalExecutionPermit) or permit.name != cap.name:
+            return "OPTIONAL_HABIT_ATTESTATION_INVALID"
+        if self._artifact_loader is None or not callable(self._artifact_loader):
+            return "OPTIONAL_HABIT_CAPSULE_UNAVAILABLE"
+        try:
+            # Re-read the actual approved artifact; don't trust the descriptor
+            # or a digest echoed by the host's model.
+            raw = self._artifact_loader(cap.name)
+        except Exception:
+            return "OPTIONAL_HABIT_CAPSULE_UNAVAILABLE"
+        try:
+            rights = (self._host_capabilities() if callable(self._host_capabilities)
+                      else ())
+        except Exception:
+            return "OPTIONAL_HABIT_HOST_PERMISSION_MISSING"
+        return self.registry.optional_execution_reason(
+            permit, verifier_key=self._execution_verifier_key,
+            capsule_bytes=raw, host_capabilities=rights)
+
+    def _optional_binding(self, name: str) -> str:
+        permit = self._optional_permits.get(name)
+        return permit.fingerprint() if isinstance(permit, OptionalExecutionPermit) else ""
+
+    def _optional_receipts(self, names: Iterable[str]) -> dict[str, str]:
+        return {name: self._optional_binding(name) for name in names
+                if name in self._caps_by_name and
+                self._caps_by_name[name].optional_habit}
+
+    def execute_optional(
+        self, decision: ScheduleDecision, name: str, executor: Callable[[], object],
+    ) -> object:
+        """Only entry for invoking a selected *optional* habit through WF.
+
+        The selection receipt is never enough: trust, artifact, permissions and
+        dependencies must still be valid just before the host callback starts.
+        This cannot sandbox arbitrary third-party Python or stop a callback
+        already running when an external process revokes its permissions.
+        """
+        cap = self._caps_by_name.get(name)
+        if (not isinstance(decision, ScheduleDecision) or
+                cap is None or not cap.optional_habit or
+                name not in decision.selected or
+                name not in decision.optional_receipts or
+                not callable(executor)):
+            raise PermissionError("OPTIONAL_HABIT_DISPATCH_NOT_SELECTED")
+        reason = self._optional_reason(cap)
+        if reason is not None:
+            raise PermissionError(reason)
+        if decision.optional_receipts[name] != self._optional_binding(name):
+            raise PermissionError("OPTIONAL_HABIT_DISPATCH_BINDING_CHANGED")
+        return executor()
 
     @staticmethod
     def _allowed_for_priority(max_priority: Priority) -> Lane:
@@ -203,10 +299,11 @@ class SkillScheduler:
         event_names: set[str],
         dirty: DirtyDomain,
         max_priority: Priority,
-    ) -> tuple[list[Capability], list[str], list[str]]:
+    ) -> tuple[list[Capability], list[str], list[str], dict[str, str]]:
         selected: list[Capability] = []
         skipped_trigger: list[str] = []
         skipped_dirty: list[str] = []
+        skipped_authority: dict[str, str] = {}
         for c in self.capabilities:
             if c.priority > max_priority:
                 continue
@@ -216,8 +313,12 @@ class SkillScheduler:
             if not self._dirty_relevant(c, dirty):
                 skipped_dirty.append(c.name)
                 continue
+            reason = self._optional_reason(c)
+            if reason is not None:
+                skipped_authority[c.name] = reason
+                continue
             selected.append(c)
-        return selected, skipped_trigger, skipped_dirty
+        return selected, skipped_trigger, skipped_dirty, skipped_authority
 
     @staticmethod
     def _static_rank(c: Capability, dirty: DirtyDomain) -> tuple[int, int, int, int, str]:
@@ -237,7 +338,7 @@ class SkillScheduler:
         dirty_domains: DirtyDomain | None = None,
     ) -> ScheduleDecision:
         dirty = self._event_dirty(event, dirty_domains)
-        matches, skipped_trigger, skipped_dirty = self._matching(
+        matches, skipped_trigger, skipped_dirty, skipped_authority = self._matching(
             event_names={event}, dirty=dirty, max_priority=max_priority
         )
         matches.sort(key=lambda c: self._static_rank(c, dirty))
@@ -255,6 +356,8 @@ class SkillScheduler:
             skipped_budget=skipped_budget,
             skipped_trigger=skipped_trigger,
             skipped_dirty=skipped_dirty,
+            skipped_authority=skipped_authority,
+            optional_receipts=self._optional_receipts(selected),
         )
 
     def batch_decision(
@@ -276,7 +379,7 @@ class SkillScheduler:
         for batch in batches:
             event_names.update(batch.names)
             dirty |= batch.dirty
-        matches, skipped_trigger, skipped_dirty = self._matching(
+        matches, skipped_trigger, skipped_dirty, skipped_authority = self._matching(
             event_names=event_names, dirty=dirty, max_priority=max_priority
         )
         matches.sort(key=lambda c: self._static_rank(c, dirty))
@@ -293,6 +396,8 @@ class SkillScheduler:
             skipped_budget=skipped_budget,
             skipped_trigger=skipped_trigger,
             skipped_dirty=skipped_dirty,
+            skipped_authority=skipped_authority,
+            optional_receipts=self._optional_receipts(selected),
         )
 
     def enqueue_event(self, event: EventEnvelope) -> None:
@@ -319,16 +424,18 @@ class SkillScheduler:
         batches = self.event_batcher.flush()
         skipped_trigger: list[str] = []
         skipped_dirty: list[str] = []
+        skipped_authority: dict[str, str] = {}
         for batch in batches:
             self.task_queue.advance_generation(batch.scope, batch.generation)
             event_names = set(batch.names)
-            matches, st, sd = self._matching(
+            matches, st, sd, sa = self._matching(
                 event_names=event_names,
                 dirty=batch.dirty,
                 max_priority=max_priority,
             )
             skipped_trigger.extend(st)
             skipped_dirty.extend(sd)
+            skipped_authority.update(sa)
             fingerprint = f"{'+'.join(sorted(event_names))}:{int(batch.dirty)}"
             transition_id = batch.transition_ids[-1] if batch.transition_ids else None
             for c in matches:
@@ -344,12 +451,33 @@ class SkillScheduler:
                     transition_id=transition_id,
                     cancel_if_stale=c.cancel_if_stale,
                     source_priority=batch.priority,
+                    execution_grant_id=(self._optional_binding(c.name)
+                                        if c.optional_habit else ""),
                 ), now_tick=now_tick)
+
+        def authorize_queued(task: LaneTask) -> bool:
+            cap = self._caps_by_name.get(task.name)
+            if cap is None:
+                skipped_authority[task.name] = "OPTIONAL_HABIT_UNKNOWN_QUEUED_TASK"
+                return False
+            if not cap.optional_habit:
+                return True  # Historical core scheduling is unchanged.
+            reason = self._optional_reason(cap)
+            if reason is None and (
+                not task.execution_grant_id or
+                task.execution_grant_id != self._optional_binding(task.name)
+            ):
+                reason = "OPTIONAL_HABIT_QUEUED_BINDING_CHANGED"
+            if reason is not None:
+                skipped_authority[task.name] = reason
+                return False
+            return True
 
         out = self.task_queue.flush(
             budget=budget,
             now_tick=now_tick,
             allowed=self._allowed_for_priority(max_priority),
+            authorize_task=authorize_queued if self._has_optional else None,
         )
         return ScheduleDecision(
             "pending",
@@ -359,6 +487,9 @@ class SkillScheduler:
             skipped_dirty=skipped_dirty,
             deferred=list(out.deferred),
             dropped_stale=list(out.dropped_stale),
+            skipped_authority=skipped_authority,
+            dropped_unauthorized=list(out.dropped_unauthorized),
+            optional_receipts=self._optional_receipts(x.name for x in out.selected),
         )
 
     def drafting_decision(
