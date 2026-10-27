@@ -520,6 +520,15 @@ class SkillRegistry:
                 return "OPTIONAL_HABIT_CAPSULE_VERSION_MISMATCH"
             if capsule.get("lifecycle") != "ACTIVE":
                 return "OPTIONAL_HABIT_CAPSULE_NOT_ACTIVE"
+            # A complete portable habit contract cannot evade signed ancestry
+            # through a host's mistaken legacy optional_habit configuration.
+            # Older minimal synthetic / nonportable optional capsules keep
+            # their original P0 behavior, but source-bearing transferable
+            # contracts require a cryptographically pinned parent candidate.
+            if (all(k in capsule for k in
+                    ("authority", "transfer", "provenance", "stopping")) and
+                    permit.lineage_candidate_sha256 is None):
+                return "OPTIONAL_HABIT_LINEAGE_SOURCE_PIN_REQUIRED"
         except (UnicodeError, ValueError, TypeError):
             return "OPTIONAL_HABIT_CAPSULE_ID_INVALID"
 
