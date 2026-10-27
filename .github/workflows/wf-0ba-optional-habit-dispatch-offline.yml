@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: wf-0ba-optionally-authorized-habit-regression
@@ -50,6 +51,13 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_wf_0bc_first_host_nutrient_loop.py' -v
       - name: Capture actual writing-model application SHA receipts without new inference
         run: python -m unittest discover -s tests -p 'test_wf_0bc_live_writer_host_capture.py' -v
+      - name: Retrieve immutable 0.AY originals required by 0.BD provenance tests
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40354436598
+          name: WF-0AY-Two-REAL-Model-Hosts-Portable-Habit-Eight-Capped-Original-Wires
+          github-token: ${{ github.token }}
+          path: wf0ay_real_two_hosts_partial_source
       - name: Full zero-model WriterForge regression
         run: python -m unittest discover -s tests -q
       - name: Studio JavaScript syntax check
