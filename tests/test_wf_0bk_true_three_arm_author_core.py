@@ -129,9 +129,9 @@ class WF0BKRealCoreThreeArm(unittest.TestCase):
         self.assertFalse(receipt["literary_gain_proven"])
         self.assertIsNone(receipt["literary_winner"])
         self.assertEqual(receipt["canonical_fact_writes"],0)
-        self.assertTrue(receipt["arms"]["bare"]["no_wf_core_invoked"])
+        self.assertTrue(receipt["arm_results"]["bare"]["no_wf_core_invoked"])
         for arm in ("wf_core","wf_habit"):
-            info=receipt["arms"][arm]
+            info=receipt["arm_results"][arm]
             self.assertEqual(info["origin"],"REAL_AUTONOMOUS_WRITING_CORE")
             self.assertEqual(info["writing_mode"],"continuity_guard")
             self.assertGreater(info["g_rolling_replan_calls"],0)
@@ -155,7 +155,7 @@ class WF0BKRealCoreThreeArm(unittest.TestCase):
                     outer.assertNotIn("【认知候选（仅实验数据）】",packet.prompt)
                 if kwargs["arm"]=="wf_habit":
                     outer.assertIn("【认知候选（仅实验数据）】",packet.prompt)
-                    outer.assertIn("行动尝试",packet.prompt)
+                    outer.assertIn("source-verified facts separate",packet.prompt)
                 return super().__call__(packet,**kwargs)
         self.invoke(host=Checking())
 
