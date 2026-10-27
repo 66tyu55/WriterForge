@@ -35,8 +35,6 @@ jobs:
         run: python -m pip install -e '.[r2,evidence]'
       - name: Test real provider 429 vs actual habit falsifier
         run: python -m unittest discover -s tests -p 'test_wf_0az_meta_habit_resource_stop.py' -v
-      - name: Full WriterForge regression incl portable habit and revised G writer
-        run: python -m unittest discover -s tests -q
       - name: Retrieve immutable original 0.AY DeepSeek and GLM source / failed fourth request
         uses: actions/download-artifact@v4
         with:
@@ -44,6 +42,8 @@ jobs:
           name: WF-0AY-Two-REAL-Model-Hosts-Portable-Habit-Eight-Capped-Original-Wires
           github-token: ${{ github.token }}
           path: wf0ay_real_two_hosts_partial_source
+      - name: Full WriterForge regression incl portable habit and revised G writer
+        run: python -m unittest discover -s tests -q
       - name: Verify original live provider wires and classify 429 without payment
         run: |
           python -m py_compile experiments/wf_0ay_real_two_host_429_source_only_dormancy_20261026.py
