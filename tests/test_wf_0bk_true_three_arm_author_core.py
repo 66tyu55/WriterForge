@@ -142,6 +142,41 @@ class WF0BKRealCoreThreeArm(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             self.invoke()
 
+    def test_paired_WF_arms_must_use_same_published_source_snapshot(self):
+        receipt,_,_=self.invoke(directory="source-matched")
+        self.assertEqual(
+            receipt["arm_results"]["wf_core"]["published_source_snapshot_sha256"],
+            receipt["arm_results"]["wf_habit"]["published_source_snapshot_sha256"])
+        self.assertEqual(
+            receipt["wf_paired_published_source_sha256"],
+            receipt["arm_results"]["wf_core"]["published_source_snapshot_sha256"])
+
+    def test_changed_WF_source_scope_is_rejected_before_candidate_model(self):
+        @contextmanager
+        def divergent(arm):
+            with self.factory(arm) as assist:
+                if arm=="wf_habit":
+                    assist.goal="另外一套主角与旧书店的情节，不能冒充相同的原著范围。"
+                yield assist
+        host=SyntheticHost()
+        lease=OptionalHostResourceLease(
+            authorization_id="synthetic-paired-source-mismatch",
+            allowances={"bare":8,"wf_core":8,"wf_habit":8})
+        with self.assertRaisesRegex(ValueError,"SOURCE_SCOPE_DIVERGED"):
+            execute_three_arm_trial(
+                outline=OUTLINE,task=TASK,source_prose=SOURCE,
+                model_id="fixture-author",call_model=host,
+                fresh_assist_factory=divergent,
+                output_dir=self.root/"different-source",
+                host_lease=lease,fixture_mode=True)
+        self.assertEqual(len(host.by_arm.get("bare",[])),1)
+        self.assertEqual(len(host.by_arm.get("wf_core",[])),5)
+        self.assertEqual(len(host.by_arm.get("wf_habit",[])),0)
+        state=json.loads((self.root/"different-source"/"STATUS.json").read_text("utf8"))
+        self.assertEqual(state["status"],"DORMANT_CORE_OR_HOST_FAILURE_NO_RETRY")
+        self.assertEqual(state["arm_results"]["wf_habit"]["status"],"FAILED_NO_RETRY")
+        self.assertFalse(state["auto_promote"])
+
     def test_bare_never_receives_WF_internals_or_habit_instruction(self):
         outer=self
         class Checking(SyntheticHost):
