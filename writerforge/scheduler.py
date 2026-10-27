@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from collections import OrderedDict
 import secrets
 import threading
+import re
 from enum import IntEnum
 from typing import Callable, Iterable, Mapping
 
@@ -166,6 +167,88 @@ DEFAULT_EVENT_DIRTY: dict[str, DirtyDomain] = {
 }
 
 
+class OptionalHostResourceUnavailable(RuntimeError):
+    """Structured host adapter report; never synthesized from missing prose.
+
+    The trusted host adapter, NOT model text, reports resource errors such
+    as HTTP 429. No caller automatically retries or changes SkillRegistry.
+    """
+    _KNOWN = frozenset({"HTTP_429", "HOST_QUOTA", "HOST_UNAVAILABLE"})
+
+    def __init__(self, code: str):
+        if code not in self._KNOWN:
+            raise ValueError("OPTIONAL_HABIT_HOST_RESOURCE_CODE_INVALID")
+        self.code = code
+        super().__init__(code)
+
+
+class OptionalHostResourceLease:
+    """Host-owned local call-attempt budget shared by several schedulers.
+
+    A Skill can't borrow resources merely by carrying a portable capsule.
+    The host must explicitly inject this object and a permission provider.
+    This ledger limits *callback attempts*, not raw provider tokens or
+    arbitrary network operations within an untrusted callback. The actual
+    independent host must enforce its own model API limits and preserve a
+    durable allocation if workers are separate processes.
+    """
+
+    MAX_SKILLS = 32
+    MAX_ATTEMPTS_PER_SKILL = 1024
+    _NAME = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,79}\Z")
+
+    def __init__(self, *, authorization_id: str, allowances: Mapping[str, int]):
+        if (not isinstance(authorization_id, str) or
+                not 6 <= len(authorization_id) <= 120 or
+                re.fullmatch(r"[A-Za-z0-9_-]+", authorization_id) is None):
+            raise ValueError("OPTIONAL_HABIT_HOST_LEASE_ID_INVALID")
+        if (not isinstance(allowances, Mapping) or
+                not 1 <= len(allowances) <= self.MAX_SKILLS or
+                any(type(name) is not str or
+                    self._NAME.fullmatch(name) is None or
+                    type(calls) is not int or
+                    not 1 <= calls <= self.MAX_ATTEMPTS_PER_SKILL
+                    for name, calls in allowances.items())):
+            raise ValueError("OPTIONAL_HABIT_HOST_ALLOWANCE_INVALID")
+        self.authorization_id = authorization_id
+        self._remaining = dict(allowances)
+        self._dormant: set[str] = set()
+        self._lock = threading.Lock()
+
+    def _reason_locked(self, name: str) -> str | None:
+        if name not in self._remaining:
+            return "OPTIONAL_HABIT_HOST_SKILL_NOT_GRANTED"
+        if name in self._dormant:
+            return "OPTIONAL_HABIT_HOST_RESOURCE_DORMANT"
+        if self._remaining[name] <= 0:
+            return "OPTIONAL_HABIT_HOST_BUDGET_EXHAUSTED"
+        return None
+
+    def reason(self, name: str) -> str | None:
+        with self._lock:
+            return self._reason_locked(name)
+
+    def spend(self, name: str) -> None:
+        """Atomically charge exactly one attempt before invoking host code."""
+        with self._lock:
+            reason = self._reason_locked(name)
+            if reason is not None:
+                raise PermissionError(reason)
+            self._remaining[name] -= 1
+
+    def suspend_resource(self, name: str, error: OptionalHostResourceUnavailable):
+        """No auto-retry or automatic reactivation; renewed lease is host-owned."""
+        if not isinstance(error, OptionalHostResourceUnavailable):
+            raise TypeError("OPTIONAL_HABIT_HOST_RESOURCE_SIGNAL_REQUIRED")
+        with self._lock:
+            if name in self._remaining:
+                self._dormant.add(name)
+
+    def remaining(self, name: str) -> int:
+        with self._lock:
+            return self._remaining.get(name, 0)
+
+
 class SkillScheduler:
     """
     V15 hybrid scheduler.
@@ -186,6 +269,7 @@ class SkillScheduler:
         artifact_loader: Callable[[str], bytes] | None = None,
         host_capabilities: Callable[[], Iterable[str]] | None = None,
         enable_optional_habits: bool = False,
+        host_resource_lease: OptionalHostResourceLease | None = None,
     ):
         self.capabilities = tuple(capabilities)
         self.event_batcher = EventBatcher()
@@ -208,6 +292,7 @@ class SkillScheduler:
         self._artifact_loader = artifact_loader
         self._host_capabilities = host_capabilities
         self._enable_optional_habits = enable_optional_habits
+        self._host_resource_lease = host_resource_lease
         # A static approval signature is NOT a spendable run token. Without
         # single-use issuance a selection result could be replayed indefinitely
         # against an authorized host's inference budget. This per-scheduler
@@ -242,9 +327,14 @@ class SkillScheduler:
                       else ())
         except Exception:
             return "OPTIONAL_HABIT_HOST_PERMISSION_MISSING"
-        return self.registry.optional_execution_reason(
+        reason = self.registry.optional_execution_reason(
             permit, verifier_key=self._execution_verifier_key,
             capsule_bytes=raw, host_capabilities=rights)
+        if reason is not None:
+            return reason
+        if not isinstance(self._host_resource_lease, OptionalHostResourceLease):
+            return "OPTIONAL_HABIT_HOST_BUDGET_REQUIRED"
+        return self._host_resource_lease.reason(cap.name)
 
     def _optional_binding(self, name: str) -> str:
         permit = self._optional_permits.get(name)
@@ -310,7 +400,17 @@ class SkillScheduler:
         reason = self._optional_reason(cap)
         if reason is not None:
             raise PermissionError(reason)
-        return executor()
+        # Multiple distinct scheduler receipts can race against ONE host grant.
+        # Its atomic spend is the final local resource gate before callbacks.
+        self._host_resource_lease.spend(name)
+        try:
+            return executor()
+        except OptionalHostResourceUnavailable as resource_error:
+            # Only an explicitly typed REAL host-adapter resource failure
+            # (not model prose, ordinary exceptions or literary criticism)
+            # pauses new optional work for this host authorization.
+            self._host_resource_lease.suspend_resource(name, resource_error)
+            raise
 
     @staticmethod
     def _allowed_for_priority(max_priority: Priority) -> Lane:
