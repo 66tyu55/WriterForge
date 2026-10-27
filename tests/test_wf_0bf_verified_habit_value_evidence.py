@@ -78,7 +78,8 @@ class WF0BFSourceVerifiedAdjudication(unittest.TestCase):
             author_input_sha256=sha(request),provider_wire_sha256=sha(wire),
             authored_text_sha256=sha(story.encode("utf8")),
             prompt_tokens=prompt_tokens,completion_tokens=completion_tokens,
-            total_tokens=prompt_tokens+completion_tokens,signature_hex="")
+            total_tokens=prompt_tokens+completion_tokens,signature_hex="",
+            evidence_class="SYNTHETIC_TEST_ONLY")
         return replace(unsigned,signature_hex=sign(self.host_private,unsigned)),request,wire
 
     def complete(self,*,v1_prompt=120,v2_prompt=130,v1_completion=90,
@@ -111,14 +112,15 @@ class WF0BFSourceVerifiedAdjudication(unittest.TestCase):
         return out
 
     def adjudicate(self,receipts,votes,**extra):
-        return adjudicate_portable_habit_value(
-            preflight=self.preflight,
+        kwargs=dict(preflight=self.preflight,
             expected_preflight_sha256=self.preflight_sha,
             host_public_key=pub(self.host_private),
             reviewer_public_keys=self.keys,
             proposer_id=PROPOSER,
             source_locked_wires=receipts,
-            blind_reader_votes=votes,**extra)
+            blind_reader_votes=votes)
+        kwargs.update(extra)
+        return adjudicate_portable_habit_value(**kwargs)
 
     def test_absent_model_wires_do_not_manufacture_failure_or_benefit(self):
         result=self.adjudicate([],[])
@@ -149,7 +151,7 @@ class WF0BFSourceVerifiedAdjudication(unittest.TestCase):
     def test_wrong_preflight_or_swapped_original_source_rejected(self):
         a=self.artifact(self.preflight["cases"][0]["case_id"],"v1")
         with self.assertRaises(ValueError):
-            self.adjudicate([a],[],expected_override="0"*64)
+            self.adjudicate([a],[],expected_preflight_sha256="0"*64)
         with self.assertRaises((ValueError,PermissionError)):
             self.adjudicate([(replace(a[0],case_id="completed-deliverx"),*a[1:])],[])
 
