@@ -45,6 +45,47 @@ class CapabilityLag:
     actual_level: int | None
 
 
+@dataclass(frozen=True)
+class OptionalExecutionPermit:
+    """External, reviewer-signed authorization for ONE pinned optional artifact.
+
+    This is not a model claim, a registry promotion or a host API credential.
+    The signer verifies the intended contract/capsule before signing; the
+    scheduler rechecks current registry state and actual bytes at dispatch.
+    """
+
+    name: str
+    revision: int
+    contract_sha256: str
+    capsule_sha256: str
+    dependency_revisions: tuple[tuple[str, int], ...]
+    required_host_capabilities: tuple[str, ...]
+    reviewer_id: str
+    review_id: str
+    signature: str
+
+    def signing_payload(self) -> dict:
+        return {
+            "kind": "wf.optional-habit-execution.v1",
+            "name": self.name,
+            "revision": self.revision,
+            "contract_sha256": self.contract_sha256,
+            "capsule_sha256": self.capsule_sha256,
+            "dependency_revisions": [list(pair) for pair in self.dependency_revisions],
+            "required_host_capabilities": list(self.required_host_capabilities),
+            "reviewer_id": self.reviewer_id,
+            "review_id": self.review_id,
+            "auto_promotion": False,
+        }
+
+    def fingerprint(self) -> str:
+        """Queue/dispatch binding; replaying an older approval won't fit."""
+        payload = {"grant": self.signing_payload(), "signature": self.signature}
+        return sha256(json.dumps(
+            payload, ensure_ascii=False, sort_keys=True,
+            separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()
+
+
 class SkillRegistry:
     """Read model and durable storage for skills; formal upgrades are gated.
 
@@ -88,6 +129,21 @@ class SkillRegistry:
     @staticmethod
     def _snapshot(item: CapabilityContract) -> CapabilityContract:
         return replace(item,depends_on=dict(item.depends_on))
+
+    @staticmethod
+    def execution_contract_sha256(item: CapabilityContract) -> str:
+        """Canonical identity of the FULL registry contract, not just its name."""
+        if not isinstance(item, CapabilityContract):
+            raise TypeError("OPTIONAL_HABIT_CONTRACT_REQUIRED")
+        payload = {
+            "name": item.name, "level": item.level,
+            "revision": item.revision, "status": item.status.value,
+            "statement": item.statement,
+            "dependencies": item.depends_on,
+        }
+        return sha256(json.dumps(
+            payload, ensure_ascii=False, sort_keys=True,
+            separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()
 
     def _bind_promotion_verifier(self,key:bytes|None):
         if key is None:
@@ -341,6 +397,168 @@ class SkillRegistry:
                     conn.rollback()
                 raise
         self._skills[name]=new
+
+    def _live_execution_contract(self, name: str):
+        """Check SQLite anew at every permission boundary, never trust a cached row.
+
+        Another registry/process may have revoked or changed a contract after
+        this instance loaded it. On any disagreement, fail closed without
+        silently resynchronizing the permission or minting a new revision.
+        """
+        cached = self._skills.get(name)
+        if cached is None:
+            return None, "OPTIONAL_HABIT_NOT_REGISTERED"
+        if self.db is None:
+            return cached, None
+        try:
+            row = self.db.conn.execute(
+                "SELECT level,status,revision,statement,dependencies_json "
+                "FROM skill_capabilities WHERE scope=? AND skill_name=?",
+                (self.scope, name)).fetchone()
+            if row is None:
+                return None, "OPTIONAL_HABIT_REGISTRY_STALE"
+            actual = CapabilityContract(
+                name, int(row["level"]), row["statement"],
+                json.loads(row["dependencies_json"]),
+                SkillStatus(row["status"]), int(row["revision"]))
+            if actual != cached:
+                return None, "OPTIONAL_HABIT_REGISTRY_STALE"
+        except Exception:
+            return None, "OPTIONAL_HABIT_REGISTRY_STALE"
+        return cached, None
+
+    def optional_execution_reason(
+        self, permit: OptionalExecutionPermit, *,
+        verifier_key: bytes | None, capsule_bytes: bytes,
+        host_capabilities: Iterable[str],
+    ) -> str | None:
+        """None means approved for this dispatch; otherwise a stable denial.
+
+        Only the explicit scheduler opt-in calls this. HMAC controls permission;
+        SHA controls artifact bytes, never literary truth; registry/SQLite
+        control lifecycle/dependency state. No model or remote resource is used.
+        """
+        if not isinstance(permit, OptionalExecutionPermit):
+            return "OPTIONAL_HABIT_ATTESTATION_INVALID"
+        if not isinstance(verifier_key, bytes) or len(verifier_key) < 16:
+            return "OPTIONAL_HABIT_AUTHORITY_UNAVAILABLE"
+        sha_pattern = r"[0-9a-f]{64}"
+        name_pattern = r"[A-Za-z][A-Za-z0-9_-]{0,79}"
+        reviewer_pattern = r"[A-Za-z0-9_-]{2,80}"
+        try:
+            deps = permit.dependency_revisions
+            rights = permit.required_host_capabilities
+            valid = (
+                isinstance(permit.name, str) and
+                re.fullmatch(name_pattern, permit.name) is not None and
+                type(permit.revision) is int and permit.revision >= 1 and
+                isinstance(permit.contract_sha256, str) and
+                re.fullmatch(sha_pattern, permit.contract_sha256) is not None and
+                isinstance(permit.capsule_sha256, str) and
+                re.fullmatch(sha_pattern, permit.capsule_sha256) is not None and
+                type(deps) is tuple and
+                all(type(pair) is tuple and len(pair) == 2 and
+                    isinstance(pair[0], str) and
+                    re.fullmatch(name_pattern, pair[0]) is not None and
+                    type(pair[1]) is int and pair[1] >= 1 for pair in deps) and
+                list(deps) == sorted(set(deps)) and
+                type(rights) is tuple and len(rights) >= 1 and
+                all(isinstance(cap, str) and
+                    re.fullmatch(name_pattern, cap) is not None for cap in rights) and
+                len(set(rights)) == len(rights) and
+                isinstance(permit.reviewer_id, str) and
+                re.fullmatch(reviewer_pattern, permit.reviewer_id) is not None and
+                isinstance(permit.review_id, str) and
+                re.fullmatch(reviewer_pattern, permit.review_id) is not None and
+                isinstance(permit.signature, str) and
+                re.fullmatch(sha_pattern, permit.signature) is not None
+            )
+            if not valid:
+                return "OPTIONAL_HABIT_ATTESTATION_INVALID"
+            payload = permit.signing_payload()
+            expected = hmac.new(
+                verifier_key,
+                json.dumps(payload, ensure_ascii=False, sort_keys=True,
+                           separators=(",", ":"), allow_nan=False).encode("utf-8"),
+                "sha256").hexdigest()
+            if not hmac.compare_digest(permit.signature, expected):
+                return "OPTIONAL_HABIT_ATTESTATION_INVALID"
+        except (ValueError, TypeError, KeyError):
+            return "OPTIONAL_HABIT_ATTESTATION_INVALID"
+
+        if type(capsule_bytes) is not bytes or (
+                sha256(capsule_bytes).hexdigest() != permit.capsule_sha256):
+            return "OPTIONAL_HABIT_CAPSULE_SHA_MISMATCH"
+
+        # A signed digest does not license a differently named or SHADOW
+        # capsule; even a valid signature can't rewrite its stage.
+        try:
+            def unique_pairs(pairs):
+                result = {}
+                for key, value in pairs:
+                    if key in result:
+                        raise ValueError("duplicate capsule field")
+                    result[key] = value
+                return result
+            capsule = json.loads(capsule_bytes.decode("utf-8", "strict"),
+                                 object_pairs_hook=unique_pairs)
+            if (type(capsule) is not dict or
+                    capsule.get("format") != "wf.habit.capsule.v1" or
+                    capsule.get("id") != permit.name):
+                return "OPTIONAL_HABIT_CAPSULE_ID_INVALID"
+            if (type(capsule.get("revision")) is not int or
+                    capsule["revision"] != permit.revision):
+                return "OPTIONAL_HABIT_CAPSULE_VERSION_MISMATCH"
+            if capsule.get("lifecycle") != "ACTIVE":
+                return "OPTIONAL_HABIT_CAPSULE_NOT_ACTIVE"
+        except (UnicodeError, ValueError, TypeError):
+            return "OPTIONAL_HABIT_CAPSULE_ID_INVALID"
+
+        item, reason = self._live_execution_contract(permit.name)
+        if reason is not None:
+            return reason
+        if item.status != SkillStatus.ACTIVE:
+            return "OPTIONAL_HABIT_NOT_ACTIVE"
+        if (item.revision != permit.revision or
+                self.execution_contract_sha256(item) != permit.contract_sha256):
+            return "OPTIONAL_HABIT_CONTRACT_VERSION_MISMATCH"
+
+        expected_deps = dict(permit.dependency_revisions)
+        observed_deps = set()
+
+        def validate_dependencies(contract, ancestors):
+            for dep_name, min_level in sorted(contract.depends_on.items()):
+                if dep_name in ancestors:
+                    return "OPTIONAL_HABIT_DEPENDENCY_CYCLE"
+                dep, invalid = self._live_execution_contract(dep_name)
+                if invalid is not None:
+                    return ("OPTIONAL_HABIT_DEPENDENCY_MISSING"
+                            if invalid == "OPTIONAL_HABIT_NOT_REGISTERED"
+                            else invalid)
+                if dep.status != SkillStatus.ACTIVE:
+                    return "OPTIONAL_HABIT_DEPENDENCY_NOT_ACTIVE"
+                if dep.level < min_level:
+                    return "OPTIONAL_HABIT_DEPENDENCY_LEVEL"
+                if dep.revision != expected_deps.get(dep_name):
+                    return "OPTIONAL_HABIT_DEPENDENCY_REVISION"
+                observed_deps.add(dep_name)
+                invalid = validate_dependencies(dep, ancestors | {dep_name})
+                if invalid is not None:
+                    return invalid
+            return None
+
+        invalid = validate_dependencies(item, {item.name})
+        if invalid is not None:
+            return invalid
+        if set(expected_deps) != observed_deps:
+            return "OPTIONAL_HABIT_DEPENDENCY_REVISION"
+        try:
+            granted = frozenset(host_capabilities)
+        except (TypeError, ValueError):
+            return "OPTIONAL_HABIT_HOST_PERMISSION_MISSING"
+        if any(right not in granted for right in permit.required_host_capabilities):
+            return "OPTIONAL_HABIT_HOST_PERMISSION_MISSING"
+        return None
 
     def lagging(self)->list[CapabilityLag]:
         out=[]
