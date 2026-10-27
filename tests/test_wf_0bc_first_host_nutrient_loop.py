@@ -143,6 +143,79 @@ class WF0BCFirstHostNutrientTests(unittest.TestCase):
             "habit": observed("unused-habit", arm="habit")[4],
         }
 
+    def test_root_general_procedure_must_survive_narrow_host_proposal(self):
+        self.pair()
+        # This is the old 0.BC synthetic host proposal: it captures a
+        # plausible radio insight by REPLACING the more general prior habit.
+        # It previously earned SHADOW merely because its JSON was well-formed.
+        out=self.loop.acquire_once(
+            experiment_id="first-host-demo", task_id="light-failure",
+            host_id="synthetic-app", source_window=self.window(),
+            host_call=model_habit_reply, host_lease=self.lease())
+        self.assertEqual(out["status"],"REJECTED_HOST_HABIT_PROPOSAL")
+        self.assertEqual(self.loop.disposition("first-host-demo")["shadow_candidates"],0)
+
+    def test_host_cannot_silently_erase_parent_falsifier(self):
+        self.pair()
+        old=json.loads(self.raw)
+        def counterfeit(challenge):
+            obj=json.loads(model_habit_reply(challenge))
+            obj["procedure_replacement"]=(
+                old["procedure"][1]+" More precisely, distinguish each "
+                "recorded delivery from its consequence when a receiver exists.")
+            # This no longer drops the general procedure, but it still
+            # overwrites the original test of whether the habit helps.
+            self.assertLess(len(obj["procedure_replacement"]),450)
+            return canonical(obj)
+        out=self.loop.acquire_once(
+            experiment_id="first-host-demo", task_id="light-failure",
+            host_id="synthetic-app", source_window=self.window(),
+            host_call=counterfeit, host_lease=self.lease())
+        self.assertEqual(out["status"],"REJECTED_HOST_HABIT_PROPOSAL")
+
+    def test_additive_contextual_patch_can_be_retained_without_erasing_v1(self):
+        self.pair()
+        old=json.loads(self.raw)
+        def additive(challenge):
+            obj=json.loads(model_habit_reply(challenge))
+            obj["procedure_replacement"]=(
+                old["procedure"][1]+" When there is a receiver, separate the "
+                "send attempt from documented acknowledgment and final impact.")
+            obj["falsifier_replacement"]=(
+                old["falsifiers"][0]+" This proposed receiver-specific "
+                "distinction also fails if it falsely treats an accomplished "
+                "outcome as unknown.")
+            return canonical(obj)
+        out=self.loop.acquire_once(
+            experiment_id="first-host-demo", task_id="light-failure",
+            host_id="synthetic-app", source_window=self.window(),
+            host_call=additive, host_lease=self.lease())
+        self.assertEqual(out["status"],"SHADOW_NEEDS_INDEPENDENT_EVIDENCE")
+        recovered=self.loop.read_shadow_candidate(out["candidate_sha256"])
+        learned=json.loads(recovered["capsule_bytes"])
+        self.assertTrue(learned["procedure"][1].startswith(old["procedure"][1]))
+        self.assertTrue(learned["falsifiers"][0].startswith(old["falsifiers"][0]))
+        self.assertEqual(learned["revision"],old["revision"]+1)
+        self.assertEqual(learned["lifecycle"],"SHADOW")
+        self.assertEqual(learned["authority"],old["authority"])
+
+    def test_overlong_parent_preserving_patch_must_stop_not_grow(self):
+        self.pair()
+        old=json.loads(self.raw)
+        def oversized(challenge):
+            obj=json.loads(model_habit_reply(challenge))
+            obj["procedure_replacement"]=(
+                old["procedure"][1] + " Context-specific condition. "*30)
+            obj["falsifier_replacement"]=(
+                old["falsifiers"][0] + " Counterexample applied.")
+            return canonical(obj)
+        out=self.loop.acquire_once(
+            experiment_id="first-host-demo", task_id="light-failure",
+            host_id="synthetic-app", source_window=self.window(),
+            host_call=oversized, host_lease=self.lease())
+        self.assertEqual(out["status"],"REJECTED_HOST_HABIT_PROPOSAL")
+        self.assertEqual(self.loop.disposition("first-host-demo")["shadow_candidates"],0)
+
     def test_model_needs_actual_verified_work_not_only_hashes(self):
         self.pair()
         calls = []
