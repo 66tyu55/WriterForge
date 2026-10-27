@@ -1167,7 +1167,7 @@ class PortableHabitCandidatePool:
     MAX_CANDIDATES = 128
     MAX_CAPSULE_BYTES = 12_000
     _HEX = re.compile(r"[0-9a-f]{64}\Z")
-    _IDENT = re.compile(r"[a-z0-9]+(?:[-_][a-z0-9]+)*\Z")
+    _IDENT = re.compile(r"[A-Za-z][A-Za-z0-9_-]*\Z")
     _PROTECTED = frozenset({
         "id", "format", "authority", "transfer", "provenance", "stopping",
     })
