@@ -25,7 +25,7 @@
 - [**RED #40488817209**](https://github.com/66tyu55/WriterForge/actions/runs/40488817209)：`HostValueWireAttestation` 与独立双审阅者证据入口完全缺失，测试明确 ImportError。
 - [**0.BF 工程 GREEN #40489266740**](https://github.com/66tyu55/WriterForge/actions/runs/40489266740)：12 项合成源/签名/成本/读者对抗全部通过；**1,983 tests、6 skipped、0 failed**。完整回归包括此前 0.BE、0.BD、V26/V98/V119、单 NarrativeCore。
 - [0.BA 交叉 GREEN #40489266803](https://github.com/66tyu55/WriterForge/actions/runs/40489266803)、[0.BE 交叉 GREEN #40489266755](https://github.com/66tyu55/WriterForge/actions/runs/40489266755)、[0.BD 交叉 GREEN #40489266715](https://github.com/66tyu55/WriterForge/actions/runs/40489266715)：相同代码 HEAD 跨不同 CI 覆盖。
-- 0.AZ 交叉 CI 最初失败 [#40489266720](https://github.com/66tyu55/WriterForge/actions/runs/40489266720) 的唯一原因是原工作流把整仓测试放在下载 0.AY 原始 archive **之前**，导致 0.BD 的 8 项“缺少原始证据”失败；这不是文学失败。已更新 `.github/workflows/wf-0az-meta-habit-resource-stop-forensics.yml` 的顺序：**先按 40354436598 固定历史 Actions artifact 下载真正 DeepSeek/GLM 原件，再跑整仓回归与原 429 来源检查**。禁止生成假 wire 或跳过测试。
+- 0.AZ 交叉 CI 最初失败 [#40489266720](https://github.com/66tyu55/WriterForge/actions/runs/40489266720) 的唯一原因是原工作流把整仓测试放在下载 0.AY 原始 archive **之前**，导致 0.BD 的 8 项“缺少原始证据”失败；这不是文学失败。已更新 `.github/workflows/wf-0az-meta-habit-resource-stop-forensics.yml` 的顺序：**先按 40354436598 固定历史 Actions artifact 下载真正 DeepSeek/GLM 原件，再跑整仓回归与原 429 来源检查**。禁止生成假 wire 或跳过测试。 随后的 [**0.AZ 原件重放 GREEN #40489793627**](https://github.com/66tyu55/WriterForge/actions/runs/40489793627) 实际通过 **1,983 tests、6 skipped、0 failed**，来源仍为 4 次历史尝试、3 份真实回复、第 4 次 GLM HTTP 429 无模型正文、0 次新付费请求。
 
 ## 3. 真正已获得的能力与仍然没有的能力
 
