@@ -1,0 +1,71 @@
+{
+  "format": "wf.0bj.first-reader-pilot-stop-source-reference.v1",
+  "trial_origin": "WF 0.BI real local Qwen A/B pilot",
+  "original_packet_run_id": 40509345813,
+  "human_ballot_provenance": "ONE_USER_SUBMITTED_UNSIGNED_FIRST_REVIEW_ONLY",
+  "original_uploaded_ballot_raw_sha256": "1877fd037307b2881c9df1d68bcca63fe2c6ac8145f40d9b6404d62fe429a8d4",
+  "original_uploaded_ballot_canonical_sha256": "298a808e676348acce3c70af73a68c39ce783bd405737b971dc47adb4422b480",
+  "first_reader_packet_id": "b5d59476e2635cb0a5249db0",
+  "first_reader_packet_sha256": "fbe6ad36c46c5d517ddf6d3f060e4ebdf403687b59a8721fd9a6c77595f51a9e",
+  "raw_uploaded_ballot_not_republished": true,
+  "reviewer1_votes_received": 5,
+  "reviewer2_votes_received": 0,
+  "authenticated_independent_reader_count": 0,
+  "reviewer1_vote_counts": {
+    "A": 3,
+    "B": 0,
+    "TIE": 1,
+    "BOTH_BAD": 1
+  },
+  "anonymous_A_has_no_stable_skill_identity": true,
+  "user_requested_no_second_review": true,
+  "first_reader_diagnostic_only": true,
+  "observed_quality_concerns": [
+    {
+      "case_id": "asynchronous-tool-return",
+      "choice": "BOTH_BAD",
+      "human_reason_kind": "BOTH_RESPONSES_COPY_SOURCE",
+      "source_verified_identical_and_both_literal_echo": true
+    },
+    {
+      "case_id": "quiet-household-pause",
+      "choice": "TIE",
+      "human_reason_kind": "NEAR_IDENTICAL_RESPONSES",
+      "sequence_similarity_approx": 0.867
+    },
+    {
+      "case_id": "purposeful-second-attempt",
+      "choice": "A",
+      "human_reason_kind": "B_REPETITIVE_JUVENILE_PROSE"
+    },
+    {
+      "case_id": "bounded-eyewitness",
+      "choice": "A",
+      "human_reason_kind": "B_FORCED_UNKNOWN_DANGER_PHRASING"
+    },
+    {
+      "case_id": "custody-without-fulfillment",
+      "choice": "A",
+      "human_reason_kind": "B_STILTED_CAUSAL_EXPLANATION"
+    }
+  ],
+  "mechanical_source_audit_run_id": 40531429362,
+  "mechanical_source_audit_status": "DORMANT_EXPERIMENT_UNFIT_FOR_LITERARY_COMPARISON",
+  "original_output_sources": [
+    "WF 0.BG Qwen3-0.6B local",
+    "WF 0.BH Qwen2.5-3B local"
+  ],
+  "original_total_pairs": 5,
+  "identical_both_arms_pairs": 1,
+  "three_b_arms_failing_declared_minimum_length": 4,
+  "no_bare_model_control": true,
+  "only_prompt_procedure_delta_not_full_WF_runtime": true,
+  "no_global_version_winner": true,
+  "candidate_v2_status": "SHADOW",
+  "literary_improvement_proven": false,
+  "global_v2_falsified": false,
+  "no_auto_promotion": true,
+  "no_new_model_calls": true,
+  "original_0ay_glm_429_remains_dormant": true,
+  "interpretation": "Stop this pilot before spending independent reviewer time; fix protocol and host suitability, not v2 skill by post-hoc prompting. Reader's critique is a source for redesign, not a signed literary win rate."
+}
