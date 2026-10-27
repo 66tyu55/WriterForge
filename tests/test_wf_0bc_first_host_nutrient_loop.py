@@ -143,6 +143,67 @@ class WF0BCFirstHostNutrientTests(unittest.TestCase):
             "habit": observed("unused-habit", arm="habit")[4],
         }
 
+    def test_host_receives_original_cognition_before_proposing_delta(self):
+        self.pair()
+        snapshots=[]
+        def host(challenge):
+            snapshots.append(challenge)
+            return canonical({
+                "format":"wf.host-nutrient-proposal.v1",
+                "task_id":challenge["task_id"],
+                "source_observation_ids":challenge["source_observation_ids"],
+                "target_skill":challenge["target_skill"],
+                "parent_capsule_sha256":challenge["parent_capsule_sha256"],
+                "decision":"NO_CHANGE",
+                "reason":"The observations do not establish a useful new transferable cognitive step.",
+            })
+        out=self.loop.acquire_once(
+            experiment_id="first-host-demo",task_id="light-failure",
+            host_id="synthetic-app",source_window=self.window(),
+            host_call=host,host_lease=self.lease())
+        self.assertEqual(len(snapshots),1)
+        self.assertEqual(
+            snapshots[0]["current_procedure"],json.loads(self.raw)["procedure"])
+        self.assertEqual(
+            snapshots[0]["current_falsifiers"],json.loads(self.raw)["falsifiers"])
+        self.assertTrue(snapshots[0]["parent_steps_must_be_preserved"])
+        self.assertEqual(out["status"],"DORMANT_NO_NEW_TRANSFERABLE_HABIT")
+        self.assertEqual(self.loop.disposition("first-host-demo")["shadow_candidates"],0)
+
+    def test_host_may_stop_worthless_evolution_without_creating_or_retrying(self):
+        self.pair()
+        attempts=[]
+        def host(challenge):
+            attempts.append("called")
+            return canonical({
+                "format":"wf.host-nutrient-proposal.v1",
+                "task_id":challenge["task_id"],
+                "source_observation_ids":challenge["source_observation_ids"],
+                "target_skill":challenge["target_skill"],
+                "parent_capsule_sha256":challenge["parent_capsule_sha256"],
+                "decision":"NO_CHANGE",
+                "reason":"The old habit already makes the same distinction and the extra verbosity has no observed benefit.",
+            })
+        lease=self.lease()
+        out=self.loop.acquire_once(
+            experiment_id="first-host-demo",task_id="light-failure",
+            host_id="synthetic-app",source_window=self.window(),
+            host_call=host,host_lease=lease)
+        self.assertEqual(out["status"],"DORMANT_NO_NEW_TRANSFERABLE_HABIT")
+        self.assertEqual(lease.remaining("nutrient_acquisition"),0)
+        self.assertEqual(attempts,["called"])
+        rows=self.db.conn.execute(
+            "SELECT status FROM host_nutrient_attempts WHERE scope=?",
+            ("first-host-synthetic",)).fetchall()
+        self.assertEqual([row["status"] for row in rows],
+                         ["DORMANT_NO_NEW_TRANSFERABLE_HABIT"])
+        with self.assertRaises(PermissionError):
+            self.loop.acquire_once(
+                experiment_id="first-host-demo",task_id="light-failure",
+                host_id="synthetic-app",source_window=self.window(),
+                host_call=host,host_lease=self.lease())
+        self.assertEqual(attempts,["called"])
+
     def test_root_general_procedure_must_survive_narrow_host_proposal(self):
         self.pair()
         # This is the old 0.BC synthetic host proposal: it captures a
