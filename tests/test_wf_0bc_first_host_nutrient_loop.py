@@ -86,18 +86,29 @@ def model_habit_reply(challenge):
         "parent_capsule_sha256": ROOT_SHA,
         "procedure_index": 1,
         "procedure_replacement": (
-            "Before deciding the next step, inspect actual authored action and "
-            "consequences separately from unexecuted plans and character beliefs; "
-            "retain ambiguity and allow deliberate attempts without forcing any correction."
+            challenge["current_procedure"][1]
+            + " When an action has a receiver, distinguish an attempted handoff "
+              "from a verified acknowledgment and the effect that actually occurred."
         ),
         "falsifier_index": 0,
         "falsifier_replacement": (
-            "This observed-step procedure fails when independent fresh matched "
-            "tasks produce no stronger choices than the control while consuming "
-            "more authorized host resources, or when it suppresses lawful repetition."
+            challenge["current_falsifiers"][0]
+            + " This scoped distinction also fails if a known completed outcome "
+              "is mislabeled unknown or lawful repetition is suppressed."
         ),
         "reason": "The host observed two different viable next choices; do not claim one is superior.",
     })
+
+
+def legacy_overwriting_habit_reply(challenge):
+    obj=json.loads(model_habit_reply(challenge))
+    obj["procedure_replacement"]=(
+        "Only check whether the signal got through; always insist on "
+        "a verified receiver before any further literary choice.")
+    obj["falsifier_replacement"]=(
+        "This newer procedure fails if a receiver is fictional, "
+        "even if the author deliberately chose uncertainty.")
+    return canonical(obj)
 
 
 class WF0BCFirstHostNutrientTests(unittest.TestCase):
@@ -196,7 +207,12 @@ class WF0BCFirstHostNutrientTests(unittest.TestCase):
             "SELECT status FROM host_nutrient_attempts WHERE scope=?",
             ("first-host-synthetic",)).fetchall()
         self.assertEqual([row["status"] for row in rows],
-                         ["DORMANT_NO_NEW_TRANSFERABLE_HABIT"])
+                         ["REJECTED_HOST_HABIT_PROPOSAL"])
+        self.assertEqual(
+            self.db.conn.execute(
+                "SELECT failure_code FROM host_nutrient_attempts WHERE scope=?",
+                ("first-host-synthetic",)).fetchone()["failure_code"],
+            "WF0BE_VOLUNTARY_NO_CHANGE")
         with self.assertRaises(PermissionError):
             self.loop.acquire_once(
                 experiment_id="first-host-demo",task_id="light-failure",
@@ -212,7 +228,7 @@ class WF0BCFirstHostNutrientTests(unittest.TestCase):
         out=self.loop.acquire_once(
             experiment_id="first-host-demo", task_id="light-failure",
             host_id="synthetic-app", source_window=self.window(),
-            host_call=model_habit_reply, host_lease=self.lease())
+            host_call=legacy_overwriting_habit_reply, host_lease=self.lease())
         self.assertEqual(out["status"],"REJECTED_HOST_HABIT_PROPOSAL")
         self.assertEqual(self.loop.disposition("first-host-demo")["shadow_candidates"],0)
 
