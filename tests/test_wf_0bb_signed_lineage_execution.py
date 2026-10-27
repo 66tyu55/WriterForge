@@ -132,7 +132,8 @@ class WF0BBTrustedPortableLineageRuntime(unittest.TestCase):
             dependency_revisions=(),
             required_host_capabilities=("generate_text", "read_prose_bytes"),
             reviewer_id="externalReviewer", review_id="manualApproval",
-            signature="")
+            signature="",
+            lineage_candidate_sha256=self.a.candidate_sha256)
         permission = replace(permission, signature=sign_hmac(
             EXEC_KEY, permission.signing_payload()))
         budget = host_lease or OptionalHostResourceLease(
@@ -169,6 +170,58 @@ class WF0BBTrustedPortableLineageRuntime(unittest.TestCase):
             manifest=newer[0], release_attestation=newer[1],
             expected_manifest_sha256=newer[1].manifest_sha256)
         return newer
+
+    def test_signed_permission_binds_exact_candidate_origin(self):
+        raw = self.approve()
+        sch, _, _ = self.scheduler(raw, self.lineage)
+        permit = sch._optional_permits[NAME]
+        self.assertEqual(permit.lineage_candidate_sha256,
+                         self.a.candidate_sha256)
+        self.assertIn(NAME, sch.select("habit_trigger", budget=40).selected)
+
+    def test_signed_origin_cannot_downgrade_portable_flag_and_skip_lineage(self):
+        raw = self.approve()
+        sch, lease, registry = self.scheduler(raw, self.lineage)
+        permit = sch._optional_permits[NAME]
+        downgraded = SkillScheduler(
+            capabilities=(*DEFAULT_CAPABILITIES,
+                Capability(NAME, Priority.P1, 3, ("habit_trigger",),
+                           lane=Lane.REACTIVE, optional_habit=True,
+                           portable_habit=False)),
+            registry=registry, optional_permits={NAME: permit},
+            execution_verifier_key=EXEC_KEY, artifact_loader=lambda name: raw,
+            host_capabilities=lambda: {"generate_text", "read_prose_bytes"},
+            host_resource_lease=lease, enable_optional_habits=True)
+        result = downgraded.select("habit_trigger", budget=40)
+        self.assertEqual(
+            result.skipped_authority[NAME],
+            "OPTIONAL_HABIT_SIGNED_LINEAGE_CANNOT_DOWNGRADE")
+        self.assertIn("runtime_guard", result.selected)
+
+    def test_signed_wrong_source_and_missing_source_are_denied(self):
+        raw = self.approve()
+        sch, lease, _ = self.scheduler(raw, self.lineage)
+        permit = sch._optional_permits[NAME]
+        missing = replace(permit, lineage_candidate_sha256=None, signature="")
+        missing = replace(missing, signature=sign_hmac(EXEC_KEY,
+                                                      missing.signing_payload()))
+        sch._optional_permits[NAME] = missing
+        self.assertEqual(
+            sch.select("habit_trigger", budget=40).skipped_authority[NAME],
+            "OPTIONAL_HABIT_LINEAGE_SOURCE_PIN_REQUIRED")
+        wrong = replace(permit, lineage_candidate_sha256=ROOT_SHA, signature="")
+        wrong = replace(wrong, signature=sign_hmac(EXEC_KEY,
+                                                   wrong.signing_payload()))
+        sch._optional_permits[NAME] = wrong
+        self.assertEqual(
+            sch.select("habit_trigger", budget=40).skipped_authority[NAME],
+            "OPTIONAL_HABIT_LINEAGE_SOURCE_PIN_MISMATCH")
+        tampered = replace(permit, lineage_candidate_sha256=ROOT_SHA)
+        sch._optional_permits[NAME] = tampered
+        self.assertEqual(
+            sch.select("habit_trigger", budget=40).skipped_authority[NAME],
+            "OPTIONAL_HABIT_ATTESTATION_INVALID")
+        self.assertEqual(lease.remaining(NAME), 2)
 
     def test_missing_lineage_is_denied_but_core_keeps_running(self):
         raw = self.active_capsule(self.a)
