@@ -124,6 +124,47 @@ def three_arm_preflight(*,outline:str,task:str,
     }
 
 
+def _published_source_scope(assist)->dict:
+    """Compare the ACTUAL source identity in both isolated WF core databases.
+
+    Snapshot numeric IDs alone do not prove equal source. Hash literal
+    published source rows without exporting their private texts.
+    A changed corpus, story scope or genre may not masquerade as a
+    candidate-only treatment. This offline check has a fixed size cap.
+    """
+    db=assist.db
+    sid=assist.rt.pinned_snapshot_id
+    _need(type(sid) is int and sid>0,
+          "WF0BK_PUBLISHED_SOURCE_SNAPSHOT_REQUIRED")
+    tables=(
+        ("xuehai_entries",
+         "SELECT work_id,chapter,paragraph,sentence,text,source_hash "
+         "FROM xuehai_entries WHERE snapshot_id=? "
+         "ORDER BY work_id,chapter,paragraph,sentence,id",
+         (sid,)),
+        ("source_spans",
+         "SELECT work_id,chapter,paragraph,sentence,excerpt,source_sha256 "
+         "FROM source_spans ORDER BY work_id,chapter,paragraph,sentence,id",
+         ()),
+    )
+    document={}
+    for name,query,args in tables:
+        data=db.conn.execute(query,args).fetchmany(513)
+        _need(0<len(data)<=512,
+              "WF0BK_PUBLISHED_SOURCE_MISSING_OR_TOO_LARGE")
+        document[name]=[list(row) for row in data]
+    return {
+        "project_id":assist.project_id,
+        "scene_id":assist.scene_id,
+        "source_genre":assist.source_genre,
+        "goal":assist.goal,
+        "published_snapshot_id":sid,
+        "published_source_snapshot_sha256":
+            _digest(json.dumps(document,sort_keys=True,ensure_ascii=False,
+                               separators=(",",":"))),
+    }
+
+
 def execute_three_arm_trial(
     *,outline:str,task:str,source_prose:tuple[str,str],
     model_id:str,call_model,fresh_assist_factory,
@@ -167,6 +208,7 @@ def execute_three_arm_trial(
     reservations={a:0 for a in FROZEN_ARMS}
     counts={a:0 for a in FROZEN_ARMS}
     observed_host_wires=0
+    expected_wf_scope=None
     receipt={
         "format":"wf.0bk.true-real-core-three-arm-fixture.v1",
         "status":"RUNNING",
@@ -283,6 +325,14 @@ def execute_three_arm_trial(
                 _need(assist.model==model_id and
                       assist.rt.pinned_snapshot_id is not None,
                       "WF0BK_ACTUAL_CORE_MODEL_OR_SNAPSHOT_MISMATCH")
+                current_scope=_published_source_scope(assist)
+                if expected_wf_scope is None:
+                    expected_wf_scope=current_scope
+                    receipt["wf_paired_published_source_sha256"]=(
+                        current_scope["published_source_snapshot_sha256"])
+                elif current_scope!=expected_wf_scope:
+                    raise StudyProtocolError(
+                        "WF0BK_PAIRED_WF_SOURCE_SCOPE_DIVERGED")
                 def model_intercept(packet,*,model,api_base,max_tokens):
                     return consume(packet,arm=arm,model=model,
                                    api_base=api_base,max_tokens=max_tokens)
@@ -332,6 +382,8 @@ def execute_three_arm_trial(
                     "status":"CALLBACK_COMPLETED",
                     "origin":"REAL_AUTONOMOUS_WRITING_CORE",
                     "writing_mode":"continuity_guard",
+                    "published_source_snapshot_sha256":
+                        current_scope["published_source_snapshot_sha256"],
                     "chapter_count":1,
                     "model_calls":counts[arm],
                     "g_rolling_replan_calls":max(0,counts[arm]-4),
