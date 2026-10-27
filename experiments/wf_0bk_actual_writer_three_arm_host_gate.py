@@ -259,6 +259,9 @@ def execute_three_arm_trial(
             "request_prompt_sha256":packet.prompt_sha256,
             "max_completion_tokens_reserved":max_tokens,
             "stage_number":counts[arm],
+            "actual_g_v98_replan_prompt":(
+                "【本章总目标，未完成的规划不是故事事实】" in packet.prompt
+                and arm in ("wf_core","wf_habit")),
             "source_kind":"SYNTHETIC_TEST_ONLY",
             "actual_provider_wire_verified":False,
         })
@@ -386,7 +389,9 @@ def execute_three_arm_trial(
                         current_scope["published_source_snapshot_sha256"],
                     "chapter_count":1,
                     "model_calls":counts[arm],
-                    "g_rolling_replan_calls":max(0,counts[arm]-4),
+                    "g_rolling_replan_calls":sum(
+                        e["actual_g_v98_replan_prompt"] for e in events
+                        if e["arm"]==arm),
                     "narrative_core_owner_count":1,
                     "unified_narrative_core_sha256":
                         row["unified_narrative_core_sha256"],
