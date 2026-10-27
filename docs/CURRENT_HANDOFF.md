@@ -1,5 +1,19 @@
 # WriterForge 当前有效交接｜2026-10-27
 
+## 0.BA｜下一窗口首先解决元 Skill 可信执行与跨宿主迁移，不是继续刷文学评分
+
+**第一读取：[WF_0BA_NEXT_SESSION_PORTABLE_META_HABIT_EVOLUTION_HANDOFF_20261027.md](WF_0BA_NEXT_SESSION_PORTABLE_META_HABIT_EVOLUTION_HANDOFF_20261027.md)**。然后 0.AZ 429 真实源、0.AX 现有元 Skill 生态审计、现有 SkillRegistry/Scheduler、已封存 .agents/skills/observe-before-next-choice 胶囊。0.BA 此刻只是**方案/交接**，未完成新 runtime 修复；零模型新调用。
+
+**用户重新定义 WF 的目标**：弱小的宿主依赖型认知习惯系统，以不同模型/Agent 的明示授权工具获得有限计算资源。保留已被证据支持的行为过程、反例、来源/版本、禁用条件和污染派生链；换宿主不从零学，但可被证伪、可长期停止进化。不是另一个 AI、不是针对单一模型的提示词补丁，也不是增加审稿器。保留作家 AI 对文学正文和修改的主权，不新设第二 NarrativeCore。
+
+**下一会话优先 P0（零付费）**：从真实源码定位 SkillRegistry 可信版本/ACTIVE-SHADOW-RETIRED/依赖，和 SkillScheduler 静态 DEFAULT_CAPABILITIES 脱节处。为**明确可选认知习惯**设计默认关闭的执行闸门，先真实 RED → 修改原 owner → 完整工程 GREEN，连同 stale queued event、虚假来源和合法旧核心路径回归。不能因空 Registry 误停旧内核/影响 V26/V98/V119 或唯一 NarrativeCore。P0 完成后才做互相提出候选 patch、污染后代隔离与实际独立 Agent 宿主验证。
+
+**必须冻结的 0.AY/0.AZ 来源**：[双模型真实未完成 #40354436598](https://github.com/66tyu55/WriterForge/actions/runs/40354436598) DeepSeek control/habit、GLM control 三份真实原文；第四次 GLM habit HTTP 429 无有效回包，**不能补造或自动重试**；[0.AZ 真实 source-only GREEN #40356733598](https://github.com/66tyu55/WriterForge/actions/runs/40356733598)，1868 tests、10 skipped、零失败，额外模型 0 次。试验会话 DORMANT_HOST_RESOURCE；胶囊仍 SHADOW，SHA256 42cad98118dea662cea472f708ef1de22f4bb139da3210b1f5c3c1f9ac12664d。跨模型/跨真正独立宿主文学收益仍 UNPROVEN。不要把两模型 API 说成两独立应用宿主，不把 CI GREEN 说成文学获胜。
+
+**边界**：唯一开发分支 refactor-unified-scene-delivery-audit；不修改 main，不部署 Railway，不写私有 R2 原著或正式 Canon，不重做旧十类/六段/15章/《夜阀》已付费作者原稿，**不依赖宿主偷偷获取密钥或无限重试**。再次付费的模型调用须新的明确预算/授权。
+
+---
+
 ## 0.AZ｜元 Skill 认知习惯真实“宿主资源停止”已执行，不得自动重试 429
 
 **当前第一读取**：[WF_0AZ_REAL_HOST_429_HABIT_DORMANCY_SOURCE_FIRST_20261026.md](WF_0AZ_REAL_HOST_429_HABIT_DORMANCY_SOURCE_FIRST_20261026.md)。随后读 [0.AX 元 Skill 生态源码审计](WF_0AX_META_SKILL_ECOLOGY_ACTUAL_CAPABILITY_AUDIT_20261026.md) 与 [0.AW 三开源项目源码研究](WF_0AW_OPEN_SOURCE_SELF_EVOLUTION_CODE_REVIEW_20261026.md)。**此节覆盖下方仍称 0.AV“尚未启动实写”的历史交接时态**；旧文和旧失败原件保留，不再按旧建议重复收费生成。
