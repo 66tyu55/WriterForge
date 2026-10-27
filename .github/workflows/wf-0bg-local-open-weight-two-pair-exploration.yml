@@ -1,0 +1,74 @@
+name: WF 0.BG REAL LOCAL Open-Weight CPU v1-v2 Two-Pair Probe No API Credits
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0bg-local-open-weight-two-pair-exploration.yml
+      - experiments/wf_0bg_first_local_open_weight_v1_v2_once.py
+      - tests/test_wf_0bg_real_local_open_weight_run_boundary.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf-0bg-single-local-open-weight-v1-v2-source-probe
+  cancel-in-progress: true
+
+jobs:
+  four-real-local-writer-inferences-no-provider-keys:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Explicitly refuse provider and private R2 secrets
+        run: python -c 'import os; assert not any(os.getenv(n) for n in ("OPENAI_API_KEY","DEEPSEEK_API_KEY","DISCOVERY_API_KEY","OPENROUTER_API_KEY","R2_ACCESS_KEY_ID","R2_SECRET_ACCESS_KEY"))'
+      - name: Install existing repository with optional offline evidence test dependencies
+        run: python -m pip install -e '.[r2,evidence]'
+      - name: No network model tests: source identity and generation budget RED/GREEN
+        run: python -m unittest discover -s tests -p 'test_wf_0bg_real_local_open_weight_run_boundary.py' -v
+      - name: Install llama.cpp Python CPU engine, no hosted provider
+        env:
+          CMAKE_ARGS: -DGGML_NATIVE=OFF
+          CMAKE_BUILD_PARALLEL_LEVEL: '2'
+        run: python -m pip install 'llama-cpp-python==0.3.16'
+      - name: Download EXACT published Qwen3 0.6B GGUF revision to ephemeral runner, never R2
+        run: |
+          curl --fail --show-error --location --connect-timeout 30 --max-time 300 \
+            --output "$RUNNER_TEMP/wf0bg-qwen3.gguf" \
+            "https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-GGUF/resolve/f9184d8b4c371cb52af5b8cb3d38e55e3cf0f4a0/Qwen_Qwen3-0.6B-Q4_K_M.gguf"
+          printf '%s  %s\n' \
+            '9acfc1e001311f34b4252001b626f2e466d592a42065f66571bff3790d4e1b14' \
+            "$RUNNER_TEMP/wf0bg-qwen3.gguf" | sha256sum --check --status
+      - name: Actually generate FOUR local CPU-model texts from original frozen v1/v2 prompts
+        run: |
+          python -m experiments.wf_0bg_first_local_open_weight_v1_v2_once \
+            --model "$RUNNER_TEMP/wf0bg-qwen3.gguf"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path("wf0bg_local_cpu_first_host_four_original_model_outputs/STATUS.json").read_text("utf8"))
+          assert s["source_kind"] == "LOCAL_OPEN_WEIGHT_REAL_MODEL"
+          assert s["status"] == "LOCAL_CPU_SOURCE_VERIFIED_UNGRADED"
+          assert s["completed_calls"] == 4 and s["failed_calls"] == 0
+          assert len(s["records"]) == 4
+          assert s["new_paid_model_requests"] == 0
+          assert s["independent_reader_votes"] == 0
+          assert s["literary_quality_proven"] is False
+          assert all(r["total_tokens"] > 0 for r in s["records"])
+          print("WF0BG_REAL_LOCAL_WRITER_COMPLETED_UNGRADED", s["completed_calls"], flush=True)
+          PY
+      - name: Archive real local engine outputs or partial failure state; never call paid API
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0BG-Actual-Local-Qwen3-Small-Model-v1-v2-UNREVIEWED-Text-and-Cost
+          path: wf0bg_local_cpu_first_host_four_original_model_outputs/
+          if-no-files-found: warn
+          retention-days: 90
