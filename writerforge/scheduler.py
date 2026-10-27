@@ -7,7 +7,7 @@ import re
 from enum import IntEnum
 from typing import Callable, Iterable, Mapping
 
-from .evolution import OptionalExecutionPermit, SkillRegistry
+from .evolution import OptionalExecutionPermit, SkillRegistry, TrustedPortableHabitLineage
 
 from .lane_scheduler import (
     Lane, DirtyDomain, EventEnvelope, EventBatcher,
@@ -37,6 +37,9 @@ class Capability:
     cancel_if_stale: bool = True
     # Deliberate opt-in ONLY; never reinterpret old core capabilities as habits.
     optional_habit: bool = False
+    # P2 opt-in portable artifacts MUST prove signed unquarantined ancestry.
+    # Historical core/nonportable optional fixtures retain existing behavior.
+    portable_habit: bool = False
 
 
 @dataclass
@@ -270,6 +273,7 @@ class SkillScheduler:
         host_capabilities: Callable[[], Iterable[str]] | None = None,
         enable_optional_habits: bool = False,
         host_resource_lease: OptionalHostResourceLease | None = None,
+        portable_lineage: TrustedPortableHabitLineage | None = None,
     ):
         self.capabilities = tuple(capabilities)
         self.event_batcher = EventBatcher()
@@ -279,6 +283,8 @@ class SkillScheduler:
         core_names = frozenset(c.name for c in DEFAULT_CAPABILITIES)
         seen: dict[str, Capability] = {}
         for cap in self.capabilities:
+            if cap.portable_habit and not cap.optional_habit:
+                raise ValueError("PORTABLE_HABIT_MUST_BE_OPTIONAL")
             if cap.optional_habit and cap.name in core_names:
                 raise ValueError("OPTIONAL_HABIT_CANNOT_SHADOW_CORE")
             if cap.name in seen and (cap.optional_habit or seen[cap.name].optional_habit):
@@ -293,6 +299,7 @@ class SkillScheduler:
         self._host_capabilities = host_capabilities
         self._enable_optional_habits = enable_optional_habits
         self._host_resource_lease = host_resource_lease
+        self._portable_lineage = portable_lineage
         # A static approval signature is NOT a spendable run token. Without
         # single-use issuance a selection result could be replayed indefinitely
         # against an authorized host's inference budget. This per-scheduler
@@ -332,6 +339,15 @@ class SkillScheduler:
             capsule_bytes=raw, host_capabilities=rights)
         if reason is not None:
             return reason
+        # The signed candidate graph is an ADDITIONAL trust root, not a
+        # replacement for Registry ACTIVE, current SHA and host permission.
+        # This runs at selection, batched routing, dequeue and actual callback.
+        if cap.portable_habit:
+            if not isinstance(self._portable_lineage, TrustedPortableHabitLineage):
+                return "OPTIONAL_HABIT_LINEAGE_REQUIRED"
+            reason = self._portable_lineage.reason(cap.name, raw)
+            if reason is not None:
+                return reason
         if not isinstance(self._host_resource_lease, OptionalHostResourceLease):
             return "OPTIONAL_HABIT_HOST_BUDGET_REQUIRED"
         return self._host_resource_lease.reason(cap.name)
