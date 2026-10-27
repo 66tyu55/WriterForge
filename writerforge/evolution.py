@@ -1084,3 +1084,360 @@ def assess_habit_trial_continuation(evidence: HabitTrialEvidence
         "SHADOW_UNRESOLVED_LITERARY_COMPARISON","NOT_ESTABLISHED",
         "Reader evidence was mixed/insufficient; keep both hypotheses in "
         "SHADOW rather than inventing a winner.")
+
+
+# WF 0.BA/P1 -- OFFLINE portable-habit candidate ecology.
+#
+# This pool is intentionally NOT a second SkillRegistry, runnable plugin, model
+# grader or sovereign upgrade mechanism. It stages immutable proposal BYTES,
+# binds separate reviewer evidence and traces compromised descendants. The
+# stored 0.AY v1 root is never rewritten. All scores are observations from a
+# specified frozen suite and NEVER certify literary improvement or promotion.
+
+
+@dataclass(frozen=True)
+class HabitCandidateProposal:
+    proposal_id: str
+    proposer_skill: str
+    target_skill: str
+    parent_sha256: str
+    candidate_sha256: str
+    evidence_sha256: str
+    changed_fields: tuple[str, ...]
+    status: str = "SHADOW"
+
+
+@dataclass(frozen=True)
+class HabitCompetitionEvidence:
+    candidate_sha256: str
+    evaluator_id: str
+    holdout_suite_sha256: str
+    matched_pairs: int
+    observed_success: int
+    regression_cases: int
+    cost_units: int
+    independent_reader_count: int
+    signature: str
+
+    def signing_payload(self) -> dict:
+        return {
+            "kind": "wf.portable-habit-offline-competition.v1",
+            "candidate_sha256": self.candidate_sha256,
+            "evaluator_id": self.evaluator_id,
+            "holdout_suite_sha256": self.holdout_suite_sha256,
+            "matched_pairs": self.matched_pairs,
+            "observed_success": self.observed_success,
+            "regression_cases": self.regression_cases,
+            "cost_units": self.cost_units,
+            "independent_reader_count": self.independent_reader_count,
+            "literary_success_unproven": True,
+            "auto_promotion": False,
+        }
+
+
+@dataclass(frozen=True)
+class HabitQuarantineAttestation:
+    ancestor_sha256: str
+    evidence_sha256: str
+    reason_code: str
+    reviewer_id: str
+    signature: str
+
+    def signing_payload(self) -> dict:
+        return {
+            "kind": "wf.portable-habit-lineage-quarantine.v1",
+            "ancestor_sha256": self.ancestor_sha256,
+            "evidence_sha256": self.evidence_sha256,
+            "reason_code": self.reason_code,
+            "reviewer_id": self.reviewer_id,
+        }
+
+
+class PortableHabitCandidatePool:
+    """Bounded, in-memory, OFFLINE proposal graph with separate signed reviews.
+
+    A proposal from skill A to skill B never writes skill B, an evaluator, the
+    registry, author prose or the producer's heldout scoring procedure. The
+    holder of the independent review key is outside the proposer and model
+    contract. This is a functional governance prototype, not a sandbox or a
+    durable cross-host audit/approval mechanism.
+    """
+
+    MAX_ROOTS = 16
+    MAX_CANDIDATES = 128
+    MAX_CAPSULE_BYTES = 12_000
+    _HEX = re.compile(r"[0-9a-f]{64}\Z")
+    _IDENT = re.compile(r"[a-z0-9]+(?:[-_][a-z0-9]+)*\Z")
+    _PROTECTED = frozenset({
+        "id", "format", "authority", "transfer", "provenance", "stopping",
+    })
+    _MUTABLE = frozenset({"purpose", "trigger", "procedure", "falsifiers"})
+    _ALLOWED_KEYS = _PROTECTED | _MUTABLE | {"revision", "lifecycle"}
+
+    @staticmethod
+    def _canonical(obj) -> bytes:
+        return json.dumps(obj, ensure_ascii=False, sort_keys=True,
+                          separators=(",", ":"), allow_nan=False).encode("utf-8")
+
+    @classmethod
+    def _hash_valid(cls, value) -> bool:
+        return type(value) is str and cls._HEX.fullmatch(value) is not None
+
+    @classmethod
+    def _identity_valid(cls, value) -> bool:
+        return (type(value) is str and 2 <= len(value) <= 80 and
+                cls._IDENT.fullmatch(value) is not None)
+
+    @classmethod
+    def _decode(cls, raw: bytes) -> dict:
+        if type(raw) is not bytes or not 2 <= len(raw) <= cls.MAX_CAPSULE_BYTES:
+            raise ValueError("HABIT_CANDIDATE_BYTES_INVALID")
+        def reject_duplicates(pairs):
+            obj = {}
+            for name, item in pairs:
+                if name in obj:
+                    raise ValueError("HABIT_CANDIDATE_DUPLICATE_JSON_FIELD")
+                obj[name] = item
+            return obj
+        try:
+            obj = json.loads(raw.decode("utf-8", "strict"),
+                             object_pairs_hook=reject_duplicates)
+        except (ValueError, UnicodeError) as e:
+            raise ValueError("HABIT_CANDIDATE_JSON_INVALID") from e
+        if (type(obj) is not dict or set(obj) != cls._ALLOWED_KEYS or
+                obj["format"] != "wf.habit.capsule.v1" or
+                not cls._identity_valid(obj["id"]) or
+                type(obj["revision"]) is not int or obj["revision"] < 1 or
+                obj["lifecycle"] not in ("SHADOW", "ACTIVE") or
+                type(obj["procedure"]) is not list or
+                type(obj["falsifiers"]) is not list or
+                len(obj["procedure"]) != 4 or len(obj["falsifiers"]) != 4 or
+                any(type(x) is not str or not 35 <= len(x) <= 450
+                    for x in obj["procedure"] + obj["falsifiers"]) or
+                type(obj["purpose"]) is not str or
+                type(obj["trigger"]) is not str):
+            raise ValueError("HABIT_CANDIDATE_CAPSULE_SCHEMA_INVALID")
+        return obj
+
+    def __init__(
+        self, *, pinned_roots: dict[str, bytes],
+        reviewer_verifier_key: bytes,
+        frozen_heldout_sha256: str,
+    ):
+        if (not isinstance(reviewer_verifier_key, bytes) or
+                len(reviewer_verifier_key) < 16):
+            raise ValueError("HABIT_ECOLOGY_EXTERNAL_VERIFIER_REQUIRED")
+        if not self._hash_valid(frozen_heldout_sha256):
+            raise ValueError("HABIT_ECOLOGY_HELDOUT_PIN_REQUIRED")
+        if (type(pinned_roots) is not dict or
+                not 1 <= len(pinned_roots) <= self.MAX_ROOTS):
+            raise ValueError("HABIT_ECOLOGY_BOUNDED_ROOT_REQUIRED")
+        self._roots: dict[str, bytes] = {}
+        self._root_capsules: dict[str, dict] = {}
+        for digest, raw in pinned_roots.items():
+            if (not self._hash_valid(digest) or type(raw) is not bytes or
+                    sha256(raw).hexdigest() != digest):
+                raise ValueError("HABIT_ECOLOGY_ROOT_BYTES_SHA_MISMATCH")
+            capsule = self._decode(raw)
+            if capsule["lifecycle"] != "SHADOW":
+                raise ValueError("HABIT_ECOLOGY_ROOT_MUST_NOT_BE_ACTIVE")
+            self._roots[digest] = raw
+            self._root_capsules[digest] = capsule
+        self._reviewer_key = reviewer_verifier_key
+        self._heldout_sha = frozen_heldout_sha256
+        self._proposals: dict[str, HabitCandidateProposal] = {}
+        self._candidate_bytes: dict[str, bytes] = {}
+        self._candidate_capsules: dict[str, dict] = {}
+        self._proposal_ids: set[str] = set()
+        self._children: dict[str, set[str]] = defaultdict(set)
+        self._evidence: dict[str, HabitCompetitionEvidence] = {}
+        self._quarantined: set[str] = set()
+
+    @property
+    def has_execution_authority(self) -> bool:
+        """This staging pool must never grant ACTIVE registry permissions."""
+        return False
+
+    def _known(self, digest: str) -> bool:
+        return digest in self._roots or digest in self._candidate_bytes
+
+    def status(self, digest: str) -> str:
+        if not self._known(digest):
+            raise KeyError("HABIT_ECOLOGY_UNKNOWN_SHA")
+        return ("REVIEW_QUARANTINE_LINEAGE" if digest in self._quarantined
+                else "SHADOW")
+
+    def propose(
+        self, *, proposer_skill: str, target_skill: str,
+        parent_sha256: str, candidate_bytes: bytes,
+        evidence_sha256: str, proposal_id: str,
+    ) -> HabitCandidateProposal:
+        if (not all(self._identity_valid(x)
+                    for x in (proposer_skill, target_skill, proposal_id)) or
+                proposer_skill == target_skill or
+                not self._hash_valid(evidence_sha256)):
+            raise ValueError("HABIT_ECOLOGY_PROPOSAL_IDENTITY_INVALID")
+        if (not self._known(parent_sha256) or
+                parent_sha256 not in self._roots and
+                parent_sha256 not in self._candidate_bytes):
+            raise ValueError("HABIT_ECOLOGY_UNTRUSTED_PARENT")
+        if parent_sha256 in self._quarantined:
+            raise PermissionError("HABIT_ECOLOGY_QUARANTINED_PARENT")
+        if len(self._proposals) >= self.MAX_CANDIDATES:
+            raise OverflowError("HABIT_ECOLOGY_MAX_CANDIDATES")
+        if proposal_id in self._proposal_ids:
+            raise ValueError("HABIT_ECOLOGY_PROPOSAL_ID_ALREADY_EXISTS")
+
+        parent_doc = (self._root_capsules[parent_sha256]
+                      if parent_sha256 in self._roots
+                      else self._candidate_capsules[parent_sha256])
+        candidate = self._decode(candidate_bytes)
+        if candidate["id"] != parent_doc["id"] or target_skill != candidate["id"]:
+            raise ValueError("HABIT_ECOLOGY_TARGET_MISMATCH")
+        if (candidate["revision"] != parent_doc["revision"] + 1 or
+                candidate["lifecycle"] != "SHADOW"):
+            raise ValueError("HABIT_ECOLOGY_CANDIDATE_REVISION_OR_STAGE_INVALID")
+        if any(candidate[key] != parent_doc[key] for key in self._PROTECTED):
+            raise ValueError("HABIT_ECOLOGY_PROTECTED_CONTRACT_MUTATION")
+        changed = tuple(sorted(
+            name for name in self._MUTABLE if candidate[name] != parent_doc[name]))
+        if not changed:
+            raise ValueError("HABIT_ECOLOGY_NO_BEHAVIORAL_CHANGE")
+        digest = sha256(candidate_bytes).hexdigest()
+        if digest == parent_sha256 or digest in self._roots:
+            raise ValueError("HABIT_ECOLOGY_IDENTITY_REUSE")
+        if digest in self._candidate_bytes:
+            raise ValueError("HABIT_ECOLOGY_DUPLICATE_CANDIDATE")
+
+        proposal = HabitCandidateProposal(
+            proposal_id=proposal_id, proposer_skill=proposer_skill,
+            target_skill=target_skill, parent_sha256=parent_sha256,
+            candidate_sha256=digest, evidence_sha256=evidence_sha256,
+            changed_fields=changed)
+        self._candidate_bytes[digest] = candidate_bytes
+        self._candidate_capsules[digest] = candidate
+        self._proposals[digest] = proposal
+        self._proposal_ids.add(proposal_id)
+        self._children[parent_sha256].add(digest)
+        return proposal
+
+    def export_candidate(self, candidate_sha256: str) -> dict:
+        if candidate_sha256 not in self._candidate_bytes:
+            raise KeyError("HABIT_ECOLOGY_NOT_A_CANDIDATE")
+        p = self._proposals[candidate_sha256]
+        return {
+            "format": "wf.portable-habit-untrusted-proposal.v1",
+            "proposal_id": p.proposal_id,
+            "target_skill": p.target_skill,
+            "proposer_skill": p.proposer_skill,
+            "capsule_utf8": self._candidate_bytes[candidate_sha256].decode("utf-8"),
+            "capsule_sha256": candidate_sha256,
+            "parent_sha256": p.parent_sha256,
+            "evidence_sha256": p.evidence_sha256,
+            "changed_fields": list(p.changed_fields),
+            "lifecycle": self.status(candidate_sha256),
+            "cross_host_quality_proven": False,
+            "auto_execute": False,
+            "auto_promote": False,
+        }
+
+    def _verify_reviewer_signature(self, doc, signature: str) -> None:
+        try:
+            expected = hmac.new(
+                self._reviewer_key, self._canonical(doc.signing_payload()),
+                "sha256").hexdigest()
+        except (TypeError, ValueError, AttributeError) as exc:
+            raise PermissionError("HABIT_ECOLOGY_REVIEW_ATTESTATION_INVALID") from exc
+        if not (self._hash_valid(signature) and
+                hmac.compare_digest(signature, expected)):
+            raise PermissionError("HABIT_ECOLOGY_REVIEW_ATTESTATION_INVALID")
+
+    def record_competition(self, result: HabitCompetitionEvidence) -> None:
+        if not isinstance(result, HabitCompetitionEvidence):
+            raise TypeError("HABIT_ECOLOGY_COMPETITION_SCHEMA_INVALID")
+        self._verify_reviewer_signature(result, result.signature)
+        p = self._proposals.get(result.candidate_sha256)
+        if p is None:
+            raise ValueError("HABIT_ECOLOGY_COMPETITION_UNKNOWN_CANDIDATE")
+        if p.candidate_sha256 in self._quarantined:
+            raise PermissionError("HABIT_ECOLOGY_COMPETITION_QUARANTINED")
+        if (not self._identity_valid(result.evaluator_id) or
+                result.evaluator_id == p.proposer_skill):
+            raise PermissionError("HABIT_ECOLOGY_PROPOSER_CANNOT_EVALUATE")
+        if result.holdout_suite_sha256 != self._heldout_sha:
+            raise ValueError("HABIT_ECOLOGY_HELDOUT_DRIFT")
+        if (type(result.matched_pairs) is not int or
+                not 1 <= result.matched_pairs <= 64 or
+                any(type(n) is not int or n < 0 for n in
+                    (result.observed_success, result.regression_cases,
+                     result.cost_units, result.independent_reader_count)) or
+                result.observed_success > result.matched_pairs or
+                result.regression_cases > result.matched_pairs or
+                result.independent_reader_count > 64):
+            raise ValueError("HABIT_ECOLOGY_COMPETITION_COUNTERS_INVALID")
+        if result.candidate_sha256 in self._evidence:
+            raise ValueError("HABIT_ECOLOGY_DUPLICATE_FROZEN_COMPARISON")
+        self._evidence[result.candidate_sha256] = result
+
+    def compare_candidates(self, target_skill: str) -> dict:
+        scored = [(p, self._evidence[sha]) for sha,p in self._proposals.items()
+                  if p.target_skill == target_skill and
+                  sha in self._evidence and sha not in self._quarantined]
+        baseline = {
+            "target_skill": target_skill,
+            "status": "INSUFFICIENT_COMPARABLE_CANDIDATES",
+            "provisional_leader_sha256": None,
+            "dormant_review_candidates": [],
+            "frozen_heldout_sha256": self._heldout_sha,
+            "automatic_promotion": False,
+            "independent_literary_improvement_proven": False,
+            "new_provider_calls": 0,
+        }
+        if len(scored) < 2:
+            return baseline
+        if len({result.matched_pairs for _,result in scored}) != 1:
+            return dict(baseline, status="INCOMPARABLE_MATCHED_PAIR_COUNTS")
+        scored.sort(key=lambda pe: (
+            -pe[1].observed_success, pe[1].regression_cases,
+            pe[1].cost_units, pe[0].candidate_sha256))
+        winner, measured = scored[0]
+        ties = [p for p,r in scored if (
+            r.observed_success == measured.observed_success and
+            r.regression_cases == measured.regression_cases and
+            r.cost_units == measured.cost_units)]
+        if len(ties) > 1:
+            return dict(baseline, status="NO_CLEAR_PROVISIONAL_LEADER")
+        return dict(
+            baseline,
+            status="PROVISIONAL_SYNTHETIC_EVIDENCE_ONLY",
+            provisional_leader_sha256=winner.candidate_sha256,
+            dormant_review_candidates=[
+                p.candidate_sha256 for p,e in scored[1:]
+                if e.regression_cases > measured.regression_cases or
+                e.observed_success < measured.observed_success],
+        )
+
+    def quarantine_lineage(
+        self, attestation: HabitQuarantineAttestation,
+    ) -> tuple[str, ...]:
+        if not isinstance(attestation, HabitQuarantineAttestation):
+            raise TypeError("HABIT_ECOLOGY_QUARANTINE_SCHEMA_INVALID")
+        self._verify_reviewer_signature(attestation, attestation.signature)
+        if (not self._hash_valid(attestation.evidence_sha256) or
+                not self._identity_valid(attestation.reviewer_id) or
+                attestation.reason_code != "VERIFIED_CANDIDATE_CONTAMINATION"):
+            raise ValueError("HABIT_ECOLOGY_QUARANTINE_REASON_INVALID")
+        if not self._known(attestation.ancestor_sha256):
+            raise ValueError("HABIT_ECOLOGY_UNKNOWN_QUARANTINE_ANCESTOR")
+        # Traverse only digest-linked descendants, never unrelated siblings.
+        stack = [attestation.ancestor_sha256]
+        affected = set()
+        while stack:
+            cur = stack.pop()
+            if cur not in affected:
+                affected.add(cur)
+                stack.extend(self._children.get(cur, ()))
+        self._quarantined.update(affected)
+        # Quarantining the root here does not mutate its immutable bytes, the
+        # SkillRegistry or any actual runtime permission.
+        return tuple(sorted(affected))
