@@ -2487,7 +2487,7 @@ class FirstHostNutrientLoop:
                      type(proposal["falsifier_index"]) is not int or
                      not 0 <= proposal["falsifier_index"] < 4 or
                      type(proposal["reason"]) is not str or
-                     not 25 <= len(proposal["reason"]) <= 450)):
+                     not 25 <= len(proposal["reason"]) <= 450):
                 raise ValueError("WF0BC_HOST_MODEL_NOT_PROPOSING_HABIT")
             for key in ("procedure_replacement","falsifier_replacement"):
                 if (type(proposal[key]) is not str or
