@@ -1,6 +1,17 @@
 # WriterForge 当前有效交接｜2026-10-27
 
 
+## 0.BJ 最新已执行｜第一份真人反馈已经否决本次实验资格，第二位不必再评（2026-10-27）
+
+**下一次优先读：[WF_0BJ_FIRST_HUMAN_REVIEW_INVALID_TRIAL_STOP_HANDOFF_20261027.md](WF_0BJ_FIRST_HUMAN_REVIEW_INVALID_TRIAL_STOP_HANDOFF_20261027.md)**。本节覆盖下面 0.BI 中“需要继续让第二位读者评”的历史时态；0.BI 原来的两份盲评包、原始十份本地模型结果仍完整保留，但本轮评审工作正式暂停。
+
+- **用户已经提交了 reviewer_one 原始 JSON**，原用户上传文件 SHA256 `1877fd037307b2881c9df1d68bcca63fe2c6ac8145f40d9b6404d62fe429a8d4`，第一评阅票数分布是 BOTH_BAD×1、TIE×1、A×3。针对原文复述、两篇差别很小、低幼反复、不自然地制造“未知危险”和僵硬因果解释，用户明确表示**“第二个我都不用看”**。只有一个 unsigned 的用户意见，不能当两位独立、签名和双盲文学证据。已将 SHA、匿名投票分布及非逐字摘要保存为 [0.BJ SHA-only 来源反馈](../experiments/wf_0bj_first_reader_pilot_stop_SHA_only_20261027.json)，**未上传用户原始投票正文**到 GitHub。
+- **真正的技术根因**：通过原 0.BG/0.BH 的十份 SHA 锁定真实模型输出重新检查，0.BG 的备份题 v1/v2 **正文完全一样且都是前文逐字复述**；安静场景字符串相似度约 0.867；0.BH 3B 六份模型输出中有 4 篇长度不足作者任务要求的120字。更关键：过去的实验两臂只是**同一本地模型静态注入 WF 认知 procedure v1/v2**，既没有裸模型对照，也没有运行真实 `AutonomousWriting.run` 的 V26/V98/V119、唯一 NarrativeCore 写作闭环。所以不能凭这些样本宣称“WF 比裸模型好/坏”；随机 A/B 选票也不能直接记入 v2 胜率。模型两个 cohort 也不能混合做总因果结论。
+- **真实 RED→GREEN 立即停止不合格测试**：新 [`wf_0bj_reader_trial_validity_gate.py`](../experiments/wf_0bj_reader_trial_validity_gate.py) 是来源核验/试验效度闸门，**不是文学评分或 WF 的新审稿规则**；检测逐字原文回声、完全相同生成、已声明的字数违约及缺裸模型基线，并输出 `DORMANT_EXPERIMENT_UNFIT_FOR_LITERARY_COMPARISON`、`request_second_blind_reader=false`、v1/v2 原始 SHADOW 不动。另可接收一份结构合法、未签名的真实用户票作为 `SINGLE_UNSIGNED_REVIEW_DIAGNOSTIC`，严禁凭此给全局胜负。接口 RED [#40530963392](https://github.com/66tyu55/WriterForge/actions/runs/40530963392)，字段遗漏 RED [#40531264244](https://github.com/66tyu55/WriterForge/actions/runs/40531264244)，最后 [**#40531429362 GREEN**](https://github.com/66tyu55/WriterForge/actions/runs/40531429362)：**2,021 tests、6 skipped、零失败**，0 新模型调用、0 新真人票。
+- **下一阶段不是再加审稿器/让第二位硬评**：重新设定有意义的新试验，先选能满足基础续写和长度的足够强作者模型，并设置真正**裸模型 vs WF 原核心写作闭环 vs 有认知习惯的 WF** 对照；明确 v1-v2 是局部增益对照，不是 WF 整体对照；同题同预算，先通过客观源适用性检查，再邀请读者。若缺新模型/费用/外部独立评价授权就继续 DORMANT，不重启旧 GLM 429，不用 GitHub 付费 Secrets。main、Railway、用户私有 R2 原著/Canon、V26/V98/V119 和唯一 NarrativeCore 保持不动。
+
+---
+
 ## 0.BI 最新已执行｜真实模型原稿已拆成两份独立盲评材料（2026-10-27）
 
 **下一次首先读：[WF_0BI_TWO_REAL_LOCAL_MODEL_HUMAN_BLIND_REVIEW_HANDOFF_20261027.md](WF_0BI_TWO_REAL_LOCAL_MODEL_HUMAN_BLIND_REVIEW_HANDOFF_20261027.md)**，再读下方 0.BH/BG 两次原始本地模型推理与来源 SHA。尚无真人评阅结果，因此所有先前“准备独立评审”的历史段落不能当作已经证明文学改善。
