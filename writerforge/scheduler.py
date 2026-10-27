@@ -321,6 +321,12 @@ class SkillScheduler:
             return "OPTIONAL_HABIT_APPROVAL_MISSING"
         if not isinstance(permit, OptionalExecutionPermit) or permit.name != cap.name:
             return "OPTIONAL_HABIT_ATTESTATION_INVALID"
+        # The signed origin SHA is an EXECUTION requirement. A Capability
+        # configuration error cannot weaken it to old untracked opt-in mode.
+        if permit.lineage_candidate_sha256 is not None and not cap.portable_habit:
+            return "OPTIONAL_HABIT_SIGNED_LINEAGE_CANNOT_DOWNGRADE"
+        if cap.portable_habit and permit.lineage_candidate_sha256 is None:
+            return "OPTIONAL_HABIT_LINEAGE_SOURCE_PIN_REQUIRED"
         if self._artifact_loader is None or not callable(self._artifact_loader):
             return "OPTIONAL_HABIT_CAPSULE_UNAVAILABLE"
         try:
@@ -345,7 +351,9 @@ class SkillScheduler:
         if cap.portable_habit:
             if not isinstance(self._portable_lineage, TrustedPortableHabitLineage):
                 return "OPTIONAL_HABIT_LINEAGE_REQUIRED"
-            reason = self._portable_lineage.reason(cap.name, raw)
+            reason = self._portable_lineage.reason(
+                cap.name, raw,
+                expected_candidate_sha256=permit.lineage_candidate_sha256)
             if reason is not None:
                 return reason
         if not isinstance(self._host_resource_lease, OptionalHostResourceLease):
