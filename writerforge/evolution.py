@@ -1252,6 +1252,9 @@ class PortableHabitCandidatePool:
         self._children: dict[str, set[str]] = defaultdict(set)
         self._evidence: dict[str, HabitCompetitionEvidence] = {}
         self._quarantined: set[str] = set()
+        # Immutable externally signed lineage decisions, retained for trusted
+        # manifest replay on a different instance/host.
+        self._quarantine_attestations: list[HabitQuarantineAttestation] = []
 
     @property
     def has_execution_authority(self) -> bool:
@@ -1438,6 +1441,137 @@ class PortableHabitCandidatePool:
                 affected.add(cur)
                 stack.extend(self._children.get(cur, ()))
         self._quarantined.update(affected)
+        self._quarantine_attestations.append(attestation)
         # Quarantining the root here does not mutate its immutable bytes, the
         # SkillRegistry or any actual runtime permission.
         return tuple(sorted(affected))
+
+    def export_manifest(self) -> dict:
+        """Portable offline history: candidate bytes + evidence, NOT permissions.
+
+        A consumer MUST pin SHA256(canonical(manifest)) using an independently
+        trusted channel before importing. The digest INSIDE a downloaded file,
+        if any, would prove nothing against manifest rollback or deletion.
+        Original root bytes and any private prose/provider wire stay outside.
+        """
+        return {
+            "format": "wf.portable-habit-ecology-manifest.v1",
+            "root_sha256s": sorted(self._roots),
+            "frozen_heldout_sha256": self._heldout_sha,
+            "candidates": [self.export_candidate(sha)
+                           for sha in self._candidate_bytes],
+            "competition_evidence": [
+                asdict(self._evidence[sha]) for sha in sorted(self._evidence)],
+            "quarantine_attestations": [
+                asdict(x) for x in self._quarantine_attestations],
+            "cross_host_literary_benefit_proven": False,
+            "contains_host_secrets_or_source_prose": False,
+            "auto_execution_or_promotion": False,
+        }
+
+    @classmethod
+    def from_manifest(
+        cls, manifest: dict, *, pinned_roots: dict[str, bytes],
+        reviewer_verifier_key: bytes, frozen_heldout_sha256: str,
+        expected_manifest_sha256: str | None = None,
+    ) -> "PortableHabitCandidatePool":
+        """Rehydrate into a NEW isolated pool, verifying EVERY signed decision.
+
+        The externally pinned *whole manifest* SHA is required so that a
+        hostile carrier cannot silently omit quarantine events, replay older
+        candidate rankings or substitute an apparently valid survivor.
+        """
+        if not cls._hash_valid(expected_manifest_sha256):
+            raise ValueError("HABIT_ECOLOGY_MANIFEST_EXTERNAL_PIN_REQUIRED")
+        if type(manifest) is not dict:
+            raise ValueError("HABIT_ECOLOGY_MANIFEST_SCHEMA_INVALID")
+        try:
+            raw = cls._canonical(manifest)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("HABIT_ECOLOGY_MANIFEST_SCHEMA_INVALID") from exc
+        if (len(raw) > 2_000_000 or
+                sha256(raw).hexdigest() != expected_manifest_sha256):
+            raise ValueError("HABIT_ECOLOGY_MANIFEST_SHA_MISMATCH")
+        if set(manifest) != {
+            "format", "root_sha256s", "frozen_heldout_sha256",
+            "candidates", "competition_evidence",
+            "quarantine_attestations", "cross_host_literary_benefit_proven",
+            "contains_host_secrets_or_source_prose",
+            "auto_execution_or_promotion",
+        } or manifest["format"] != "wf.portable-habit-ecology-manifest.v1":
+            raise ValueError("HABIT_ECOLOGY_MANIFEST_SCHEMA_INVALID")
+        if (manifest["root_sha256s"] != sorted(pinned_roots) or
+                manifest["frozen_heldout_sha256"] != frozen_heldout_sha256 or
+                manifest["cross_host_literary_benefit_proven"] is not False or
+                manifest["contains_host_secrets_or_source_prose"] is not False or
+                manifest["auto_execution_or_promotion"] is not False):
+            raise ValueError("HABIT_ECOLOGY_MANIFEST_ROOT_OR_POLICY_MISMATCH")
+        proposed = manifest["candidates"]
+        reviews = manifest["competition_evidence"]
+        quarantines = manifest["quarantine_attestations"]
+        if (type(proposed) is not list or
+                len(proposed) > cls.MAX_CANDIDATES or
+                type(reviews) is not list or len(reviews) > cls.MAX_CANDIDATES or
+                type(quarantines) is not list or
+                len(quarantines) > cls.MAX_CANDIDATES + cls.MAX_ROOTS):
+            raise ValueError("HABIT_ECOLOGY_MANIFEST_TOO_MANY_RECORDS")
+
+        pool = cls(
+            pinned_roots=pinned_roots,
+            reviewer_verifier_key=reviewer_verifier_key,
+            frozen_heldout_sha256=frozen_heldout_sha256)
+
+        candidate_schema = {
+            "format", "proposal_id", "target_skill", "proposer_skill",
+            "capsule_utf8", "capsule_sha256", "parent_sha256",
+            "evidence_sha256", "changed_fields", "lifecycle",
+            "cross_host_quality_proven", "auto_execute", "auto_promote",
+        }
+        for item in proposed:
+            if (type(item) is not dict or set(item) != candidate_schema or
+                    item["format"] != "wf.portable-habit-untrusted-proposal.v1" or
+                    type(item["capsule_utf8"]) is not str):
+                raise ValueError("HABIT_ECOLOGY_MANIFEST_CANDIDATE_INVALID")
+            try:
+                proposal = pool.propose(
+                    proposer_skill=item["proposer_skill"],
+                    target_skill=item["target_skill"],
+                    parent_sha256=item["parent_sha256"],
+                    candidate_bytes=item["capsule_utf8"].encode("utf-8"),
+                    evidence_sha256=item["evidence_sha256"],
+                    proposal_id=item["proposal_id"])
+            except (KeyError, TypeError, UnicodeError, ValueError,
+                    OverflowError, PermissionError) as exc:
+                raise ValueError(
+                    "HABIT_ECOLOGY_MANIFEST_CANDIDATE_INVALID") from exc
+            if (proposal.candidate_sha256 != item["capsule_sha256"] or
+                    list(proposal.changed_fields) != item["changed_fields"]):
+                raise ValueError("HABIT_ECOLOGY_MANIFEST_CANDIDATE_SHA_INVALID")
+
+        expected_review_keys = set(HabitCompetitionEvidence.__dataclass_fields__)
+        for record in reviews:
+            if type(record) is not dict or set(record) != expected_review_keys:
+                raise ValueError("HABIT_ECOLOGY_MANIFEST_REVIEW_SCHEMA_INVALID")
+            try:
+                pool.record_competition(HabitCompetitionEvidence(**record))
+            except (TypeError, ValueError, PermissionError) as exc:
+                raise ValueError(
+                    "HABIT_ECOLOGY_MANIFEST_REVIEW_INVALID") from exc
+
+        expected_quarantine_keys = set(
+            HabitQuarantineAttestation.__dataclass_fields__)
+        for record in quarantines:
+            if type(record) is not dict or set(record) != expected_quarantine_keys:
+                raise ValueError(
+                    "HABIT_ECOLOGY_MANIFEST_QUARANTINE_SCHEMA_INVALID")
+            try:
+                pool.quarantine_lineage(HabitQuarantineAttestation(**record))
+            except (TypeError, ValueError, PermissionError) as exc:
+                raise ValueError(
+                    "HABIT_ECOLOGY_MANIFEST_QUARANTINE_INVALID") from exc
+
+        # The canonical export is our only supported persisted representation;
+        # a loader may not silently ignore unknown or attenuated trust fields.
+        if pool.export_manifest() != manifest:
+            raise ValueError("HABIT_ECOLOGY_MANIFEST_NONCANONICAL_REPLAY")
+        return pool
