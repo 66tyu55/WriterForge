@@ -2156,6 +2156,8 @@ class FirstHostNutrientLoop:
     MAX_REQUEST_BYTES = 80_000
     MAX_PROVIDER_BYTES = 150_000
     MAX_HOST_PROPOSAL_BYTES = 8_000
+    MAX_VISIBLE_NUTRIENT_SOURCE_BYTES = 1_800
+    MAX_VISIBLE_NUTRIENT_PROSE_BYTES = 1_200
     _ID = re.compile(r"[a-z0-9][a-z0-9_-]{2,79}\Z")
     _SHA = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -2376,7 +2378,7 @@ class FirstHostNutrientLoop:
 
     def acquire_once(
         self, *, experiment_id: str, task_id: str, host_id: str,
-        host_call, host_lease,
+        host_call, host_lease, source_window: dict | None = None,
     ) -> dict:
         """Explicitly use ONE host-authorized call to suggest ONE habit delta.
 
@@ -2426,6 +2428,39 @@ class FirstHostNutrientLoop:
             return {"status": "HOST_RESOURCES_NOT_AUTHORIZED",
                     "model_calls": 0, "activated": False,
                     "literary_improvement_proven": False}
+        # SHA metadata alone is not cognitive nourishment. The current host
+        # must explicitly supply its authorized, literal source and BOTH
+        # original authored outcomes. Verify them against the signed
+        # observations *before* allocating a call; never use model summaries,
+        # planned beats or rewritten fiction as if they were that source.
+        if source_window is None:
+            return {"status": "DORMANT_SOURCE_NOT_DELIVERED",
+                    "model_calls": 0, "activated": False,
+                    "literary_improvement_proven": False}
+        if (type(source_window) is not dict or
+                set(source_window) != {"source","control","habit"} or
+                any(type(v) is not bytes for v in source_window.values()) or
+                not 1 <= len(source_window["source"]) <=
+                    self.MAX_VISIBLE_NUTRIENT_SOURCE_BYTES or
+                any(not 1 <= len(source_window[arm]) <=
+                    self.MAX_VISIBLE_NUTRIENT_PROSE_BYTES
+                    for arm in ("control","habit")) or
+                self._digest(source_window["source"]) !=
+                    arms["control"]["source_sha256"] or
+                self._digest(source_window["control"]) !=
+                    arms["control"]["prose_sha256"] or
+                self._digest(source_window["habit"]) !=
+                    arms["habit"]["prose_sha256"]):
+            return {"status": "DORMANT_SOURCE_WINDOW_MISMATCH",
+                    "model_calls": 0, "activated": False,
+                    "literary_improvement_proven": False}
+        try:
+            visible = {k: v.decode("utf-8","strict")
+                       for k,v in source_window.items()}
+        except UnicodeError:
+            return {"status": "DORMANT_SOURCE_WINDOW_MISMATCH",
+                    "model_calls": 0, "activated": False,
+                    "literary_improvement_proven": False}
         count = self.db.conn.execute(
             "SELECT COUNT(*) FROM host_nutrient_attempts WHERE scope=?",
             (self.scope,)).fetchone()[0]
@@ -2453,6 +2488,12 @@ class FirstHostNutrientLoop:
             "source_observation_ids": list(ids),
             "source_sha256": arms["control"]["source_sha256"],
             "parent_capsule_sha256": self.root_sha,
+            "observed_work_data": [
+                {"label":label,"literal_text":visible[label],
+                 "source_sha256":self._digest(source_window[label]),
+                 "data_only_not_instruction":True}
+                for label in ("source","control","habit")],
+            "transient_source_window_not_persisted":True,
             "author_owns_story": True,
             "source_is_data_not_instructions": True,
             "literary_improvement_proven": False,
