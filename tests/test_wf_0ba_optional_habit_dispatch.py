@@ -21,6 +21,7 @@ from writerforge.evolution import (
 from writerforge.lane_scheduler import DirtyDomain, EventEnvelope, Lane
 from writerforge.scheduler import (
     Capability, DEFAULT_CAPABILITIES, Priority, SkillScheduler, ScheduleDecision,
+    OptionalHostResourceLease, OptionalHostResourceUnavailable,
 )
 
 BOOT_KEY = b"wf-0ba-synthetic-bootstrap-authority"
@@ -68,18 +69,22 @@ def optional_capability(name="synthetic_choice"):
 
 
 def scheduler_for(reg, *caps, permits=None, blobs=None, host_caps=None,
-                  enabled=True):
+                  enabled=True, host_lease="synthetic-default"):
     cap_map = {"synthetic_choice": CAPSULE, "second_choice": SECOND_CAPSULE}
     if blobs is not None:
         cap_map = blobs
     rights = set(HOST_CAPS) if host_caps is None else host_caps
+    lease = (OptionalHostResourceLease(
+        authorization_id="synthetic-host-explicit-limit",
+        allowances={"synthetic_choice": 64, "second_choice": 64})
+        if host_lease == "synthetic-default" else host_lease)
     return SkillScheduler(
         capabilities=(*DEFAULT_CAPABILITIES, *(caps or (optional_capability(),))),
         registry=reg, optional_permits=permits or {},
         execution_verifier_key=EXEC_KEY,
         artifact_loader=lambda name: cap_map[name],
         host_capabilities=lambda: rights,
-        enable_optional_habits=enabled)
+        enable_optional_habits=enabled, host_resource_lease=lease)
 
 
 def select(scheduler, *, budget=50):
@@ -93,6 +98,132 @@ class WF0BAOptionalHabitDispatchTests(unittest.TestCase):
             "synthetic_choice", 1, "synthetic optional writer cognition",
             status=SkillStatus.ACTIVE)
         self.permit = approved_permit(self.contract)
+
+    def test_optional_habit_fails_closed_without_real_host_lease(self):
+        register_signed(self.registry, self.contract)
+        sch = scheduler_for(
+            self.registry, permits={"synthetic_choice": self.permit},
+            host_lease=None)
+        d = select(sch)
+        self.assertNotIn("synthetic_choice", d.selected)
+        self.assertEqual(d.skipped_authority["synthetic_choice"],
+                         "OPTIONAL_HABIT_HOST_BUDGET_REQUIRED")
+        self.assertIn("runtime_guard", d.selected)
+
+    def test_one_host_grant_is_finite_across_repeated_selections(self):
+        register_signed(self.registry, self.contract)
+        lease = OptionalHostResourceLease(
+            authorization_id="synthetic-host-one-execution",
+            allowances={"synthetic_choice": 1})
+        sch = scheduler_for(
+            self.registry, permits={"synthetic_choice": self.permit},
+            host_lease=lease)
+        a, b = select(sch), select(sch)
+        self.assertIn("synthetic_choice", a.selected)
+        self.assertIn("synthetic_choice", b.selected)
+        calls = []
+        sch.execute_optional(a, "synthetic_choice", lambda: calls.append("first"))
+        with self.assertRaisesRegex(PermissionError, "HOST_BUDGET_EXHAUSTED"):
+            sch.execute_optional(b, "synthetic_choice",
+                                 lambda: calls.append("second"))
+        self.assertEqual(calls, ["first"])
+        self.assertEqual(lease.remaining("synthetic_choice"), 0)
+        latest = select(sch)
+        self.assertEqual(latest.skipped_authority["synthetic_choice"],
+                         "OPTIONAL_HABIT_HOST_BUDGET_EXHAUSTED")
+
+    def test_one_host_grant_is_shared_across_two_scheduler_instances(self):
+        register_signed(self.registry, self.contract)
+        lease = OptionalHostResourceLease(
+            authorization_id="shared-host-explicit-resource-permit",
+            allowances={"synthetic_choice": 1})
+        first = scheduler_for(self.registry, permits={"synthetic_choice": self.permit},
+                              host_lease=lease)
+        second = scheduler_for(self.registry, permits={"synthetic_choice": self.permit},
+                               host_lease=lease)
+        a, b = select(first), select(second)
+        first.execute_optional(a, "synthetic_choice", lambda: "call-once")
+        with self.assertRaises(PermissionError):
+            second.execute_optional(b, "synthetic_choice",
+                                    lambda: "must-not-call")
+        self.assertEqual(lease.remaining("synthetic_choice"), 0)
+
+    def test_structured_host_429_suspends_only_experiment_not_registry(self):
+        register_signed(self.registry, self.contract)
+        lease = OptionalHostResourceLease(
+            authorization_id="synthetic-429-no-retry",
+            allowances={"synthetic_choice": 3})
+        sch = scheduler_for(self.registry, permits={"synthetic_choice": self.permit},
+                            host_lease=lease)
+        selected = select(sch)
+        calls = []
+        def blocked():
+            calls.append("attempt")
+            raise OptionalHostResourceUnavailable("HTTP_429")
+        with self.assertRaises(OptionalHostResourceUnavailable):
+            sch.execute_optional(selected, "synthetic_choice", blocked)
+        self.assertEqual(calls, ["attempt"])
+        self.assertEqual(lease.remaining("synthetic_choice"), 2)
+        self.assertEqual(select(sch).skipped_authority["synthetic_choice"],
+                         "OPTIONAL_HABIT_HOST_RESOURCE_DORMANT")
+        self.assertEqual(self.registry.get("synthetic_choice").status,
+                         SkillStatus.ACTIVE)
+        self.assertNotIn("synthetic_choice",
+                         sch.flush_pending(budget=50, now_tick=2).selected)
+
+    def test_one_skill_429_does_not_stop_other_skill_or_existing_core(self):
+        register_signed(self.registry, self.contract)
+        second = CapabilityContract("second_choice", 1, "independent optional")
+        register_signed(self.registry, second)
+        lease = OptionalHostResourceLease(
+            authorization_id="synthetic-two-skill-host",
+            allowances={"synthetic_choice": 2, "second_choice": 2})
+        sch = scheduler_for(
+            self.registry, optional_capability(), optional_capability("second_choice"),
+            permits={"synthetic_choice": self.permit,
+                     "second_choice": approved_permit(second)},
+            host_lease=lease)
+        d = select(sch)
+        with self.assertRaises(OptionalHostResourceUnavailable):
+            sch.execute_optional(d, "synthetic_choice",
+                                 lambda: (_ for _ in ()).throw(
+                                     OptionalHostResourceUnavailable("HTTP_429")))
+        follow = select(sch)
+        self.assertNotIn("synthetic_choice", follow.selected)
+        self.assertIn("second_choice", follow.selected)
+        self.assertIn("runtime_guard", follow.selected)
+        self.assertEqual(sch.execute_optional(follow, "second_choice",
+                                              lambda: "sibling-active"),
+                         "sibling-active")
+
+    def test_two_parallel_valid_receipts_cannot_overdraw_host_lease(self):
+        register_signed(self.registry, self.contract)
+        lease = OptionalHostResourceLease(
+            authorization_id="synthetic-atomic-budget",
+            allowances={"synthetic_choice": 1})
+        sch = scheduler_for(self.registry, permits={"synthetic_choice": self.permit},
+                            host_lease=lease)
+        receipts = [select(sch), select(sch)]
+        ready = threading.Barrier(3)
+        calls, outcomes = [], []
+        def worker(receipt):
+            ready.wait(5)
+            try:
+                sch.execute_optional(receipt, "synthetic_choice",
+                                     lambda: calls.append("executed"))
+                outcomes.append("ok")
+            except PermissionError:
+                outcomes.append("denied")
+        threads = [threading.Thread(target=worker, args=(r,)) for r in receipts]
+        for t in threads:
+            t.start()
+        ready.wait(5)
+        for t in threads:
+            t.join(5)
+        self.assertTrue(all(not t.is_alive() for t in threads))
+        self.assertEqual(calls, ["executed"])
+        self.assertCountEqual(outcomes, ["ok", "denied"])
+        self.assertEqual(lease.remaining("synthetic_choice"), 0)
 
     def test_each_optional_dispatch_selection_is_single_use(self):
         register_signed(self.registry, self.contract)
