@@ -136,6 +136,37 @@ class WF0BCFirstHostNutrientTests(unittest.TestCase):
             authorization_id="explicit-synthetic-host-authorization",
             allowances={"nutrient_acquisition": calls})
 
+    def window(self):
+        return {
+            "source": SOURCE,
+            "control": observed("unused-control", arm="control")[4],
+            "habit": observed("unused-habit", arm="habit")[4],
+        }
+
+    def test_model_needs_actual_verified_work_not_only_hashes(self):
+        self.pair()
+        calls = []
+        budget = self.lease()
+        no_context = self.loop.acquire_once(
+            experiment_id="first-host-demo", task_id="light-failure",
+            host_id="synthetic-app",
+            host_call=lambda obj: calls.append(obj), host_lease=budget)
+        self.assertEqual(no_context["status"], "DORMANT_SOURCE_NOT_DELIVERED")
+        self.assertEqual(calls, [])
+        self.assertEqual(budget.remaining("nutrient_acquisition"), 1)
+
+    def test_untrusted_or_edited_work_window_never_reaches_host(self):
+        self.pair()
+        invalid = self.window()
+        invalid["habit"] += b"fabricated action"
+        calls = []
+        out = self.loop.acquire_once(
+            experiment_id="first-host-demo", task_id="light-failure",
+            host_id="synthetic-app", source_window=invalid,
+            host_call=lambda x: calls.append(x), host_lease=self.lease())
+        self.assertEqual(out["status"], "DORMANT_SOURCE_WINDOW_MISMATCH")
+        self.assertEqual(calls, [])
+
     def test_real_work_observation_metadata_is_persistent_not_novel_memory(self):
         self.pair()
         receipt = self.loop.disposition("first-host-demo")
@@ -203,10 +234,14 @@ class WF0BCFirstHostNutrientTests(unittest.TestCase):
         result = self.loop.acquire_once(
             experiment_id="first-host-demo", task_id="light-failure",
             host_id="synthetic-app",
+            source_window=self.window(),
             host_call=lambda packet: (calls.append(packet), model_habit_reply(packet))[1],
             host_lease=lease)
         self.assertEqual(result["status"], "SHADOW_NEEDS_INDEPENDENT_EVIDENCE")
         self.assertEqual(len(calls), 1)
+        self.assertEqual([x["label"] for x in calls[0]["observed_work_data"]],
+                         ["source", "control", "habit"])
+        self.assertIn("灯塔", calls[0]["observed_work_data"][0]["literal_text"])
         self.assertEqual(lease.remaining("nutrient_acquisition"), 0)
         sha = result["candidate_sha256"]
         self.assertEqual(self.pool.status(sha), "SHADOW")
@@ -251,6 +286,7 @@ class WF0BCFirstHostNutrientTests(unittest.TestCase):
         result = self.loop.acquire_once(
             experiment_id="first-host-demo", task_id="light-failure",
             host_id="synthetic-app",
+            source_window=self.window(),
             host_call=lambda packet: canonical({"prose": "一段小说", "chosen_step": "重来"}),
             host_lease=self.lease())
         self.assertEqual(result["status"], "REJECTED_HOST_HABIT_PROPOSAL")
@@ -269,7 +305,8 @@ class WF0BCFirstHostNutrientTests(unittest.TestCase):
             return canonical(obj)
         out = self.loop.acquire_once(
             experiment_id="first-host-demo", task_id="light-failure",
-            host_id="synthetic-app", host_call=forged, host_lease=self.lease())
+            host_id="synthetic-app",
+            source_window=self.window(), host_call=forged, host_lease=self.lease())
         self.assertEqual(out["status"], "REJECTED_HOST_HABIT_PROPOSAL")
         self.assertEqual(self.db.conn.execute(
             "SELECT COUNT(*) FROM host_nutrient_candidates").fetchone()[0], 0)
@@ -294,7 +331,8 @@ class WF0BCFirstHostNutrientTests(unittest.TestCase):
             raise OptionalHostResourceUnavailable("HTTP_429")
         out = self.loop.acquire_once(
             experiment_id="first-host-demo", task_id="light-failure",
-            host_id="synthetic-app", host_call=callback, host_lease=budget)
+            host_id="synthetic-app",
+            source_window=self.window(), host_call=callback, host_lease=budget)
         self.assertEqual(out["status"], "DORMANT_HOST_RESOURCE")
         self.assertEqual(called, ["attempt"])
         self.assertEqual(budget.remaining("nutrient_acquisition"), 1)
@@ -308,7 +346,8 @@ class WF0BCFirstHostNutrientTests(unittest.TestCase):
         self.pair()
         out = self.loop.acquire_once(
             experiment_id="first-host-demo", task_id="light-failure",
-            host_id="synthetic-app", host_call=model_habit_reply,
+            host_id="synthetic-app",
+            source_window=self.window(), host_call=model_habit_reply,
             host_lease=self.lease())
         sha = out["candidate_sha256"]
         self.db.conn.execute(
