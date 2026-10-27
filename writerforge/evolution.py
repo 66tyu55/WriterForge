@@ -1575,3 +1575,249 @@ class PortableHabitCandidatePool:
         if pool.export_manifest() != manifest:
             raise ValueError("HABIT_ECOLOGY_MANIFEST_NONCANONICAL_REPLAY")
         return pool
+
+
+@dataclass(frozen=True)
+class PortableHabitReleaseAttestation:
+    """Publicly verifiable curator signature over a complete offline history.
+
+    This carries no secret and cannot approve executable Skills, inference
+    budget, literary benefits or writes to Canon. Ed25519 signing remains
+    outside WF's portable package; the receiving host holds only a *trusted*
+    public key. Trusting a public key supplied inside the imported manifest
+    would defeat the entire signature.
+    """
+
+    manifest_sha256: str
+    curator_id: str
+    release_sequence: int
+    signature_hex: str
+
+    def signing_payload(self) -> dict:
+        return {
+            "kind": "wf.portable-habit-release-ed25519.v1",
+            "manifest_sha256": self.manifest_sha256,
+            "curator_id": self.curator_id,
+            "release_sequence": self.release_sequence,
+            "auto_execute": False,
+            "auto_promotion": False,
+            "literary_improvement_proven": False,
+        }
+
+
+def verify_portable_habit_release(
+    manifest: dict, attestation: PortableHabitReleaseAttestation, *,
+    pinned_roots: dict[str, bytes], trusted_public_key: bytes,
+    expected_curator_id: str, minimum_release_sequence: int,
+    expected_manifest_sha256: str,
+) -> dict:
+    """Read-only public-key import for a distinct agent host.
+
+    Unlike the local in-process HMAC candidate pool, the host gets NO HMAC
+    verifier/signing secret. It checks one curator-signed manifest, every
+    capsule's literal SHA and immutable protected fields, the parent graph,
+    quarantine descendant closure, and the host's independently pinned
+    release SHA + monotonic release floor. This does NOT replay HMAC-only
+    individual reviewer signatures: a trusted curator has attested to their
+    validation before publishing the entire signed manifest. Host permissions
+    and runtime activation still require separate authorization.
+    """
+    pool = PortableHabitCandidatePool
+    is_hex = pool._hash_valid
+    if (not isinstance(attestation, PortableHabitReleaseAttestation) or
+            not is_hex(attestation.manifest_sha256) or
+            type(attestation.signature_hex) is not str or
+            re.fullmatch(r"[0-9a-f]{128}", attestation.signature_hex) is None or
+            not pool._identity_valid(attestation.curator_id) or
+            type(attestation.release_sequence) is not int or
+            attestation.release_sequence < 1):
+        raise ValueError("HABIT_RELEASE_ATTESTATION_SCHEMA_INVALID")
+    if (not isinstance(expected_curator_id, str) or
+            attestation.curator_id != expected_curator_id or
+            type(minimum_release_sequence) is not int or
+            minimum_release_sequence < 1 or
+            attestation.release_sequence < minimum_release_sequence):
+        raise PermissionError("HABIT_RELEASE_UNTRUSTED_CURATOR_OR_OLD_SEQUENCE")
+    if not is_hex(expected_manifest_sha256):
+        raise ValueError("HABIT_RELEASE_EXTERNAL_MANIFEST_PIN_REQUIRED")
+    if (type(manifest) is not dict or
+            not isinstance(pinned_roots, dict) or
+            not 1 <= len(pinned_roots) <= pool.MAX_ROOTS or
+            type(trusted_public_key) is not bytes or
+            len(trusted_public_key) != 32):
+        raise ValueError("HABIT_RELEASE_INPUT_OR_PUBLIC_KEY_INVALID")
+    try:
+        raw = pool._canonical(manifest)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("HABIT_RELEASE_MANIFEST_ENCODING_INVALID") from exc
+    actual_manifest_sha = sha256(raw).hexdigest()
+    if (len(raw) > 2_000_000 or
+            actual_manifest_sha != attestation.manifest_sha256 or
+            actual_manifest_sha != expected_manifest_sha256):
+        raise ValueError("HABIT_RELEASE_MANIFEST_PIN_MISMATCH")
+
+    try:
+        from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    except ImportError as exc:
+        raise RuntimeError(
+            "HABIT_RELEASE_ED25519_EVIDENCE_EXTRA_REQUIRED") from exc
+    try:
+        Ed25519PublicKey.from_public_bytes(trusted_public_key).verify(
+            bytes.fromhex(attestation.signature_hex),
+            pool._canonical(attestation.signing_payload()))
+    except (InvalidSignature, ValueError) as exc:
+        raise PermissionError("HABIT_RELEASE_CURATOR_SIGNATURE_INVALID") from exc
+
+    expected_fields = {
+        "format", "root_sha256s", "frozen_heldout_sha256", "candidates",
+        "competition_evidence", "quarantine_attestations",
+        "cross_host_literary_benefit_proven",
+        "contains_host_secrets_or_source_prose", "auto_execution_or_promotion",
+    }
+    if (set(manifest) != expected_fields or
+            manifest["format"] != "wf.portable-habit-ecology-manifest.v1" or
+            manifest["root_sha256s"] != sorted(pinned_roots) or
+            not is_hex(manifest["frozen_heldout_sha256"]) or
+            manifest["cross_host_literary_benefit_proven"] is not False or
+            manifest["contains_host_secrets_or_source_prose"] is not False or
+            manifest["auto_execution_or_promotion"] is not False):
+        raise ValueError("HABIT_RELEASE_MANIFEST_SCHEMA_OR_ROOT_INVALID")
+
+    roots: dict[str, dict] = {}
+    for digest, capsule_bytes in pinned_roots.items():
+        if (not is_hex(digest) or type(capsule_bytes) is not bytes or
+                sha256(capsule_bytes).hexdigest() != digest):
+            raise ValueError("HABIT_RELEASE_UNTRUSTED_ROOT_BYTES")
+        capsule = pool._decode(capsule_bytes)
+        if capsule["lifecycle"] != "SHADOW":
+            raise ValueError("HABIT_RELEASE_UNAPPROVED_ACTIVE_ROOT")
+        roots[digest] = capsule
+
+    candidates = manifest["candidates"]
+    reviews = manifest["competition_evidence"]
+    quarantines = manifest["quarantine_attestations"]
+    if (type(candidates) is not list or
+            len(candidates) > pool.MAX_CANDIDATES or
+            type(reviews) is not list or
+            len(reviews) > pool.MAX_CANDIDATES or
+            type(quarantines) is not list or
+            len(quarantines) > pool.MAX_CANDIDATES + pool.MAX_ROOTS):
+        raise ValueError("HABIT_RELEASE_MANIFEST_UNBOUNDED_COLLECTION")
+
+    item_fields = {
+        "format", "proposal_id", "target_skill", "proposer_skill",
+        "capsule_utf8", "capsule_sha256", "parent_sha256",
+        "evidence_sha256", "changed_fields", "lifecycle",
+        "cross_host_quality_proven", "auto_execute", "auto_promote",
+    }
+    known = dict(roots)
+    proposed_by_sha: dict[str, dict] = {}
+    children: dict[str, set[str]] = defaultdict(set)
+    unique_ids: set[str] = set()
+    for item in candidates:
+        if (type(item) is not dict or set(item) != item_fields or
+                item["format"] != "wf.portable-habit-untrusted-proposal.v1" or
+                type(item["capsule_utf8"]) is not str or
+                not pool._identity_valid(item["proposer_skill"]) or
+                not pool._identity_valid(item["target_skill"]) or
+                item["proposer_skill"] == item["target_skill"] or
+                not pool._identity_valid(item["proposal_id"]) or
+                item["proposal_id"] in unique_ids or
+                not is_hex(item["evidence_sha256"]) or
+                not is_hex(item["capsule_sha256"]) or
+                item["lifecycle"] not in ("SHADOW", "REVIEW_QUARANTINE_LINEAGE") or
+                item["auto_execute"] is not False or
+                item["auto_promote"] is not False or
+                item["cross_host_quality_proven"] is not False):
+            raise ValueError("HABIT_RELEASE_INVALID_CANDIDATE_DESCRIPTOR")
+        old_doc = known.get(item["parent_sha256"])
+        if old_doc is None:
+            raise ValueError("HABIT_RELEASE_UNTRUSTED_OR_UNORDERED_PARENT")
+        raw_candidate = item["capsule_utf8"].encode("utf-8")
+        digest = sha256(raw_candidate).hexdigest()
+        if digest != item["capsule_sha256"] or digest in known:
+            raise ValueError("HABIT_RELEASE_CHANGED_OR_DUPLICATE_CANDIDATE_SHA")
+        obj = pool._decode(raw_candidate)
+        if (obj["id"] != old_doc["id"] or
+                item["target_skill"] != obj["id"] or
+                obj["revision"] != old_doc["revision"] + 1 or
+                obj["lifecycle"] != "SHADOW" or
+                any(obj[field] != old_doc[field] for field in pool._PROTECTED)):
+            raise ValueError("HABIT_RELEASE_MUTATED_PROTECTED_CAPSULE")
+        changed = sorted(
+            field for field in pool._MUTABLE if obj[field] != old_doc[field])
+        if not changed or item["changed_fields"] != changed:
+            raise ValueError("HABIT_RELEASE_MISREPORTED_BEHAVIORAL_CHANGE")
+        known[digest] = obj
+        proposed_by_sha[digest] = item
+        children[item["parent_sha256"]].add(digest)
+        unique_ids.add(item["proposal_id"])
+
+    review_fields = set(HabitCompetitionEvidence.__dataclass_fields__)
+    reviewed: set[str] = set()
+    for row in reviews:
+        if type(row) is not dict or set(row) != review_fields:
+            raise ValueError("HABIT_RELEASE_REVIEW_SCHEMA_INVALID")
+        try:
+            evidence = HabitCompetitionEvidence(**row)
+        except TypeError as exc:
+            raise ValueError("HABIT_RELEASE_REVIEW_SCHEMA_INVALID") from exc
+        target = proposed_by_sha.get(evidence.candidate_sha256)
+        if (target is None or evidence.candidate_sha256 in reviewed or
+                evidence.holdout_suite_sha256 != manifest["frozen_heldout_sha256"] or
+                evidence.evaluator_id == target["proposer_skill"] or
+                not pool._identity_valid(evidence.evaluator_id) or
+                not is_hex(evidence.signature) or
+                type(evidence.matched_pairs) is not int or
+                not 1 <= evidence.matched_pairs <= 64 or
+                any(type(n) is not int or n < 0 for n in (
+                    evidence.observed_success, evidence.regression_cases,
+                    evidence.cost_units, evidence.independent_reader_count)) or
+                evidence.observed_success > evidence.matched_pairs or
+                evidence.regression_cases > evidence.matched_pairs):
+            raise ValueError("HABIT_RELEASE_REVIEW_SOURCE_SCHEMA_INVALID")
+        reviewed.add(evidence.candidate_sha256)
+
+    quarantine_fields = set(HabitQuarantineAttestation.__dataclass_fields__)
+    affected: set[str] = set()
+    for row in quarantines:
+        if type(row) is not dict or set(row) != quarantine_fields:
+            raise ValueError("HABIT_RELEASE_QUARANTINE_SCHEMA_INVALID")
+        try:
+            revoked = HabitQuarantineAttestation(**row)
+        except TypeError as exc:
+            raise ValueError("HABIT_RELEASE_QUARANTINE_SCHEMA_INVALID") from exc
+        if (revoked.ancestor_sha256 not in known or
+                not is_hex(revoked.signature) or
+                not is_hex(revoked.evidence_sha256) or
+                not pool._identity_valid(revoked.reviewer_id) or
+                revoked.reason_code != "VERIFIED_CANDIDATE_CONTAMINATION"):
+            raise ValueError("HABIT_RELEASE_QUARANTINE_EVIDENCE_INVALID")
+        remaining = [revoked.ancestor_sha256]
+        while remaining:
+            parent = remaining.pop()
+            if parent not in affected:
+                affected.add(parent)
+                remaining.extend(children.get(parent, ()))
+    for sha_value, item in proposed_by_sha.items():
+        expected = ("REVIEW_QUARANTINE_LINEAGE"
+                    if sha_value in affected else "SHADOW")
+        if item["lifecycle"] != expected:
+            raise ValueError("HABIT_RELEASE_QUARANTINE_LINEAGE_INCONSISTENT")
+
+    return {
+        "status": "SIGNED_PORTABLE_SHADOW_RELEASE_VERIFIED",
+        "manifest_sha256": actual_manifest_sha,
+        "curator_id": expected_curator_id,
+        "release_sequence": attestation.release_sequence,
+        "root_sha256s": tuple(sorted(roots)),
+        "candidate_count": len(proposed_by_sha),
+        "quarantined_candidate_shas": tuple(sorted(affected & proposed_by_sha.keys())),
+        "quarantined_root_shas": tuple(sorted(affected & roots.keys())),
+        "can_execute": False,
+        "can_promote": False,
+        "literary_improvement_proven": False,
+        "independent_agent_hosts_tested": 0,
+        "new_provider_calls": 0,
+    }
