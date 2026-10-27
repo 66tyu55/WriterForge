@@ -1,6 +1,20 @@
 # WriterForge 当前有效交接｜2026-10-27
 
 
+## 0.BF 最新已执行｜原始回包 + 实际使用量 + 双独立签名评价 → 有价值才继续（2026-10-27）
+
+**下一对话必须先读：[WF_0BF_VERIFIED_VALUE_EVIDENCE_STOP_GATE_SOURCE_FIRST_20261027.md](WF_0BF_VERIFIED_VALUE_EVIDENCE_STOP_GATE_SOURCE_FIRST_20261027.md)**，再读 [0.BE 原始 v1/v2 停止预检](WF_0BE_V2_HABIT_FALSIFICATION_AND_VALUE_STOP_HANDOFF_20261027.md)。此节取代下方 0.BE“等待真实可信评价入口”的旧时态；但未改变 0.AY/0.AZ 历史 GLM HTTP 429 和 0.BD v2 的 SHADOW。
+
+- **本轮实质性问题**：原 `HabitTrialEvidence` 虽能在 `repeated_no_benefit_evidence=True` 时返回停止建议，却不能在该纯布尔入口自己核实**原始模型字节、独立审阅者、实际模型使用量**。它只能作为旧 advisory，不能据此宣传可证伪已经得到独立证明。
+- **真正新证据路径**：原 `writerforge/evolution.py` 新增 `HostValueWireAttestation`、`IndependentBlindValueVote`、`adjudicate_portable_habit_value`。核验外部固定的 0.BE 八组 v1-v2 任务、同任务/同源/同宿主同模型的 16 份作者输入、完整原始 provider response 字节、提供商响应里的 **实际 prompt/completion/total token 使用量**、可信宿主 Ed25519 签名与**两把不同独立评审公钥**对匿名 A/B 原始文本 SHA 的签名选择。对无原始来源、伪造签名、不同模型、缺失实际 usage、修改正文、重复一臂或评价者不同意等情形必须拒绝/不下结论。此纯函数不写 Registry、不调用模型、不修改文学作品。
+- **只有有证据才停**：成对 8 例齐全、双签名评审逐例达成一致且 v2 没有一个明确获胜、提供商报告的总 token 成本不低于 v1，才生成 `DORMANT_NO_PROVEN_VALUE` 的**证据型建议**。有明确 v2 阅读优势仅给 `SHADOW_REVIEW_FOR_VALUE_ONLY`，无自动晋级。缺对照返回 `DORMANT_INCOMPLETE_REAL_PAIRS`；缺双审阅 `SHADOW_NEEDS_INDEPENDENT_READERS`；有审阅冲突 `SHADOW_MIXED_READER_EVIDENCE`。
+- **尤其禁止合成证据冒充文学进步/失败**：本轮测试 12 项均是合成原始 wire、合成使用量和合成 Ed25519 审阅者，签名的 `evidence_class=SYNTHETIC_TEST_ONLY` 显示来源，`production_actionable=false`、`literary_improvement_proven=false`，**不是 v2 已有真实 16 份模型回包**。技术上可验证签名不代表实际人类阅读独立，也不代表服务商签署了自己的 wire；签名者身份和可信公钥须来自独立宿主授权。候选 v2 SHA `0d43a023bc278ac12e3165e319d2acb73dcf40c0d9af453e623c786f3b476a10`、父 v1 SHA `42cad98118dea662cea472f708ef1de22f4bb139da3210b1f5c3c1f9ac12664d` 均未改变，v2 继续 SHADOW/未证进步。
+- **RED→真实 GREEN**：[接口不存在 RED #40488817209](https://github.com/66tyu55/WriterForge/actions/runs/40488817209)；[**签名宿主与双评阅 #40489266740 GREEN**](https://github.com/66tyu55/WriterForge/actions/runs/40489266740) 与 [0.BA 交叉 #40489266803 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40489266803)、[0.BE 交叉 #40489266755 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40489266755)、[0.BD 交叉 #40489266715 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40489266715) 均 **1,983 tests、6 skipped、零失败**。
+- **0.AZ 旧来源只读回归 CI 修复**：发现原工作流先整仓回归、后下载真实历史 0.AY 工件，因此 0.BD 的 8 项来源锁依赖报错，不是新文学问题；仅调整 CI 顺序并在 [**#40489793627 GREEN**](https://github.com/66tyu55/WriterForge/actions/runs/40489793627) 取得完整 1,983 tests、6 skipped、零失败与原件核验：仍是 4 次历史尝试、3 份有效正文、第 4 次 GLM HTTP 429 无正文，新增模型调用 0，状态 DORMANT_HOST_RESOURCE。
+- **真正剩余目标**：选定经用户**明确授权的新模型/次数/费用上限**，用新的 0.BE 八组源固定任务真正取得同模型 v1-v2 原始输出和 usage，再交由**与提议模型不同且有可信签名**的两名真正读者做盲审。若无法证明收益，保留证据并停止；若可见收益也仅考虑人工审查。别回到只增加静态审稿规则、假评分或无穷迭代。仍只修改 `refactor-unified-scene-delivery-audit`，不碰 main、Railway、R2 原著、Canon、V26/V98/V119 与唯一 NarrativeCore。
+
+---
+
 ## 0.BE 最新已执行｜有用才迭代：保留祖先认知、宿主主动 NO_CHANGE、v2 价值待证伪（2026-10-27）
 
 **下一轮第一读：[WF_0BE_V2_HABIT_FALSIFICATION_AND_VALUE_STOP_HANDOFF_20261027.md](WF_0BE_V2_HABIT_FALSIFICATION_AND_VALUE_STOP_HANDOFF_20261027.md)**。它覆盖下方 0.BD/0.BC/0.BB 中“下一步还需确认是否保留新习惯”的旧时态；原 0.AY/0.AZ provider 429 必须继续冻结。
