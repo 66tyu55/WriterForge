@@ -322,7 +322,12 @@ class WF0BAPortableHabitCandidateEcologyTests(unittest.TestCase):
         # must not override the actual signed ancestor/child SHA graph.
         changed = json.loads(json.dumps(bundle))
         changed["candidates"][0]["capsule_sha256"] = "0" * 64
-        fresh, _, _ = self._signed_release(changed)
+        unsigned = replace(
+            release, manifest_sha256=sha256(canonical(changed)).hexdigest(),
+            signature_hex="")
+        fresh = replace(
+            unsigned, signature_hex=private.sign(
+                canonical(unsigned.signing_payload())).hex())
         with self.assertRaises(ValueError):
             self._verified_release(changed, fresh, public_key)
 
