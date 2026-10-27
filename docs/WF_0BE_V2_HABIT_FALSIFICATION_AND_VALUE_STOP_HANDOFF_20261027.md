@@ -47,7 +47,7 @@
 
 拟真实完成 8 组 v1/v2 对照将涉及 **最多 16 次新授权模型请求**、每次计划的 completion 上限 1800，即最多 28,800 的总输出 token 配额**预留上限**；还没有选定宿主、真实输入 token 计数、费用上限、读者或模型调用授权。这不是实际消耗，不能自动触发。明确新的预算前状态必须是 `DORMANT_NEEDS_AUTHORIZED_MODEL_AND_READER_EVIDENCE`。
 
-**预检真实 RED** [#40462265023](https://github.com/66tyu55/WriterForge/actions/runs/40462265023)：接口尚不存在；[预检 GREEN #40462585987](https://github.com/66tyu55/WriterForge/actions/runs/40462585987)：**1,970 tests、6 skipped、0 failures**，8 项新预检测试通过，输出8组/16未执行的 paired envelopes、0 模型调用、无文学胜者。最新跨新进程 NO_CHANGE 停止测试加入后需以随后 CI 的实际结论为准。
+**预检真实 RED** [#40462265023](https://github.com/66tyu55/WriterForge/actions/runs/40462265023)：接口尚不存在；[预检 GREEN #40462585987](https://github.com/66tyu55/WriterForge/actions/runs/40462585987)：**1,970 tests、6 skipped、0 failures**，8 项新预检测试通过，输出8组/16未执行的 paired envelopes、0 模型调用、无文学胜者。新增跨进程 NO_CHANGE 休眠证据后，最终 [0.BE #40462868945 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40462868945) 与 [原 0.BA 底层全回归 #40462868938 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40462868938) 均为 **1,971 tests、6 skipped、零失败**。同一试验在新 SQLite 会话、换成不同 host_id 后，仍不得补问原宿主或继续消费预算。
 
 ## 4. 下一阶段只做真正有收益的测试
 
