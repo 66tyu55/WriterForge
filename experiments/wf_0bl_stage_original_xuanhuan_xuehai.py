@@ -62,7 +62,9 @@ def validate_seed(path:Path=SEED)->tuple[dict,str]:
             item["scene_is_author_accepted"] is not False or
             any(type(item[k]) is not str or
                 not 12<=len(item[k])<=240
-                for k in ("condition","method_hypothesis","anti_pattern")) or
+                for k in ("condition","method_hypothesis")) or
+            type(item["anti_pattern"]) is not str or
+            not 5<=len(item["anti_pattern"])<=160 or
             type(item["original_micro_scene"]) is not str or
             not 45<=len(item["original_micro_scene"])<=250):
             raise ValueError("WF0BL_UNTRUSTED_OR_FALSELY_QUALIFIED_CARD")
