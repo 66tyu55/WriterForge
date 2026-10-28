@@ -30,6 +30,8 @@ ORIGINAL_NOTE="WF0BT_ORIGINAL_EIGHT_COMPLETE_SCENE_READINGS"
 ORIGINAL_ROLE="original_annotation_reflection"
 REMAINING_ORIGINAL=ROOT/"experiments/wf_0bu_remaining_sixteen_original_close_readings_20261028.json"
 REMAINING_ORIGINAL_NOTE="WF0BU_REMAINING_SIXTEEN_ORIGINAL_COMPLETE_READINGS"
+FANTASY_READINGS=ROOT/"experiments/wf_0bv_three_fantasy_classics_six_close_readings_20261028.json"
+FANTASY_NOTE="WF0BV_THREE_PUBLIC_DOMAIN_FANTASY_BOOKS_SIX_FULL_READINGS"
 # The first six deep readings overlap these six source excerpts. Keep them unchanged.
 PREVIOUSLY_COVERED={"x02","x07","h03","h06","s03","s07"}
 
@@ -560,6 +562,139 @@ def stage_with_all_original_24(db_path:Path,files:dict[str,Path])->dict:
     finally:
         db.close()
 
+
+
+def load_fantasy_six():
+    """Three *classical* fantasy novels; preserve complete source and interpretations."""
+    raw=json.loads(FANTASY_READINGS.read_text("utf8"))
+    sources,items=raw.get("sources"),raw.get("items")
+    if (raw.get("format")!="wf.literary-reading.original-annotation-reflection.v1"
+        or raw.get("literary_gain_proven") is not False
+        or raw.get("source_scope")!="USA_PUBLIC_DOMAIN_ONLY_NONUS_UNVERIFIED"
+        or type(sources) is not dict or set(sources)!={"fs","jh","lz"}
+        or type(items) is not list or len(items)!=6):
+        raise ValueError("WF0BV_FANTASY_READINGS_FORMAT_INVALID")
+    ids=set()
+    for item in items:
+        key=item["source_key"]
+        source=sources[key]
+        if (key not in sources or item["id"] in ids
+            or item.get("work")!=source["work"]
+            or type(item.get("original")) is not str
+            or len(item["original"])<200
+            or type(item.get("annotation")) is not list
+            or len(item["annotation"])!=3
+            or any(type(n) is not str or len(n)<35 for n in item["annotation"])
+            or type(item.get("reflection")) is not str
+            or len(item["reflection"])<80):
+            raise ValueError("WF0BV_NO_COMPLETE_FANTASY_PROSE_READING")
+        ids.add(item["id"])
+    if {k:sum(i["source_key"]==k for i in items) for k in sources}!={k:2 for k in sources}:
+        raise ValueError("WF0BV_FANTASY_BOOK_BALANCE_CHANGED")
+    return sources,items
+
+
+def verify_fantasy_books(files:dict[str,Path],sources:dict,items:list)->None:
+    """Pinned source blob + continuous original text, whitespace-only line wrapping ignored."""
+    if set(files)!=set(sources):
+        raise ValueError("WF0BV_THREE_PINNED_PUBLIC_SOURCE_FILES_REQUIRED")
+    for key,source in sources.items():
+        raw=Path(files[key]).read_bytes()
+        actual_sha=sha1(b"blob "+str(len(raw)).encode("ascii")+b"\0"+raw).hexdigest()
+        if (len(raw)!=source["source_size_bytes"]
+            or actual_sha!=source["source_blob_sha1"]):
+            raise ValueError("WF0BV_PINNED_GIT_SOURCE_CHANGED_"+key)
+        full=raw.decode("utf-8-sig").replace("\r\n","\n").replace("\r","\n")
+        joined="".join(full.split())
+        for item in items:
+            if item["source_key"]!=key:
+                continue
+            target="".join(item["original"].split())
+            if joined.count(target)!=1:
+                raise ValueError(
+                    "WF0BV_ORIGINAL_NOT_CONTIGUOUS_"+item["id"]+
+                    "_head_present="+str(target[:30] in joined)+
+                    "_full_length="+str(len(target)))
+    return None
+
+
+def stage_with_fantasy_six(db_path:Path,files:dict[str,Path],
+                           fantasy_files:dict[str,Path])->dict:
+    """Extend the *same isolated database* with six genuine fantasy originals."""
+    stage_with_all_original_24(db_path,files)
+    sources,items=load_fantasy_six()
+    verify_fantasy_books(fantasy_files,sources,items)
+    db=WriterForgeDB(db_path)
+    rt=RuntimeEngine();rt.enter_learn()
+    store=XuehaiStore(db,rt)
+    try:
+        parent=db.conn.execute(
+            "SELECT id FROM snapshots WHERE note=? AND status='published'",
+            (REMAINING_ORIGINAL_NOTE,),
+        ).fetchone()
+        if parent is None:
+            raise RuntimeError("WF0BV_PREVIOUS_96_ENTRIES_NOT_PUBLISHED")
+        sid=store.create_staging_snapshot(
+            parent_id=parent["id"],note=FANTASY_NOTE)
+        for item in items:
+            src=sources[item["source_key"]]
+            store.add_entry(
+                sid,work_id="gitenberg-fantasy-"+item["source_key"],
+                text=reading_text(item,src),
+                library_class="古典神魔奇幻原文＋批注＋心得",
+                culture="中国",genre="神魔志怪古代小说",
+                source_role=ROLE,function=item["topic"],
+                effect=item["title"],method_cluster=item["id"],
+                reuse_policy="read_reflect_not_copy",
+            )
+        store.publish(sid)
+        rt.exit();rt.enter_write(sid)
+        rows=db.conn.execute(
+            "SELECT id,method_cluster FROM xuehai_entries "
+            "WHERE snapshot_id=? AND source_role=?",
+            (sid,ROLE),
+        ).fetchall()
+        cluster_to_id={r["method_cluster"]:r["id"] for r in rows}
+        if len(rows)!=6 or set(cluster_to_id)!={i["id"] for i in items}:
+            raise RuntimeError("WF0BV_SIX_FANTASY_READINGS_MISSING")
+        for item in items:
+            full=store.read_literary_reading(cluster_to_id[item["id"]])
+            if (full["original"]!=item["original"]
+                or full["reflection"]!=item["reflection"]
+                or len(full["annotations"])!=3
+                or any(n not in full["annotations"][i]
+                       for i,n in enumerate(item["annotation"]))):
+                raise RuntimeError("WF0BV_FANTASY_THREE_PART_READBACK_NOT_FULL")
+        roles=("original_complete_scene_unreviewed",
+               "public_domain_continuous_detail_prose_unreviewed",
+               ROLE,ORIGINAL_ROLE)
+        counts=dict(db.conn.execute(
+            "SELECT source_role,COUNT(*) FROM xuehai_entries "
+            "WHERE source_role IN (?,?,?,?) GROUP BY source_role",roles
+        ).fetchall())
+        expected=dict(zip(roles,(24,24,30,24)))
+        method_count=db.conn.execute(
+            "SELECT COUNT(*) FROM xuehai_method_cards").fetchone()[0]
+        if counts!=expected or method_count!=0:
+            raise RuntimeError("WF0BV_LOST_PREVIOUS_MATERIAL_"+str(counts))
+        return {
+            "status":"THREE_REAL_FANTASY_CLASSICS_SIX_COMPLETE_READINGS",
+            "new_books":3,"new_complete_fantasy_readings":6,
+            "old_readings_preserved":48,
+            "all_literary_content_entries":sum(counts.values()),
+            "all_three_part_readings":54,
+            "new_fantasy_original_characters":sum(len(i["original"]) for i in items),
+            "full_fantasy_readback":True,
+            "source_editions_pin_verified":True,
+            "model_calls":0,"method_cards":0,
+            "database":"DISPOSABLE_ONLY",
+            "literary_improvement_proven":False,
+            "production_canon_changes":0,
+        }
+    finally:
+        db.close()
+
+
 if __name__=="__main__":
     p=argparse.ArgumentParser()
     p.add_argument("--db",type=Path,required=True)
@@ -571,9 +706,20 @@ if __name__=="__main__":
                    help="also store and read eight original prose critiques in the same Xuehai")
     p.add_argument("--original24",action="store_true",
                    help="read all 24 original and all 24 classical three-part studies")
+    p.add_argument("--fantasy6",action="store_true",
+                   help="append six authentic fantasy passages from three pinned public books")
+    for key in ("fs","jh","lz"):
+        p.add_argument("--"+key,type=Path)
     args=p.parse_args()
-    runner=(stage_with_all_original_24 if args.original24
-            else stage_with_original_eight if args.original8
-            else stage_all_24 if args.all24 else stage)
-    print(json.dumps(runner(args.db,{key:getattr(args,key) for key in ("xy","hl","sh")}),
-                     ensure_ascii=False,indent=2,sort_keys=True))
+    old_files={key:getattr(args,key) for key in ("xy","hl","sh")}
+    if args.fantasy6:
+        fresh={key:getattr(args,key) for key in ("fs","jh","lz")}
+        if any(v is None for v in fresh.values()):
+            p.error("--fantasy6 requires --fs --jh --lz")
+        output=stage_with_fantasy_six(args.db,old_files,fresh)
+    else:
+        runner=(stage_with_all_original_24 if args.original24
+                else stage_with_original_eight if args.original8
+                else stage_all_24 if args.all24 else stage)
+        output=runner(args.db,old_files)
+    print(json.dumps(output,ensure_ascii=False,indent=2,sort_keys=True))
