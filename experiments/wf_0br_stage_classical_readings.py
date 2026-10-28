@@ -48,7 +48,7 @@ def read_source_bytes(files:dict[str,Path],sources:dict,rows:list)->None:
         raise ValueError("WF0BR_SOURCE_FILES_REQUIRED")
     for key,source in sources.items():
         raw=Path(files[key]).read_bytes()
-        git_sha=sha1(b"blob "+str(len(raw)).encode()+b"\\0"+raw).hexdigest()
+        git_sha=sha1(b"blob "+str(len(raw)).encode()+b"\0"+raw).hexdigest()
         if git_sha!=source["git_blob_sha1"]:
             raise ValueError("WF0BR_SOURCE_GIT_BLOB_CHANGED")
         text=raw.decode("utf-8-sig").replace("\r\n","\n").replace("\r","\n")
