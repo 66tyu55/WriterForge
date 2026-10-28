@@ -1,4 +1,4 @@
-name: WF 0.BT Classical 24 + Original 8 Deep Readings
+name: WF 0.BU Classical 24 + Original 24 Deep Readings
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
       - experiments/wf_0br_classical_original_annotation_reflection_20261028.json
       - experiments/wf_0bs_classical_remaining_18_original_annotation_reflection_20261028.json
       - experiments/wf_0bt_original_eight_close_readings_20261028.json
+      - experiments/wf_0bu_remaining_sixteen_original_close_readings_20261028.json
       - experiments/wf_0br_stage_classical_readings.py
       - writerforge/xuehai.py
   workflow_dispatch:
@@ -47,25 +48,27 @@ jobs:
               filename={"xy":"23962-0.txt","hl":"24264-0.txt","sh":"23863-0.txt"}[key]
               (Path(os.environ["RUNNER_TEMP"])/filename).write_bytes(raw)
           PY
-      - name: Read back 24 classical and 8 original complete three-part interpretations
+      - name: Read back all 24 classical and 24 original complete three-part interpretations
         run: |
           python -m experiments.wf_0br_stage_classical_readings \
             --db "$RUNNER_TEMP/wf0br-30-full-texts.db" \
             --xy "$RUNNER_TEMP/23962-0.txt" \
             --hl "$RUNNER_TEMP/24264-0.txt" \
             --sh "$RUNNER_TEMP/23863-0.txt" \
-            --original8 > "$RUNNER_TEMP/wf0br-result.json"
+            --original24 > "$RUNNER_TEMP/wf0br-result.json"
           python - <<'PY'
           import json,os
           from pathlib import Path
           x=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0br-result.json").read_text("utf8"))
-          assert x["existing_24_original_scenes_kept"]==24
-          assert x["existing_24_classic_prose_kept"]==24
-          assert x["existing_24_classic_readings_kept"]==24
-          assert x["new_original_readings"]==8
-          assert x["total_literary_entries"]==80
-          assert x["original_readings_full_readback"] is True
+          assert x["original_full_scenes_kept"]==24
+          assert x["classic_full_excerpts_kept"]==24
+          assert x["classic_three_part_readings_kept"]==24
+          assert x["previous_original_readings_kept"]==8
+          assert x["new_original_three_part_readings"]==16
+          assert x["all_original_readings"]==24
+          assert x["all_48_three_part_readings_complete"] is True
+          assert x["total_literary_content_entries"]==96
           assert x["model_calls"]==0
           assert x["method_cards"]==0
-          print("WF0BT_CONTENT_READBACK: 24原创＋24古籍原文＋24古籍深读＋8原创深读；同一隔离学海全文读回",flush=True)
+          print("WF0BU_CONTENT_READBACK: 24原创全文＋24古籍原文＋24古籍深读＋24原创深读，同一隔离学海三段式全文读回",flush=True)
           PY
