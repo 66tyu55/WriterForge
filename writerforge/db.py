@@ -128,6 +128,20 @@ CREATE INDEX IF NOT EXISTS idx_xuehai_method_scene
 CREATE INDEX IF NOT EXISTS idx_xuehai_method_review
     ON xuehai_method_cards(review_status,rights_status);
 
+-- Signed external rights and craft review for classical/authorized-modern
+-- candidate methods. This is NOT a second memory or proof of literary gains.
+-- Review roots live outside SQLite; the same signatures are reverified on
+-- WRITE. One immutable capsule per entry. Revocation uses the card tombstone.
+CREATE TABLE IF NOT EXISTS xuehai_method_attestations (
+    entry_id INTEGER PRIMARY KEY,
+    payload_json TEXT NOT NULL,
+    rights_signature_hex TEXT NOT NULL,
+    craft_signature_hex TEXT NOT NULL,
+    approval_sha256 TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(entry_id) REFERENCES xuehai_method_cards(entry_id)
+);
+
 
 -- Faceted literary encyclopedia (V25). This is a separate INDEX over the
 -- existing source spans, NOT a second copy of the full novel. Each source
