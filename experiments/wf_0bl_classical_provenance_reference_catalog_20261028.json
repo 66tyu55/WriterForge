@@ -1,0 +1,93 @@
+{
+  "format": "wf.0bl.classical-provenance-reference-catalog.v1",
+  "created": "2026-10-28",
+  "status": "REFERENCE_FOR_STAGED_VERIFICATION_NOT_INGESTED",
+  "source_site": "Chinese Wikisource public-domain classical-original editions; modern editorial contributions require license review",
+  "actual_classical_passages_stored": 0,
+  "automatic_bulk_download_permitted": false,
+  "transfers_verified_by_independent_literary_readers": false,
+  "no_model_calls": true,
+  "source_licenses_verified_for_all_editorial_layers": false,
+  "items": [
+    {
+      "id": "classic-xiyou-001",
+      "work": "西游记",
+      "original_author": "吴承恩",
+      "edition": "维基文库原文·第001回",
+      "chapter": "第001回·灵根育孕源流出",
+      "url": "https://zh.wikisource.org/zh-hans/西遊記/第001回",
+      "read_state": "PAGE_READ_HYPOTHESIS_UNREVIEWED",
+      "transferable_method": "从有秩序的宏观时空逐步聚焦到可被人物经历的局部异常，让世界规模服务故事入口",
+      "best_fit": [
+        "worldbuilding",
+        "mythic-origin",
+        "secret-realm"
+      ],
+      "failure_condition": "不能把冗长历法当成所有玄幻故事开头的必需模板"
+    },
+    {
+      "id": "classic-honglou-003",
+      "work": "红楼梦",
+      "original_author": "曹雪芹等",
+      "edition": "程甲本·第三回",
+      "chapter": "第三回·黛玉入府礼序",
+      "url": "https://zh.wikisource.org/zh/紅樓夢（程甲本）/三",
+      "read_state": "PAGE_READ_HYPOTHESIS_UNREVIEWED",
+      "transferable_method": "通过进入路线、座次、茶具与他人的安排显露人物位置及社会规则；初来者随礼而行却未必理解每一层含义",
+      "best_fit": [
+        "sect-politics",
+        "family",
+        "arrival-at-power"
+      ],
+      "failure_condition": "不可把贵族礼数照搬为修仙宗门的万能规格"
+    },
+    {
+      "id": "classic-shiji-007",
+      "work": "史记",
+      "original_author": "司马迁",
+      "edition": "史记·卷007 项羽本纪",
+      "chapter": "卷007·项羽本纪·军议与权力决断",
+      "url": "https://zh.wikisource.org/zh-hans/史記/卷007",
+      "read_state": "PAGE_READ_HYPOTHESIS_UNREVIEWED",
+      "transferable_method": "冲突双方各有基于实际处境的策略，辩论将军心、粮食和行动时间具体化，再由人物选择产生新局势",
+      "best_fit": [
+        "sect-politics",
+        "war-council",
+        "mentor-conflict"
+      ],
+      "failure_condition": "不可把史传中的战争叙事自动变成正当化暴力的通用意见"
+    },
+    {
+      "id": "classic-shishuo-speech",
+      "work": "世说新语",
+      "original_author": "刘义庆编",
+      "edition": "维基文库·言语篇（保留注释层区别）",
+      "chapter": "言语第二",
+      "url": "https://zh.wikisource.org/zh/世說新語/言語",
+      "read_state": "PAGE_READ_WITH_COMMENTARY_SEPARATION_PENDING",
+      "transferable_method": "短句应由说话者的立场、场合和交际风险塑造，避免每人都替作者说明道理",
+      "best_fit": [
+        "dialogue",
+        "kinship",
+        "sect-politics"
+      ],
+      "failure_condition": "原作正文与后代注释的文字须分开，不可当作同一时代的表达"
+    },
+    {
+      "id": "classic-liaozhai-index",
+      "work": "聊斋志异",
+      "original_author": "蒲松龄",
+      "edition": "维基文库·全书篇目索引",
+      "chapter": "画壁、画皮等候选篇目",
+      "url": "https://zh.wikisource.org/wiki/聊齋誌異",
+      "read_state": "INDEX_ONLY_NO_PASSAGE_YET",
+      "transferable_method": null,
+      "best_fit": [
+        "weird-tale",
+        "unknown-visitor",
+        "uncertain-witness"
+      ],
+      "failure_condition": "尚未读取指定篇目原文，不得宣称已经抽取某段的写法"
+    }
+  ]
+}
