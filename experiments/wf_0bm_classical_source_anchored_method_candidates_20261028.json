@@ -1,0 +1,195 @@
+{
+  "format": "wf.0bm.classical-first-source-anchored-candidate-methods.v1",
+  "created": "2026-10-28",
+  "status": "PENDING_EDITORIAL_RIGHTS_AND_LITERARY_REVIEW_NOT_PRODUCTION",
+  "method_count": 4,
+  "actual_modern_novel_ingestions": 0,
+  "production_canon_writes": 0,
+  "source_raw_page_bytes_in_repo": 0,
+  "wiksource_editorial_license_review_complete": false,
+  "machine_readable_page_revision_verified": true,
+  "printing_basetext_verified": false,
+  "allowed_production_method_imports": 0,
+  "author_model_calls": 0,
+  "literary_quality_proven": false,
+  "source_audit_notes": [
+    "Wikisource historical pages are fixed by oldid. This does not authenticate a print edition or supply an exact full-page SHA.",
+    "The pre-existing GitHub Xi You Ji first-chapter fixture differs in glyphs/punctuation from Wikisource oldid 2562136; never identify its SHA with the web revision.",
+    "The public-domain original and CC BY-SA/editorial contributions must be treated separately, with attribution and license conditions if reproducing licensed editorial text.",
+    "The Shiji candidate is anchored to a fixed webpage but NO complete chapter bytes are ingested; do not manufacture studied_chapters or a full-text fingerprint.",
+    "Short anchors are retained only for audit. No original prose passage or anchor may be injected into WRITE.",
+    "Each candidate is a human-visible hypothesis, not independent human approval, not published, not an independently validated literary technique."
+  ],
+  "sources": [
+    {
+      "id": "xiyou-001",
+      "work": "西游记",
+      "author": "吴承恩（传统归属）",
+      "unit": "第001回",
+      "url": "https://zh.wikisource.org/w/index.php?title=西遊記/第001回&oldid=2562136",
+      "oldid": 2562136,
+      "source_layer": "HISTORICAL_ORIGINAL_TEXT_PUBLIC_DOMAIN",
+      "digital_layer": "CC_BY_SA_4_0_AND_EDITION_NOT_YET_APPROVED",
+      "identity": "WIKISOURCE_REVISION_NOT_EQUAL_TO_LOCAL_FIXTURE",
+      "local_fixture": "tests/fixtures/xiyouji_chapter_001_original_zh.txt",
+      "local_git_blob_sha1": "26783d1235a6ef4f4d97fd447933bdf6d405f51e",
+      "full_page_sha256": null
+    },
+    {
+      "id": "shiji-007",
+      "work": "史记",
+      "author": "司马迁",
+      "unit": "卷007·项羽本纪",
+      "url": "https://zh.wikisource.org/w/index.php?title=史記/卷007&oldid=5978360",
+      "oldid": 5978360,
+      "source_layer": "HISTORICAL_ORIGINAL_TEXT_PUBLIC_DOMAIN",
+      "digital_layer": "CC_BY_SA_4_0_AND_EDITION_NOT_YET_APPROVED",
+      "identity": "WEB_PAGE_REVIEW_ONLY_NO_LOCAL_SOURCE_BYTES",
+      "local_fixture": null,
+      "local_git_blob_sha1": null,
+      "full_page_sha256": null
+    }
+  ],
+  "cards": [
+    {
+      "id": "classic-xiyou-001-cave-pledge",
+      "work_id": "xiyou-001",
+      "scene_type": "秘境遗迹",
+      "source_anchor": "何不拜我為王",
+      "source_anchor_sha256": "af35c07836768d04cfa370eabbe6f4053686b9349e5e06c20942c67de8b5115f",
+      "local_fixture_anchor": "何不拜我为王",
+      "source_kind": "PUBLIC_DOMAIN_CLASSIC",
+      "rights_status": "RIGHTS_UNVERIFIED",
+      "review_status": "PENDING",
+      "value_status": "UNVERIFIED",
+      "review_receipt_sha256": "",
+      "scene_facets": [
+        "探入未知",
+        "群体承诺",
+        "资源收益"
+      ],
+      "target_genres": [
+        "玄幻"
+      ],
+      "style_scope": "ERA_NEUTRAL",
+      "signal": "进入险地之前已有公开的资格承诺，探险回来带回可供众人使用的新资源",
+      "mechanism": "事前约定形成行为赌注，风险行动提供共同收益，成员兑现约定才让探索转为身份与权力变化",
+      "writer_option": "作者可安排队伍先约定贡献标准，角色探索后由其他人决定是否承认其地位",
+      "applies_when": "秘境探索确实改变群体生存条件，且此前已存在可兑现或可背弃的承诺",
+      "not_when": "只是独自发现物品或没有群体承诺时，不能硬套升职或拜王",
+      "pov_limit": "先观察进入者带回什么以及他人实际如何表态，不预先断言人人信服",
+      "counterexample": "发现一件宝物就让所有队友无条件臣服",
+      "literary_hypothesis": "动作和现实利益共同推动身份变化，比单凭主角光环获得地位更可信",
+      "transfer_examples": [
+        "秘境分配",
+        "宗门探险后的权力关系"
+      ],
+      "source_unit_locator": "第001回·瀑布—水帘洞—拜王段"
+    },
+    {
+      "id": "classic-xiyou-001-woodcutter",
+      "work_id": "xiyou-001",
+      "scene_type": "边境旅途",
+      "source_anchor": "老母何人奉養",
+      "source_anchor_sha256": "6ca13fd0c5f350593394ce2901eb5f41b95a61624a69f10511989ec0a8de1eb0",
+      "local_fixture_anchor": "所以不能修行",
+      "source_kind": "PUBLIC_DOMAIN_CLASSIC",
+      "rights_status": "RIGHTS_UNVERIFIED",
+      "review_status": "PENDING",
+      "value_status": "UNVERIFIED",
+      "review_receipt_sha256": "",
+      "scene_facets": [
+        "寻找指路者",
+        "家庭责任",
+        "信息差"
+      ],
+      "target_genres": [
+        "玄幻"
+      ],
+      "style_scope": "ERA_NEUTRAL",
+      "signal": "路人掌握目的地线索，但有不可替代的亲属照护和生计安排，无法跟主角走",
+      "mechanism": "信息可以给予，行动不能随便出借；当地人的独立责任限制主角能获得的帮助",
+      "writer_option": "作者可让指路人提供确切路线却拒绝同行，迫使主角独自承担沿途风险",
+      "applies_when": "旅途求助涉及一个有自己生活、收入和照护责任的知情者",
+      "not_when": "对方已明确受雇同行或关系无行动代价时，不该凭空制造拒绝",
+      "pov_limit": "主角能听到对方给出的生活理由，却未必能验证全部情况",
+      "counterexample": "每遇见知情人，对方都立即抛下家人陪主角冒险",
+      "literary_hypothesis": "配角独立生活逻辑让世界有人味，而不是信息工具人",
+      "transfer_examples": [
+        "边境商路",
+        "宗门拜师前的凡人日常"
+      ],
+      "source_unit_locator": "第001回·问路樵夫拒绝同行段"
+    },
+    {
+      "id": "classic-shiji-007-cold-rain",
+      "work_id": "shiji-007",
+      "scene_type": "宗门政治",
+      "source_anchor": "天寒大雨，士卒凍飢",
+      "source_anchor_sha256": "9f9f57b51a7e20bc030b4f5a006838205669f559325353e3a641b1c258b99f86",
+      "local_fixture_anchor": null,
+      "source_kind": "PUBLIC_DOMAIN_CLASSIC",
+      "rights_status": "RIGHTS_UNVERIFIED",
+      "review_status": "PENDING",
+      "value_status": "UNVERIFIED",
+      "review_receipt_sha256": "",
+      "scene_facets": [
+        "资源分配",
+        "权力不对称",
+        "行动时限"
+      ],
+      "target_genres": [
+        "玄幻"
+      ],
+      "style_scope": "ERA_NEUTRAL",
+      "signal": "当权者拖延决策且宴饮，普通人承受寒冷、饥饿与物资短缺",
+      "mechanism": "双方策略不能仅靠宣言区别，补给差异与延误成本把权力正当性争论落到可见生活",
+      "writer_option": "作者可让两个阵营各自提出时机依据，并通过粮药消耗与底层人的行动反映影响",
+      "applies_when": "宗门、营地或盟会的决策者存在相冲突的现实资源与时间判断",
+      "not_when": "只是一句口角或旁观者无法接触资源事实时，不应强设权斗",
+      "pov_limit": "弟子能见到药额减少和主事宴席，不代表已经掌握其全部幕后谋划",
+      "counterexample": "所有掌权者只会傲慢嘲讽，没有能够自圆其说的策略",
+      "literary_hypothesis": "争权从抽象的正邪对立变为资源、时机和代价的实际冲突",
+      "transfer_examples": [
+        "宗门药材分配",
+        "边境防线救援争论"
+      ],
+      "source_unit_locator": "卷007·巨鹿救赵军议·宋义留军四十六日与寒雨军需"
+    },
+    {
+      "id": "classic-shiji-007-no-retreat",
+      "work_id": "shiji-007",
+      "scene_type": "战阵攻守",
+      "source_anchor": "破釜甑",
+      "source_anchor_sha256": "481de26e339de40c101d2663d5011f9fccc152a54315e1cf666cef43ce90b834",
+      "local_fixture_anchor": null,
+      "source_kind": "PUBLIC_DOMAIN_CLASSIC",
+      "rights_status": "RIGHTS_UNVERIFIED",
+      "review_status": "PENDING",
+      "value_status": "UNVERIFIED",
+      "review_receipt_sha256": "",
+      "scene_facets": [
+        "后路受限",
+        "战时粮秣",
+        "集体承诺"
+      ],
+      "target_genres": [
+        "玄幻"
+      ],
+      "style_scope": "ERA_NEUTRAL",
+      "signal": "将领取补给和撤退工具作出不可轻易逆转的处置，众人行动空间被迫改变",
+      "mechanism": "领导者以损耗真实物资约束军队选项，后续胜败与诸侯观望再决定声望和服从",
+      "writer_option": "作者可让指挥者提出有代价的断后路方案，队伍需亲自面对该方案的失败风险",
+      "applies_when": "群体战役存在可计算补给、可退路线以及其他势力观察结果",
+      "not_when": "个人即兴斗法或缺乏物资条件时，绝不能强迫一律破釜沉舟",
+      "pov_limit": "群体成员只知道被毁的资源和眼前任务，不预知后世评价或终局胜负",
+      "counterexample": "一句口号就使士兵无损变强，还让所有盟友自动臣服",
+      "literary_hypothesis": "不可逆行动和不同利益群体反应，构成战役叙事的后果链",
+      "transfer_examples": [
+        "宗门大战",
+        "守城突围"
+      ],
+      "source_unit_locator": "卷007·巨鹿战役·渡河毁物与诸侯战后反应"
+    }
+  ]
+}
