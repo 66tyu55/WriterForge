@@ -1,5 +1,18 @@
 # WriterForge 当前有效交接｜2026-10-27
 
+## 0.BM 最新实做｜两部古籍固定修订原文核对 + 《西游记》第一回隔离 LEARN（2026-10-28）
+
+**下一次先读：[WF_0BM_FIRST_CLASSICAL_SOURCE_LINKED_METHODS_HANDOFF_20261028.md](WF_0BM_FIRST_CLASSICAL_SOURCE_LINKED_METHODS_HANDOFF_20261028.md)**。本节覆盖旧 0.BL 下方“古籍没有正式导入”的笼统说法：当前**仅在独立临时 SQLite**对仓库既有《西游记》第一回完整测试文本做了1章真实 `OriginalStudy.ingest` 与 `source_spans`，并关联2张待审核方法卡；**生产学海与正式 Canon 仍没有新增古籍学习**。《史记》全文没有下载或伪装为已学习。
+
+- 直接核对固定修订原文《西游记》第001回（Wikisource oldid **2562136**）、《史记》项羽本纪卷007（oldid **5978360**）。从具体场景得到4个方法假设：水帘洞冒险/事前承诺/资源带来的地位变化、樵夫因独立生计与孝养无法做主角免费助手、宋义军议的补给与权力冲突、巨鹿断退路与战后诸侯地位变化。每张均列触发、机制、可选写法、不适用条件、有限认知与反例；来源只保存短锚点指纹，**不是抄写原文文风**。
+- 新 [`wf_0bm_classical_source_anchored_method_candidates_20261028.json`](../experiments/wf_0bm_classical_source_anchored_method_candidates_20261028.json) 是4张 `PENDING/RIGHTS_UNVERIFIED/UNVERIFIED` 的**研究候选**，方法正式 WRITE 资格仍为0。Wikisource固定页的内容与仓库测试文本存在字形/标点版本差异；内部 Git Blob SHA1 `26783d1235a6ef4f4d97fd447933bdf6d405f51e`，本轮内部文本字节 SHA256 `e3d137b317f2996805bbd6aa84abf47395a94dfbd2397324c1b9e9db157f2628`；**绝不冒充两种电子版本一致或已取得线上全文SHA**。原著公有领域与 CC BY-SA 网页编辑层许可仍分开处理。
+- 新 [`wf_0bm_stage_first_classical_method_candidates.py`](../experiments/wf_0bm_stage_first_classical_method_candidates.py) 复用既有 `OriginalStudy`、`WriterForgeDB` 和 `XuehaiStore`；在**独立临时数据库**产生1个已发布的真实源结构快照及1个未发布的方法候选 delta，2张来源 spans 绑定方法卡维持待审，不读 R2/付费原著，0模型调用。史记依旧只登记修订页/锚点候选，不增加假 studied_chapters。
+- 实际 [0.BM 首次 RED #40688476836](https://github.com/66tyu55/WriterForge/actions/runs/40688476836) 是 Git blob 指纹 NUL 错误；[第二次 RED #40688622649](https://github.com/66tyu55/WriterForge/actions/runs/40688622649) 是锚点过短拒绝，均**修来源而不降门槛**；[**最终 GREEN #40688779315**](https://github.com/66tyu55/WriterForge/actions/runs/40688779315) 新定向5个、前 P0 方法12个、G 真核心脚本回包1个、原 V23 学习10个通过（**定向回归，不是最新整仓全量**）。0.BL 上轮完整 2,047 tests/6 skipped/0 failed 继续保留。
+- **当前真正阻塞**：古籍数字/印刷底本、许可及可信独立评审未完成；现有 `review_receipt_sha256` 仅字符串指纹，不能单凭它冒充具有独立签名的权利批准。未有新作者模型费用与请求上限授权，因此三臂真实文学收益仍 **未跑、无实际 token、无独立盲评**。下一步先把1—2条古籍方法做真实底本/权利/审阅授权，再以同一强作者模型运行裸模型 vs 真正WF G vs WF G+已审核方法，发生错配、抄袭或负收益立即停用。
+- 不修改 main / Railway / 私有 R2 / 生产 Canon；保留 V26/V98/V119 与唯一 NarrativeCore，不复跑失败小模型或旧 GLM 429。
+
+---
+
 
 ## 0.BL P0 最新实施｜场景方法卡入真正作者 WRITE，G 重规划串线 RED→修复（2026-10-28）
 
