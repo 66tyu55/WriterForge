@@ -10,6 +10,7 @@ on:
       - experiments/wf_0bl_classical_provenance_reference_catalog_20261028.json
       - tests/test_wf_0bl_xuehai_original_scene_atlas_stage.py
       - tests/test_wf_0bl_xuehai_methods_write.py
+      - tests/test_wf_0bl_true_g_author_method_branch.py
       - writerforge/db.py
       - writerforge/xuehai.py
       - writerforge/verified_flow.py
@@ -43,6 +44,8 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_wf_0bl_xuehai_original_scene_atlas_stage.py' -v
       - name: RED GREEN scene method WRITE / source / author entrypoint
         run: python -m unittest discover -s tests -p 'test_wf_0bl_xuehai_methods_write.py' -v
+      - name: Offline 3-arm bare vs actual G core vs G plus Xuehai (scripted fixture ONLY)
+        run: python -m unittest discover -s tests -p 'test_wf_0bl_true_g_author_method_branch.py' -v
       - name: Stage original 16-card candidate atlas with the EXISTING XuehaiStore
         run: |
           python -m experiments.wf_0bl_stage_original_xuanhuan_xuehai --output "$RUNNER_TEMP/wf0bl-diagnostic-only.sqlite3"
