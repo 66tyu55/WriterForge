@@ -213,6 +213,28 @@ def _enrich(packet: GroundedDraftPacket, addition: str,
     )
 
 
+def _xuehai_author_receipt(methods:dict|None,*,delivered:bool,
+                           prose_prompt_sha256:str|None=None)->dict|None:
+    """Source-only audit: selected means actually delivered to a prose call."""
+    if methods is None:
+        return None
+    record=dict(methods["receipt"])
+    record["delivered_to_author_prose"]=bool(delivered)
+    record["delivery_prompt_sha256"]=(prose_prompt_sha256 if delivered else None)
+    record["recipient"]="AUTHOR_PROSE_ONLY_NOT_JSON_PLANNING"
+    if not delivered:
+        rejected=list(record["rejected"])
+        rejected.extend({
+            "entry_id":item["entry_id"],"card_sha256":item["card_sha256"],
+            "reason":"PROSE_PROMPT_BUDGET_OR_NO_CARD",
+        } for item in record["selected"])
+        record["rejected"]=rejected[:32]
+        record["selected"]=[]
+        record["result"]="NONE_OR_DROPPED"
+        record["chars_added"]=0
+    return record
+
+
 def _decode_json(raw: str) -> dict:
     if not isinstance(raw,str) or len(raw)>32000:
         raise WritingExecutionError("missing or excessive model JSON")
@@ -3271,10 +3293,15 @@ class AutonomousWriting:
             body_base=self.assist.flow.prepare(
                 scene,goal,concerns=_craft_needs(plan["needs"]),
                 genre=self.assist.source_genre,
-                # 0.BL: conditional reviewed Xuehai methods ONLY on the
-                # real prose-writing seam, not on planning or self-edit.
-                xuehai_methods_enabled=xuehai_methods_enabled,
             )
+            # Planning/replanning reuse this base: never inject advice here.
+            xuehai_methods=None
+            xuehai_guidance=""
+            if xuehai_methods_enabled:
+                xuehai_methods=self.assist.flow.xuehai.query_methods(
+                    goal=goal,genre=self.assist.source_genre,
+                    limit=2,max_chars=300)
+                xuehai_guidance=xuehai_methods["prompt_guidance"]
             inferred=infer_intent(goal+"\n"+plan["objective"]+"\n"+plan["conflict"])
             facets=_verified_facets(self.assist.db,inferred)
             packet=_enrich(
@@ -3296,7 +3323,19 @@ class AutonomousWriting:
             )
             turn_evidence=None
             turn_outline=None
+            author_method_receipt=None
             if draft_mode=="single":
+                method_sent=bool(xuehai_guidance) and (
+                    len(packet.prompt)+len(xuehai_guidance)+1<=MAX_PROMPT_CHARS)
+                if method_sent:
+                    packet=_enrich(packet,xuehai_guidance)
+                author_method_receipt=_xuehai_author_receipt(
+                    xuehai_methods,delivered=method_sent,
+                    prose_prompt_sha256=(packet.prompt_sha256 if method_sent
+                                         else None))
+                if author_method_receipt is not None:
+                    packet=replace(packet,
+                                   xuehai_method_receipt=author_method_receipt)
                 body=ask_model(
                     packet,model=self.assist.model,
                     api_base=self.assist.api_base,max_tokens=2600,
