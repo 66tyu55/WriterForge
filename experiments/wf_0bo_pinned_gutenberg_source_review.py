@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 from hashlib import sha1, sha256
 import json
+import re
 from pathlib import Path
 from urllib.request import Request, urlopen
 
@@ -108,6 +109,62 @@ def pin_source_bytes(raw:bytes)->tuple[str,dict]:
     }
 
 
+# A source can have a valid SHA and still contain an editorial defect.
+# This looks like a repeated opening cosmology paragraph in the pinned
+# Gutenberg transcription; another existing local edition has it once.
+# NEVER silently repair or pretend to have authenticated a print edition.
+SUSPECT_DUPLICATE_TRAD=(
+    "至此，地始凝結。再五千四百歲，正當丑會，"
+    "重濁下凝，有水，有火，有山，有石，有土。"
+)
+SUSPECT_DUPLICATE_SIMPLIFIED=(
+    "至此，地始凝结。再五千四百岁，正当丑会，"
+    "重浊下凝，有水，有火，有山，有石，有土。"
+)
+OTHER_EDITION_LOCAL_FIXTURE=ROOT/"tests/fixtures/xiyouji_chapter_001_original_zh.txt"
+OTHER_EDITION_SHA256="e3d137b317f2996805bbd6aa84abf47395a94dfbd2397324c1b9e9db157f2628"
+
+
+def audit_source_quality(text:str,method_anchors:tuple[str,...])->dict:
+    """Known source inconsistency evidence, not a transcription correction."""
+    chapter=parse_original(text,require_hundred=True,expected_count=100)[0].text
+    compact=re.sub(r"\\s+","",chapter)
+    repeated=[m.start() for m in re.finditer(re.escape(SUSPECT_DUPLICATE_TRAD),compact)]
+    other=OTHER_EDITION_LOCAL_FIXTURE.read_bytes()
+    if sha256(other).hexdigest()!=OTHER_EDITION_SHA256:
+        raise ValueError("WF0BO_INDEPENDENT_REFERENCE_VERSION_CHANGED")
+    local=other.decode("utf8")
+    local_count=len(list(re.finditer(
+        re.escape(SUSPECT_DUPLICATE_SIMPLIFIED),
+        re.sub(r"\\s+","",local))))
+    if len(repeated)!=2 or local_count!=1:
+        raise ValueError("WF0BO_SOURCE_DUPLICATION_FINDING_CHANGED_REVIEW_REQUIRED")
+    # Quarantine *a bounded context around the repeated paragraph*, without
+    # modifying or deleting any original bytes. Do not admit a method anchored
+    # to the questionable area. An unaffected later scene can still be reviewed.
+    affected=[]
+    for anchor in method_anchors:
+        at=compact.find(re.sub(r"\\s+","",anchor))
+        if at<0:
+            raise ValueError("WF0BO_METHOD_ANCHOR_NOT_IN_SOURCE_QUALITY_AUDIT")
+        if any(p-40<=at<=p+260 for p in repeated):
+            affected.append(anchor)
+    return {
+        "status":"SOURCE_DUPLICATION_SUSPECT_REQUIRES_REVIEW",
+        "duplicate_phrase_occurrences":len(repeated),
+        "duplicate_pattern_sha256":sha256(
+            SUSPECT_DUPLICATE_TRAD.encode("utf8")).hexdigest(),
+        "repeated_compact_character_positions":repeated,
+        "other_local_edition_occurrences":local_count,
+        "other_local_edition_sha256":OTHER_EDITION_SHA256,
+        "method_card_anchors_affected":affected,
+        "human_source_quality_review_complete":False,
+        "source_bytes_edited":False,
+        "source_not_certified_identical_to_print_base":True,
+        "production_method_activation":False,
+    }
+
+
 def download_exact_source(output:Path)->Path:
     """Only allow the pinned public GitHub raw URL; no arbitrary download."""
     output=Path(output)
@@ -140,6 +197,11 @@ def stage_pinned_first_chapter(source:Path,db_path:Path,
     manifest,manifest_sha=load_source_manifest()
     candidates,_cat_sha,_fixture_sha=validate_catalog(CARDS_SOURCE)
     text,source_identity=pin_source_bytes(Path(source).read_bytes())
+    quality=audit_source_quality(
+        text,tuple(ref["source_anchor"]
+                   for ref in manifest["method_source_pairing"]))
+    if quality["method_card_anchors_affected"]:
+        raise ValueError("WF0BO_METHOD_OVERLAPS_SUSPECT_SOURCE_DUPLICATION")
     db_path.parent.mkdir(parents=True,exist_ok=True)
     db=WriterForgeDB(db_path)
     rt=RuntimeEngine();rt.enter_learn()
@@ -242,6 +304,7 @@ def stage_pinned_first_chapter(source:Path,db_path:Path,
             "format":"wf.0bo.first-chapter-real-source-structural-study.v1",
             "status":"ONE_TRUE_PINNED_CLASSICAL_EDITION_STUDIED_METHODS_PENDING",
             "source_identity":source_identity,
+            "source_quality_audit":quality,
             "source_manifest_sha256":manifest_sha,
             "source_work_id":WORK_ID,
             "actual_original_chapters_structurally_studied":1,
@@ -264,6 +327,7 @@ def stage_pinned_first_chapter(source:Path,db_path:Path,
             json.dumps({
                 "status":"PENDING_TWO_REAL_EXTERNAL_REVIEWERS",
                 "source_identity":source_identity,
+                "source_quality_audit":quality,
                 "cases":reviewer_rows,
                 "has_authenticated_human_review":False,
                 "does_not_confer_permissions":True,
@@ -276,7 +340,9 @@ def stage_pinned_first_chapter(source:Path,db_path:Path,
             "固定数字原件："+PINNED_URL+"\n\n"
             "Project Gutenberg 美国公有领域声明：https://www.gutenberg.org/ebooks/23962\n\n"
             "许可和商标说明：https://www.gutenberg.org/policy/permission.html\n\n"
-            "**此包尚无真人签名，不表示可直接用于生产 WRITE。**\n\n"
+            "**此包尚无真人签名，不表示可直接用于生产 WRITE。**\n\n"            "已发现固定电子原件第一回开篇存在一段疑似转录重复；另一份既有测试"
+            "文本中对应段落仅出现一次。请审阅源内容差异；不得直接修改原文，也不得"
+            "因 SHA 正确就宣称文本已校勘。当前两条方法锚点不在疑似重复区域。\n\n"
             "权利审核者必须独立检查：真实数字版本、使用地域和商标/许可、源指纹、"
             "当前用途是否属于隔离方法研究；不能用未确认的现代排版/整理版权假设代替检查。\n\n"
             "文学方法审核者必须逐条检查：来源句段确实发生了何种选择、"
