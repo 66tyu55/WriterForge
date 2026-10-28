@@ -389,9 +389,9 @@ class XuehaiStore:
             if (row["source_role"] == "diagnostic_only" or
                 row["reuse_policy"] != "technique_only"):
                 raise ValueError("METHOD_UNAPPROVED_SOURCE_ROLE")
-        if (card["source_kind"] == "AUTHORIZED_MODERN" and
-                card["rights_status"] != "RIGHTS_VERIFIED"):
-            raise ValueError("METHOD_MODERN_RIGHTS_NOT_VERIFIED")
+        if (card["source_kind"] in ("PUBLIC_DOMAIN_CLASSIC","AUTHORIZED_MODERN")
+                and card["review_status"]=="PILOT_APPROVED"):
+            raise ValueError("METHOD_EXTERNAL_AUTHORITIES_REQUIRED_NOT_SELF_REVIEW")
         if (card["source_kind"] == "PUBLIC_DOMAIN_CLASSIC" and
                 card["source_edition"].strip() in ("", "unknown", "未知")):
             raise ValueError("METHOD_CLASSIC_EDITION_UNVERIFIED")
@@ -467,6 +467,20 @@ class XuehaiStore:
         )
         self.db.conn.commit()
         return bool(cur.rowcount)
+
+    # External signed rights/craft admission lives in the original SQLite.
+    # No new memory owner or network/service is created here.
+    def method_attestation_challenge(self, **kwargs):
+        from .xuehai_method_admission import XuehaiMethodAdmission
+        return XuehaiMethodAdmission(self).challenge(**kwargs)
+
+    def admit_externally_attested_method(self, **kwargs):
+        from .xuehai_method_admission import XuehaiMethodAdmission
+        return XuehaiMethodAdmission(self).admit(**kwargs)
+
+    def _valid_external_attestation(self, row:dict):
+        from .xuehai_method_admission import XuehaiMethodAdmission
+        return XuehaiMethodAdmission(self).verified_for_write(row)
 
     def query_methods(self, *, goal: str, genre: str,
                       limit: int = 2, max_chars: int = 300) -> dict:
@@ -564,21 +578,31 @@ class XuehaiStore:
         for _,r,why,trigger in candidates:
             eid = r["entry_id"]
             reason = None
+            # For third-party classic/modern sources, mutable status labels
+            # and a bare SHA are not authority. Two detached signatures from
+            # distinct externally enrolled roles must validate on EVERY read.
+            third_party = r["source_kind"] in (
+                "PUBLIC_DOMAIN_CLASSIC","AUTHORIZED_MODERN")
+            approval_sha, approval_reason = (
+                self._valid_external_attestation(r)
+                if third_party else (None,"NOT_APPLICABLE"))
             if r["revoked_at"]:
                 reason = "REVOKED"
             elif not (_is_digest(r["card_sha256"]) and
                       _method_sha(r) == r["card_sha256"]):
                 reason = "CARD_SHA_MISMATCH"
-            elif (r["rights_status"] != "RIGHTS_VERIFIED" or
-                  r["review_status"] != "PILOT_APPROVED" or
-                  r["value_status"] != "UNPROVEN_PILOT" or
-                  r["source_kind"] not in ("AUTHOR_CREATED_ORIGINAL",
-                                            "PUBLIC_DOMAIN_CLASSIC",
-                                            "AUTHORIZED_MODERN")):
+            elif third_party and approval_sha is None:
+                reason = approval_reason
+            elif (not third_party and
+                  (r["rights_status"] != "RIGHTS_VERIFIED" or
+                   r["review_status"] != "PILOT_APPROVED" or
+                   r["value_status"] != "UNPROVEN_PILOT" or
+                   r["source_kind"] != "AUTHOR_CREATED_ORIGINAL")):
                 reason = "RIGHTS_REVIEW_OR_VALUE_BLOCK"
             elif (r["source_role"] == "diagnostic_only" or
                   r["reuse_policy"] != "technique_only" or
-                  not _is_digest(r["review_receipt_sha256"])):
+                  (approval_sha is None and
+                   not _is_digest(r["review_receipt_sha256"]))):
                 reason = "SOURCE_ROLE_OR_REVIEW_BLOCK"
             elif (r["source_uri"].startswith(("r2://","s3://")) or
                   r["work_uri"] != r["source_uri"] or
@@ -620,8 +644,14 @@ class XuehaiStore:
                 "source_unit_sha256":r["source_unit_sha256"],
                 "card_sha256":r["card_sha256"],
                 "source_kind":r["source_kind"],"scene_type":r["scene_type"],
-                "rights_status":r["rights_status"],"review_status":r["review_status"],
-                "value_status":r["value_status"],
+                "rights_status":("RIGHTS_VERIFIED" if approval_sha
+                                 else r["rights_status"]),
+                "review_status":("PILOT_APPROVED" if approval_sha
+                                 else r["review_status"]),
+                "value_status":("UNPROVEN_PILOT" if approval_sha
+                                else r["value_status"]),
+                "externally_signed_attestation":bool(approval_sha),
+                "external_attestation_sha256":approval_sha,
                 "reason":f"{why}:{trigger}",
             })
             choices.append(item_text)
