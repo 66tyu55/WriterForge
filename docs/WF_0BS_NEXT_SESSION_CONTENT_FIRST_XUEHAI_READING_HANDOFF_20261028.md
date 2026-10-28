@@ -2,7 +2,7 @@
 
 ## 0.BW 已执行｜不要重复选取这六篇长情节
 
-- 新增`experiments/wf_0bw_three_fantasy_classics_six_long_readings_20261029.json`：三部固定GITenberg古籍各两篇，**连续原文16,279字＋18条字句批注＋6段心得**。《镜花缘》保留完整第二十五回与第三十三回，《聊斋志异》保留完整《促织》与《聂小倩》，《封神演义》为两段前后连贯的较长情节。不是自己编写的名家文字，也不是现代受保护网文。
+- 新增`experiments/wf_0bw_three_fantasy_classics_six_long_readings_20261029.json`：三部固定GITenberg古籍各两篇，**连续原文16,279个字符（含标点与换行）＋18条字句批注＋6段心得**。《镜花缘》保留完整第二十五回与第三十三回，《聊斋志异》保留完整《促织》与《聂小倩》，《封神演义》为两段前后连贯的较长情节。不是自己编写的名家文字，也不是现代受保护网文。
 - 用原有`XuehaiStore.read_literary_reading`及`experiments/wf_0br_stage_classical_readings.py --fantasy12`读回，追加6条文学深读，旧102条原样保存。**总数108条内容，其中60篇完整三段式**。[GitHub 0.BW #40723510769 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40723510769)。这证明数字来源、原文连续性和三段式存取，不代表WF文学创作已提高。临时独立SQLite，0付费模型/0正式Canon变更。
 - **接下来优先不同的文学内容与真正使用**：可以从未覆盖的古典作品或具明确授权的现代玄幻增加不同叙事笔法，也可以选少数既有长文本做深入比较，之后才在作者构思前提供完整原文、批注、心得供其自己选择，不压成300字指令。不要增加存储系统、审查器、方法卡或以入库量当文学成绩。只允许改开发分支，保留V26/V98/V119及唯一NarrativeCore。
 
