@@ -88,6 +88,47 @@ CREATE INDEX IF NOT EXISTS idx_xuehai_hash ON xuehai_entries(source_hash);
 CREATE INDEX IF NOT EXISTS idx_xuehai_work ON xuehai_entries(work_id);
 CREATE INDEX IF NOT EXISTS idx_xuehai_cluster ON xuehai_entries(method_cluster);
 
+-- 0.BL: small conditional method cards linked to the ORIGINAL Xuehai entry.
+-- No second memory, no source text stored in this table, no auto-promotion.
+CREATE TABLE IF NOT EXISTS xuehai_method_cards (
+    entry_id INTEGER PRIMARY KEY,
+    snapshot_id INTEGER NOT NULL,
+    work_id TEXT NOT NULL,
+    entry_source_hash TEXT NOT NULL,
+    source_uri TEXT NOT NULL,
+    source_sha256 TEXT NOT NULL,
+    source_unit_sha256 TEXT NOT NULL DEFAULT '',
+    source_locator TEXT NOT NULL,
+    scene_type TEXT NOT NULL,
+    scene_facets_json TEXT NOT NULL,
+    target_genres_json TEXT NOT NULL,
+    style_scope TEXT NOT NULL,
+    signal TEXT NOT NULL,
+    mechanism TEXT NOT NULL,
+    writer_option TEXT NOT NULL,
+    applies_when TEXT NOT NULL,
+    not_when TEXT NOT NULL,
+    pov_limit TEXT NOT NULL,
+    counterexample TEXT NOT NULL,
+    source_kind TEXT NOT NULL,
+    source_edition TEXT NOT NULL,
+    rights_status TEXT NOT NULL,
+    review_status TEXT NOT NULL,
+    value_status TEXT NOT NULL,
+    review_receipt_sha256 TEXT NOT NULL,
+    card_sha256 TEXT NOT NULL,
+    revoked_at TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(entry_id) REFERENCES xuehai_entries(id),
+    FOREIGN KEY(snapshot_id) REFERENCES snapshots(id),
+    FOREIGN KEY(work_id) REFERENCES studied_works(work_id)
+);
+CREATE INDEX IF NOT EXISTS idx_xuehai_method_scene
+    ON xuehai_method_cards(scene_type,snapshot_id);
+CREATE INDEX IF NOT EXISTS idx_xuehai_method_review
+    ON xuehai_method_cards(review_status,rights_status);
+
+
 -- Faceted literary encyclopedia (V25). This is a separate INDEX over the
 -- existing source spans, NOT a second copy of the full novel. Each source
 -- occurrence has its own evidence row, so the same beast/character can have
