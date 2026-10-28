@@ -1,4 +1,10 @@
-# WriterForge 0.BS—0.BV 学海文学内容续接｜原文＋批注＋心得（2026-10-28）
+# WriterForge 0.BS—0.BW 文学内容续接｜原文＋批注＋心得（2026-10-29）
+
+## 0.BW 已执行｜不要重复选取这六篇长情节
+
+- 新增`experiments/wf_0bw_three_fantasy_classics_six_long_readings_20261029.json`：三部固定GITenberg古籍各两篇，**连续原文16,279字＋18条字句批注＋6段心得**。《镜花缘》保留完整第二十五回与第三十三回，《聊斋志异》保留完整《促织》与《聂小倩》，《封神演义》为两段前后连贯的较长情节。不是自己编写的名家文字，也不是现代受保护网文。
+- 用原有`XuehaiStore.read_literary_reading`及`experiments/wf_0br_stage_classical_readings.py --fantasy12`读回，追加6条文学深读，旧102条原样保存。**总数108条内容，其中60篇完整三段式**。[GitHub 0.BW #40723510769 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40723510769)。这证明数字来源、原文连续性和三段式存取，不代表WF文学创作已提高。临时独立SQLite，0付费模型/0正式Canon变更。
+- **接下来优先不同的文学内容与真正使用**：可以从未覆盖的古典作品或具明确授权的现代玄幻增加不同叙事笔法，也可以选少数既有长文本做深入比较，之后才在作者构思前提供完整原文、批注、心得供其自己选择，不压成300字指令。不要增加存储系统、审查器、方法卡或以入库量当文学成绩。只允许改开发分支，保留V26/V98/V119及唯一NarrativeCore。
 
 ## 0.BV 三部古典神魔奇幻已加入（先读这部分）
 
@@ -60,4 +66,4 @@
 
 ## 下一聊天可直接说
 
-> 继续WriterForge学海0.BV。先看CURRENT_HANDOFF顶部0.BV以及三本古典神魔奇幻原文库`experiments/wf_0bv_three_fantasy_classics_six_close_readings_20261028.json`。已有《封神演义》《镜花缘》《聊斋志异》各2篇原文＋批注＋心得，固定数字来源与隔离学海完整读回成功；合计102条文学内容。接下来从不同场景继续细读、写真实疑问；如涉及现代玄幻小说，先辨别是否有合法可保留完整原文的来源，不要假装自己创作的文字是名家原文。不要增加数据库、审核/方法卡/提示体系，不凭存储数量宣称WF文学进步。保持main、Railway、私有R2、正式Canon不动，V26/V98/V119和唯一NarrativeCore不动。
+> 继续WriterForge 0.BW之后的学海内容优先工作。先读开发分支`docs/CURRENT_HANDOFF.md`顶部0.BW、`experiments/wf_0bw_three_fantasy_classics_six_long_readings_20261029.json`和0.BV旧6篇。现在三部古典神魔奇幻有12篇连续阅读，含《镜花缘》两整回、《聊斋志异》两整篇；同一个临时Xuehai共108条内容/60篇三段式，来源逐段核对、原文批注心得全文读回。不要重复加这六篇，不要假装现代版权小说全文已读。下一步依然是不同原文、具体字句的思考和文学中的多义，必要时找真实授权的新现代玄幻来源，之后才检验作者构思是否实际受益。别添数据库/新记忆/审核器/短方法卡；不能把GREEN当文学进步。只改开发分支，禁止改main/Railway/私有R2/正式Canon，保留V26/V98/V119/唯一NarrativeCore。
