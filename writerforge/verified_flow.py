@@ -56,6 +56,7 @@ class GroundedDraftPacket:
     r2_snapshot_sha256: str | None = None
     experience_decision_receipt: dict | None = None
     scene_craft_receipt: dict | None = None
+    xuehai_method_receipt: dict | None = None
 
     def manifest(self) -> dict:
         return {
@@ -71,6 +72,8 @@ class GroundedDraftPacket:
                 for x in self.evidence
             ],
             "craft_ids": list(self.craft_ids),
+            "xuehai_methods": dict(self.xuehai_method_receipt)
+                if self.xuehai_method_receipt is not None else None,
             # Frozen decision: no source prose or reviewer signature.
             "experience_decision": dict(self.experience_decision_receipt)
                 if self.experience_decision_receipt is not None else None,
@@ -142,6 +145,7 @@ class VerifiedWritingFlow(WritingFlow):
         experience_enabled: bool = True,
         scene_craft_profile: dict | None = None,
         scene_craft_enabled: bool = True,
+        xuehai_methods_enabled: bool = False,
     ) -> GroundedDraftPacket:
         self.runtime.require(Mode.WRITE)
         if not goal.strip() or len(goal) > 2000 or not scene_id or len(scene_id)>128:
@@ -282,6 +286,22 @@ class VerifiedWritingFlow(WritingFlow):
                 "learner_autonomous_discovery_proven":False,
             }
 
+        # 0.BL: only actual author-body WRITE opts in. Never change scene
+        # planning JSON, V26 choices, V98 replan, V119 or NarrativeCore.
+        # The unreviewed source excerpt is never part of this guidance.
+        method_guidance = ""
+        method_receipt = None
+        if xuehai_methods_enabled:
+            if type(xuehai_methods_enabled) is not bool:
+                raise WritingExecutionError("XUEHAI_METHOD_ENABLE_FLAG_INVALID")
+            try:
+                methods = self.xuehai.query_methods(goal=goal, genre=genre,
+                                                    limit=2, max_chars=300)
+            except ValueError as exc:
+                raise WritingExecutionError("XUEHAI_METHOD_RETRIEVAL_FAILED") from exc
+            method_guidance = methods["prompt_guidance"]
+            method_receipt = methods["receipt"]
+
         prompt = (
             f"请创作原创{language}小说正文。体裁：{genre}。\n"
             "原著学习档案里的关键词与第几章标签仅作来源审计，不是文笔范例，"
@@ -299,6 +319,7 @@ class VerifiedWritingFlow(WritingFlow):
                + selected_guidance if selected_guidance else "")
             + ("\n根据本场景语义分析选中的外部教学经验（非已证明的写作能力）：\n"
                + scene_guidance if scene_guidance else "")
+            + ("\n" + method_guidance if method_guidance else "")
             + prose_tail
         )
         if len(prompt) > MAX_PROMPT_CHARS:
@@ -314,6 +335,7 @@ class VerifiedWritingFlow(WritingFlow):
             None,
             experience_receipt,
             scene_craft_receipt,
+            method_receipt,
         )
 
 
