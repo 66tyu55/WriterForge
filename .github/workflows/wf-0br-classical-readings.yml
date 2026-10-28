@@ -1,4 +1,4 @@
-name: WF 0.BR Literary Readings Original Annotation Reflection
+name: WF 0.BS Classical Literary Readings 24 Complete
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/wf-0br-classical-readings.yml
       - experiments/wf_0br_classical_original_annotation_reflection_20261028.json
+      - experiments/wf_0bs_classical_remaining_18_original_annotation_reflection_20261028.json
       - experiments/wf_0br_stage_classical_readings.py
       - writerforge/xuehai.py
   workflow_dispatch:
@@ -45,25 +46,28 @@ jobs:
               filename={"xy":"23962-0.txt","hl":"24264-0.txt","sh":"23863-0.txt"}[key]
               (Path(os.environ["RUNNER_TEMP"])/filename).write_bytes(raw)
           PY
-      - name: Keep all 30 full texts and retrieve complete 3-part readings
+      - name: Keep all 72 content entries and read back 24 complete classical interpretations
         run: |
           python -m experiments.wf_0br_stage_classical_readings \
             --db "$RUNNER_TEMP/wf0br-30-full-texts.db" \
             --xy "$RUNNER_TEMP/23962-0.txt" \
             --hl "$RUNNER_TEMP/24264-0.txt" \
-            --sh "$RUNNER_TEMP/23863-0.txt" > "$RUNNER_TEMP/wf0br-result.json"
+            --sh "$RUNNER_TEMP/23863-0.txt" \
+            --all24 > "$RUNNER_TEMP/wf0br-result.json"
           python - <<'PY'
           import json,os
           from pathlib import Path
           x=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0br-result.json").read_text("utf8"))
-          assert x["annotated_classic_entries"]==6
+          assert x["annotated_classic_entries"]==24
+          assert x["six_previous_readings_kept"]==6
+          assert x["new_remaining_readings"]==18
           assert x["original_prose_scenes_kept"]==24
           assert x["original_classical_passages_kept"]==24
-          assert x["total_content_entries"]==54
-          assert x["original_classic_chars"]>3000
+          assert x["total_content_entries"]==72
+          assert x["original_classic_chars"]>10000
           assert x["model_calls"]==0
-          assert all(r["read_complete_three_part_text"] for r in x["read_examples"].values())
-          print("WF0BR_CONTENT_GREEN: 24原创＋24古籍原文＋6古籍精读（原文/批注/心得），同一现有学海，全文可读回",flush=True)
-          print("6 readings original characters:",x["original_classic_chars"],flush=True)
-          print("examples:",json.dumps(x["read_examples"],ensure_ascii=False),flush=True)
+          assert x["readback_all_24_complete"] is True
+          assert x["published_method_cards"]==0
+          print("WF0BS_CONTENT_READBACK: 24原创＋24古籍原文＋24古籍深读，同一隔离学海，全文、批注、心得逐篇读回",flush=True)
+          print("24 readings original characters:",x["original_classic_chars"],flush=True)
           PY
