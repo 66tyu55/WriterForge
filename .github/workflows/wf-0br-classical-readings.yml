@@ -1,4 +1,4 @@
-name: WF 0.BU Classical 24 + Original 24 Deep Readings
+name: WF 0.BV Three Fantasy Classics + Existing Literary Readings
 
 on:
   push:
@@ -9,6 +9,7 @@ on:
       - experiments/wf_0bs_classical_remaining_18_original_annotation_reflection_20261028.json
       - experiments/wf_0bt_original_eight_close_readings_20261028.json
       - experiments/wf_0bu_remaining_sixteen_original_close_readings_20261028.json
+      - experiments/wf_0bv_three_fantasy_classics_six_close_readings_20261028.json
       - experiments/wf_0br_stage_classical_readings.py
       - writerforge/xuehai.py
   workflow_dispatch:
@@ -32,10 +33,11 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -e .
-      - name: Fetch exactly three pinned public-domain source texts
+      - name: Fetch six pinned public-domain source texts only
         run: |
           python - <<'PY'
           import json,os
+          from hashlib import sha1
           from pathlib import Path
           from urllib.request import Request,urlopen
           meta=json.loads(Path("experiments/wf_0br_classical_original_annotation_reflection_20261028.json").read_text("utf8"))
@@ -47,28 +49,41 @@ jobs:
               assert 100_000<len(raw)<4_000_000
               filename={"xy":"23962-0.txt","hl":"24264-0.txt","sh":"23863-0.txt"}[key]
               (Path(os.environ["RUNNER_TEMP"])/filename).write_bytes(raw)
+          fantasy=json.loads(Path("experiments/wf_0bv_three_fantasy_classics_six_close_readings_20261028.json").read_text("utf8"))
+          for key,src in fantasy["sources"].items():
+              url=src["url"]
+              assert url.startswith("https://raw.githubusercontent.com/GITenberg/")
+              with urlopen(Request(url,headers={"User-Agent":"WriterForge-public-domain-fantasy-literary-reading/1"}),timeout=45) as r:
+                  raw=r.read(3_000_001)
+              actual=sha1(b"blob "+str(len(raw)).encode("ascii")+b"\0"+raw).hexdigest()
+              assert len(raw)==src["source_size_bytes"]
+              assert actual==src["source_blob_sha1"]
+              (Path(os.environ["RUNNER_TEMP"])/src["filename"]).write_bytes(raw)
           PY
-      - name: Read back all 24 classical and 24 original complete three-part interpretations
+      - name: Read back all existing literary content and six real fantasy readings
         run: |
           python -m experiments.wf_0br_stage_classical_readings \
             --db "$RUNNER_TEMP/wf0br-30-full-texts.db" \
             --xy "$RUNNER_TEMP/23962-0.txt" \
             --hl "$RUNNER_TEMP/24264-0.txt" \
             --sh "$RUNNER_TEMP/23863-0.txt" \
-            --original24 > "$RUNNER_TEMP/wf0br-result.json"
+            --fs "$RUNNER_TEMP/23910-0.txt" \
+            --jh "$RUNNER_TEMP/23818-0.txt" \
+            --lz "$RUNNER_TEMP/51828-0.txt" \
+            --fantasy6 > "$RUNNER_TEMP/wf0br-result.json"
           python - <<'PY'
           import json,os
           from pathlib import Path
           x=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0br-result.json").read_text("utf8"))
-          assert x["original_full_scenes_kept"]==24
-          assert x["classic_full_excerpts_kept"]==24
-          assert x["classic_three_part_readings_kept"]==24
-          assert x["previous_original_readings_kept"]==8
-          assert x["new_original_three_part_readings"]==16
-          assert x["all_original_readings"]==24
-          assert x["all_48_three_part_readings_complete"] is True
-          assert x["total_literary_content_entries"]==96
+          assert x["new_books"]==3
+          assert x["new_complete_fantasy_readings"]==6
+          assert x["old_readings_preserved"]==48
+          assert x["all_literary_content_entries"]==102
+          assert x["all_three_part_readings"]==54
+          assert x["new_fantasy_original_characters"]>2500
+          assert x["full_fantasy_readback"] is True
+          assert x["source_editions_pin_verified"] is True
           assert x["model_calls"]==0
           assert x["method_cards"]==0
-          print("WF0BU_CONTENT_READBACK: 24原创全文＋24古籍原文＋24古籍深读＋24原创深读，同一隔离学海三段式全文读回",flush=True)
+          print("WF0BV: 3册真实古典神魔/奇幻/志怪，6篇新全文三段式，原96条全部保留，隔离学海逐篇读回",flush=True)
           PY
