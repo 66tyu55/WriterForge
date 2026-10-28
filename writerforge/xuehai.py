@@ -67,6 +67,10 @@ _METHOD_GENRE_FALLBACK = {
     "武侠": ("武侠", "广义叙事"),
 }
 
+def genre_lineage(genre: str) -> tuple[str, ...]:
+    """Semantic parent lookup; never cross into 志怪 for a 玄幻 request."""
+    return _METHOD_GENRE_FALLBACK.get(genre, (genre,))
+
 def _method_sha(row: dict) -> str:
     payload = {key: row[key] for key in _METHOD_IMMUTABLE}
     return hashlib.sha256(json.dumps(
@@ -483,7 +487,7 @@ class XuehaiStore:
             type(limit) is not int or not 1 <= limit <= 2 or
             type(max_chars) is not int or not 80 <= max_chars <= 300):
             raise ValueError("METHOD_QUERY_UNBOUNDED")
-        genre_path = _METHOD_GENRE_FALLBACK.get(genre, (genre,))
+        genre_path = genre_lineage(genre)
         rows = self.db.conn.execute(
             """WITH RECURSIVE lineage(id,parent_id,layout) AS (
                  SELECT id,parent_id,layout FROM snapshots
@@ -498,6 +502,8 @@ class XuehaiStore:
                       e.source_role AS source_role,
                       e.reuse_policy AS reuse_policy,
                       e.snapshot_id AS live_snapshot,
+                      e.chapter AS live_chapter, e.paragraph AS live_paragraph,
+                      e.sentence AS live_sentence,
                       w.source_uri AS work_uri, w.source_sha256 AS work_sha,
                       s.excerpt AS span_excerpt, s.source_sha256 AS unit_sha,
                       c.chapter_sha256 AS chapter_sha, c.snapshot_id AS study_sid
@@ -509,7 +515,7 @@ class XuehaiStore:
                  AND (e.chapter=s.chapter AND e.paragraph=s.paragraph
                       AND e.sentence=s.sentence)
                LEFT JOIN studied_chapters c ON c.work_id=m.work_id
-                 AND c.chapter=e.chapter
+                 AND c.chapter=e.chapter AND c.snapshot_id IN (SELECT id FROM lineage)
                ORDER BY m.entry_id ASC LIMIT 128""",
             (sid,),
         ).fetchall()
@@ -562,6 +568,8 @@ class XuehaiStore:
                   r["work_sha"] != r["source_sha256"] or
                   r["live_entry_hash"] != r["entry_source_hash"] or
                   r["live_snapshot"] != r["snapshot_id"] or
+                  r["source_locator"] != f"{r['live_chapter']}:{r['live_paragraph']}:{r['live_sentence']}" or
+                  r["live_entry_hash"] != hashlib.sha256((r["work_id"]+"|"+ " ".join(r["source_text"].split()).strip()).encode("utf8")).hexdigest() or
                   not _is_digest(r["source_sha256"]) or
                   not _is_digest(r["source_unit_sha256"]) or
                   not _is_digest(r["unit_sha"]) or
