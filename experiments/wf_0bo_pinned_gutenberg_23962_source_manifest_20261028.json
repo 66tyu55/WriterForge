@@ -1,0 +1,56 @@
+{
+  "format": "wf.0bo.pinned-project-gutenberg-digital-source.v1",
+  "status": "PUBLIC_DIGITAL_FILE_HASH_VERIFIED_REVIEW_PENDING",
+  "digital_work": "西游记",
+  "source_publisher": "Project Gutenberg",
+  "gutenberg_ebook_number": 23962,
+  "publisher_rights_statement": "Public domain in the USA",
+  "publisher_rights_evidence_uri": "https://www.gutenberg.org/ebooks/23962",
+  "publisher_permissions_uri": "https://www.gutenberg.org/policy/permission.html",
+  "copyright_review_scope": "USA_PUBLIC_DOMAIN_TEXT_ONLY_NOT_TRADEMARK_OR_ALL_JURISDICTIONS",
+  "exact_redistribution_license_and_edition_review_signed": false,
+  "git_repository": "GITenberg/---_23962",
+  "pinned_git_commit": "6a0cca862cda18eefa8a3264372893308432e926",
+  "pinned_raw_source_uri": "https://raw.githubusercontent.com/GITenberg/---_23962/6a0cca862cda18eefa8a3264372893308432e926/23962-0.txt",
+  "pinned_git_blob_sha1": "b43d48dae12142a6e8707dcb68938d86beeb51e8",
+  "raw_source_size_bytes": 2264071,
+  "raw_source_sha256": "fc9a3956fd22b9a4356af8dd0dca27596fd0c9da87c35eae45c4f331c1b8f597",
+  "normalized_source_sha256": "a6826b4a110e45bc47e5b94098611140fd58e7a07b7823ea4388e385898fa2f8",
+  "normalized_source_processing": "decode UTF-8 with BOM removal and universal newline CRLF-to-LF as pathlib.Path.read_text(encoding='utf-8-sig')",
+  "first_chapter_sha256": "d70a073cb4482f4e1edcbdff924f371b8e3e68c0eaf24d05d0c2c32ae6b3a86f",
+  "chapter_count_in_pinned_version": 100,
+  "staged_chapters_per_pilot": 1,
+  "method_source_pairing": [
+    {
+      "method_id": "classic-xiyou-001-cave-pledge",
+      "source_anchor": "我等即拜他為王",
+      "source_anchor_context": "共同承诺先于探索",
+      "genre": "玄幻",
+      "intended_scene": "秘境遗迹"
+    },
+    {
+      "method_id": "classic-xiyou-001-woodcutter",
+      "source_anchor": "所以不能修行",
+      "source_anchor_context": "樵夫照料母亲并负有独立生计",
+      "genre": "玄幻",
+      "intended_scene": "边境旅途"
+    }
+  ],
+  "same_bytes_as_existing_local_fixture": false,
+  "public_source_text_committed_to_writerforge": false,
+  "full_source_republished": false,
+  "actual_external_human_reviewers": 0,
+  "actual_literary_model_calls": 0,
+  "production_xuehai_changes": 0,
+  "actual_unverified_methods_published_to_writer": false,
+  "scope": "DISPOSABLE_DB_STAGING_ONLY",
+  "rights_and_craft_status": "PENDING_EXTERNAL_REVIEW",
+  "reviewer_keys_or_signatures_in_repo": false,
+  "literary_benefit_proven": false,
+  "notes": [
+    "GITenberg pin is a version-specific source blob and not evidence of a named historical print base text.",
+    "Project Gutenberg marks this electronic book public-domain in the USA; legal status of changes/jurisdictions and trademark must be reviewed by the real rights reviewer.",
+    "Only the existing OriginalStudy is used on a disposable SQLite database; source full text is not uploaded to WriterForge.",
+    "Two external signed reviewers and verified original source identity are prerequisites to any pilot WRITE."
+  ]
+}
