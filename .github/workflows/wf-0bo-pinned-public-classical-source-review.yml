@@ -1,0 +1,94 @@
+name: WF 0.BO One Pinned Gutenberg First Chapter -> Xuehai REVIEW Packet - NO MODEL
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0bo-pinned-public-classical-source-review.yml
+      - experiments/wf_0bo_pinned_gutenberg_source_review.py
+      - experiments/wf_0bo_pinned_gutenberg_23962_source_manifest_20261028.json
+      - tests/test_wf_0bo_pinned_classical_source_review_packet.py
+      - writerforge/source_study.py
+      - writerforge/xuehai.py
+      - writerforge/xuehai_method_admission.py
+      - writerforge/db.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf0bo-pinned-public-source-one-chapter-no-model
+  cancel-in-progress: true
+
+jobs:
+  pinned-first-chapter-in-disposable-sqlite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Refuse model provider and private R2 environment access
+        run: |
+          python - <<'PY'
+          import os
+          keys=("OPENAI_API_KEY","DEEPSEEK_API_KEY","GLM_API_KEY",
+                "DISCOVERY_API_KEY","OPENROUTER_API_KEY",
+                "R2_ACCESS_KEY_ID","R2_SECRET_ACCESS_KEY")
+          assert not any(os.getenv(k) for k in keys)
+          print("WF0BO_NO_PAID_MODEL_OR_R2_KEYS",flush=True)
+          PY
+      - name: Install local existing WriterForge without a remote author model
+        run: python -m pip install -e '.[evidence]'
+      - name: Fetch EXACTLY one pinned public Gutenberg digital source into RUNNER_TEMP
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from experiments.wf_0bo_pinned_gutenberg_source_review import download_exact_source
+          p=Path(os.environ["RUNNER_TEMP"])/"wf0bo-gitenberg-pinned-23962.txt"
+          download_exact_source(p)
+          print("WF0BO_PINNED_PUBLIC_SOURCE_BYTE_SHA_VERIFIED",flush=True)
+          PY
+      - name: Fail-closed source and full READ-to-review-packet tests
+        env:
+          WF0BO_PINNED_SOURCE_FILE: ${{ runner.temp }}/wf0bo-gitenberg-pinned-23962.txt
+        run: python -m unittest discover -s tests -p 'test_wf_0bo_pinned_classical_source_review_packet.py' -v
+      - name: Build human evidence, NEVER approved or production
+        run: |
+          python -m experiments.wf_0bo_pinned_gutenberg_source_review \
+            --source "$RUNNER_TEMP/wf0bo-gitenberg-pinned-23962.txt" \
+            --db "$RUNNER_TEMP/wf0bo-local-READ-PENDING.sqlite" \
+            --review-dir "$RUNNER_TEMP/wf0bo-reviewer-evidence"
+          python - <<'PY'
+          import os,sqlite3,json
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])
+          with sqlite3.connect(root/"wf0bo-local-READ-PENDING.sqlite") as c:
+              assert c.execute("SELECT COUNT(*) FROM studied_chapters").fetchone()[0]==1
+              assert c.execute("SELECT COUNT(*) FROM xuehai_method_cards").fetchone()[0]==2
+              assert c.execute("SELECT COUNT(*) FROM xuehai_method_attestations").fetchone()[0]==0
+              assert c.execute("SELECT COUNT(*) FROM snapshots WHERE status='staging'").fetchone()[0]==1
+              assert c.execute("SELECT COUNT(*) FROM accepted_prose").fetchone()[0]==0
+          p=json.loads((root/"wf0bo-reviewer-evidence"/"REVIEW_PACKET.json").read_text("utf8"))
+          assert not p["has_authenticated_human_review"]
+          assert all(case["signed_rights_authorization"] is None and
+                     case["signed_craft_approval"] is None for case in p["cases"])
+          print("WF0BO_REAL_SOURCE_1_CHAPTER_PENDING_2_CARDS_ZERO_MODEL_GREEN",flush=True)
+          PY
+      - name: Upload only short public-source evidence and unsigned human review guide
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0BO-PINNED-CLASSICAL-SOURCE-UNSIGNED-REVIEW-PACKET
+          path: ${{ runner.temp }}/wf0bo-reviewer-evidence/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Previous P0 author safety and external-review checks
+        run: |
+          python -m unittest discover -s tests -p 'test_wf_0bn_signed_classical_method_admission.py' -q
+          python -m unittest discover -s tests -p 'test_wf_0bl_true_g_author_method_branch.py' -q
+          python -m unittest discover -s tests -p 'test_wf_0bm_classics_source_anchored_pending.py' -q
