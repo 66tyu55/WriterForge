@@ -195,7 +195,8 @@ class XuehaiMethodWriteP0(unittest.TestCase):
         )
         assist=InvisibleWritingAssist(
             self.db,self.rt,"p0","alchemy","让丹师根据炉火作决定",
-            model="synthetic-fixture-only",source_genre="玄幻",
+            model="synthetic-fixture-only",api_base="http://127.0.0.1:1234/v1",
+            source_genre="玄幻",
         )
         with patch("writerforge.writing_assist.local_chat_completion",side_effect=[PLAN,BODY]) as model:
             result=AutonomousWriting(assist).run(
