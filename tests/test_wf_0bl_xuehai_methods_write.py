@@ -160,22 +160,61 @@ class XuehaiMethodWriteP0(unittest.TestCase):
         other = self.store.query_methods(goal="丹炉前修理小物件",genre="武侠")
         self.assertEqual(other["selected"], [])
 
-    def test_unapproved_or_unlicensed_are_never_in_prompt(self):
-        for label, field in [
-            ("rights", "rights_status"), ("review", "review_status")
-        ]:
-            with self.subTest(label=label):
-                card = dict(ALCHEMY)
-                card[field] = "RIGHTS_UNVERIFIED" if field=="rights_status" else "PENDING"
-                # Stored for auditing, NEVER selected.
-                self._publish(card)
-                pkt = VerifiedWritingFlow(self.db,self.rt,"p0").prepare(
-                    "alchemy", "正在炼丹，丹炉异样需改变选择", genre="玄幻",
-                    xuehai_methods_enabled=True,
-                )
-                self.assertNotIn("作者可让丹师暂停",pkt.prompt)
-                self.assertEqual(pkt.manifest()["xuehai_methods"]["selected"], [])
-                break
+    def _assert_blocked_write(self, card):
+        self._publish(card)
+        pkt = VerifiedWritingFlow(self.db,self.rt,"p0").prepare(
+            "alchemy", "正在炼丹，丹炉异样需改变选择", genre="玄幻",
+            xuehai_methods_enabled=True,
+        )
+        self.assertNotIn("作者可让丹师暂停",pkt.prompt)
+        self.assertEqual(pkt.manifest()["xuehai_methods"]["selected"], [])
+        self.assertEqual(pkt.manifest()["xuehai_methods"]["result"], "NONE")
+
+    def test_unverified_rights_never_enter_author_prompt(self):
+        card = dict(ALCHEMY)
+        card["rights_status"] = "RIGHTS_UNVERIFIED"
+        self._assert_blocked_write(card)
+
+    def test_pending_review_never_enters_author_prompt(self):
+        card = dict(ALCHEMY)
+        card["review_status"] = "PENDING"
+        self._assert_blocked_write(card)
+
+    def test_author_may_decline_method_and_keep_original_flow(self):
+        self._publish()
+        assist=InvisibleWritingAssist(
+            self.db,self.rt,"p0","alchemy","炼丹现场要决定停火还是添柴",
+            model="synthetic-fixture-only",api_base="http://127.0.0.1:1234/v1",
+            source_genre="玄幻",
+        )
+        with patch("writerforge.writing_assist.local_chat_completion",
+                   side_effect=[PLAN,BODY]) as model:
+            result=AutonomousWriting(assist).run(
+                outline="丹药异常，人物必须作出独立选择并承担损失。",
+                chapter_goals=["炼丹时角色必须决定停火还是继续"],
+                output_dir=Path(self.tmp.name)/"opted-out",
+                draft_mode="single",
+                # Explicitly omit xuehai_methods_enabled: defaults to OFF.
+            )
+        self.assertEqual(model.call_count,2)
+        self.assertNotIn("作者可让丹师暂停",model.call_args_list[1].args[0].prompt)
+        record=json.loads(Path(result["chapters"][0]["manifest"]).read_text("utf8"))
+        self.assertIsNone(record["xuehai_methods"])
+
+    def test_source_sentences_not_leaked_in_method_or_author_prompt(self):
+        self._publish()
+        packet=VerifiedWritingFlow(self.db,self.rt,"p0").prepare(
+            "alchemy", "炼丹时需检验炉火和药液",
+            genre="玄幻",xuehai_methods_enabled=True,
+        )
+        source=self.db.conn.execute(
+            "SELECT text FROM xuehai_entries WHERE id=?", (self.entry,)
+        ).fetchone()["text"]
+        self.assertTrue(packet.manifest()["xuehai_methods"]["selected"])
+        self.assertFalse(
+            any(source[i:i+14] in packet.prompt for i in range(len(source)-13)),
+            "NO_RAW_SOURCE_14GRAM_MAY_REACH_PROMPT",
+        )
 
     def test_staging_never_usable_even_if_card_claims_review(self):
         self.store.add_method_card(self.entry, dict(ALCHEMY))
