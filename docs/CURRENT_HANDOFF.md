@@ -1,6 +1,18 @@
 # WriterForge 当前有效交接｜2026-10-27
 
 
+## 0.BL P0 最新实施｜场景方法卡入真正作者 WRITE，G 重规划串线 RED→修复（2026-10-28）
+
+**当前唯一实施交接：[WF_0BL_P0_XUEHAI_METHOD_WRITE_IMPLEMENTATION_20261028.md](WF_0BL_P0_XUEHAI_METHOD_WRITE_IMPLEMENTATION_20261028.md)**。下文“下一次先做方法卡 RED→GREEN”属于 **P0 开始前的历史任务**，该工作已在开发分支完成，不要重复。
+
+- 原 `WriterForgeDB` 新增与 Xuehai entry、已发布源快照、work/source unit SHA 绑定的有审核状态的 method cards；检索匹配 16 类玄幻及自定义场景、体裁上行回退、版权/审核/来源/SHA 检查、最多2条/300字符，候选池先按场景约束。**无正式独立审定的古籍/现代小说原文，本轮只在隔离测试验证作者原创新源**。
+- 原 `VerifiedWritingFlow.prepare` 与实际 `AutonomousWriting.run` 均支持明确 `xuehai_methods_enabled=True` 的 WRITE 作者选择；**默认 OFF**，不改变旧写作、V26/V98/V119 或唯一 NarrativeCore。16条原创诊断条目仍为 STAGING/PENDING，正式 WRITE 不用。
+- 初次 RED [#40683363145](https://github.com/66tyu55/WriterForge/actions/runs/40683363145) 缺乏方法接口；首次整仓 GREEN [#40684256634](https://github.com/66tyu55/WriterForge/actions/runs/40684256634) 2,043 tests / 6 skipped / 0 failed。**实际 G 三臂脚本回包随后又查出重要 RED [#40685130126](https://github.com/66tyu55/WriterForge/actions/runs/40685130126)**：方法在5次调用中错误出现在4次（包括 V98 JSON 重规划）。现已修改为只在首条作者正文请求中低优先级投递，预算不足则不投递、回执记录掉落；等待最新 CI 全量确认。
+- 三臂脚本回包测试使用真正 G/V98/NarrativeCore 作者路径（裸模型1回包、WF原核心5回包、WF+学海5回包），**仍不是真实模型文学实验**。新增原作者模型调用0，真实计费token/价格0（因为没有实际请求），文学收益尚未证明。后续须取得明确真实作者模型和预算授权、独立盲评才能报告收益与成本。
+- 原红线全部延续：不碰 main / Railway / 私有 R2 / 正式 Canon；无古籍正式正文导入；不重做无效小模型实验、不自动发布未验证方法。
+
+---
+
 ## 0.BL 最新已执行｜玄幻场景学海扩充计划 + 16个原创细节样本进入隔离 STAGING（2026-10-28）
 
 **最新可直接续接执行交接：[WF_0BL_NEXT_SESSION_XUEHAI_WRITE_USE_HANDOFF_20261028.md](WF_0BL_NEXT_SESSION_XUEHAI_WRITE_USE_HANDOFF_20261028.md)**。下一次先做 *有来源/版权与审阅权限的学海场景方法卡 → 真正 Writer WRITE 1—2 条有界选择注入* 的 RED→GREEN；16 条目前仍为 STAGING，古籍目前仍仅参考目录，不能自动发布或宣称文学收益。
