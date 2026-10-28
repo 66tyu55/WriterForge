@@ -196,7 +196,7 @@ class XuehaiStore:
         return int(row["id"]) if row else None
 
     def read_literary_reading(self, entry_id: int) -> dict:
-        """Read full 原文/批注/心得, not a truncated 80-character search hit.
+        """Read full 古籍或原创的原文/批注/心得, not an 80-character search hit.
 
         Explicit only; requires a published pinned snapshot. Never
         automatically inject a classical quotation into author prose.
@@ -216,8 +216,9 @@ class XuehaiStore:
             )
             SELECT e.text,e.work_id,e.source_hash FROM xuehai_entries e
              JOIN lineage l ON l.id=e.snapshot_id
-             WHERE e.id=? AND e.source_role=?""",
-            (sid,entry_id,"classical_original_annotation_reflection"),
+             WHERE e.id=? AND e.source_role IN (?,?)""",
+            (sid,entry_id,"classical_original_annotation_reflection",
+             "original_annotation_reflection"),
         ).fetchone()
         if row is None:
             raise ValueError("XUEHAI_READING_NOT_PUBLISHED_OR_NOT_FOUND")
