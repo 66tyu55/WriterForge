@@ -1,6 +1,21 @@
 # WriterForge 当前有效交接｜2026-10-27
 
 
+## 0.BL 最新已执行｜玄幻场景学海扩充计划 + 16个原创细节样本进入隔离 STAGING（2026-10-28）
+
+**下一次必须首先读：[WF_0BL_XUEHAI_SCENE_ATLAS_AND_CLASSICAL_TEXT_PLAN_20261028.md](WF_0BL_XUEHAI_SCENE_ATLAS_AND_CLASSICAL_TEXT_PLAN_20261028.md)**，再按需读下方 0.BJ/0.BK 的真实写作路线失败记录。此节更新研究方向，但不代表玄幻名作已经成功训练、也不代表真实发布库已经改动。
+
+- **用户明确改变优先级**：以前多轮 WF 推理/提示实验都只有微弱文学进步，若本地效果不足不宜仓促发布。现阶段优先丰富并真正调用现有 XuehaiStore 学海库，用不同玄幻场景里的具体细节与中国古籍原始写法给同一作者模型提供**有上下文、可迁移、可证伪**的素材经验。禁止继续只加审稿规则、强行叠提示词或以测试 GREEN 冒充进步。
+- **已核查原仓库真实断点**：XuehaiStore (writerforge/xuehai.py) 已提供 LEARN staging/publish、delta snapshot、FTS5、genre/function/effect/cluster、去重与有界查询。原 VerifiedWritingFlow.prepare() 的确检索 Xuehai 条目并保存证据索引，但写作 prompt 没充分交付对应的**场景方法和适用条件**；严格 genre= 精确过滤不够适配修真/仙侠/玄幻/志怪多层分类。单纯灌几百万字并不能自动让创作模型学会技巧。应先实现源条目→条件化方法卡→受控 WRITE 调用→原始写作效用验证的闭环，方法/细节指引最多1—2条且用户作者可不采用。
+- **首批已真正写入开发分支的素材与流程**：[16 条 WF 自创玄幻细节微场景](../experiments/wf_0bl_xuanhuan_original_micro_scenes_20261028.json)覆盖炼丹、炼器、阵法、破境、灵兽、斗法、宗门、市坊、秘境、志怪、伤病、旅途等 16 类；每条有适用条件、具体作者可选机制、负面对照、独立新写的文字，**明确不是从现有《凡人修仙传》等现代名作复制而来**。另有 [5 个中国古籍可追溯原文来源目录](../experiments/wf_0bl_classical_provenance_reference_catalog_20261028.json)：西游记、红楼梦程甲本、史记项羽本纪、世说新语言语、聊斋志异索引；有原文网页和初步方法方向，但**尚未把古籍正文导入学海/人工审定版次**。
+- **现有 SQLite 学海链条已完成安全首验**：新增 [wf_0bl_stage_original_xuanhuan_xuehai.py](../experiments/wf_0bl_stage_original_xuanhuan_xuehai.py)，复用原 WriterForgeDB + XuehaiStore.add_entry，在**独立临时 SQLite**导入上述 16 条原创测试数据；学习快照仍为 STAGING，published=0，studied_chapters=0，正式 WRITE 不准使用；没有 R2 private 操作、没有现代付费原著、没有模型调用/质量认证。校验为真实来源和版权状态检查，原始用户文学文档绝不导出到仓库。测试拒绝伪造的授权与来源状态、重复样本/错体裁和未发布候选写作。
+- **真实 RED→GREEN**：[初次 CI RED #40681253825](https://github.com/66tyu55/WriterForge/actions/runs/40681253825) 揭示“坏写法”很短的标签被误判为必须12字符以上，**只调整反例简短标签允许范围，不放宽原场景文字及版权验证**；[**0.BL 首轮 GREEN #40681367580**](https://github.com/66tyu55/WriterForge/actions/runs/40681367580)：4 个新增定向测试通过、16条真实 SQLite 条目完成安全 STAGING、整仓 **2,034 tests，6 skipped，0 failed**。没有新增付费或本地推理。
+- **已有现代小说历史记录不等于有商用许可**：原测试 test_v33_learn_archived_modern_r2.py 包含7部现代仙侠/玄幻的原始档案校验配置，可作为未来场景编目方向；未读取私人 R2 或重跑旧付费训练。它们的版权和使用范围需另行明确核对。古籍公有领域应核定底本/电子校注/翻译版本，绝不可批量抓取 ctext.org 违反使用条款。
+- **后续唯一高优先级 P0**：在同一个 WriterForgeDB 增加经 review/rights/source SHA 约束的“场景方法卡”，和现有 XuehaiStore 关联，写作生成前只投放真正命中当前人物/场景的 1—2 条机制和反例；保留原著原文 LEARN 阶段来源，WRITE 不复制长段。要凭真正 Published snapshot/方法卡权限，**不能把本次16个未评级原创样本当成名著训练成果自动晋级**。随后逐批读公有领域的正式古籍原文和经授权的现代玄幻细节，严格同作者模型、同任务、可比较预算下测试裸模型/WF真正核心/WF学海场景方法，失败就停止。不要忘记 V26/V98/V119、唯一 NarrativeCore 与作家自由选剧情/删改。
+- **红线继续有效**：只改 refactor-unified-scene-delivery-audit，不改 main、不部署 Railway、不读写用户 R2 私有原著或正式 Canon、不重试0.AY GLM 429、不重新跑旧付费小说训练，候选 SHADOW 无自动激活。
+
+---
+
 ## 0.BJ 最新已执行｜第一份真人反馈已经否决本次实验资格，第二位不必再评（2026-10-27）
 
 **下一次优先读：[WF_0BJ_FIRST_HUMAN_REVIEW_INVALID_TRIAL_STOP_HANDOFF_20261027.md](WF_0BJ_FIRST_HUMAN_REVIEW_INVALID_TRIAL_STOP_HANDOFF_20261027.md)**。本节覆盖下面 0.BI 中“需要继续让第二位读者评”的历史时态；0.BI 原来的两份盲评包、原始十份本地模型结果仍完整保留，但本轮评审工作正式暂停。
