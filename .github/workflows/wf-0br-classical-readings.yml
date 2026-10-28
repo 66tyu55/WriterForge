@@ -1,4 +1,4 @@
-name: WF 0.BV Three Fantasy Classics + Existing Literary Readings
+name: WF 0.BW Longer Fantasy Original Readings in Existing Xuehai
 
 on:
   push:
@@ -10,6 +10,7 @@ on:
       - experiments/wf_0bt_original_eight_close_readings_20261028.json
       - experiments/wf_0bu_remaining_sixteen_original_close_readings_20261028.json
       - experiments/wf_0bv_three_fantasy_classics_six_close_readings_20261028.json
+      - experiments/wf_0bw_three_fantasy_classics_six_long_readings_20261029.json
       - experiments/wf_0br_stage_classical_readings.py
       - writerforge/xuehai.py
   workflow_dispatch:
@@ -60,7 +61,7 @@ jobs:
               assert actual==src["source_blob_sha1"]
               (Path(os.environ["RUNNER_TEMP"])/src["filename"]).write_bytes(raw)
           PY
-      - name: Read back all existing literary content and six real fantasy readings
+      - name: Read back all existing content plus six source-exact longer fantasy readings
         run: |
           python -m experiments.wf_0br_stage_classical_readings \
             --db "$RUNNER_TEMP/wf0br-30-full-texts.db" \
@@ -70,20 +71,22 @@ jobs:
             --fs "$RUNNER_TEMP/23910-0.txt" \
             --jh "$RUNNER_TEMP/23818-0.txt" \
             --lz "$RUNNER_TEMP/51828-0.txt" \
-            --fantasy6 > "$RUNNER_TEMP/wf0br-result.json"
+            --fantasy12 > "$RUNNER_TEMP/wf0br-result.json"
           python - <<'PY'
           import json,os
           from pathlib import Path
           x=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0br-result.json").read_text("utf8"))
           assert x["new_books"]==3
-          assert x["new_complete_fantasy_readings"]==6
+          assert x["new_complete_fantasy_readings"]==12
           assert x["old_readings_preserved"]==48
-          assert x["all_literary_content_entries"]==102
-          assert x["all_three_part_readings"]==54
-          assert x["new_fantasy_original_characters"]>2500
+          assert x["previous_fantasy_readings_preserved"]==6
+          assert x["additional_long_readings"]==6
+          assert x["all_literary_content_entries"]==108
+          assert x["all_three_part_readings"]==60
+          assert x["new_long_original_characters"]>16000
           assert x["full_fantasy_readback"] is True
           assert x["source_editions_pin_verified"] is True
           assert x["model_calls"]==0
           assert x["method_cards"]==0
-          print("WF0BV: 3册真实古典神魔/奇幻/志怪，6篇新全文三段式，原96条全部保留，隔离学海逐篇读回",flush=True)
+          print("WF0BW: 6篇新的长文本（含镜花缘两整回及聊斋两整篇）、108条内容、60篇深读，隔离学海逐篇读回",flush=True)
           PY
