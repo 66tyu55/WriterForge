@@ -128,7 +128,7 @@ OTHER_EDITION_SHA256="e3d137b317f2996805bbd6aa84abf47395a94dfbd2397324c1b9e9db15
 def audit_source_quality(text:str,method_anchors:tuple[str,...])->dict:
     """Known source inconsistency evidence, not a transcription correction."""
     chapter=parse_original(text,require_hundred=True,expected_count=100)[0].text
-    compact=re.sub(r"\\s+","",chapter)
+    compact=re.sub(r"\s+","",chapter)
     repeated=[m.start() for m in re.finditer(re.escape(SUSPECT_DUPLICATE_TRAD),compact)]
     other=OTHER_EDITION_LOCAL_FIXTURE.read_bytes()
     if sha256(other).hexdigest()!=OTHER_EDITION_SHA256:
@@ -136,7 +136,7 @@ def audit_source_quality(text:str,method_anchors:tuple[str,...])->dict:
     local=other.decode("utf8")
     local_count=len(list(re.finditer(
         re.escape(SUSPECT_DUPLICATE_SIMPLIFIED),
-        re.sub(r"\\s+","",local))))
+        re.sub(r"\s+","",local))))
     if len(repeated)!=2 or local_count!=1:
         raise ValueError("WF0BO_SOURCE_DUPLICATION_FINDING_CHANGED_REVIEW_REQUIRED")
     # Quarantine *a bounded context around the repeated paragraph*, without
@@ -144,7 +144,7 @@ def audit_source_quality(text:str,method_anchors:tuple[str,...])->dict:
     # to the questionable area. An unaffected later scene can still be reviewed.
     affected=[]
     for anchor in method_anchors:
-        at=compact.find(re.sub(r"\\s+","",anchor))
+        at=compact.find(re.sub(r"\s+","",anchor))
         if at<0:
             raise ValueError("WF0BO_METHOD_ANCHOR_NOT_IN_SOURCE_QUALITY_AUDIT")
         if any(p-40<=at<=p+260 for p in repeated):
@@ -340,7 +340,7 @@ def stage_pinned_first_chapter(source:Path,db_path:Path,
             "固定数字原件："+PINNED_URL+"\n\n"
             "Project Gutenberg 美国公有领域声明：https://www.gutenberg.org/ebooks/23962\n\n"
             "许可和商标说明：https://www.gutenberg.org/policy/permission.html\n\n"
-            "**此包尚无真人签名，不表示可直接用于生产 WRITE。**\n\n"            "已发现固定电子原件第一回开篇存在一段疑似转录重复；另一份既有测试"
+            "**此包尚无真人签名，不表示可直接用于生产 WRITE。**\n\n"\n            "已发现固定电子原件第一回开篇存在一段疑似转录重复；另一份既有测试"
             "文本中对应段落仅出现一次。请审阅源内容差异；不得直接修改原文，也不得"
             "因 SHA 正确就宣称文本已校勘。当前两条方法锚点不在疑似重复区域。\n\n"
             "权利审核者必须独立检查：真实数字版本、使用地域和商标/许可、源指纹、"
