@@ -6,7 +6,8 @@
 
 - **0.BQ已实现：** 24篇真正完整的原创玄幻/武侠/志怪等场景，9,208字，`experiments/wf_0bq_full_literary_detail_corpus_A_20261028.json` 和 `_B_20261028.json`；用原有`OriginalStudy`/`XuehaiStore` 在隔离SQLite存入全文并检索。[CI #40703869765 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40703869765)。
 - **0.BR已实现：** 《西游记》《红楼梦》《水浒传》3部公有领域数字古籍各8段，**24段连续原文/10,626字**（`experiments/wf_0br_three_classics_contiguous_prose_details_20261028.json`、`docs/WF_0BR_THREE_CLASSICS_REAL_PROSE_READING_BOOK_20261028.md`）；并有**6篇附原文、3条具体批注和阅读心得的完整条目**（`experiments/wf_0br_classical_original_annotation_reflection_20261028.json`），保存为**同一个隔离Xuehai内的54个内容条目**，由`XuehaiStore.read_literary_reading`实际读回三部分。[最新 0.BR CI #40713078272 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40713078272)。这些是资料储备，不是模型训练质量提升，正式Canon未变。
-- **接下来只需完善内容：** 先细读这6篇已有三段式作品，纠正浅批注；再为其余18段古籍连续原文逐步补充真正的文学批注与开放式心得（人物欲望、叙事节奏、生活细节、群像、含蓄、劳动、战斗与代价等）。必要时再拓展可靠的不同古典作品。保留全文和出处，不压缩成短提示；暂不重构规划流程或再造文学审核器。仍不凭入库数量冒充WF写作进步。
+- **0.BS 内容补齐已完成（2026-10-28）：** 在原有24段古籍连续原文中，对此前6篇深读之外的**18段（《西游记》《红楼梦》《水浒传》各6段）**补写逐字句的**54条批注＋18段心得**，保留全部7,756字新条目的数字原文，不把古籍概括成一句写作建议。内容文件：`experiments/wf_0bs_classical_remaining_18_original_annotation_reflection_20261028.json`。复用 `experiments/wf_0br_stage_classical_readings.py --all24` 及原 `XuehaiStore.read_literary_reading`，在**一个独立临时SQLite**逐篇读回全部24篇三段式深读；既有24篇原创完整场景与24段古籍连续原文也保留，文学内容共**72条（24＋24＋24）**。GitHub [0.BS 真实 CI #40715818663 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40715818663)，旧计数首轮失败已按内容角色核查修正；这是存取验证，不是独立文学盲评或创作进步。未碰正式Canon、main、Railway、R2；未调付费作者模型。
+- **接下来依然先做文学内容：** 细读、质疑已有6篇批注；比较24篇深读之间有分歧的解释（比如“旧恩与醉骂”“人情与家规”“神异与谋生”），再考虑补充**其他可靠古籍、不同笔法**及原创24场景的诚实自我批注。不要重建方法卡/数据库/审核器，也不要因为72条储备宣称WF文学能力提升。
 - **红线：** 只改`refactor-unified-scene-delivery-audit`，禁止main/Railway/私有R2/正式Canon更动，V26/V98/V119及唯一NarrativeCore保持，不擅自调用付费模型或伪造文学评分。
 
 ---
