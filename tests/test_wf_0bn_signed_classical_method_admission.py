@@ -18,7 +18,7 @@ from cryptography.hazmat.primitives.serialization import Encoding,PublicFormat
 from writerforge import WriterForgeDB,RuntimeEngine,XuehaiStore
 from writerforge.xuehai import _method_sha
 from experiments.wf_0bm_stage_first_classical_method_candidates import stage_isolated_classical_methods
-from experiments.wf_0bm_classical_approval_protocol import signed_payload_bytes
+from writerforge.xuehai_method_trust import signed_payload_bytes
 
 SOURCE_LICENSE="https://www.gutenberg.org/ebooks/23962"
 SOURCE_LICENSE_NOTE="Public domain in the USA on publisher's book page; test-only evidence"
