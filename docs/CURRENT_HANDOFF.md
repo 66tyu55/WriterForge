@@ -1,5 +1,16 @@
 # WriterForge 当前有效交接｜2026-10-27
 
+## 0.BS 最新交接｜先储备真正的文学原文、批注、心得，拒绝工程臃肿（2026-10-28）
+
+**下一次唯一优先文档：[WF_0BS_NEXT_SESSION_CONTENT_FIRST_XUEHAI_READING_HANDOFF_20261028.md](WF_0BS_NEXT_SESSION_CONTENT_FIRST_XUEHAI_READING_HANDOFF_20261028.md)。** 用户最新明确规范：**学海库每篇阅读条目是「原文＋批注＋心得」，不是把原文压缩成“增加细节”或评判对/错。现在先做不同文学类型的真实细节阅读内容，简洁地沿用现有 XuehaiStore，停止继续加数据库/审核/签名/文档工程。** 下方0.BP/0.BO等“下次优先”的表述已经是历史，不可再照做。
+
+- **0.BQ已实现：** 24篇真正完整的原创玄幻/武侠/志怪等场景，9,208字，`experiments/wf_0bq_full_literary_detail_corpus_A_20261028.json` 和 `_B_20261028.json`；用原有`OriginalStudy`/`XuehaiStore` 在隔离SQLite存入全文并检索。[CI #40703869765 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40703869765)。
+- **0.BR已实现：** 《西游记》《红楼梦》《水浒传》3部公有领域数字古籍各8段，**24段连续原文/10,626字**（`experiments/wf_0br_three_classics_contiguous_prose_details_20261028.json`、`docs/WF_0BR_THREE_CLASSICS_REAL_PROSE_READING_BOOK_20261028.md`）；并有**6篇附原文、3条具体批注和阅读心得的完整条目**（`experiments/wf_0br_classical_original_annotation_reflection_20261028.json`），保存为**同一个隔离Xuehai内的54个内容条目**，由`XuehaiStore.read_literary_reading`实际读回三部分。[最新 0.BR CI #40713078272 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40713078272)。这些是资料储备，不是模型训练质量提升，正式Canon未变。
+- **接下来只需完善内容：** 先细读这6篇已有三段式作品，纠正浅批注；再为其余18段古籍连续原文逐步补充真正的文学批注与开放式心得（人物欲望、叙事节奏、生活细节、群像、含蓄、劳动、战斗与代价等）。必要时再拓展可靠的不同古典作品。保留全文和出处，不压缩成短提示；暂不重构规划流程或再造文学审核器。仍不凭入库数量冒充WF写作进步。
+- **红线：** 只改`refactor-unified-scene-delivery-audit`，禁止main/Railway/私有R2/正式Canon更动，V26/V98/V119及唯一NarrativeCore保持，不擅自调用付费模型或伪造文学评分。
+
+---
+
 ## 0.BP 内容优先紧急纠偏｜停止把版权/SHA/安全回归当成文学提升（2026-10-28）
 
 **下一轮优先且务必阅读全文：[WF_0BP_LITERARY_CONTENT_FIRST_CRAFT_LAB_20261028.md](WF_0BP_LITERARY_CONTENT_FIRST_CRAFT_LAB_20261028.md)**。用户明确指出：WF目标是**提升真正的文学创作水平**，不是不断建设审查、原文指纹、签名、存储和测试流程。0.BL–0.BO 已经连续偏离。下面旧0.BO/0.BN的“优先审核与准入”仅是历史任务背景，**不得再把它们当下一轮的首要研发目标**。
