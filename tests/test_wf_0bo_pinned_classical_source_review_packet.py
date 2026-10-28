@@ -72,6 +72,12 @@ class WF0BOPinnedPublicSourceReview(unittest.TestCase):
         result=stage_pinned_first_chapter(source,db,dest)
         self.assertEqual(result["actual_original_chapters_structurally_studied"],1)
         self.assertEqual(result["pending_method_cards"],2)
+        quality=result["source_quality_audit"]
+        self.assertEqual(quality["status"],"SOURCE_DUPLICATION_SUSPECT_REQUIRES_REVIEW")
+        self.assertEqual(quality["duplicate_phrase_occurrences"],2)
+        self.assertEqual(quality["other_local_edition_occurrences"],1)
+        self.assertEqual(quality["method_card_anchors_affected"],[])
+        self.assertFalse(quality["human_source_quality_review_complete"])
         self.assertEqual(result["write_admissible_method_cards"],0)
         self.assertEqual(result["real_externally_signed_reviewers"],0)
         self.assertEqual(result["model_calls"],0)
@@ -80,6 +86,7 @@ class WF0BOPinnedPublicSourceReview(unittest.TestCase):
         packet=json.loads((dest/"REVIEW_PACKET.json").read_text("utf8"))
         self.assertEqual(packet["status"],"PENDING_TWO_REAL_EXTERNAL_REVIEWERS")
         self.assertFalse(packet["has_authenticated_human_review"])
+        self.assertEqual(packet["source_quality_audit"]["duplicate_phrase_occurrences"],2)
         self.assertEqual(len(packet["cases"]),2)
         self.assertEqual({c["method_id"] for c in packet["cases"]},
                          {"classic-xiyou-001-cave-pledge",
