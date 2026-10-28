@@ -120,6 +120,38 @@ class XuehaiMethodWriteP0(unittest.TestCase):
         self.assertEqual(found["receipt"]["selected"][0]["rights_status"], "RIGHTS_VERIFIED")
         self.assertEqual(found["receipt"]["selected"][0]["review_status"], "PILOT_APPROVED")
 
+    def test_verified_prepare_can_use_genre_parent_without_false_no_source(self):
+        self._publish()
+        flow = VerifiedWritingFlow(self.db,self.rt,"p0")
+        packet = flow.prepare(
+            "alchemy", "修真丹师正在炼丹，炉火与药性出现冲突",
+            genre="修真", xuehai_methods_enabled=True,
+        )
+        self.assertIn("作者可让丹师暂停", packet.prompt)
+        self.assertEqual(packet.manifest()["xuehai_methods"]["genre_path"][:3],
+                         ["修真","仙侠","玄幻"])
+
+    def test_classical_only_cannot_be_accidentally_injected_into_xuanhuan(self):
+        card=dict(ALCHEMY)
+        card["style_scope"]="CLASSICAL_ONLY"
+        self._publish(card)
+        found=self.store.query_methods(goal="正在炼丹，丹炉需要停火",genre="玄幻")
+        self.assertEqual(found["selected"], [])
+
+    def test_revocation_disables_published_card_without_rewriting_source(self):
+        saved=self._publish()
+        self.rt.exit()
+        self.rt.enter_learn()
+        self.assertTrue(self.store.revoke_method_card(self.entry))
+        self.rt.exit()
+        self.rt.enter_write(self.child)
+        result=self.store.query_methods(goal="正在炼丹，火候异常",genre="玄幻")
+        self.assertEqual(result["selected"], [])
+        self.assertTrue(any(x.get("reason")=="REVOKED" for x in result["receipt"]["rejected"]))
+        prior=self.db.conn.execute("SELECT card_sha256 FROM xuehai_method_cards WHERE entry_id=?",
+                                   (self.entry,)).fetchone()["card_sha256"]
+        self.assertEqual(prior,saved["card_sha256"])
+
     def test_quiet_household_and_wuxia_are_none_not_keyword_shopping(self):
         self._publish()
         quiet = self.store.query_methods(goal="平静的家中有人问明日的早饭",genre="修真")
@@ -204,6 +236,7 @@ class XuehaiMethodWriteP0(unittest.TestCase):
                 chapter_goals=["炼丹：丹炉温度变化，必须先决定是否添药"],
                 output_dir=Path(self.tmp.name)/"generated",
                 draft_mode="single",
+                xuehai_methods_enabled=True,
             )
         self.assertEqual(model.call_count,2)
         planning=model.call_args_list[0].args[0]
