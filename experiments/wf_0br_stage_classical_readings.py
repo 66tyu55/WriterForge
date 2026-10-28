@@ -281,12 +281,22 @@ def stage_all_24(db_path:Path,files:dict[str,Path])->dict:
                 or any(note not in full["annotations"][i]
                        for i,note in enumerate(row["annotation"]))):
                 raise RuntimeError("WF0BS_READING_LOST_ORIGINAL_OR_INTERPRETATION")
-        total=db.conn.execute("SELECT COUNT(*) FROM xuehai_entries").fetchone()[0]
+        roles=("original_complete_scene_unreviewed",
+               "public_domain_continuous_detail_prose_unreviewed",ROLE)
+        role_counts={
+            row["source_role"]:row["n"] for row in db.conn.execute(
+                "SELECT source_role,COUNT(*) AS n FROM xuehai_entries "
+                "WHERE source_role IN (?,?,?) GROUP BY source_role",roles
+            ).fetchall()
+        }
+        total=sum(role_counts.values())
         methods=db.conn.execute(
             "SELECT COUNT(*) FROM xuehai_method_cards"
         ).fetchone()[0]
-        if total!=72 or methods!=0:
-            raise RuntimeError("WF0BS_CHANGED_OLD_CONTENT_OR_METHOD_CARDS")
+        if (role_counts!={roles[0]:24,roles[1]:24,roles[2]:24}
+            or total!=72 or methods!=0):
+            raise RuntimeError(
+                f"WF0BS_CONTENT_ROLES_CHANGED: {role_counts}, methods={methods}")
         return {
             "status":"24_COMPLETE_CLASSICAL_READINGS_IN_EXISTING_XUEHAI",
             "books":3,"original_prose_scenes_kept":24,
