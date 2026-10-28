@@ -3599,6 +3599,16 @@ class AutonomousWriting:
                                         tuple(accepted_turns))
                                     if literary_progression_mode=="source_progression"
                                     else "")
+                                # Methods are an optional creative cue, not a
+                                # hard continuity constraint. Offer only the
+                                # first prose turn, never to V98 replanning.
+                                queued_xuehai=(
+                                    turn_index==0 and bool(xuehai_guidance)
+                                    and len(progression_cue)+
+                                        len(xuehai_guidance)+1<=850)
+                                if queued_xuehai:
+                                    progression_cue+=("\n" if progression_cue
+                                                      else "")+xuehai_guidance
                                 turn_packet,lamps,delivery=(
                                     _prepare_guarded_turn_packet(
                                         body_base,plan=(
@@ -3633,6 +3643,9 @@ class AutonomousWriting:
                                 lamp_decisions.append(lamps)
                                 prompt_delivery_receipts.append(delivery)
                                 last_lamp_receipt=lamps
+                                xuehai_delivered=(
+                                    queued_xuehai and
+                                    delivery["creative_progression_cue_delivered"])
                             else:
                                 turn_packet=_enrich(
                                     body_base,
@@ -3641,6 +3654,21 @@ class AutonomousWriting:
                                     "\n【本章当前事件】"+turn_addition,
                                     facets,
                                 )
+                                xuehai_delivered=(
+                                    turn_index==0 and bool(xuehai_guidance)
+                                    and len(turn_packet.prompt)+
+                                        len(xuehai_guidance)+1<=MAX_PROMPT_CHARS)
+                                if xuehai_delivered:
+                                    turn_packet=_enrich(turn_packet,xuehai_guidance)
+                            if turn_index==0 and xuehai_methods is not None:
+                                author_method_receipt=_xuehai_author_receipt(
+                                    xuehai_methods,delivered=xuehai_delivered,
+                                    prose_prompt_sha256=(
+                                        turn_packet.prompt_sha256
+                                        if xuehai_delivered else None))
+                                turn_packet=replace(
+                                    turn_packet,
+                                    xuehai_method_receipt=author_method_receipt)
                             prompt_shas.append(turn_packet.prompt_sha256)
                             replaying_revised_source=(
                                 pending_revised_turn is not None and
@@ -4482,6 +4510,10 @@ class AutonomousWriting:
             if not isinstance(body,str) or not 100<=len(body.strip())<=MAX_PROSE_CHARS:
                 raise WritingExecutionError("model output too short, missing or too long")
             check_cancel()
+            if draft_mode!="single" and author_method_receipt is not None:
+                # Chapter receipt references the actual first author turn;
+                # the underlying chapter planning prompt stays untouched.
+                packet=replace(packet,xuehai_method_receipt=author_method_receipt)
             saved=save_candidate(packet,body,self.assist.model,job)
             folder=Path(saved["folder"])
             plan_file=folder/"chapter_plan.json"
