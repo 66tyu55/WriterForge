@@ -1,5 +1,17 @@
 # WriterForge 当前有效交接｜2026-10-27
 
+## 0.BN 最新已执行｜古籍方法真实授权验签与前提检索 RED→GREEN（2026-10-28）
+
+**下一次唯一续接交接：[WF_0BN_NEXT_SESSION_XUEHAI_SIGNED_REVIEW_AND_SCENE_PRECISION_HANDOFF_20261028.md](WF_0BN_NEXT_SESSION_XUEHAI_SIGNED_REVIEW_AND_SCENE_PRECISION_HANDOFF_20261028.md)**，新增[《西游记》两条方法真实因果深读及版权核查](WF_0BN_CLASSICAL_RIGHTS_AND_TWO_METHOD_DEEP_READING_20261028.md)。本节覆盖下方 0.BM 中“可信审核还需要设计”的历史时态，不要重新做 0.BM 的旧实验。
+
+- **真实漏洞**：之前来源卡可凭 `RIGHTS_VERIFIED/PILOT_APPROVED` 两个自填标签与任意 reviewer SHA 冒充已审核。现在 `writerforge/xuehai_method_trust.py` + `xuehai_method_admission.py` 在原 `XuehaiStore/WriterForgeDB` 中加入两角色**外部预先信任 Ed25519 公钥**的签名核验，并在每次 WRITE 验签。签名绑定 entry/card/source unit SHA、版本、权限依据与 `ISOLATED_WRITE_PILOT_ONLY`，断开签名、换 key、撤销、来源被改即 fail closed。任何真实外部审核签名数**仍为0**；测试临时密钥不代表真人许可或真实文学审核。
+- **第二个真实文学匹配错误**：单人秘境、没有群体承诺时，旧检索还会因为“秘境遗迹”四字选到水帘洞的社会契约卡。[RED #40691424813](https://github.com/66tyu55/WriterForge/actions/runs/40691424813) 确认误命中；现要求古籍卡至少命中当前目标中未被附近否定的正向场景 facet，否则 `NONE`。这是保守字面门禁，不是假装会完整语义理解。
+- **可验证的代码结果**：[首次审核 RED #40690533351](https://github.com/66tyu55/WriterForge/actions/runs/40690533351) → [首轮签名 GREEN #40690956151](https://github.com/66tyu55/WriterForge/actions/runs/40690956151) → [二轮场景 RED #40691424813](https://github.com/66tyu55/WriterForge/actions/runs/40691424813) → [**最终完整 GREEN #40691540977**](https://github.com/66tyu55/WriterForge/actions/runs/40691540977)：**2,061 tests，6 skipped，0 failed**；[新古籍定向 GREEN #40691540973](https://github.com/66tyu55/WriterForge/actions/runs/40691540973)。
+- **真正有内容的学习研究**：从《西游记》水帘洞“事前群体承诺→冒险与共享资源→当事人请求履约→成员表态”与樵夫“知情但受家庭照护/生计限制→可指路不一定同行”中拆出两条独立候选，含适用前提、反例、人物有限认知与可能的叙事结果。Project Gutenberg #23962 官网明确美国公有领域，但不能据此说本地测试文本等同于PG原字节；维基文库001回oldid2562136 有2025现代断句编辑，《史记》此前oldid5978360本轮未重取可校验全文。四张古籍卡仍 PENDING/RIGHTS_UNVERIFIED，正式授权/发布为0。
+- **阶段停止条件**：没有独立真人审阅密钥/实际原件版本许可确认、没有获准的新强作者模型+调用次数+费用上限，因此**真实三臂文学收益与成本仍未执行**。不要为了获得“已学习”标签自己造签名或继续小模型旧实验。只改开发分支，不碰 main/Railway/私有 R2/正式 Canon，保留 V26/V98/V119 与唯一 NarrativeCore。
+
+---
+
 ## 0.BM 最新实做｜两部古籍固定修订原文核对 + 《西游记》第一回隔离 LEARN（2026-10-28）
 
 **下一次先读：[WF_0BM_FIRST_CLASSICAL_SOURCE_LINKED_METHODS_HANDOFF_20261028.md](WF_0BM_FIRST_CLASSICAL_SOURCE_LINKED_METHODS_HANDOFF_20261028.md)**。本节覆盖旧 0.BL 下方“古籍没有正式导入”的笼统说法：当前**仅在独立临时 SQLite**对仓库既有《西游记》第一回完整测试文本做了1章真实 `OriginalStudy.ingest` 与 `source_spans`，并关联2张待审核方法卡；**生产学海与正式 Canon 仍没有新增古籍学习**。《史记》全文没有下载或伪装为已学习。
