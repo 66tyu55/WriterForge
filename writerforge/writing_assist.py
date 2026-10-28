@@ -2758,7 +2758,7 @@ class AutonomousWriting:
             selected_fork_receipt:dict|None=None,
             g_rolling_author_planning:bool=False,
             host_nutrient_observer=None,
-            xuehai_methods_enabled:bool=True) -> dict:
+            xuehai_methods_enabled:bool=False) -> dict:
         if type(xuehai_methods_enabled) is not bool:
             raise WritingExecutionError("XUEHAI_METHOD_AUTHOR_CHOICE_INVALID")
         # First host completion SHA capture is opt-in and source-only.
