@@ -1,6 +1,6 @@
 # WriterForge 0.BL｜下一次会话执行交接：让“学海”真正进入玄幻写作
 
-日期：2026-10-28。本文件是 **下一轮执行入口**，不是新的文学成绩。详细分析见 [WF_0BL_XUEHAI_SCENE_ATLAS_AND_CLASSICAL_TEXT_PLAN_20261028.md](WF_0BL_XUEHAI_SCENE_ATLAS_AND_CLASSICAL_TEXT_PLAN_20261028.md)。只操作开发分支 `refactor-unified-scene-delivery-audit`；不修改 main、部署 Railway、访问用户受保护的 R2 原著或正式 Canon，不擅自启动付费模型训练。保留 V26/V98/V119 与唯一 NarrativeCore。
+> **历史预实施交接，已被 P0 真实实现覆盖。** 现在从 [WF_0BL_P0_XUEHAI_METHOD_WRITE_IMPLEMENTATION_20261028.md](WF_0BL_P0_XUEHAI_METHOD_WRITE_IMPLEMENTATION_20261028.md) 继续；本文件中“尚待实现”表述只描述 P0 前状态，不可重新跑接口 RED 或将16条 STAGING 误判为正式可用。\n\n日期：2026-10-28。本文件是 **下一轮执行入口**，不是新的文学成绩。详细分析见 [WF_0BL_XUEHAI_SCENE_ATLAS_AND_CLASSICAL_TEXT_PLAN_20261028.md](WF_0BL_XUEHAI_SCENE_ATLAS_AND_CLASSICAL_TEXT_PLAN_20261028.md)。只操作开发分支 `refactor-unified-scene-delivery-audit`；不修改 main、部署 Railway、访问用户受保护的 R2 原著或正式 Canon，不擅自启动付费模型训练。保留 V26/V98/V119 与唯一 NarrativeCore。
 
 ## 任务定义：这次切换了核心优先级
 
