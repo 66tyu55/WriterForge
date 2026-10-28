@@ -45,7 +45,7 @@ SOURCE_IDS = ("xiyou-001", "shiji-007")
 
 
 def _git_blob_sha1(raw: bytes) -> str:
-    return sha1(b"blob " + str(len(raw)).encode() + b"\\0" + raw).hexdigest()
+    return sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()
 
 
 def validate_catalog(path: Path = CANDIDATES,
