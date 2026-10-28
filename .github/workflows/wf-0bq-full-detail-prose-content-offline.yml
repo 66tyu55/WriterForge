@@ -1,0 +1,72 @@
+name: WF 0.BQ Literary Detail Content - 24 Full Original Scenes into Xuehai - NO MODEL
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0bq-full-detail-prose-content-offline.yml
+      - experiments/wf_0bq_full_literary_detail_corpus_A_20261028.json
+      - experiments/wf_0bq_full_literary_detail_corpus_B_20261028.json
+      - experiments/wf_0bq_stage_original_full_detail_prose.py
+      - tests/test_wf_0bq_literary_detail_texts_actual_xuehai.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf0bq-actual-original-literary-content
+  cancel-in-progress: true
+
+jobs:
+  literary-content-not-review-overhead:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing Xuehai/OriginalStudy (no model or cloud)
+        run: python -m pip install -e .
+      - name: 24 full original scene texts are not tiny rules or dummy entries
+        run: python -m unittest discover -s tests -p 'test_wf_0bq_literary_detail_texts_actual_xuehai.py' -v
+      - name: Actually read 24 full scenes and store complete prose in disposable Xuehai
+        run: |
+          python -m experiments.wf_0bq_stage_original_full_detail_prose \
+            --db "$RUNNER_TEMP/wf0bq-complete-prose.sqlite" \
+            --demonstrate-isolated-query > "$RUNNER_TEMP/wf0bq-original-content-receipt.json"
+          python - <<'PY'
+          import json,os,sqlite3
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])
+          report=json.loads((root/"wf0bq-original-content-receipt.json").read_text(encoding="utf8"))
+          assert report["complete_original_scene_texts"]==24
+          assert report["actual_original_studied_chapters_in_isolated_db"]==24
+          assert report["full_prose_chars_saved"]>8500
+          assert report["new_method_cards"]==0
+          assert report["new_model_provider_requests"]==0
+          assert report["literary_quality_improvement_proven"] is False
+          assert len(report["isolated_read_demo"]["verified"])==5
+          with sqlite3.connect(root/"wf0bq-complete-prose.sqlite") as c:
+              assert c.execute("SELECT COUNT(*) FROM studied_chapters").fetchone()[0]==24
+              assert c.execute("SELECT COUNT(*) FROM xuehai_entries WHERE source_role='original_complete_scene_unreviewed'").fetchone()[0]==24
+              assert c.execute("SELECT MIN(LENGTH(text)) FROM xuehai_entries WHERE source_role='original_complete_scene_unreviewed'").fetchone()[0]>=340
+              assert c.execute("SELECT COUNT(*) FROM xuehai_method_attestations").fetchone()[0]==0
+              assert c.execute("SELECT COUNT(*) FROM accepted_prose").fetchone()[0]==0
+          print("WF0BQ_COMPLETE_ORIGINAL_LITERARY_DETAIL_TEXTS_EXIST_AND_RETRIEVE_GREEN",flush=True)
+          print("Original scenes:",report["complete_original_scene_texts"])
+          print("Original Chinese characters:",report["full_prose_chars_saved"])
+          print("Source structure spans:",report["actual_original_structural_source_spans"])
+          print("Distinct scene categories:",report["distinct_scene_types"])
+          print("Distinct narrative modes:",report["distinct_narrative_modes"])
+          PY
+      - name: Save concise content inventory; never upload a production database
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0BQ-24-ORIGINAL-LITERARY-DETAIL-RETRIEVAL-RECEIPT
+          path: ${{ runner.temp }}/wf0bq-original-content-receipt.json
+          if-no-files-found: error
+          retention-days: 7
