@@ -1,5 +1,5 @@
 from __future__ import annotations
-import hashlib, math, re
+import hashlib, json, math, re
 from dataclasses import dataclass
 from .runtime import RuntimeEngine, Mode
 from .db import WriterForgeDB
@@ -17,6 +17,72 @@ class Query:
     max_per_work: int = 2
     max_per_cluster: int = 2
     min_quality: float = 0.0
+
+
+# P0: entry-bound, source-only METHODS, never excerpts or new memory.
+_METHOD_SOURCE_KINDS = frozenset((
+    "AUTHOR_CREATED_DIAGNOSTIC", "AUTHOR_CREATED_ORIGINAL",
+    "PUBLIC_DOMAIN_CLASSIC", "AUTHORIZED_MODERN",
+))
+_METHOD_KEYS = (
+    "scene_type", "scene_facets", "target_genres", "style_scope",
+    "signal", "mechanism", "writer_option", "applies_when", "not_when",
+    "pov_limit", "counterexample", "source_kind", "source_edition",
+    "rights_status", "review_status", "value_status", "review_receipt_sha256",
+)
+_METHOD_IMMUTABLE = (
+    "entry_id", "snapshot_id", "work_id", "entry_source_hash",
+    "source_uri", "source_sha256", "source_unit_sha256", "source_locator",
+    "scene_type", "scene_facets_json", "target_genres_json", "style_scope",
+    "signal", "mechanism", "writer_option", "applies_when", "not_when",
+    "pov_limit", "counterexample", "source_kind", "source_edition",
+    "rights_status", "review_status", "value_status", "review_receipt_sha256",
+)
+_METHOD_ALIASES = {
+    "资质检测": ("测灵根", "试灵根", "测资质"),
+    "闭关修炼": ("闭关", "练气打坐"),
+    "炼丹": ("炼丹", "丹炉", "炼制丹药"),
+    "炼器": ("炼器", "铸器", "锻打法器"),
+    "阵法禁制": ("阵法", "禁制", "阵眼"),
+    "破境": ("破境", "冲击境界", "突破瓶颈"),
+    "灵兽驯养": ("灵兽驯养", "驯灵兽", "御兽"),
+    "近身斗法": ("斗法", "近身搏杀"),
+    "法宝远攻": ("远攻法宝", "飞剑追击"),
+    "宗门政治": ("宗门争权", "宗门配额", "内门争权", "分药堂"),
+    "坊市交易": ("坊市", "拍卖", "交易法宝", "摊主议价"),
+    "秘境遗迹": ("秘境", "遗迹探险", "古殿禁制"),
+    "志怪接触": ("志怪", "遇鬼", "神祇现身"),
+    "师徒与家族": ("师徒", "家族旧债", "师门旧怨"),
+    "伤病代价": ("负伤", "伤病", "战后伤势"),
+    "边境旅途": ("边境", "旅途", "过关卡"),
+}
+_METHOD_GENRE_FALLBACK = {
+    "丹修": ("丹修", "修真", "仙侠", "玄幻", "广义叙事"),
+    "阵修": ("阵修", "修真", "仙侠", "玄幻", "广义叙事"),
+    "修真": ("修真", "仙侠", "玄幻", "广义叙事"),
+    "仙侠": ("仙侠", "玄幻", "广义叙事"),
+    "玄幻": ("玄幻", "广义叙事"),
+    "志怪": ("志怪", "古代白话", "广义叙事"),
+    "古代白话": ("古代白话", "广义叙事"),
+    "武侠": ("武侠", "广义叙事"),
+}
+
+def _method_sha(row: dict) -> str:
+    payload = {key: row[key] for key in _METHOD_IMMUTABLE}
+    return hashlib.sha256(json.dumps(
+        payload, ensure_ascii=False, sort_keys=True,
+        separators=(",", ":"), allow_nan=False,
+    ).encode("utf8")).hexdigest()
+
+def _is_digest(value) -> bool:
+    return type(value) is str and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+def _source_overlap(source: str, guidance: str, window: int = 14) -> bool:
+    if not source or not guidance:
+        return False
+    if len(source) < window:
+        return len(source) >= 8 and source in guidance
+    return any(source[i:i+window] in guidance for i in range(len(source)-window+1))
 
 class XuehaiStore:
     def __init__(self, db: WriterForgeDB, runtime: RuntimeEngine):
@@ -261,3 +327,294 @@ class XuehaiStore:
                 "evidence_excerpt": r["text"][:80],
             })
         return out
+
+    # --- 0.BL: reviewed, rights-gated method cards IN the existing Xuehai ---
+    def add_method_card(self, entry_id: int, card: dict) -> dict:
+        """LEARN-only; record a conditional method, not a quote or an approval.
+
+        PENDING diagnostic cards may reference an unstudied diagnostic work,
+        but PILOT_APPROVED requires an actual studied chapter and source span.
+        The review receipt is a reference hash, never proof of independent review.
+        """
+        self.runtime.require(Mode.LEARN)
+        if type(card) is not dict or set(card) != set(_METHOD_KEYS):
+            raise ValueError("METHOD_CARD_SCHEMA_INVALID")
+        if not isinstance(entry_id, int) or type(entry_id) is not int:
+            raise ValueError("METHOD_ENTRY_INVALID")
+        row = self.db.conn.execute(
+            """SELECT e.*, s.status AS snapshot_status, w.source_uri,
+                      w.source_sha256 AS source_sha256
+                 FROM xuehai_entries e
+                 JOIN snapshots s ON s.id=e.snapshot_id
+                 LEFT JOIN studied_works w ON w.work_id=e.work_id
+                WHERE e.id=?""", (entry_id,)
+        ).fetchone()
+        if not row or row["snapshot_status"] != "staging":
+            raise ValueError("METHOD_REQUIRES_STAGING_XUEHAI_ENTRY")
+        if not row["source_uri"] or not _is_digest(row["source_sha256"]):
+            raise ValueError("METHOD_SOURCE_WORK_SHA_REQUIRED")
+        if row["source_uri"].startswith(("r2://", "s3://")):
+            raise ValueError("METHOD_PRIVATE_SOURCE_NOT_ELIGIBLE")
+        for key in _METHOD_KEYS:
+            if key in ("scene_facets", "target_genres"):
+                val = card[key]
+                if (type(val) is not list or not 1 <= len(val) <= 6 or
+                    any(type(x) is not str or not 2 <= len(x.strip()) <= 24
+                        for x in val) or len(set(val)) != len(val)):
+                    raise ValueError("METHOD_SCENE_FACETS_INVALID")
+            elif type(card[key]) is not str:
+                raise ValueError("METHOD_CARD_FIELD_INVALID")
+            elif key not in ("review_receipt_sha256",) and not (
+                    2 <= len(card[key].strip()) <= 180):
+                raise ValueError("METHOD_FIELD_UNBOUNDED")
+        if (card["style_scope"] not in ("ERA_NEUTRAL", "CLASSICAL_ONLY") or
+            card["source_kind"] not in _METHOD_SOURCE_KINDS or
+            card["rights_status"] not in ("ORIGINAL_DIAGNOSTIC","RIGHTS_VERIFIED","RIGHTS_UNVERIFIED") or
+            card["review_status"] not in ("PENDING","PILOT_APPROVED","REJECTED") or
+            card["value_status"] not in ("UNVERIFIED","UNPROVEN_PILOT","NEGATIVE")):
+            raise ValueError("METHOD_UNRECOGNIZED_RIGHTS_REVIEW_VALUE")
+        if card["source_kind"] == "AUTHOR_CREATED_DIAGNOSTIC":
+            if (card["review_status"] != "PENDING" or
+                card["rights_status"] != "ORIGINAL_DIAGNOSTIC" or
+                card["value_status"] != "UNVERIFIED" or
+                row["source_role"] != "diagnostic_only"):
+                raise ValueError("METHOD_DIAGNOSTIC_MUST_REMAIN_PENDING")
+        elif card["review_status"] == "PILOT_APPROVED":
+            if not _is_digest(card["review_receipt_sha256"]):
+                raise ValueError("METHOD_REVIEW_RECEIPT_REQUIRED")
+            if (row["source_role"] == "diagnostic_only" or
+                row["reuse_policy"] != "technique_only"):
+                raise ValueError("METHOD_UNAPPROVED_SOURCE_ROLE")
+        if (card["source_kind"] == "AUTHORIZED_MODERN" and
+                card["rights_status"] != "RIGHTS_VERIFIED"):
+            raise ValueError("METHOD_MODERN_RIGHTS_NOT_VERIFIED")
+        if (card["source_kind"] == "PUBLIC_DOMAIN_CLASSIC" and
+                card["source_edition"].strip() in ("", "unknown", "未知")):
+            raise ValueError("METHOD_CLASSIC_EDITION_UNVERIFIED")
+        span = self.db.conn.execute(
+            """SELECT source_sha256, excerpt FROM source_spans
+                WHERE work_id=? AND chapter=? AND paragraph=? AND sentence=?""",
+            (row["work_id"],row["chapter"],row["paragraph"],row["sentence"])
+        ).fetchone()
+        studied = self.db.conn.execute(
+            """SELECT c.chapter_sha256, c.snapshot_id, s.status AS status
+                 FROM studied_chapters c JOIN snapshots s ON s.id=c.snapshot_id
+                WHERE c.work_id=? AND c.chapter=?""",
+            (row["work_id"], row["chapter"]),
+        ).fetchone()
+        # A staging method cannot bestow a study certificate by itself.
+        if card["review_status"] == "PILOT_APPROVED":
+            if (not span or not studied or studied["status"] != "published"
+                or not _is_digest(span["source_sha256"])
+                or not _is_digest(studied["chapter_sha256"])
+                or span["excerpt"] != row["text"]):
+                raise ValueError("METHOD_SOURCE_STUDY_REQUIRED")
+            # A derived Xuehai delta is valid only if the original studied
+            # chapter is a published ancestor of its staging snapshot.
+            ancestor = self.db.conn.execute(
+                """WITH RECURSIVE lineage(id,parent_id,layout) AS (
+                       SELECT id,parent_id,layout FROM snapshots WHERE id=?
+                       UNION ALL
+                       SELECT p.id,p.parent_id,p.layout
+                         FROM snapshots p JOIN lineage l ON l.parent_id=p.id
+                        WHERE l.layout='delta' AND p.status='published'
+                   ) SELECT 1 FROM lineage WHERE id=? LIMIT 1""",
+                (row["snapshot_id"],studied["snapshot_id"])
+            ).fetchone()
+            if not ancestor:
+                raise ValueError("METHOD_SOURCE_SNAPSHOT_NOT_IN_LINEAGE")
+        immutable = {
+            "entry_id":entry_id, "snapshot_id":row["snapshot_id"],
+            "work_id":row["work_id"], "entry_source_hash":row["source_hash"],
+            "source_uri":row["source_uri"], "source_sha256":row["source_sha256"],
+            "source_unit_sha256":span["source_sha256"] if span else "",
+            "source_locator":f"{row['chapter']}:{row['paragraph']}:{row['sentence']}",
+        }
+        for key in _METHOD_KEYS:
+            if key == "scene_facets":
+                immutable["scene_facets_json"] = json.dumps(card[key],ensure_ascii=False,separators=(",",":"))
+            elif key == "target_genres":
+                immutable["target_genres_json"] = json.dumps(card[key],ensure_ascii=False,separators=(",",":"))
+            else:
+                immutable[key] = card[key].strip()
+        if (card["review_status"] == "PILOT_APPROVED" and span and
+            any(_source_overlap(span["excerpt"],immutable[k]) for k in (
+                "signal", "mechanism", "writer_option", "applies_when",
+                "not_when", "pov_limit", "counterexample"))):
+            raise ValueError("METHOD_SOURCE_QUOTATION_NOT_TRANSFERABLE")
+        immutable["card_sha256"] = _method_sha(immutable)
+        columns = _METHOD_IMMUTABLE + ("card_sha256",)
+        self.db.conn.execute(
+            f"INSERT INTO xuehai_method_cards ({','.join(columns)}) VALUES ({','.join('?' for _ in columns)})",
+            [immutable[k] for k in columns],
+        )
+        self.db.conn.commit()
+        return {"entry_id":entry_id, "snapshot_id":row["snapshot_id"],
+                "card_sha256":immutable["card_sha256"],
+                "review_status":immutable["review_status"],
+                "value_status":immutable["value_status"]}
+
+    def revoke_method_card(self, entry_id: int) -> bool:
+        """Preserve card SHA and failure evidence; do not erase an old card."""
+        self.runtime.require(Mode.LEARN)
+        cur = self.db.conn.execute(
+            "UPDATE xuehai_method_cards SET revoked_at=CURRENT_TIMESTAMP "
+            "WHERE entry_id=? AND revoked_at IS NULL", (entry_id,),
+        )
+        self.db.conn.commit()
+        return bool(cur.rowcount)
+
+    def query_methods(self, *, goal: str, genre: str,
+                      limit: int = 2, max_chars: int = 300) -> dict:
+        """WRITE-only. Exact scene triggers + strict genre fallback, never text retrieval.
+
+        Cards are optional, <=2, and all conditions/provenance/review are
+        rechecked on READ. No reviewed card means NONE, not a generic tip.
+        """
+        self.runtime.require(Mode.WRITE)
+        sid = self.runtime.pinned_snapshot_id
+        status = self.db.conn.execute(
+            "SELECT status FROM snapshots WHERE id=?", (sid,)
+        ).fetchone()
+        if not status or status["status"] != "published":
+            raise ValueError("Pinned snapshot is not published")
+        if (type(goal) is not str or not 1 <= len(goal) <= 2000 or
+            type(genre) is not str or not 1 <= len(genre) <= 64 or
+            type(limit) is not int or not 1 <= limit <= 2 or
+            type(max_chars) is not int or not 80 <= max_chars <= 300):
+            raise ValueError("METHOD_QUERY_UNBOUNDED")
+        genre_path = _METHOD_GENRE_FALLBACK.get(genre, (genre,))
+        rows = self.db.conn.execute(
+            """WITH RECURSIVE lineage(id,parent_id,layout) AS (
+                 SELECT id,parent_id,layout FROM snapshots
+                  WHERE id=? AND status='published'
+                 UNION ALL
+                 SELECT p.id,p.parent_id,p.layout FROM snapshots p
+                   JOIN lineage l ON l.parent_id=p.id
+                  WHERE l.layout='delta' AND p.status='published'
+               )
+               SELECT m.*, e.text AS source_text, e.genre AS source_genre,
+                      e.source_hash AS live_entry_hash,
+                      e.source_role AS source_role,
+                      e.reuse_policy AS reuse_policy,
+                      e.snapshot_id AS live_snapshot,
+                      w.source_uri AS work_uri, w.source_sha256 AS work_sha,
+                      s.excerpt AS span_excerpt, s.source_sha256 AS unit_sha,
+                      c.chapter_sha256 AS chapter_sha, c.snapshot_id AS study_sid
+               FROM xuehai_method_cards m
+               JOIN xuehai_entries e ON e.id=m.entry_id
+               JOIN lineage l ON l.id=m.snapshot_id
+               LEFT JOIN studied_works w ON w.work_id=m.work_id
+               LEFT JOIN source_spans s ON s.work_id=m.work_id
+                 AND (e.chapter=s.chapter AND e.paragraph=s.paragraph
+                      AND e.sentence=s.sentence)
+               LEFT JOIN studied_chapters c ON c.work_id=m.work_id
+                 AND c.chapter=e.chapter
+               ORDER BY m.entry_id ASC LIMIT 128""",
+            (sid,),
+        ).fetchall()
+        intro = "可选的场景认知方法（仅供参考，作者可自行选择不采用；不要复述来源、不得套写）："
+        selected, rejected, choices, per_work = [], [], [], set()
+        candidates = []
+        for item in rows:
+            r = dict(item)
+            scene = r["scene_type"]
+            aliases = (scene,) + _METHOD_ALIASES.get(scene, ())
+            trigger = next((a for a in aliases if len(a) >= 2 and a in goal), None)
+            if not trigger:
+                continue
+            try:
+                scopes = json.loads(r["target_genres_json"])
+                facets = json.loads(r["scene_facets_json"])
+            except (TypeError, ValueError):
+                rejected.append({"entry_id":r["entry_id"],"reason":"INVALID_FACETS"})
+                continue
+            match = next((g for g in genre_path if g in scopes), None)
+            if match is None or (r["style_scope"] == "CLASSICAL_ONLY" and
+                                 genre not in ("志怪", "古代白话")):
+                rejected.append({"entry_id":r["entry_id"],"reason":"GENRE_OR_ERA_MISMATCH"})
+                continue
+            why = "EXACT_GENRE" if match == genre else "GENRE_PARENT_FALLBACK"
+            signal_count = sum(1 for facet in facets if facet in goal)
+            candidates.append((int(match == genre)*4+signal_count, r, why, trigger))
+        candidates.sort(key=lambda x: (-x[0],x[1]["entry_id"]))
+        for _,r,why,trigger in candidates:
+            eid = r["entry_id"]
+            reason = None
+            if r["revoked_at"]:
+                reason = "REVOKED"
+            elif not (_is_digest(r["card_sha256"]) and
+                      _method_sha(r) == r["card_sha256"]):
+                reason = "CARD_SHA_MISMATCH"
+            elif (r["rights_status"] != "RIGHTS_VERIFIED" or
+                  r["review_status"] != "PILOT_APPROVED" or
+                  r["value_status"] != "UNPROVEN_PILOT" or
+                  r["source_kind"] not in ("AUTHOR_CREATED_ORIGINAL",
+                                            "PUBLIC_DOMAIN_CLASSIC",
+                                            "AUTHORIZED_MODERN")):
+                reason = "RIGHTS_REVIEW_OR_VALUE_BLOCK"
+            elif (r["source_role"] == "diagnostic_only" or
+                  r["reuse_policy"] != "technique_only" or
+                  not _is_digest(r["review_receipt_sha256"])):
+                reason = "SOURCE_ROLE_OR_REVIEW_BLOCK"
+            elif (r["source_uri"].startswith(("r2://","s3://")) or
+                  r["work_uri"] != r["source_uri"] or
+                  r["work_sha"] != r["source_sha256"] or
+                  r["live_entry_hash"] != r["entry_source_hash"] or
+                  r["live_snapshot"] != r["snapshot_id"] or
+                  not _is_digest(r["source_sha256"]) or
+                  not _is_digest(r["source_unit_sha256"]) or
+                  not _is_digest(r["unit_sha"]) or
+                  r["source_unit_sha256"] != r["unit_sha"] or
+                  not _is_digest(r["chapter_sha"]) or
+                  not r["study_sid"] or
+                  r["span_excerpt"] != r["source_text"]):
+                reason = "SOURCE_PROVENANCE_FAILED"
+            elif r["work_id"] in per_work:
+                reason = "DIVERSITY_SAME_WORK"
+            elif any(_source_overlap(r["span_excerpt"],r[k]) for k in (
+                "signal", "mechanism", "writer_option", "applies_when",
+                "not_when", "pov_limit", "counterexample")):
+                reason = "SOURCE_QUOTATION_BLOCKED"
+            if reason:
+                rejected.append({"entry_id":eid,"card_sha256":r["card_sha256"],"reason":reason})
+                continue
+            item_text = (
+                f"\n- 适用：{r['applies_when']}；线索：{r['signal']}；"
+                f"机制：{r['mechanism']}；可选：{r['writer_option']}；"
+                f"视角：{r['pov_limit']}；不适用：{r['not_when']}；"
+                f"反例：{r['counterexample']}"
+            )
+            if len(intro) + len("".join(choices)) + len(item_text) > max_chars:
+                rejected.append({"entry_id":eid,"card_sha256":r["card_sha256"],
+                                 "reason":"PROMPT_CHARACTER_BUDGET"})
+                continue
+            selected.append({
+                "entry_id":eid,"snapshot_id":r["snapshot_id"],
+                "work_id":r["work_id"],"source_sha256":r["source_sha256"],
+                "source_unit_sha256":r["source_unit_sha256"],
+                "card_sha256":r["card_sha256"],
+                "source_kind":r["source_kind"],"scene_type":r["scene_type"],
+                "rights_status":r["rights_status"],"review_status":r["review_status"],
+                "value_status":r["value_status"],
+                "reason":f"{why}:{trigger}",
+            })
+            choices.append(item_text)
+            per_work.add(r["work_id"])
+            if len(selected) >= limit:
+                break
+        prompt = intro + "".join(choices) if selected else ""
+        return {
+            "selected":selected, "prompt_guidance":prompt,
+            "receipt":{
+                "format":"wf.0bl.xuehai-methods-write.v1",
+                "snapshot_id":sid,"genre_path":list(genre_path),
+                "selected":selected,"rejected":rejected[:32],
+                "result":"METHODS_SELECTED" if selected else "NONE",
+                "chars_added":len(prompt),"max_chars":max_chars,
+                "scope":"PUBLISHED_LINEAGE_ONLY",
+                "source_excerpt_shown_to_model":False,
+                "literary_benefit_proven":False,
+                "author_may_ignore":True,
+            },
+        }
