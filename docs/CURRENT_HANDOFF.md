@@ -1,5 +1,17 @@
 # WriterForge 当前有效交接｜2026-10-27
 
+## 0.BO 最新实做｜固定数字底本首回实学、376个原文句段与真人待审材料（2026-10-28）
+
+**下一轮唯一优先交接：[WF_0BO_NEXT_SESSION_PINNED_GUTENBERG_SOURCE_AND_REVIEW_HANDOFF_20261028.md](WF_0BO_NEXT_SESSION_PINNED_GUTENBERG_SOURCE_AND_REVIEW_HANDOFF_20261028.md)**。这一节覆盖旧 0.BN 中“古籍原文底本不能锁定”的历史状态；目前已**锁定一个具体数字版本**，但**没有**证明对应印刷底本、真实权利审阅或文学收益。不要重新跑 0.BL–0.BN 接口测试，也不要把 CI 通过当作文学训练成效。
+
+- **真正的古籍来源：** GITenberg 公开的 Project Gutenberg《西游记》#23962，固定 commit `6a0cca862cda18eefa8a3264372893308432e926`、blob SHA1 `b43d48dae12142a6e8707dcb68938d86beeb51e8`、原文件2,264,071字节、SHA256 **`fc9a3956fd22b9a4356af8dd0dca27596fd0c9da87c35eae45c4f331c1b8f597`**，UTF8去BOM/统一换行后 SHA256 `a6826b4a110e45bc47e5b94098611140fd58e7a07b7823ea4388e385898fa2f8`，第一回正文SHA256 `d70a073cb4482f4e1edcbdff924f371b8e3e68c0eaf24d05d0c2c32ae6b3a86f`。PG官网标签为美国公有领域，**不说明全球版权、不免去保留PG商标的许可条件、不保证与古印本同字节**。
+- [`experiments/wf_0bo_pinned_gutenberg_source_review.py`](../experiments/wf_0bo_pinned_gutenberg_source_review.py) 在**独立临时 SQLite**确实使用原 `OriginalStudy` 解析100回、只学习第一回，取得**376个source_spans**；然后在源 `PUBLISHED` 隔离快照子级新建未发布 `STAGING` 的2张方法卡：水帘洞群体承诺 `paragraph=16,sentence=3,entry_id=355`，樵夫生计独立 `paragraph=53,sentence=17,entry_id=356`。两卡source unit/card SHA与真实数字原文关联，仍 `RIGHTS_UNVERIFIED/PENDING/UNVERIFIED`、WRITE可用数0、0真实外部审核人、0付费作者模型调用、0 Canon/R2操作。不将全文上传WriterForge仓库。
+- **发现原文数字转录风险：** GITenberg固定电子版第一回开篇“天地形成”叙述存在一段可见重复，在固定版本去空白对照中同段落出现2次，而仓库另一现有第一回测试文本只出现1次。**不能因电子文件SHA正确就认为校勘正确**；`audit_source_quality()` 把 `SOURCE_DUPLICATION_SUSPECT_REQUIRES_REVIEW` 与文字对照证据纳入审核包，不改原字节、没有自动删重，两张候选具体原文锚点都不在此可疑区；仍需真正来源审阅者确认。
+- 已产生可交真实人员审查的**未签名**证据包：`REVIEW_PACKET.json`、`REVIEW_GUIDE.md`、`SOURCE_RECEIPT.json`，含固定源/章节/source-unit/card SHA、短公有领域引文、适用与不适用条件、待查转录异常和严格未审批状态。GitHub [Actions **#40697153854 GREEN**](https://github.com/66tyu55/WriterForge/actions/runs/40697153854) 工件ID **12819134064**，Artifact 名 `WF-0BO-PINNED-CLASSICAL-SOURCE-UNSIGNED-REVIEW-PACKET`。代码与固定数字来源可重复生成包；临时原文只存 CI 的 RUNNER_TEMP，包不含完整原著。此轮3项新定向来源测试与旧签名/G/古籍回归通过，**未重跑全量测试**；上轮 0.BN 全量2,061项/6 skipped/0 failed是历史基线。
+- **唯一真正后续：** 必须由现实可信的版权审阅方与独立文学方法审阅方确认来源许可、数字版转录疑点、语义与适用条件后，以外部登记双公钥签章并仅使用 `ISOLATED_WRITE_PILOT_ONLY`。没有真实批准时，古籍 WRITE 返回 NONE；没有新明确强作者模型、真实请求次数和价格上限时，不启动三臂文学对照，不重玩小模型或堆审稿规则。保持 V26/V98/V119、唯一 NarrativeCore；不碰 main、Railway、私有 R2、正式 Canon。
+
+---
+
 ## 0.BN 最新已执行｜古籍方法真实授权验签与前提检索 RED→GREEN（2026-10-28）
 
 **下一次唯一续接交接：[WF_0BN_NEXT_SESSION_XUEHAI_SIGNED_REVIEW_AND_SCENE_PRECISION_HANDOFF_20261028.md](WF_0BN_NEXT_SESSION_XUEHAI_SIGNED_REVIEW_AND_SCENE_PRECISION_HANDOFF_20261028.md)**，新增[《西游记》两条方法真实因果深读及版权核查](WF_0BN_CLASSICAL_RIGHTS_AND_TWO_METHOD_DEEP_READING_20261028.md)。本节覆盖下方 0.BM 中“可信审核还需要设计”的历史时态，不要重新做 0.BM 的旧实验。
