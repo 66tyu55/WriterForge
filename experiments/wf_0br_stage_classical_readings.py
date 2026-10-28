@@ -134,15 +134,24 @@ def stage(db_path:Path,files:dict[str,Path])->dict:
                 text_terms=(term,),limit=3,max_per_work=3,max_per_cluster=3))
             if not result:
                 raise RuntimeError("WF0BR_BOOK_NOT_RETRIEVABLE")
-            full=db.conn.execute(
-                "SELECT text FROM xuehai_entries WHERE id=?",
-                (result[0]["entry_id"],)
-            ).fetchone()["text"]
-            if not all(label in full for label in ("【原文】","【批注】","【心得】")):
+            entry_id=result[0]["entry_id"]
+            full=store.read_literary_reading(entry_id)
+            identity=db.conn.execute(
+                "SELECT method_cluster FROM xuehai_entries WHERE id=?",
+                (entry_id,)
+            ).fetchone()["method_cluster"]
+            matching=next(row for row in rows if row["id"]==identity)
+            if (full["original"]!=matching["original"] or
+                full["reflection"]!=matching["reflection"] or
+                len(full["annotations"])!=len(matching["annotation"]) or
+                not all(note in full["annotations"][i]
+                        for i,note in enumerate(matching["annotation"]))):
                 raise RuntimeError("WF0BR_READ_RETURNED_ONLY_SUMMARY")
             preview[term]={
-                "entry_id":result[0]["entry_id"],
-                "whole_entry_chars":len(full),
+                "entry_id":entry_id,
+                "original_chars":len(full["original"]),
+                "annotation_count":len(full["annotations"]),
+                "reflection_chars":len(full["reflection"]),
                 "read_complete_three_part_text":True,
                 "legacy_short_query_excerpt_chars":len(result[0]["evidence_excerpt"]),
             }
