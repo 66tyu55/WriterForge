@@ -488,6 +488,18 @@ class XuehaiStore:
             type(max_chars) is not int or not 80 <= max_chars <= 300):
             raise ValueError("METHOD_QUERY_UNBOUNDED")
         genre_path = genre_lineage(genre)
+        # Filter scenes in SQL BEFORE the 128-row safety cap: a growing
+        # library of unrelated or pending cards must not starve a relevant,
+        # reviewed method. Unknown custom scene labels still match exactly
+        # when the author explicitly names them in the goal.
+        scene_types = [
+            name for name, aliases in _METHOD_ALIASES.items()
+            if any(len(t) >= 2 and t in goal for t in (name,)+aliases)
+        ]
+        scene_filter = (
+            "m.scene_type IN ("+",".join("?" for _ in scene_types)+") OR "
+            if scene_types else ""
+        ) + "instr(?,m.scene_type)>0"
         rows = self.db.conn.execute(
             """WITH RECURSIVE lineage(id,parent_id,layout) AS (
                  SELECT id,parent_id,layout FROM snapshots
@@ -516,8 +528,13 @@ class XuehaiStore:
                       AND e.sentence=s.sentence)
                LEFT JOIN studied_chapters c ON c.work_id=m.work_id
                  AND c.chapter=e.chapter AND c.snapshot_id IN (SELECT id FROM lineage)
-               ORDER BY m.entry_id ASC LIMIT 128""",
-            (sid,),
+               WHERE (""" + scene_filter + """)
+               ORDER BY CASE
+                   WHEN m.rights_status='RIGHTS_VERIFIED'
+                    AND m.review_status='PILOT_APPROVED'
+                    AND m.revoked_at IS NULL THEN 0 ELSE 1 END,
+                 m.entry_id ASC LIMIT 128""",
+            (sid,*scene_types,goal),
         ).fetchall()
         intro = "可选的场景认知方法（仅供参考，作者可自行选择不采用；不要复述来源、不得套写）："
         selected, rejected, choices, per_work = [], [], [], set()
