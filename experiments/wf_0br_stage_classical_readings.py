@@ -12,7 +12,9 @@ import argparse,json
 
 from writerforge import WriterForgeDB,RuntimeEngine,XuehaiStore
 from writerforge.xuehai import Query
-from experiments.wf_0bq_stage_original_full_detail_prose import stage_full_detail_prose
+from experiments.wf_0br_merge_three_classics_with_original_xuehai import (
+    add_classics_to_actual_xuehai, STAGING_NOTE,
+)
 
 ROOT=Path(__file__).resolve().parents[1]
 CORPUS=ROOT/"experiments/wf_0br_classical_original_annotation_reflection_20261028.json"
@@ -69,23 +71,32 @@ def reading_text(row:dict,source:dict)->str:
 
 
 def stage(db_path:Path,files:dict[str,Path])->dict:
-    """Create ONE isolated 学海 containing 24 original + six classic readings."""
+    """Add six annotated readings to the EXISTING 24+24 literary Xuehai."""
     db_path=Path(db_path)
     if db_path.exists():
         raise FileExistsError("WF0BR_REFUSE_OVERWRITE_DATABASE")
     sources,rows=load_readings()
     read_source_bytes(files,sources,rows)
-    stage_full_detail_prose(db_path=db_path)
+    # Reuse the existing 0.BR importer, not a parallel source library.
+    source_dir=Path(files["xy"]).parent
+    expected={"xy":"23962-0.txt","hl":"24264-0.txt","sh":"23863-0.txt"}
+    if any(Path(files[key])!=source_dir/name for key,name in expected.items()):
+        raise ValueError("WF0BR_USE_EXISTING_PINNED_CLASSIC_FILENAMES")
+    preexisting=add_classics_to_actual_xuehai(
+        db_path=db_path,source_dir=source_dir)
+    if (preexisting["existing_original_xuanhuan_scenes"]!=24
+        or preexisting["new_actual_classical_prose_passages"]!=24):
+        raise RuntimeError("WF0BR_PREVIOUS_48_TEXTS_NOT_FOUND")
     db=WriterForgeDB(db_path)
     rt=RuntimeEngine();rt.enter_learn()
     store=XuehaiStore(db,rt)
     try:
         root=db.conn.execute(
             "SELECT id FROM snapshots WHERE note=?",
-            ("WF0BQ_NEW_ORIGINAL_24_WHOLE_PROSE_SCENES_UNREVIEWED_STAGING",),
+            (STAGING_NOTE,),
         ).fetchone()
         if not root:
-            raise RuntimeError("WF0BR_PREVIOUS_24_ORIGINAL_SCENES_MISSING")
+            raise RuntimeError("WF0BR_PREVIOUS_48_LITERARY_TEXTS_MISSING")
         # Publish ONLY the disposable, previously-staged original scene node
         # so both sources live in the SAME queryable Xuehai snapshot lineage.
         store.publish(root["id"])
@@ -161,11 +172,18 @@ def stage(db_path:Path,files:dict[str,Path])->dict:
         ).fetchone()[0]
         if old!=24:
             raise RuntimeError("WF0BR_LOST_PREVIOUS_FULL_PROSE")
+        classics=db.conn.execute(
+            "SELECT COUNT(*) FROM xuehai_entries WHERE source_role=?",
+            ("public_domain_continuous_detail_prose_unreviewed",),
+        ).fetchone()[0]
+        if classics!=24:
+            raise RuntimeError("WF0BR_PREVIOUS_24_CLASSICS_WERE_LOST")
         return {
             "status":"SIX_REAL_CLASSICAL_ORIGINAL_ANNOTATIONS_REFLECTIONS_STORED",
             "books":3,"annotated_classic_entries":6,
             "original_prose_scenes_kept":old,
-            "total_content_entries":old+len(entries),
+            "original_classical_passages_kept":classics,
+            "total_content_entries":old+classics+len(entries),
             "original_classic_chars":sum(x["original_chars"] for x in entries),
             "distinct_reading_topics":len({x["topic"] for x in rows}),
             "database":"DISPOSABLE_ONLY",
