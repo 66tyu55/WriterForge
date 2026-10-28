@@ -137,6 +137,26 @@ class WF0BNExternalClassicalAttestation(unittest.TestCase):
         self.assertNotIn("何不拜我为王",found["prompt_guidance"])
         self.assertEqual(found["receipt"]["literary_benefit_proven"],False)
 
+    def test_classical_method_requires_positive_facets_not_just_scene_word(self):
+        with patch.dict(os.environ,self.keys):
+            ch,sr,sc=self.signed()
+            self.store.admit_externally_attested_method(
+                entry_id=self.entry,challenge=ch,
+                rights_signature_hex=sr,craft_signature_hex=sc)
+            self.publish()
+            # The scene label alone is not evidence of a social promise.
+            solo=self.store.query_methods(
+                goal="秘境遗迹，独自钻进山洞拿走一件宝物，无人在场",
+                genre="玄幻")
+            self.assertEqual(solo["selected"],[])
+            # A negated facet must not be treated as positive evidence.
+            no_pledge=self.store.query_methods(
+                goal="秘境遗迹，根本没有群体承诺，此行只是独自寻物",
+                genre="玄幻")
+            self.assertEqual(no_pledge["selected"],[])
+            full=self.query()
+            self.assertEqual(len(full["selected"]),1)
+
     def test_single_key_twice_cannot_fake_independent_rights_and_craft(self):
         keys=dict(self.keys)
         keys[KEY_NAMES[1]]=keys[KEY_NAMES[0]]
