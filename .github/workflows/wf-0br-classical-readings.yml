@@ -42,26 +42,28 @@ jobs:
               with urlopen(Request(url,headers={"User-Agent":"WriterForge-original-literary-reading/1"}),timeout=45) as r:
                   raw=r.read(4_000_001)
               assert 100_000<len(raw)<4_000_000
-              (Path(os.environ["RUNNER_TEMP"])/(key+".txt")).write_bytes(raw)
+              filename={"xy":"23962-0.txt","hl":"24264-0.txt","sh":"23863-0.txt"}[key]
+              (Path(os.environ["RUNNER_TEMP"])/filename).write_bytes(raw)
           PY
       - name: Keep all 30 full texts and retrieve complete 3-part readings
         run: |
           python -m experiments.wf_0br_stage_classical_readings \
             --db "$RUNNER_TEMP/wf0br-30-full-texts.db" \
-            --xy "$RUNNER_TEMP/xy.txt" \
-            --hl "$RUNNER_TEMP/hl.txt" \
-            --sh "$RUNNER_TEMP/sh.txt" > "$RUNNER_TEMP/wf0br-result.json"
+            --xy "$RUNNER_TEMP/23962-0.txt" \
+            --hl "$RUNNER_TEMP/24264-0.txt" \
+            --sh "$RUNNER_TEMP/23863-0.txt" > "$RUNNER_TEMP/wf0br-result.json"
           python - <<'PY'
           import json,os
           from pathlib import Path
           x=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0br-result.json").read_text("utf8"))
           assert x["annotated_classic_entries"]==6
           assert x["original_prose_scenes_kept"]==24
-          assert x["total_content_entries"]==30
+          assert x["original_classical_passages_kept"]==24
+          assert x["total_content_entries"]==54
           assert x["original_classic_chars"]>3000
           assert x["model_calls"]==0
           assert all(r["read_complete_three_part_text"] for r in x["read_examples"].values())
-          print("WF0BR_CONTENT_GREEN: 24原创正文＋6古籍原文/批注/心得，同一现有学海，全文可读回",flush=True)
+          print("WF0BR_CONTENT_GREEN: 24原创＋24古籍原文＋6古籍精读（原文/批注/心得），同一现有学海，全文可读回",flush=True)
           print("6 readings original characters:",x["original_classic_chars"],flush=True)
           print("examples:",json.dumps(x["read_examples"],ensure_ascii=False),flush=True)
           PY
