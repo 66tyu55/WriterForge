@@ -3,6 +3,8 @@
 
 ## 0.BL 最新已执行｜玄幻场景学海扩充计划 + 16个原创细节样本进入隔离 STAGING（2026-10-28）
 
+**最新可直接续接执行交接：[WF_0BL_NEXT_SESSION_XUEHAI_WRITE_USE_HANDOFF_20261028.md](WF_0BL_NEXT_SESSION_XUEHAI_WRITE_USE_HANDOFF_20261028.md)**。下一次先做 *有来源/版权与审阅权限的学海场景方法卡 → 真正 Writer WRITE 1—2 条有界选择注入* 的 RED→GREEN；16 条目前仍为 STAGING，古籍目前仍仅参考目录，不能自动发布或宣称文学收益。
+
 **下一次必须首先读：[WF_0BL_XUEHAI_SCENE_ATLAS_AND_CLASSICAL_TEXT_PLAN_20261028.md](WF_0BL_XUEHAI_SCENE_ATLAS_AND_CLASSICAL_TEXT_PLAN_20261028.md)**，再按需读下方 0.BJ/0.BK 的真实写作路线失败记录。此节更新研究方向，但不代表玄幻名作已经成功训练、也不代表真实发布库已经改动。
 
 - **用户明确改变优先级**：以前多轮 WF 推理/提示实验都只有微弱文学进步，若本地效果不足不宜仓促发布。现阶段优先丰富并真正调用现有 XuehaiStore 学海库，用不同玄幻场景里的具体细节与中国古籍原始写法给同一作者模型提供**有上下文、可迁移、可证伪**的素材经验。禁止继续只加审稿规则、强行叠提示词或以测试 GREEN 冒充进步。
