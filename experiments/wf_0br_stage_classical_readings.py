@@ -15,6 +15,9 @@ from writerforge.xuehai import Query
 from experiments.wf_0br_merge_three_classics_with_original_xuehai import (
     add_classics_to_actual_xuehai, STAGING_NOTE, load_curated_classical_texts,
 )
+from experiments.wf_0bq_stage_original_full_detail_prose import (
+    validate_corpus, WORK_PREFIX, SOURCE_COMMITS, CORPUS_FILES,
+)
 
 ROOT=Path(__file__).resolve().parents[1]
 CORPUS=ROOT/"experiments/wf_0br_classical_original_annotation_reflection_20261028.json"
@@ -22,6 +25,9 @@ ROLE="classical_original_annotation_reflection"
 NOTE="WF0BR_SIX_CLASSICS_WITH_ORIGINAL_ANNOTATION_REFLECTION"
 REMAINING=ROOT/"experiments/wf_0bs_classical_remaining_18_original_annotation_reflection_20261028.json"
 REMAINING_NOTE="WF0BS_REMAINING_18_CLASSICS_ORIGINAL_ANNOTATION_REFLECTION"
+ORIGINAL_READINGS=ROOT/"experiments/wf_0bt_original_eight_close_readings_20261028.json"
+ORIGINAL_NOTE="WF0BT_ORIGINAL_EIGHT_COMPLETE_SCENE_READINGS"
+ORIGINAL_ROLE="original_annotation_reflection"
 # The first six deep readings overlap these six source excerpts. Keep them unchanged.
 PREVIOUSLY_COVERED={"x02","x07","h03","h06","s03","s07"}
 
@@ -315,6 +321,132 @@ def stage_all_24(db_path:Path,files:dict[str,Path])->dict:
     finally:
         db.close()
 
+
+
+def load_original_eight():
+    """Select eight existing original full scenes; never replace them with summaries."""
+    raw=json.loads(ORIGINAL_READINGS.read_text("utf8"))
+    sources=raw.get("sources")
+    expected_sources={
+        "original_"+pack:{
+            "work":"WF原创场景 "+pack,
+            "url":("https://github.com/66tyu55/WriterForge/blob/"
+                   +SOURCE_COMMITS[pack]+"/experiments/"
+                   +CORPUS_FILES[pack].name),
+            "origin":"WriterForge original prose",
+        } for pack in ("A","B")
+    }
+    if (raw.get("format")!="wf.literary-reading.original-annotation-reflection.v1"
+        or raw.get("literary_gain_proven") is not False
+        or raw.get("independently_reviewed") is not False
+        or raw.get("originals_are_unaccepted_writerforge_drafts") is not True
+        or sources!=expected_sources):
+        raise ValueError("WF0BT_WRONG_ORIGINAL_NOTES_SOURCE")
+    originals,_=validate_corpus()
+    by_id={x["id"]:x for x in originals}
+    selected={
+        "bq-01-丹室潮火","bq-07-石桥短兵","bq-09-宗门药房",
+        "bq-12-廊下异声","bq-14-筋伤余日","bq-21-外门入试",
+        "bq-22-两封家书","bq-23-水下客",
+    }
+    rows=raw.get("items")
+    if (type(rows) is not list or len(rows)!=8
+        or {r.get("original_scene_id") for r in rows}!=selected
+        or len({r.get("id") for r in rows})!=8):
+        raise ValueError("WF0BT_EIGHT_DISTINCT_ORIGINALS_REQUIRED")
+    for r in rows:
+        source=by_id[r["original_scene_id"]]
+        if (r.get("id")!="original-read-"+r["original_scene_id"][:5]
+            or r.get("source_key")!="original_"+source["pack"]
+            or r.get("work")!="WF原创·"+source["title"]
+            or r.get("chapter")!="完整场景"
+            or r.get("original")!=source["prose"]
+            or type(r.get("annotation")) is not list
+            or len(r["annotation"])!=3
+            or any(type(n) is not str or len(n)<65 or "\n" in n
+                   for n in r["annotation"])
+            or type(r.get("reflection")) is not str
+            or len(r["reflection"])<125):
+            raise ValueError("WF0BT_ORIGINAL_NOTES_NOT_SOURCE_GROUNDED")
+    return sources,rows,by_id
+
+
+def stage_with_original_eight(db_path:Path,files:dict[str,Path])->dict:
+    """Existing single disposable Xuehai: 24 originals + 24 classics + 24 classic readings + 8 original readings."""
+    previous_result=stage_all_24(db_path,files)
+    sources,rows,by_id=load_original_eight()
+    db=WriterForgeDB(db_path)
+    rt=RuntimeEngine();rt.enter_learn()
+    store=XuehaiStore(db,rt)
+    try:
+        previous=db.conn.execute(
+            "SELECT id FROM snapshots WHERE note=? AND status='published'",
+            (REMAINING_NOTE,),
+        ).fetchone()
+        if previous is None:
+            raise RuntimeError("WF0BT_24_CLASSICAL_READINGS_NOT_PUBLISHED")
+        sid=store.create_staging_snapshot(parent_id=previous["id"],
+                                          note=ORIGINAL_NOTE)
+        for item in rows:
+            text=reading_text(item,sources[item["source_key"]])
+            original=by_id[item["original_scene_id"]]
+            store.add_entry(
+                sid,work_id=WORK_PREFIX+item["original_scene_id"],
+                text=text,library_class="原创小说原文＋批注＋心得",
+                culture="中国",genre=original["genre"],
+                source_role=ORIGINAL_ROLE,function=item["topic"],
+                effect=item["title"],method_cluster=item["id"],
+                reuse_policy="read_reflect_not_copy",
+            )
+        store.publish(sid)
+        rt.exit();rt.enter_write(sid)
+        orig_entries=db.conn.execute(
+            "SELECT id,method_cluster FROM xuehai_entries WHERE source_role=?",
+            (ORIGINAL_ROLE,),
+        ).fetchall()
+        if len(orig_entries)!=8:
+            raise RuntimeError("WF0BT_EIGHT_ORIGINAL_READING_ENTRIES_MISSING")
+        cluster_to_id={e["method_cluster"]:e["id"] for e in orig_entries}
+        if set(cluster_to_id)!={r["id"] for r in rows}:
+            raise RuntimeError("WF0BT_DUPLICATE_ORIGINAL_READINGS")
+        for item in rows:
+            full=store.read_literary_reading(cluster_to_id[item["id"]])
+            if (full["original"]!=item["original"]
+                or full["reflection"]!=item["reflection"]
+                or full["source"]!=
+                   f"{item['work']}·{item['chapter']}｜{sources[item['source_key']]['url']}"
+                or len(full["annotations"])!=3
+                or any(note not in full["annotations"][i]
+                       for i,note in enumerate(item["annotation"]))):
+                raise RuntimeError("WF0BT_ORIGINAL_READING_TRUNCATED")
+        roles=("original_complete_scene_unreviewed",
+               "public_domain_continuous_detail_prose_unreviewed",
+               ROLE,ORIGINAL_ROLE)
+        counts=dict(db.conn.execute(
+            "SELECT source_role,COUNT(*) FROM xuehai_entries "
+            "WHERE source_role IN (?,?,?,?) GROUP BY source_role",roles
+        ).fetchall())
+        expected=dict(zip(roles,(24,24,24,8)))
+        if (counts!=expected or
+            db.conn.execute("SELECT COUNT(*) FROM xuehai_method_cards").fetchone()[0]!=0):
+            raise RuntimeError(f"WF0BT_CHANGED_EXISTING_CORPUS: {counts}")
+        return {
+            "status":"8_ORIGINAL_AND_24_CLASSICAL_THREE_PART_READINGS_COMPLETE",
+            "existing_24_original_scenes_kept":24,
+            "existing_24_classic_prose_kept":24,
+            "existing_24_classic_readings_kept":24,
+            "new_original_readings":8,
+            "original_readings_full_readback":True,
+            "total_literary_entries":sum(counts.values()),
+            "model_calls":0,
+            "method_cards":0,
+            "database":"DISPOSABLE_ONLY",
+            "production_canon_changes":0,
+            "literary_gain_proven":False,
+        }
+    finally:
+        db.close()
+
 if __name__=="__main__":
     p=argparse.ArgumentParser()
     p.add_argument("--db",type=Path,required=True)
@@ -322,7 +454,10 @@ if __name__=="__main__":
         p.add_argument("--"+key,type=Path,required=True)
     p.add_argument("--all24",action="store_true",
                    help="include the 0.BS remaining eighteen complete readings")
+    p.add_argument("--original8",action="store_true",
+                   help="also store and read eight original prose critiques in the same Xuehai")
     args=p.parse_args()
-    runner=stage_all_24 if args.all24 else stage
+    runner=(stage_with_original_eight if args.original8
+            else stage_all_24 if args.all24 else stage)
     print(json.dumps(runner(args.db,{key:getattr(args,key) for key in ("xy","hl","sh")}),
                      ensure_ascii=False,indent=2,sort_keys=True))
