@@ -2758,6 +2758,8 @@ class AutonomousWriting:
             selected_fork_receipt:dict|None=None,
             g_rolling_author_planning:bool=False,
             host_nutrient_observer=None) -> dict:
+        if type(xuehai_methods_enabled) is not bool:
+            raise WritingExecutionError("XUEHAI_METHOD_AUTHOR_CHOICE_INVALID")
         # First host completion SHA capture is opt-in and source-only.
         if (host_nutrient_observer is not None and
                 not callable(host_nutrient_observer)):
@@ -3270,7 +3272,7 @@ class AutonomousWriting:
                 genre=self.assist.source_genre,
                 # 0.BL: conditional reviewed Xuehai methods ONLY on the
                 # real prose-writing seam, not on planning or self-edit.
-                xuehai_methods_enabled=True,
+                xuehai_methods_enabled=xuehai_methods_enabled,
             )
             inferred=infer_intent(goal+"\n"+plan["objective"]+"\n"+plan["conflict"])
             facets=_verified_facets(self.assist.db,inferred)
