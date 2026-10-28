@@ -23,7 +23,7 @@ from .db import WriterForgeDB
 from .runtime import RuntimeEngine, Mode
 from .writing_flow import WritingFlow
 from .story_commit import _ASSISTANT_ORIGIN_PERMIT
-from .xuehai import XuehaiStore, Query
+from .xuehai import XuehaiStore, Query, genre_lineage
 from .encyclopedia import FictionEncyclopedia, FacetQuery
 from .writing_companion import CATEGORIES as COMPANION_CATEGORIES
 from .prose_style import ProseStyleStore, rejects_verbatim_copy, format_prose_reference
@@ -175,11 +175,17 @@ class VerifiedWritingFlow(WritingFlow):
         mapped = ("environment" if "description" in concerns else
                   "dialogue" if "dialogue" in concerns else None)
         def get(function):
-            return self.xuehai.query(Query(
-                genre=genre,culture="中国",function=function,
-                project_id=self.project_id,
-                max_per_work=8,max_per_cluster=3,limit=6,
-            ))
+            # 0.BL: prefer exact genre, then its explicitly defined parents;
+            # never fall back across 志怪 / historical style boundaries.
+            for parent_genre in genre_lineage(genre):
+                matches = self.xuehai.query(Query(
+                    genre=parent_genre,culture="中国",function=function,
+                    project_id=self.project_id,
+                    max_per_work=8,max_per_cluster=3,limit=6,
+                ))
+                if matches:
+                    return matches
+            return []
         evidence = get(mapped) if mapped else get(None)
         if not evidence and mapped:
             evidence = get(None)
