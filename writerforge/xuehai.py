@@ -81,6 +81,24 @@ def _method_sha(row: dict) -> str:
 def _is_digest(value) -> bool:
     return type(value) is str and re.fullmatch(r"[0-9a-f]{64}", value) is not None
 
+def _positive_scene_facet(goal:str, facet:str) -> bool:
+    """Conservative textual evidence, NOT a full semantic understanding.
+
+    A classic technique is not relevant merely because a scene title appears.
+    A concrete observed condition must be present without a nearby explicit
+    negation; uncertainty returns NONE rather than injecting false advice.
+    """
+    start=0
+    while True:
+        at=goal.find(facet,start)
+        if at<0:
+            return False
+        context=goal[max(0,at-10):at]
+        if not re.search(r"(?:没有|从未|未曾|尚无|并无|不具备|不存在|缺乏|毫无|未有|无)(?:.{0,2})$",context):
+            return True
+        start=at+len(facet)
+
+
 def _source_overlap(source: str, guidance: str, window: int = 14) -> bool:
     if not source or not guidance:
         return False
@@ -572,7 +590,21 @@ class XuehaiStore:
                 rejected.append({"entry_id":r["entry_id"],"reason":"GENRE_OR_ERA_MISMATCH"})
                 continue
             why = "EXACT_GENRE" if match == genre else "GENRE_PARENT_FALLBACK"
-            signal_count = sum(1 for facet in facets if facet in goal)
+            if r["source_kind"] in ("PUBLIC_DOMAIN_CLASSIC",
+                                     "AUTHORIZED_MODERN"):
+                # Citable historical technique must have an explicit, positive
+                # condition in the current scene. A scene-name keyword alone
+                # (or a negated social commitment) cannot justify retrieval.
+                signal_count=sum(
+                    1 for facet in facets
+                    if _positive_scene_facet(goal,facet))
+                if signal_count==0:
+                    rejected.append({"entry_id":r["entry_id"],
+                                     "card_sha256":r["card_sha256"],
+                                     "reason":"SCENE_PRECONDITION_NOT_EVIDENCED"})
+                    continue
+            else:
+                signal_count=sum(1 for facet in facets if facet in goal)
             candidates.append((int(match == genre)*4+signal_count, r, why, trigger))
         candidates.sort(key=lambda x: (-x[0],x[1]["entry_id"]))
         for _,r,why,trigger in candidates:
