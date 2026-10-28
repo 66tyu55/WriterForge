@@ -195,6 +195,51 @@ class XuehaiStore:
         ).fetchone()
         return int(row["id"]) if row else None
 
+    def read_literary_reading(self, entry_id: int) -> dict:
+        """Read full 原文/批注/心得, not a truncated 80-character search hit.
+
+        Explicit only; requires a published pinned snapshot. Never
+        automatically inject a classical quotation into author prose.
+        """
+        self.runtime.require(Mode.WRITE)
+        if type(entry_id) is not int or entry_id < 1:
+            raise ValueError("XUEHAI_READING_ENTRY_INVALID")
+        sid=self.runtime.pinned_snapshot_id
+        row=self.db.conn.execute(
+            """WITH RECURSIVE lineage(id,parent_id,layout) AS (
+                SELECT id,parent_id,layout FROM snapshots
+                 WHERE id=? AND status='published'
+                UNION ALL
+                SELECT p.id,p.parent_id,p.layout FROM snapshots p
+                 JOIN lineage l ON l.parent_id=p.id
+                 WHERE l.layout='delta' AND p.status='published'
+            )
+            SELECT e.text,e.work_id,e.source_hash FROM xuehai_entries e
+             JOIN lineage l ON l.id=e.snapshot_id
+             WHERE e.id=? AND e.source_role=?""",
+            (sid,entry_id,"classical_original_annotation_reflection"),
+        ).fetchone()
+        if row is None:
+            raise ValueError("XUEHAI_READING_NOT_PUBLISHED_OR_NOT_FOUND")
+        full=row["text"]
+        normalized=" ".join(full.split()).strip()
+        expected=hashlib.sha256((row["work_id"]+"|"+normalized).encode("utf8")).hexdigest()
+        if not 200<=len(full)<=5000 or row["source_hash"]!=expected:
+            raise ValueError("XUEHAI_READING_SOURCE_CHANGED")
+        try:
+            source_and_original,reflection=full.split("\n【心得】\n",1)
+            source_original,annotations=source_and_original.split("\n【批注】\n",1)
+            source,original=source_original.split("\n【原文】\n",1)
+            if not source.startswith("【出处】") or not original.strip() or not reflection.strip():
+                raise ValueError()
+            notes=annotations.splitlines()
+            if len(notes)!=3:
+                raise ValueError()
+        except ValueError:
+            raise ValueError("XUEHAI_READING_THREE_PARTS_MISSING") from None
+        return {"entry_id":entry_id,"source":source[4:],
+                "original":original,"annotations":notes,"reflection":reflection}
+
     def mark_used(self, entry_id: int, project_id: str) -> None:
         self.runtime.require(Mode.WRITE)
         self.db.conn.execute(
