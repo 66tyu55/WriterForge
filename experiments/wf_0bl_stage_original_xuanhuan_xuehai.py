@@ -114,17 +114,40 @@ def stage_original_diagnostic(*,output:Path=OUTPUT,seed:Path=SEED)->dict:
                 quality_weight=1.0,novelty_weight=1.0,
                 reuse_policy="technique_only")
             identifiers.append(entry)
+            # Method hypotheses remain PENDING alongside the original
+            # diagnostic entries. No study row, approval, or WRITE privilege.
+            xuehai.add_method_card(entry, {
+                "scene_type": card["scene_type"],
+                "scene_facets": [card["subgenre"]],
+                "target_genres": ["玄幻"],
+                "style_scope": "ERA_NEUTRAL",
+                "signal": card["condition"],
+                "mechanism": card["method_hypothesis"],
+                "writer_option": "作者可以自行考虑：" + card["method_hypothesis"],
+                "applies_when": card["condition"],
+                "not_when": "不是" + card["scene_type"] + "的写作环境，或角色没有相应信息时",
+                "pov_limit": "仅依据角色在场能够感知的信息，不预先裁决人物选择",
+                "counterexample": card["anti_pattern"],
+                "source_kind": "AUTHOR_CREATED_DIAGNOSTIC",
+                "source_edition": "WF原创诊断场景第一稿，非名著",
+                "rights_status": "ORIGINAL_DIAGNOSTIC",
+                "review_status": "PENDING",
+                "value_status": "UNVERIFIED",
+                "review_receipt_sha256": "",
+            })
         count=db.conn.execute(
             "SELECT COUNT(*) FROM xuehai_entries WHERE snapshot_id=?",
             (sid,)).fetchone()[0]
         snapshot=db.conn.execute(
             "SELECT status,layout FROM snapshots WHERE id=?",
             (sid,)).fetchone()
+        method_cards=db.conn.execute(
+            "SELECT COUNT(*) FROM xuehai_method_cards").fetchone()[0]
         studied=db.conn.execute(
             "SELECT COUNT(*) FROM studied_chapters").fetchone()[0]
         if (count!=16 or snapshot["status"]!="staging" or
             snapshot["layout"]!="full" or studied!=0 or
-            len(set(identifiers))!=16):
+            len(set(identifiers))!=16 or method_cards!=16):
             raise RuntimeError("WF0BL_STAGING_NOT_EXACT_OR_PROVENANCE_CORRUPT")
         result={
             "format":"wf.0bl.xuehai-original-test-staging.v1",
@@ -132,6 +155,8 @@ def stage_original_diagnostic(*,output:Path=OUTPUT,seed:Path=SEED)->dict:
             "source_sha256":source_sha,
             "staging_snapshot_id":sid,
             "new_original_diagnostic_entries":count,
+            "pending_method_cards":method_cards,
+            "write_eligible_method_cards":0,
             "actual_classics_text_ingested":0,
             "actual_modern_copyright_novels_ingested":0,
             "published_snapshots":0,
