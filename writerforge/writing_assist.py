@@ -3268,6 +3268,9 @@ class AutonomousWriting:
             body_base=self.assist.flow.prepare(
                 scene,goal,concerns=_craft_needs(plan["needs"]),
                 genre=self.assist.source_genre,
+                # 0.BL: conditional reviewed Xuehai methods ONLY on the
+                # real prose-writing seam, not on planning or self-edit.
+                xuehai_methods_enabled=True,
             )
             inferred=infer_intent(goal+"\n"+plan["objective"]+"\n"+plan["conflict"])
             facets=_verified_facets(self.assist.db,inferred)
