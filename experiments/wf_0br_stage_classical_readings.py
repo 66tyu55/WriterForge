@@ -28,6 +28,8 @@ REMAINING_NOTE="WF0BS_REMAINING_18_CLASSICS_ORIGINAL_ANNOTATION_REFLECTION"
 ORIGINAL_READINGS=ROOT/"experiments/wf_0bt_original_eight_close_readings_20261028.json"
 ORIGINAL_NOTE="WF0BT_ORIGINAL_EIGHT_COMPLETE_SCENE_READINGS"
 ORIGINAL_ROLE="original_annotation_reflection"
+REMAINING_ORIGINAL=ROOT/"experiments/wf_0bu_remaining_sixteen_original_close_readings_20261028.json"
+REMAINING_ORIGINAL_NOTE="WF0BU_REMAINING_SIXTEEN_ORIGINAL_COMPLETE_READINGS"
 # The first six deep readings overlap these six source excerpts. Keep them unchanged.
 PREVIOUSLY_COVERED={"x02","x07","h03","h06","s03","s07"}
 
@@ -447,6 +449,117 @@ def stage_with_original_eight(db_path:Path,files:dict[str,Path])->dict:
     finally:
         db.close()
 
+
+
+def load_remaining_original_sixteen():
+    """Remaining original readings must reproduce the OTHER 16 whole 0.BQ scenes."""
+    sources,first_eight,originals=load_original_eight()
+    obj=json.loads(REMAINING_ORIGINAL.read_text("utf8"))
+    rows=obj.get("items")
+    expected=set(originals)-{r["original_scene_id"] for r in first_eight}
+    if (obj.get("format")!="wf.literary-reading.original-annotation-reflection.v1"
+        or obj.get("literary_gain_proven") is not False
+        or obj.get("independently_reviewed") is not False
+        or obj.get("originals_are_unaccepted_writerforge_drafts") is not True
+        or obj.get("sources")!=sources
+        or type(rows) is not list or len(rows)!=16
+        or {r.get("original_scene_id") for r in rows}!=expected
+        or len({r.get("id") for r in rows})!=16):
+        raise ValueError("WF0BU_EXPECTED_16_REMAINING_UNCHANGED_ORIGINALS")
+    for r in rows:
+        x=originals[r["original_scene_id"]]
+        if (r.get("id")!="original-read-"+x["id"][:5]
+            or r.get("source_key")!="original_"+x["pack"]
+            or r.get("work")!="WF原创·"+x["title"]
+            or r.get("chapter")!="完整场景"
+            or r.get("original")!=x["prose"]
+            or type(r.get("annotation")) is not list
+            or len(r["annotation"])!=3
+            or any(type(note) is not str or len(note)<45
+                   or "\n" in note for note in r["annotation"])
+            or type(r.get("reflection")) is not str
+            or len(r["reflection"])<85):
+            raise ValueError("WF0BU_ORIGINAL_PROSE_OR_REAL_READING_CHANGED")
+    return sources,first_eight,rows,originals
+
+
+def stage_with_all_original_24(db_path:Path,files:dict[str,Path])->dict:
+    """Add last 16 deep readings into the SAME disposable Xuehai lineage."""
+    stage_with_original_eight(db_path,files)
+    sources,first_eight,remaining,originals=load_remaining_original_sixteen()
+    db=WriterForgeDB(db_path)
+    rt=RuntimeEngine();rt.enter_learn()
+    store=XuehaiStore(db,rt)
+    try:
+        previous=db.conn.execute(
+            "SELECT id FROM snapshots WHERE note=? AND status='published'",
+            (ORIGINAL_NOTE,),
+        ).fetchone()
+        if previous is None:
+            raise RuntimeError("WF0BU_OLD_EIGHT_ORIGINAL_READINGS_NOT_PUBLISHED")
+        sid=store.create_staging_snapshot(
+            parent_id=previous["id"],note=REMAINING_ORIGINAL_NOTE)
+        for item in remaining:
+            text=reading_text(item,sources[item["source_key"]])
+            original=originals[item["original_scene_id"]]
+            store.add_entry(
+                sid,work_id=WORK_PREFIX+item["original_scene_id"],
+                text=text,library_class="原创小说原文＋批注＋心得",
+                culture="中国",genre=original["genre"],
+                source_role=ORIGINAL_ROLE,function=item["topic"],
+                effect=item["title"],method_cluster=item["id"],
+                reuse_policy="read_reflect_not_copy",
+            )
+        store.publish(sid)
+        rt.exit();rt.enter_write(sid)
+        all_original=first_eight+remaining
+        entries=db.conn.execute(
+            "SELECT id,method_cluster FROM xuehai_entries WHERE source_role=?",
+            (ORIGINAL_ROLE,),
+        ).fetchall()
+        by_cluster={row["method_cluster"]:row["id"] for row in entries}
+        if (len(entries)!=24 or len(by_cluster)!=24 or
+            set(by_cluster)!={item["id"] for item in all_original}):
+            raise RuntimeError("WF0BU_24_DISTINCT_ORIGINAL_READINGS_NOT_FOUND")
+        for item in all_original:
+            full=store.read_literary_reading(by_cluster[item["id"]])
+            if (full["original"]!=item["original"]
+                or full["reflection"]!=item["reflection"]
+                or full["source"]!=
+                   f"{item['work']}·{item['chapter']}｜{sources[item['source_key']]['url']}"
+                or len(full["annotations"])!=3
+                or any(note not in full["annotations"][index]
+                       for index,note in enumerate(item["annotation"]))):
+                raise RuntimeError("WF0BU_FULL_ORIGINAL_ANNOTATION_REFLECTION_LOST")
+        roles=("original_complete_scene_unreviewed",
+               "public_domain_continuous_detail_prose_unreviewed",
+               ROLE,ORIGINAL_ROLE)
+        counts=dict(db.conn.execute(
+            "SELECT source_role,COUNT(*) FROM xuehai_entries "
+            "WHERE source_role IN (?,?,?,?) GROUP BY source_role",roles
+        ).fetchall())
+        expected=dict(zip(roles,(24,24,24,24)))
+        methods=db.conn.execute(
+            "SELECT COUNT(*) FROM xuehai_method_cards").fetchone()[0]
+        if counts!=expected or methods!=0:
+            raise RuntimeError(f"WF0BU_OLD_CONTENT_NOT_PRESERVED: {counts}")
+        return {
+            "status":"24_ORIGINAL_AND_24_CLASSIC_COMPLETE_THREE_PART_READINGS",
+            "original_full_scenes_kept":24,"classic_full_excerpts_kept":24,
+            "classic_three_part_readings_kept":24,
+            "previous_original_readings_kept":8,
+            "new_original_three_part_readings":16,
+            "all_original_readings":24,
+            "all_48_three_part_readings_complete":True,
+            "total_literary_content_entries":sum(counts.values()),
+            "method_cards":methods,"model_calls":0,
+            "database":"DISPOSABLE_ONLY",
+            "production_canon_changes":0,
+            "literary_gain_proven":False,
+        }
+    finally:
+        db.close()
+
 if __name__=="__main__":
     p=argparse.ArgumentParser()
     p.add_argument("--db",type=Path,required=True)
@@ -456,8 +569,11 @@ if __name__=="__main__":
                    help="include the 0.BS remaining eighteen complete readings")
     p.add_argument("--original8",action="store_true",
                    help="also store and read eight original prose critiques in the same Xuehai")
+    p.add_argument("--original24",action="store_true",
+                   help="read all 24 original and all 24 classical three-part studies")
     args=p.parse_args()
-    runner=(stage_with_original_eight if args.original8
+    runner=(stage_with_all_original_24 if args.original24
+            else stage_with_original_eight if args.original8
             else stage_all_24 if args.all24 else stage)
     print(json.dumps(runner(args.db,{key:getattr(args,key) for key in ("xy","hl","sh")}),
                      ensure_ascii=False,indent=2,sort_keys=True))
