@@ -30,21 +30,30 @@ def pack_from(path:Path):
     p=json.loads(Path(path).read_text("utf8"))
     rows=p.get("items")
     old=p.get("old_entries")
-    if (p.get("format")!="wf.0cq.five-public-classics-close-readings.v1"
-        or not isinstance(rows,list) or not 1<=len(rows)<=6
-        or old!=140 or p.get("expected_entries")!=old+len(rows)
-        or p.get("expected_full_readings")!=97
+    # Only two source-frozen additive editions are accepted. No generic
+    # catalogue importer, mutable pointer, or second learning database.
+    specifications={
+        "wf.0cq.five-public-classics-close-readings.v1":
+            (140,97,5,"wf-0cq-xuehai-literary-145-","classic-0cq-"),
+        "wf.0cr.three-anchored-classical-close-readings.v1":
+            (145,100,3,"wf-0cr-xuehai-literary-148-","classic-0cr-"),
+    }
+    spec=specifications.get(p.get("format"))
+    if (spec is None
+        or not isinstance(rows,list) or len(rows)!=spec[2]
+        or old!=spec[0] or p.get("expected_entries")!=old+len(rows)
+        or p.get("expected_full_readings")!=spec[1]
         or p.get("new_entries")!=len(rows)
         or p.get("preserve_originals") is not True
         or p.get("new_rules_or_memory") is not False
         or p.get("author_model_use_skip_unchanged") is not True
         or p.get("model_calls")!=0
         or len({v["id"] for v in rows})!=len(rows)
-        or not str(p.get("new_library","")).startswith("wf-0cq-xuehai-literary-145-")
+        or not str(p.get("new_library","")).startswith(spec[3])
         or set(p.get("sources",{}))!={"fs","ss"}):
-        raise ValueError("WF_SOURCE_PACK_NOT_FROZEN_SUCCESSOR_145_97")
+        raise ValueError("WF_SOURCE_PACK_NOT_FROZEN_SUCCESSOR")
     for r in rows:
-        if (not r["id"].startswith("classic-0cq-")
+        if (not r["id"].startswith(spec[4])
             or r["source_key"] not in p["sources"]
             or r["work"]!=p["sources"][r["source_key"]]["work"]
             or r["original_source_end"]-r["original_source_start"]!=len(r["original"])
@@ -195,7 +204,8 @@ def cold_restore(p,*,snapshot:str,digest:str):
         audit=inspect(Path(restored["db"]),p)
     if restored["snapshot"]!=snapshot or audit["all_content_sha256"]!=digest:
         raise ValueError("WF_SOURCE_COLD_R2_DIFFERENT")
-    return {"status":"WF_SOURCE_NEW_R2_COLD_READBACK_145_97",
+    status=f"WF_SOURCE_NEW_R2_COLD_READBACK_{p['expected_entries']}_{p['expected_full_readings']}"
+    return {"status":status,
             **audit,"r2_writes":0,"model_calls":0,"canon_writes":0}
 
 def main():
