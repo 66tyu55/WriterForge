@@ -5,7 +5,7 @@ on:
     branches: [refactor-unified-scene-delivery-audit]
     paths:
       - .github/workflows/wf-0cr-three-source-readings-xuehai.yml
-      - experiments/wf_0cr_three_fusheng_shishuo_close_readings_20261029.json
+      - experiments/wf_0cr_three_courtesy_childhood_mourning_readings_20261029.json
       - experiments/wf_source_pinned_literary_incremental.py
   workflow_dispatch:
 
@@ -46,7 +46,7 @@ jobs:
           from urllib.request import urlopen,Request
           import os
           from experiments.wf_source_pinned_literary_incremental import pack_from,verify_sources
-          pack=pack_from(Path("experiments/wf_0cr_three_fusheng_shishuo_close_readings_20261029.json"))
+          pack=pack_from(Path("experiments/wf_0cr_three_courtesy_childhood_mourning_readings_20261029.json"))
           assert not any(os.getenv(k) for k in ("OPENAI_API_KEY","DEEPSEEK_API_KEY","OPENROUTER_API_KEY","DISCOVERY_API_KEY"))
           for key,src in pack["sources"].items():
               assert src["url"].startswith("https://raw.githubusercontent.com/GITenberg/")
@@ -56,12 +56,12 @@ jobs:
               assert sha1(b"blob "+str(len(raw)).encode()+b"\0"+raw).hexdigest()==src["source_blob_sha1"]
               (Path(os.environ["RUNNER_TEMP"])/src["filename"]).write_bytes(raw)
           verify_sources(pack,Path(os.environ["RUNNER_TEMP"]))
-          print("WF0CQ_ALL_FIVE_LITERAL_ORIGINALS_IN_EXACT_PINNED_SOURCES",flush=True)
+          print("WF0CR_ALL_THREE_LITERAL_ORIGINALS_IN_EXACT_PINNED_SOURCES",flush=True)
           PY
       - name: Restore old 145/92 R2 immutably and append three full tripartite readings
         run: |
           python -m experiments.wf_source_pinned_literary_incremental stage \
-            --pack experiments/wf_0cr_three_fusheng_shishuo_close_readings_20261029.json \
+            --pack experiments/wf_0cr_three_courtesy_childhood_mourning_readings_20261029.json \
             --source-dir "$RUNNER_TEMP" --db "$RUNNER_TEMP/wf0cr-148.sqlite3" \
             > "$RUNNER_TEMP/stage.json"
           python - <<'PY'
@@ -71,7 +71,7 @@ jobs:
           assert r["status"]=="WF_SOURCE_EXISTING_XUEHAI_APPEND_FIVE"
           assert r["entries"]==148 and r["full_readings"]==100 and r["added"]==3
           assert r["model_calls"]==r["canon_writes"]==0 and r["old_r2_modified"] is False
-          print("WF0CQ_ALL_148_AND_100_WITH_PREVIOUS_145_BYTE_UNCHANGED",flush=True)
+          print("WF0CR_ALL_148_AND_100_WITH_PREVIOUS_145_BYTE_UNCHANGED",flush=True)
           PY
       - name: Exercise actual author reading selector (not literary-quality grades)
         run: |
@@ -104,13 +104,13 @@ jobs:
                   out.append([name,cluster])
           finally:
               rt.exit();db.close()
-          print("WF0CQ_AUTHOR_READ_SOURCE_ONLY_RESULTS",json.dumps(out,ensure_ascii=False),flush=True)
+          print("WF0CR_AUTHOR_READ_SOURCE_ONLY_RESULTS",json.dumps(out,ensure_ascii=False),flush=True)
           PY
       - name: Publish NEW immutable R2 successor prefix, old library never modified
         id: publish
         run: |
           python -m experiments.wf_source_pinned_literary_incremental publish \
-            --pack experiments/wf_0cr_three_fusheng_shishuo_close_readings_20261029.json \
+            --pack experiments/wf_0cr_three_courtesy_childhood_mourning_readings_20261029.json \
             --db "$RUNNER_TEMP/wf0cr-148.sqlite3" > "$RUNNER_TEMP/published.json"
           python - <<'PY'
           import os,json
@@ -121,7 +121,7 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf8") as f:
               f.write("snapshot="+r["snapshot"]+"\n")
               f.write("digest="+r["all_content_sha256"]+"\n")
-          print("WF0CQ_NEW_IMMUTABLE_R2_SNAPSHOT",r["snapshot"],"CONTENT_SHA",r["all_content_sha256"],flush=True)
+          print("WF0CR_NEW_IMMUTABLE_R2_SNAPSHOT",r["snapshot"],"CONTENT_SHA",r["all_content_sha256"],flush=True)
           PY
 
   separate-job-read-only-cold-restore:
@@ -134,8 +134,8 @@ jobs:
       WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
       WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
       WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
-      WF0CQ_SNAPSHOT: ${{ needs.append-three-to-old-xuehai.outputs.snapshot }}
-      WF0CQ_DIGEST: ${{ needs.append-three-to-old-xuehai.outputs.digest }}
+      WF0CR_SNAPSHOT: ${{ needs.append-three-to-old-xuehai.outputs.snapshot }}
+      WF0CR_DIGEST: ${{ needs.append-three-to-old-xuehai.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -148,8 +148,8 @@ jobs:
       - name: Cold read every actual old and new literary passage and all 100 complete readings
         run: |
           python -m experiments.wf_source_pinned_literary_incremental cold-restore \
-            --pack experiments/wf_0cr_three_fusheng_shishuo_close_readings_20261029.json \
-            --snapshot "$WF0CQ_SNAPSHOT" --digest "$WF0CQ_DIGEST" > "$RUNNER_TEMP/cold.json"
+            --pack experiments/wf_0cr_three_courtesy_childhood_mourning_readings_20261029.json \
+            --snapshot "$WF0CR_SNAPSHOT" --digest "$WF0CR_DIGEST" > "$RUNNER_TEMP/cold.json"
           python - <<'PY'
           import os,json
           from pathlib import Path
@@ -157,5 +157,5 @@ jobs:
           assert r["status"]=="WF_SOURCE_NEW_R2_COLD_READBACK_148_100"
           assert r["entries"]==148 and r["full_readings"]==100 and r["added"]==3
           assert r["model_calls"]==r["r2_writes"]==r["canon_writes"]==0
-          print("WF0CQ_148_100_INDEPENDENT_READONLY_R2_GREEN",flush=True)
+          print("WF0CR_148_100_INDEPENDENT_READONLY_R2_GREEN",flush=True)
           PY
