@@ -1,0 +1,43 @@
+name: WF 0.CA source-first candidate-only recovery regression - NO MODEL
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0ca-author-source-recovery-offline.yml
+      - writerforge/v96_causal_turns.py
+      - writerforge/writing_assist.py
+      - tests/test_wf_0ca_author_source_recovery.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  replay-existing-0bz-originals-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: No paid author provider nor private R2
+        run: |
+          python - <<'PY'
+          import os
+          forbidden=("OPENAI_API_KEY","DEEPSEEK_API_KEY","DISCOVERY_API_KEY",
+                     "OPENROUTER_API_KEY","ANTHROPIC_API_KEY",
+                     "R2_ACCESS_KEY_ID","R2_SECRET_ACCESS_KEY")
+          assert not any(os.getenv(k) for k in forbidden)
+          print("REAL_0BZ_REPLAY_ONLY_NO_NEW_MODEL_CALLS",flush=True)
+          PY
+      - run: python -m pip install -e .
+      - name: Source-locked 0.BZ original prose regression (ZERO inference)
+        run: python -m unittest discover -s tests -p 'test_wf_0ca_author_source_recovery.py' -v
+      - name: Original V96 source / knowledge / causal guards remain
+        run: python -m unittest discover -s tests -p 'test_v96_causal_turns.py' -v
+      - name: Original G / V98 rolling core still intact (mock only)
+        run: python -m unittest discover -s tests -p 'test_wf_0bk_true_three_arm_author_core.py' -v
