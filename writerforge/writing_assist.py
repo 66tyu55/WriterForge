@@ -2732,6 +2732,19 @@ def _validate_unaccepted_fork_resume(*,fork_receipt,candidate_resume,
     return candidate_resume
 
 
+
+def _xuehai_author_reading_choice(plan_raw: str) -> dict | None:
+    """Only the author's OPTIONAL model response, never WF's literary verdict."""
+    doc=_decode_json(plan_raw)
+    choice=doc.get("reading_choice")
+    if (type(choice) is not dict or
+        choice.get("decision") not in ("USE","SKIP") or
+        type(choice.get("reason")) is not str or
+        not 12<=len(choice["reason"].strip())<=260):
+        return None
+    return {"decision":choice["decision"],"reason":choice["reason"].strip()}
+
+
 class AutonomousWriting:
     """Bounded outline -> narrative decisions -> actual model chapters on disk."""
 
@@ -2780,7 +2793,10 @@ class AutonomousWriting:
             selected_fork_receipt:dict|None=None,
             g_rolling_author_planning:bool=False,
             host_nutrient_observer=None,
-            xuehai_methods_enabled:bool=False) -> dict:
+            xuehai_methods_enabled:bool=False,
+            xuehai_readings_enabled:bool=False) -> dict:
+        if type(xuehai_readings_enabled) is not bool:
+            raise WritingExecutionError("XUEHAI_AUTHOR_DEEP_READING_CHOICE_INVALID")
         if type(xuehai_methods_enabled) is not bool:
             raise WritingExecutionError("XUEHAI_METHOD_AUTHOR_CHOICE_INVALID")
         # First host completion SHA capture is opt-in and source-only.
@@ -3126,6 +3142,7 @@ class AutonomousWriting:
         writer_rewind_count=0  # Bounded to one previous-turn branch per job.
         rolling_replan_calls=0
         g_rolling_source_skips=[]
+        author_reading_receipts=[]
         previous_emotional_turns=()
         previous_continuity_checkpoint=None
         previous_external_story_checkpoint=earlier_external
@@ -3223,6 +3240,70 @@ class AutonomousWriting:
                 if plan_tail:
                     plan_prompt=_enrich(
                         base,plan_addition+plan_tail,prose_task=False)
+            # The actual author reads ONE whole source/annotations/reflection
+            # BEFORE deciding character goals. This is opt-in and makes no
+            # new model call, method card, memory module, or canon decision.
+            # Never squeeze an original into an 80/300-character cue.
+            reading_receipt={
+                "format":"wf.writer.preplan-deep-reading.v1",
+                "enabled":xuehai_readings_enabled,
+                "entry_id":None,
+                "delivered_to_author_planning":False,
+                "reading_sha256":None,
+                "planning_prompt_sha256":None,
+                "model_reading_decision":"NOT_ASKED",
+                "model_reading_reason":None,
+                "selection_is_lexical_not_semantic":True,
+                "literary_improvement_proven":False,
+                "new_model_calls":0,
+                "canon_writes":0,
+            }
+            if xuehai_readings_enabled:
+                reading_intro=(
+                    "
+【学海文学深读，供原创作者参考而非情节命令】"
+                    "
+以下是某部作品的完整连续原文、贴句批注和开放心得。"
+                    "批注不是唯一解释，你可以质疑、拒绝或从不同角度理解；"
+                    "人物、设定和句子不能照搬，也不要自动模仿其修辞。"
+                    "
+请自行判断它与本章是否相关、有哪些局限；"
+                    "本章人物的选择与故事因果始终由你决定。"
+                    "
+如果你确实作了阅读判断，规划JSON可额外包含"
+                    '"reading_choice":{"decision":"USE或SKIP",'
+                    '"reason":"结合材料与本章目标，说明想借鉴什么或为何不用"}；'
+                    "不得在正文解释或提及阅读材料。"
+                    "
+【完整阅读】
+"
+                )
+                room=MAX_PROMPT_CHARS-len(plan_prompt.prompt)-len(reading_intro)-1
+                if room>=500:
+                    try:
+                        reading=self.assist.flow.xuehai.select_literary_reading_for_author(
+                            goal=goal,max_chars=min(4900,room))
+                    except ValueError as exc:
+                        raise WritingExecutionError(
+                            "XUEHAI_AUTHOR_READING_RETRIEVAL_FAILED") from exc
+                    if reading is not None:
+                        plan_prompt=_enrich(
+                            plan_prompt,reading_intro+reading["complete_reading"],
+                            prose_task=False)
+                        reading_receipt.update({
+                            "entry_id":reading["entry_id"],
+                            "reading_sha256":reading["reading_sha256"],
+                            "source_role":reading["source_role"],
+                            "original_characters":reading["original_chars"],
+                            "annotation_count":reading["annotation_count"],
+                            "reflection_characters":reading["reflection_chars"],
+                            "delivered_to_author_planning":True,
+                            "planning_prompt_sha256":plan_prompt.prompt_sha256,
+                        })
+                    else:
+                        reading_receipt["not_delivered_reason"]="NO_RELEVANT_FULL_READING_FITS"
+                else:
+                    reading_receipt["not_delivered_reason"]="FULL_CONTEXT_WOULD_OVERFLOW"
             plan_raw=ask_model(
                 plan_prompt,model=self.assist.model,
                 api_base=self.assist.api_base,
@@ -3236,6 +3317,17 @@ class AutonomousWriting:
                     plan_raw,encoding="utf8")
             try:
                 plan=_chapter_plan(plan_raw,goal)
+                if reading_receipt["delivered_to_author_planning"]:
+                    author_choice=_xuehai_author_reading_choice(plan_raw)
+                    if author_choice is not None:
+                        reading_receipt["model_reading_decision"]=author_choice["decision"]
+                        reading_receipt["model_reading_reason"]=author_choice["reason"]
+                        # Only the real writer may carry its own interpretation
+                        # into the next outline/prose step. A SKIP is respected.
+                        plan["writer_reading_choice"]=author_choice
+                    else:
+                        reading_receipt["model_reading_decision"]="NOT_EXPRESSED"
+                author_reading_receipts.append(reading_receipt)
             except WritingExecutionError:
                 if draft_mode=="foresight_rolling":
                     issue={
@@ -4534,6 +4626,7 @@ class AutonomousWriting:
                 "manifest":saved["manifest"],"plan":str(plan_file),
                 "source_refs":saved["source_refs"],
                 "verified_facets":len(facets),"accepted":False,
+                "wf_literary_reading_before_planning":reading_receipt,
             }
             if turn_evidence is not None:
                 # Append-only candidate evidence beside the existing saved
@@ -4834,6 +4927,16 @@ class AutonomousWriting:
                 host_nutrient_observer_failures,
             "host_nutrient_provider_wires_verified":0,
             "host_nutrient_candidates_promoted":0,
+            "wf_literary_preplan_reading_opt_in":xuehai_readings_enabled,
+            "wf_literary_readings_delivered":sum(
+                r["delivered_to_author_planning"] for r in author_reading_receipts),
+            "wf_literary_readings_author_used":sum(
+                r["model_reading_decision"]=="USE" for r in author_reading_receipts),
+            "wf_literary_readings_author_skipped":sum(
+                r["model_reading_decision"]=="SKIP" for r in author_reading_receipts),
+            "wf_literary_reading_receipts":author_reading_receipts,
+            "wf_literary_learning_quality_verified":False,
+            "wf_literary_preplan_extra_model_calls":0,
         }
         if draft_mode!="single":
             receipt.update({
