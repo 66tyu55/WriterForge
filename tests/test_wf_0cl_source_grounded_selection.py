@@ -90,6 +90,24 @@ class SourceBasedTransferRegressions(unittest.TestCase):
         # No consensus that other sources are fully applicable. Abstention is
         # permissible and should not be counted as missed literary truth.
 
+    def test_unseen_real_classical_tasks_with_explicit_prose_intent_reach_craft_scope(self):
+        # This set was frozen and RUN before the 0.CL diagnosis; see
+        # the immutable first 14-case R2 GitHub Actions result.
+        frozen=json.loads((ROOT/"experiments/wf_0cl_frozen_unseen_transfer_cases_20261029.json").read_text("utf8"))
+        by_id={x["id"]:x for x in frozen["cases"]}
+        for case_id in (
+            "new-dd1-giving-up-catch-hunger",
+            "new-zb1-servant-sacrifice-doubt",
+            "new-dd2-false-river-spirit-tolls",
+            "new-partial-social-speaking-vs-power",
+        ):
+            with self.subTest(case_id=case_id):
+                self.assertNotEqual(
+                    _author_craft_scope(by_id[case_id]["writing_problem"]),"")
+        # Calling a mere wish for better text a source-grounded transfer
+        # would not be justified; abstention must remain possible.
+        self.assertEqual(_author_craft_scope("希望这一章写得更好"),"")
+
     def test_existing_genuine_classic_full_text_remains_untouched(self):
         data=json.loads(BW.read_text("utf8"))
         jing=next(x for x in data["items"] if x["id"]=="classic-fantasy-jh-3")
