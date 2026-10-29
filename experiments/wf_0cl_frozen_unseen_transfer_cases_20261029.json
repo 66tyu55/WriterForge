@@ -1,0 +1,134 @@
+{
+  "format": "wf.0cl.pre-registered.genuine-readings.v1",
+  "created": "2026-10-29",
+  "design": "Frozen before 0.CL first execution, no tuning on these cases. Human proposed refs are non-exclusive, NOT literary truth.",
+  "source_scope": "Existing R2 pinned 0.CF public-domain classical originals and published unaccepted original fiction; no new sources or learning",
+  "classes": [
+    "potentially_helpful",
+    "partial_not_unique",
+    "irrelevant_or_abstain",
+    "should_abstain"
+  ],
+  "cases": [
+    {
+      "id": "new-fs3-ransom-gift-entangles-help",
+      "class": "potentially_helpful",
+      "possible_sources": [
+        "classic-fantasy-fs-3"
+      ],
+      "goal": "剑庐弟子带仅有的法器向魔城求赎被囚的师父，城主却把奇物用于奢靡宫宴。",
+      "writing_problem": "想写出救亲者献宝的孝心与礼物助长暴政之间的冲突，让受贿者改变承诺的条件，而不轻易宣布谁全对。"
+    },
+    {
+      "id": "new-fs4-river-stop-against-magic",
+      "class": "potentially_helpful",
+      "possible_sources": [
+        "classic-fantasy-fs-4"
+      ],
+      "goal": "破阵者必须到远山借一枚避风珠，途中借渡船却遇见落魄的旧部。",
+      "writing_problem": "怎样使克制仙阵的宝物仍受凡间道路和人的信任牵制，失物追回也不抹掉护送者的疏忽和后果。"
+    },
+    {
+      "id": "new-hx1-ascension-as-fresh-obligation",
+      "class": "potentially_helpful",
+      "possible_sources": [
+        "classic-fantasy-hx-1"
+      ],
+      "goal": "升入仙籍的青鸾被告知必须投胎给一对久未得子的夫妇，自己并不愿意。",
+      "writing_problem": "要写出同一转世决定在天界是使命、在父母是希望、对灵鸟却是失去自由，不用宿命旁白消掉抵触。"
+    },
+    {
+      "id": "new-hx2-garden-metaphor-harms-daughter",
+      "class": "potentially_helpful",
+      "possible_sources": [
+        "classic-fantasy-hx-2"
+      ],
+      "goal": "宗门长辈在花园里指责徒弟成亲多年无子，借花木说话，被说者无法直接发作。",
+      "writing_problem": "如何让含沙射影的花草话题真正成为权力施压，被责怪者借一句诗反击又留下羞辱与婚姻分歧。"
+    },
+    {
+      "id": "new-dd1-giving-up-catch-hunger",
+      "class": "potentially_helpful",
+      "possible_sources": [
+        "classic-fantasy-dd-1"
+      ],
+      "goal": "河边夫妇因不忍伤害灵鱼而放生，归家发现这个月靠打鱼买米的钱没有了。",
+      "writing_problem": "希望把慈悲和生计同时写实，善举造成的饥饿不能只由一位神仙送赏赐就当作被解释完。"
+    },
+    {
+      "id": "new-zb1-servant-sacrifice-doubt",
+      "class": "potentially_helpful",
+      "possible_sources": [
+        "classic-fantasy-zb-1"
+      ],
+      "goal": "管家听说道士能救活仙门少主，但必须由一人代死，旁人却不肯应声。",
+      "writing_problem": "怎样表现忠仆主动以命相换的尊卑秩序，同时给沉默者留下不愿牺牲的正当解释，并让复生后的异样渐渐引起疑问。"
+    },
+    {
+      "id": "new-dd2-false-river-spirit-tolls",
+      "class": "potentially_helpful",
+      "possible_sources": [
+        "classic-fantasy-dd-2"
+      ],
+      "goal": "渡口的巫者以水神之怒威胁乡人收取灵米，一位外来修士揭穿部分谎言。",
+      "writing_problem": "想写出恐惧如何通过传闻、收费和谁敢出面作证维持；即使有人揭穿，围观者仍可能无法确信。"
+    },
+    {
+      "id": "new-zb2-poet-friend-coercion",
+      "class": "potentially_helpful",
+      "possible_sources": [
+        "classic-fantasy-zb-2"
+      ],
+      "goal": "求学少年结识一位能改他诗句的长者，数次相见后长者突然索要巨量香火。",
+      "writing_problem": "如何让文学知音的亲近一步步变成胁迫，旧梦里的含混字句随着遭遇改变解释，但不要假设主角一开始就知道真相。"
+    },
+    {
+      "id": "new-partial-social-speaking-vs-power",
+      "class": "partial_not_unique",
+      "possible_sources": [
+        "classic-fantasy-fs-1",
+        "classic-0bs-h04"
+      ],
+      "goal": "一名使者在王庭祝酒时称赞上位者，听众虽然陪笑，心里未必赞同。",
+      "writing_problem": "想写出公开称颂、权势顾忌和私人判断的裂缝，既不需要天命预言，也不必把恭维当作一律虚伪。"
+    },
+    {
+      "id": "new-partial-quiet-care-time-gap",
+      "class": "partial_not_unique",
+      "possible_sources": [
+        "original-read-bq-04",
+        "original-read-bq-13"
+      ],
+      "goal": "离开宗门许久的弟子回家，看见旧友只在灶边替他把米汤盛满。",
+      "writing_problem": "怎样让久别之后不擅表达的照料发生在吃饭与劳动里，不靠盛大惊喜或一句旁白确认一切已和好。"
+    },
+    {
+      "id": "new-unrelated-unobserved-alchemy-count",
+      "class": "irrelevant_or_abstain",
+      "possible_sources": [],
+      "goal": "炼丹师新收弟子跟着师父清点六十枚药丹，记录颜色和剂量。",
+      "writing_problem": "只需根据实验室称量结果计算浓度与误差，列出单位换算公式并分析数据可靠性，不需要小说文字。"
+    },
+    {
+      "id": "new-unrelated-sword-style-name",
+      "class": "irrelevant_or_abstain",
+      "possible_sources": [],
+      "goal": "掌门已经列出十个武功名称，准备上传游戏资源。",
+      "writing_problem": "怎样对十个技能图标进行PNG无损压缩，列出可运行命令与参数；不要求小说正文或情节分析。"
+    },
+    {
+      "id": "new-abstain-unspecified-scene",
+      "class": "should_abstain",
+      "possible_sources": [],
+      "goal": "一个修士进入院子，在门前看了同门一眼，然后走向屋内。",
+      "writing_problem": "希望这一小段写得更好，但目前没有明确想解决的具体文学问题。"
+    },
+    {
+      "id": "new-abstain-prosody-solver",
+      "class": "should_abstain",
+      "possible_sources": [],
+      "goal": "仙侠角色需要一种只有十个汉字的密令，制作人要机器校验。",
+      "writing_problem": "请给出严格可验证的字符串算法，要求每一个字符对应十六进制码点，并输出Python实现，不能提供小说正文。"
+    }
+  ]
+}
