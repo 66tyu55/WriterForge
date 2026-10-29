@@ -24,7 +24,7 @@ from .r2_storage import (
 )
 from .encyclopedia import FictionEncyclopedia, FacetQuery
 from .runtime import RuntimeEngine
-from .prose_style import format_prose_reference
+from .prose_style import format_prose_reference, rejects_verbatim_copy
 from .verified_flow import (
     VerifiedWritingFlow, GroundedDraftPacket, WritingExecutionError,
     local_chat_completion, save_candidate, MAX_PROMPT_CHARS,
@@ -3244,6 +3244,7 @@ class AutonomousWriting:
             # BEFORE deciding character goals. This is opt-in and makes no
             # new model call, method card, memory module, or canon decision.
             # Never squeeze an original into an 80/300-character cue.
+            selected_complete_literature=None
             reading_receipt={
                 "format":"wf.writer.preplan-deep-reading.v1",
                 "enabled":xuehai_readings_enabled,
@@ -3281,6 +3282,7 @@ class AutonomousWriting:
                         raise WritingExecutionError(
                             "XUEHAI_AUTHOR_READING_RETRIEVAL_FAILED") from exc
                     if reading is not None:
+                        selected_complete_literature=reading["complete_reading"]
                         plan_prompt=_enrich(
                             plan_prompt,reading_intro+reading["complete_reading"],
                             prose_task=False)
@@ -4595,6 +4597,13 @@ class AutonomousWriting:
                         "WF96_SCENE_TURN_REJECTED_"+str(error)) from None
             if not isinstance(body,str) or not 100<=len(body.strip())<=MAX_PROSE_CHARS:
                 raise WritingExecutionError("model output too short, missing or too long")
+            # Transfer the literary insight, never long source passages:
+            # reuse the existing exact-span style-copy guard; no aesthetic
+            # score, new model retry, or auto-rewrite is introduced.
+            if (selected_complete_literature is not None and
+                rejects_verbatim_copy(body,selected_complete_literature)):
+                raise WritingExecutionError(
+                    "XUEHAI_AUTHOR_COPIED_FULL_READING_PROSE")
             check_cancel()
             if draft_mode!="single" and author_method_receipt is not None:
                 # Chapter receipt references the actual first author turn;
