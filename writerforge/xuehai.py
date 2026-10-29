@@ -174,7 +174,8 @@ def _author_craft_scope(outline: str) -> str:
                r"名聲|名声|出場|出场|怪事|真相|妖物|法術|法术|"
                r"反轉|反转|結尾|结尾|感受|情緒|情绪|"
                r"身世|命運|命运|壓力|压力|危險|危险|"
-               r"权勢|權勢|权力|權力|人物動機|人物动机")
+               r"权勢|權勢|权力|權力|人物動機|人物动机|"
+               r"合作|聯盟|联盟|盟約|盟约|資源|资源|風險|风险")
     return "。".join(c.strip() for c in clauses
                      if re.search(request,c) and re.search(narrative,c))[:600]
 
@@ -342,6 +343,13 @@ class XuehaiStore:
             (type(writing_problem) is not str or len(writing_problem)>2300)):
             raise ValueError("XUEHAI_AUTHOR_WRITING_PROBLEM_INVALID")
         craft_scope=_author_craft_scope(writing_problem or "")
+        # A technical or generic explicit HOW-TO is not permission for a
+        # plot-noun fallback. A normal chapter outline without an explicit
+        # request still follows the previous story-based reading path.
+        if (writing_problem is not None and not craft_scope and
+            re.search(r"如何|怎样|怎么|希望|想让|想写|写出|"
+                      r"写成|不要|不让|請|请",writing_problem)):
+            return None
         if craft_scope:
             # Real source quotations remain complete; rank ONLY their
             # line-anchored annotations/open reflections by an explicitly
