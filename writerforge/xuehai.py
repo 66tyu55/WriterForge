@@ -459,7 +459,15 @@ class XuehaiStore:
                             continue
                         grams=_literary_craft_grams(notes+"\n"+reflection)
                         evidence=_independent_literary_hits(target,grams)
-                        if len(evidence)<3:
+                        # A reflection may contain an open question about a
+                        # DIFFERENT future scenario. It is worth reading but
+                        # must not alone prove that the original passage
+                        # actually handles the author's present craft issue.
+                        # Require two independent links to text-anchored
+                        # annotations before proposing a candidate.
+                        annotated=_independent_literary_hits(
+                            target,_literary_craft_grams(notes))
+                        if len(evidence)<3 or len(annotated)<2:
                             continue
                         coverage=sum(bool(part & grams) for part in clauses)
                         ranked.append(((len(evidence),coverage,entry_id),row))
@@ -510,7 +518,10 @@ class XuehaiStore:
                     # five independent literary insights). Distinct anchored
                     # details matter more than keyword length.
                     independent=_independent_literary_hits(target,grams)
-                    if len(independent)<3:
+                    annotated=_independent_literary_hits(
+                        target,_literary_craft_grams(
+                            "\n".join(reading["annotations"])))
+                    if len(independent)<3 or len(annotated)<2:
                         continue
                     supported=sum(bool(part & grams) for part in clauses)
                     score=sum(
