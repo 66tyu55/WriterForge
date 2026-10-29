@@ -1,0 +1,19 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "logprobs": null,
+      "text": "{\n  \"turns\": [\n    {\n      \"id\": \"t01\",\n      \"kind\": \"scene\",\n      \"actor\": \"林雁\",\n      \"goal\": \"观察阵法和铜钉结霜\",\n      \"causal_parent\": null,\n      \"craft_focus\": [\"description\"]\n    },\n    {\n      \"id\": \"t02\",\n      \"kind\": \"decision\",\n      \"actor\": \"林雁\",\n      \"goal\": \"决定是否救人\",\n      \"causal_parent\": \"t01\",\n      \"craft_focus\": [\"action\", \"decision\"]\n    },\n    {\n      \"id\": \"t03\",\n      \"kind\": \"quiet\",\n      \"actor\": \"林雁\",\n      \"goal\": \"思考救人与查阵的后果\",\n      \"causal_parent\": \"t02\",\n      \"craft_focus\": [\"interiority\"]\n    },\n    {\n      \"id\": \"t04\",\n      \"kind\": \"decision\",\n      \"actor\": \"林雁\",\n      \"goal\": \"选择救人\",\n      \"causal_parent\": \"t02\",\n      \"craft_focus\": [\"action\", \"decision\"]\n    },\n    {\n      \"id\": \"t05\",\n      \"kind\": \"aftermath\",\n      \"actor\": \"林雁\",\n      \"goal\": \"山民开门\",\n      \"causal_parent\": \"t04\",\n      \"craft_focus\": [\"action\"]\n    },\n    {\n      \"id\": \"t06\",\n      \"kind\": \"scene\",\n      \"actor\": \"林雁\",\n      \"goal\": \"观察阵法失灵\",\n      \"causal_parent\": \"t05\",\n      \"craft_focus\": [\"description\"]\n    },\n    {\n      \"id\": \"t07\",\n      \"kind\": \"decision\",\n      \"actor\": \"林雁\",\n      \"goal\": \"决定是否继续查阵\",\n      \"causal_parent\": \"t06\",\n      \"craft_focus\": [\"action\", \"decision\"]\n    },\n    {\n      \"id\": \"t08\",\n      \"kind\": \"quiet\",\n      \"actor\": \"林雁\",\n      \"goal\": \"思考查阵的后果\",\n      \"causal_parent\": \"t07\",\n      \"craft_focus\": [\"interiority\"]\n    },\n    {\n      \"id\": \"t09\",\n      \"kind\": \"decision\",\n      \"actor\": \"林雁\",\n      \"goal\": \"选择继续查阵\",\n      \"causal_parent\": \"t07\",\n      \"craft_focus\": [\"action\", \"decision\"]\n    },\n    {\n      \"id\": \"t10\",\n      \"kind\": \"aftermath\",\n      \"actor\": \"林雁\",\n      \"goal\": \"继续查阵\",\n      \"causal_parent\": \"t09\",\n      \"craft_focus\": [\"action\"]\n    }\n  ]\n}"
+    }
+  ],
+  "created": 1793245417,
+  "id": "cmpl-0dfcf23a-8f72-4538-93ff-afac3f1b1b6d",
+  "model": "/home/runner/work/_temp/wf0bz-qwen25-3b.gguf",
+  "object": "text_completion",
+  "usage": {
+    "completion_tokens": 600,
+    "prompt_tokens": 696,
+    "total_tokens": 1296
+  }
+}

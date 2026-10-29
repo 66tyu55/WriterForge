@@ -1,0 +1,84 @@
+{
+  "turns": [
+    {
+      "id": "t01",
+      "kind": "decision",
+      "actor": "夏舟",
+      "goal": "决定是否替姐姐代领药签",
+      "causal_parent": null,
+      "craft_focus": ["action", "decision"]
+    },
+    {
+      "id": "t02",
+      "kind": "quiet",
+      "actor": "掌事",
+      "goal": "扣住药签",
+      "causal_parent": "t01",
+      "craft_focus": ["action"]
+    },
+    {
+      "id": "t03",
+      "kind": "quiet",
+      "actor": "排队病人",
+      "goal": "急需领药",
+      "causal_parent": "t01",
+      "craft_focus": ["action"]
+    },
+    {
+      "id": "t04",
+      "kind": "quiet",
+      "actor": "药堂内",
+      "goal": "维持秩序",
+      "causal_parent": "t01",
+      "craft_focus": ["action"]
+    },
+    {
+      "id": "t05",
+      "kind": "quiet",
+      "actor": "夏舟",
+      "goal": "观察掌事的动作",
+      "causal_parent": "t01",
+      "craft_focus": ["observation"]
+    },
+    {
+      "id": "t06",
+      "kind": "quiet",
+      "actor": "掌事",
+      "goal": "继续扣住药签",
+      "causal_parent": "t04",
+      "craft_focus": ["action"]
+    },
+    {
+      "id": "t07",
+      "kind": "quiet",
+      "actor": "排队病人",
+      "goal": "继续等待领药",
+      "causal_parent": "t04",
+      "craft_focus": ["action"]
+    },
+    {
+      "id": "t08",
+      "kind": "quiet",
+      "actor": "夏舟",
+      "goal": "思考姐姐的生死",
+      "causal_parent": "t01",
+      "craft_focus": ["thought"]
+    },
+    {
+      "id": "t09",
+      "kind": "quiet",
+      "actor": "掌事",
+      "goal": "准备离开药堂",
+      "causal_parent": "t06",
+      "craft_focus": ["action"]
+    },
+    {
+      "id": "t10",
+      "kind": "quiet",
+      "actor": "排队病人",
+      "goal": "继续排队等待",
+      "causal_parent": "t09",
+      "craft_focus": ["action"]
+    }
+  ]
+}

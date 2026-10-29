@@ -1,0 +1,84 @@
+{
+  "turns": [
+    {
+      "id": "t01",
+      "kind": "scene",
+      "actor": "林雁",
+      "goal": "观察阵法和铜钉结霜",
+      "causal_parent": null,
+      "craft_focus": ["description"]
+    },
+    {
+      "id": "t02",
+      "kind": "decision",
+      "actor": "林雁",
+      "goal": "决定是否救人",
+      "causal_parent": "t01",
+      "craft_focus": ["action", "decision"]
+    },
+    {
+      "id": "t03",
+      "kind": "quiet",
+      "actor": "林雁",
+      "goal": "思考救人与查阵的后果",
+      "causal_parent": "t02",
+      "craft_focus": ["interiority"]
+    },
+    {
+      "id": "t04",
+      "kind": "decision",
+      "actor": "林雁",
+      "goal": "选择救人",
+      "causal_parent": "t02",
+      "craft_focus": ["action", "decision"]
+    },
+    {
+      "id": "t05",
+      "kind": "aftermath",
+      "actor": "林雁",
+      "goal": "山民开门",
+      "causal_parent": "t04",
+      "craft_focus": ["action"]
+    },
+    {
+      "id": "t06",
+      "kind": "scene",
+      "actor": "林雁",
+      "goal": "观察阵法失灵",
+      "causal_parent": "t05",
+      "craft_focus": ["description"]
+    },
+    {
+      "id": "t07",
+      "kind": "decision",
+      "actor": "林雁",
+      "goal": "决定是否继续查阵",
+      "causal_parent": "t06",
+      "craft_focus": ["action", "decision"]
+    },
+    {
+      "id": "t08",
+      "kind": "quiet",
+      "actor": "林雁",
+      "goal": "思考查阵的后果",
+      "causal_parent": "t07",
+      "craft_focus": ["interiority"]
+    },
+    {
+      "id": "t09",
+      "kind": "decision",
+      "actor": "林雁",
+      "goal": "选择继续查阵",
+      "causal_parent": "t07",
+      "craft_focus": ["action", "decision"]
+    },
+    {
+      "id": "t10",
+      "kind": "aftermath",
+      "actor": "林雁",
+      "goal": "继续查阵",
+      "causal_parent": "t09",
+      "craft_focus": ["action"]
+    }
+  ]
+}

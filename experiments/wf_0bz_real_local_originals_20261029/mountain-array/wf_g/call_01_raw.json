@@ -1,0 +1,19 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "logprobs": null,
+      "text": "{\"objective\":\"护山阵的铜钉结霜，林雁需在救人与查阵之间做出选择，以决定是否开门接纳山民避难，同时承担可能的后果。\",\"conflict\":\"林雁无法确定铜钉结霜的原因，担心开门会耗尽维持护阵的灵石，但山民求进避难，这又让他面临道德与责任的冲突。\",\"decision\":\"林雁在铜钉结霜与山民求进之间犹豫不决，最终选择开门接纳山民避难，但并未立即查明铜钉结霜的原因。\",\"outcome\":\"林雁在开门接纳山民避难后，未能及时查明铜钉结霜的原因，导致护山阵的灵石消耗殆尽，护山阵因此暂时失灵。\",\"pov\":\"林雁\"}"
+    }
+  ],
+  "created": 1793245250,
+  "id": "cmpl-cd9866d8-96ac-4a47-9324-7f80bffcff8a",
+  "model": "/home/runner/work/_temp/wf0bz-qwen25-3b.gguf",
+  "object": "text_completion",
+  "usage": {
+    "completion_tokens": 172,
+    "prompt_tokens": 511,
+    "total_tokens": 683
+  }
+}

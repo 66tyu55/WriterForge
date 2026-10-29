@@ -1,0 +1,19 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "logprobs": null,
+      "text": "{\n  \"turns\": [\n    {\n      \"id\": \"t01\",\n      \"kind\": \"scene\",\n      \"actor\": \"林雁\",\n      \"goal\": \"观察铜钉结霜现象\",\n      \"causal_parent\": null,\n      \"craft_focus\": [\"description\"]\n    },\n    {\n      \"id\": \"t02\",\n      \"kind\": \"decision\",\n      \"actor\": \"林雁\",\n      \"goal\": \"决定是否开门接纳山民\",\n      \"causal_parent\": \"t01\",\n      \"craft_focus\": [\"action\", \"interiority\"]\n    },\n    {\n      \"id\": \"t03\",\n      \"kind\": \"quiet\",\n      \"actor\": \"林雁\",\n      \"goal\": \"思考是否开门\",\n      \"causal_parent\": \"t02\",\n      \"craft_focus\": [\"action\", \"interiority\"]\n    },\n    {\n      \"id\": \"t04\",\n      \"kind\": \"decision\",\n      \"actor\": \"林雁\",\n      \"goal\": \"选择开门接纳山民\",\n      \"causal_parent\": \"t03\",\n      \"craft_focus\": [\"action\", \"interiority\"]\n    },\n    {\n      \"id\": \"t05\",\n      \"kind\": \"aftermath\",\n      \"actor\": \"林雁\",\n      \"goal\": \"开门接纳山民\",\n      \"causal_parent\": \"t04\",\n      \"craft_focus\": [\"action\", \"interiority\"]\n    },\n    {\n      \"id\": \"t06\",\n      \"kind\": \"transition\",\n      \"actor\": \"林雁\",\n      \"goal\": \"处理山民避难\",\n      \"causal_parent\": \"t05\",\n      \"craft_focus\": [\"action\", \"interiority\"]\n    },\n    {\n      \"id\": \"t07\",\n      \"kind\": \"decision\",\n      \"actor\": \"林雁\",\n      \"goal\": \"决定是否立即查明铜钉结霜原因\",\n      \"causal_parent\": \"t06\",\n      \"craft_focus\": [\"action\", \"interiority\"]\n    },\n    {\n      \"id\": \"t08\",\n      \"kind\": \"quiet\",\n      \"actor\": \"林雁\",\n      \"goal\": \"思考是否立即查明原因\",\n      \"causal_parent\": \"t07\",\n      \"craft_focus\": [\"action\", \"interiority\"]\n    },\n    {\n      \"id\": \"t09\",\n      \"kind\": \"decision\",\n      \"actor\": \"林雁\",\n      \"goal\": \"选择不立即查明原因\",\n      \"causal_parent\": \"t08\",\n      \"craft_focus\": [\"action\", \"interiority\"]\n    },\n    {\n      \"id\": \"t10\",\n      \"kind\": \"aftermath\",\n      \"actor\": \"林雁\",\n      \"goal\": \"未能查明铜钉结霜原因\",\n      \"causal_parent\": \"t09\",\n      \"craft_focus\": [\"action\", \"interiority\"]\n    }\n  ]"
+    }
+  ],
+  "created": 1793245281,
+  "id": "cmpl-90d2945f-1521-4dba-992a-fba457325dca",
+  "model": "/home/runner/work/_temp/wf0bz-qwen25-3b.gguf",
+  "object": "text_completion",
+  "usage": {
+    "completion_tokens": 638,
+    "prompt_tokens": 732,
+    "total_tokens": 1370
+  }
+}

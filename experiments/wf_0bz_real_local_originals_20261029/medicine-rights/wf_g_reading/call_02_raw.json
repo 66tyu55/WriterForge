@@ -1,0 +1,19 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "logprobs": null,
+      "text": "{\n  \"turns\": [\n    {\n      \"id\": \"t01\",\n      \"kind\": \"action\",\n      \"actor\": \"夏舟\",\n      \"goal\": \"向掌事表明自己是失踪者姐姐的弟弟，希望代领三枚药签。\",\n      \"causal_parent\": null,\n      \"craft_focus\": [\"action\", \"none\"]\n    },\n    {\n      \"id\": \"t02\",\n      \"kind\": \"decision\",\n      \"actor\": \"夏舟\",\n      \"goal\": \"决定是否替姐姐领药，还是让病人失望。\",\n      \"causal_parent\": \"t01\",\n      \"craft_focus\": [\"action\", \"none\"]\n    },\n    {\n      \"id\": \"t03\",\n      \"kind\": \"decision\",\n      \"actor\": \"掌事\",\n      \"goal\": \"拒绝夏舟的请求，坚持要求夏舟自己去领药。\",\n      \"causal_parent\": \"t01\",\n      \"craft_focus\": [\"action\", \"none\"]\n    },\n    {\n      \"id\": \"t04\",\n      \"kind\": \"quiet\",\n      \"actor\": \"掌事\",\n      \"goal\": \"维持现状，不让夏舟轻易离开。\",\n      \"causal_parent\": \"t03\",\n      \"craft_focus\": [\"action\", \"none\"]\n    },\n    {\n      \"id\": \"t05\",\n      \"kind\": \"aftermath\",\n      \"actor\": \"夏舟\",\n      \"goal\": \"思考如何在掌事拒绝的情况下，既不放弃姐姐，又不让病人失望。\",\n      \"causal_parent\": \"t02\",\n      \"craft_focus\": [\"action\", \"none\"]\n    },\n    {\n      \"id\": \"t06\",\n      \"kind\": \"transition\",\n      \"actor\": \"夏舟\",\n      \"goal\": \"在掌事的注视下，夏舟最终做出了决定。\",\n      \"causal_parent\": \"t05\",\n      \"craft_focus\": [\"action\", \"none\"]\n    },\n    {\n      \"id\": \"t07\",\n      \"kind\": \"quiet\",\n      \"actor\": \"掌事\",\n      \"goal\": \"观察夏舟的决定，准备下一步行动。\",\n      \"causal_parent\": \"t06\",\n      \"craft_focus\": [\"action\", \"none\"]\n    },\n    {\n      \"id\": \"t08\",\n      \"kind\": \"quiet\",\n      \"actor\": \"排队的病人\",\n      \"goal\": \"等待领药，心中焦急。\",\n      \"causal_parent\": \"t06\",\n      \"craft_focus\": [\"action\", \"none\"]\n    },\n    {\n      \"id\": \"t09\",\n      \"kind\": \"quiet\",\n      \"actor\": \"掌事\",\n      \"goal\": \"确认夏舟的决定是否合理。\",\n      \"causal_parent\": \"t06\",\n      \"craft_focus\": [\"action\", \"none\"]\n    },\n    {\n      \"id\": \"t10\",\n      \"kind\": \"quiet\",\n      \"actor\": \"夏舟\",\n      \"goal\": \"在掌事的注视下，夏舟最终做出了决定。\",\n      \"causal_parent\": \"t06\",\n      \"craft_focus\": [\"action\", \"none\"]\n    }\n  ]\n}"
+    }
+  ],
+  "created": 1793245082,
+  "id": "cmpl-2a1024e7-9983-400c-9e77-cb865d4c19a2",
+  "model": "/home/runner/work/_temp/wf0bz-qwen25-3b.gguf",
+  "object": "text_completion",
+  "usage": {
+    "completion_tokens": 684,
+    "prompt_tokens": 655,
+    "total_tokens": 1339
+  }
+}

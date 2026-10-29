@@ -1,0 +1,19 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "logprobs": null,
+      "text": "{\"objective\":\"夏舟需要在掌事扣住药签且排队病人急需领药的情况下，做出一个选择来解决当前的困境，同时考虑到姐姐的生死未明，夏舟必须做出一个可能有后果的决定。\",\"conflict\":\"掌事扣住药签，夏舟需要在病人排队等待领药与姐姐生死未明之间做出选择。\",\"decision\":\"夏舟需要决定是否要冒风险去替姐姐代领药签，或者选择直接离开药堂。\",\"outcome\":\"夏舟的选择将决定他是否能够继续为姐姐争取领药权，或者是否需要面对姐姐可能已经去世的现实。\",\"pov\":\"夏舟\"}"
+    }
+  ],
+  "created": 1793244929,
+  "id": "cmpl-c7d27b49-6b5a-4748-b51e-257c36bf9901",
+  "model": "/home/runner/work/_temp/wf0bz-qwen25-3b.gguf",
+  "object": "text_completion",
+  "usage": {
+    "completion_tokens": 141,
+    "prompt_tokens": 514,
+    "total_tokens": 655
+  }
+}

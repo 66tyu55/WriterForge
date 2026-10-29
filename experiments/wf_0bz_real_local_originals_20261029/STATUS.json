@@ -1,0 +1,286 @@
+{
+  "budget_is_same_ceiling_not_equal_actual_usage": true,
+  "call_limit_per_arm_per_scene": 5,
+  "calls": 11,
+  "canon_writes": 0,
+  "completion_token_budget_per_arm_per_scene": 5650,
+  "format": "wf.0bz.two-scene-local-three-arm-source.v1",
+  "full_three_part_readings": 66,
+  "independent_reader_votes": 0,
+  "literary_improvement_proven": false,
+  "model": "bartowski/Qwen2.5-3B-Instruct-GGUF",
+  "model_revision": "254600e47ea694216f6108325376ce5b35d456a1",
+  "new_paid_model_api_calls": 0,
+  "not_provider_http_wire": true,
+  "preflight": [
+    {
+      "full_three_parts": true,
+      "reading_entry_id": 464,
+      "reading_original_chars": 412,
+      "reading_sha256": "dd3ab143a1f3bcdbf068b681ac69101044841122138f23080eeff579d45b9409",
+      "reading_source": "WF原创·未归人的药·完整场景｜https://github.com/66tyu55/WriterForge/blob/a8c1a25f7f70d97ad57acc31280541d1c9150424/experiments/wf_0bq_full_literary_detail_corpus_A_20261028.json",
+      "scene": "medicine-rights"
+    },
+    {
+      "full_three_parts": true,
+      "reading_entry_id": 471,
+      "reading_original_chars": 393,
+      "reading_sha256": "c845413d7a1f689343af7bfdc9f051627af71f12d7bf2de9e205d8ff2764f814",
+      "reading_source": "WF原创·山门旧阵·完整场景｜https://github.com/66tyu55/WriterForge/blob/a8c1a25f7f70d97ad57acc31280541d1c9150424/experiments/wf_0bq_full_literary_detail_corpus_A_20261028.json",
+      "scene": "mountain-array"
+    }
+  ],
+  "published_disposable_xuehai_entries": 114,
+  "r2_accesses": 0,
+  "real_local_open_weight_inference": true,
+  "results": [
+    {
+      "arm": "bare",
+      "author_accepted": false,
+      "calls": [
+        {
+          "actual_completion_tokens": 325,
+          "actual_prompt_tokens": 250,
+          "actual_request_sha256": "107f5290a9e456bb75bedb67083194ea4d2f35106a9d83e26ae56df0d22ee1b1",
+          "elapsed_seconds": 36.285,
+          "finish_reason": "stop",
+          "index": 1,
+          "original_answer_sha256": "708ae1a41be854622a816ed8fb86a12ab37761dd44bdcbac4ee83e09de699496",
+          "original_reply_path": "call_01_raw.json",
+          "packet_prompt_sha256": "272308eeb7dbac8045f8ef1b591754286546e948f0cc2a5e3087ea48bb02d6fd",
+          "raw_reply_sha256": "93c1aa053cd3030998d45d95444077c24657e1509586a5e1edbae5a1dbbf6ed3",
+          "requested_max_completion_tokens": 5650,
+          "stage_hint": "chapter_plan"
+        }
+      ],
+      "candidate_prose_file": "bare_original_plan_and_text.json",
+      "completion_cap_reserved": 5650,
+      "completion_tokens": 325,
+      "no_hidden_retry": true,
+      "prompt_tokens": 250,
+      "scene": "medicine-rights",
+      "status": "COMPLETED_UNGRADED",
+      "total_actual_tokens": 575
+    },
+    {
+      "arm": "wf_g",
+      "author_accepted": false,
+      "calls": [
+        {
+          "actual_completion_tokens": 141,
+          "actual_prompt_tokens": 514,
+          "actual_request_sha256": "f581a6fd9070ef9f271d2e83588b2207f493d1accc59c9c311d19b2a7671986a",
+          "elapsed_seconds": 28.867,
+          "finish_reason": "stop",
+          "index": 1,
+          "original_answer_sha256": "10388fb7d8d8332a015a9b31654490ac0c5752aa8a3a728e4446ba18a2ca2304",
+          "original_reply_path": "call_01_raw.json",
+          "packet_prompt_sha256": "74eef85ea0a9919184d3632b8fa7fe8b0bb67702a110abe286df66249e4d9c41",
+          "raw_reply_sha256": "6c01b005b56d66d7f3ce2d47f4dec04e06c46740409e2a0c2754b78d4b4d76a2",
+          "requested_max_completion_tokens": 650,
+          "stage_hint": "chapter_plan"
+        },
+        {
+          "actual_completion_tokens": 582,
+          "actual_prompt_tokens": 709,
+          "actual_request_sha256": "f9d6647b21067e2435329998dce54ddc53fee83f76b837ec14f7d01159bb8cf1",
+          "elapsed_seconds": 69.642,
+          "finish_reason": "stop",
+          "index": 2,
+          "original_answer_sha256": "dbbda724215c3c5c56409ca506a1a9718753b57494985cf3d78fd67b748fcb24",
+          "original_reply_path": "call_02_raw.json",
+          "packet_prompt_sha256": "068a85f34cce8a9bf995cb4e4eaf1a85d03a4ba7ab4a571d093588ce568ad925",
+          "raw_reply_sha256": "2e3c8d723f8a48113f8e7360a4a996f03e1b73e087c53b2bae4ac38906871c5c",
+          "requested_max_completion_tokens": 1450,
+          "stage_hint": "writer_turn_or_replan"
+        }
+      ],
+      "completion_cap_reserved": 2100,
+      "completion_tokens": 723,
+      "error_message": "WF96_SCENE_TURN_REJECTED_WF96_TURN_PLAN_FIELDS_ID_OR_CRAFT_INVALID",
+      "error_type": "WritingExecutionError",
+      "no_hidden_retry": true,
+      "prompt_tokens": 1223,
+      "scene": "medicine-rights",
+      "status": "FAILED_NO_RETRY",
+      "total_actual_tokens": 1946
+    },
+    {
+      "arm": "wf_g_reading",
+      "author_accepted": false,
+      "calls": [
+        {
+          "actual_completion_tokens": 104,
+          "actual_prompt_tokens": 1405,
+          "actual_request_sha256": "de03168021b8543337defa4d5c09bf6d191d5ae3e556e9808e07a7fc2122ab87",
+          "elapsed_seconds": 54.228,
+          "finish_reason": "stop",
+          "index": 1,
+          "original_answer_sha256": "92f5f74e4e3cba7700ed71f28b214b901dddb733fc2a1f58d3db4c0b0ce58ecb",
+          "original_reply_path": "call_01_raw.json",
+          "packet_prompt_sha256": "8d869a143ad44cdb30fd8d623b1189974e4b67aaff2e35a8877e848d4625cccd",
+          "raw_reply_sha256": "53ef636d4b02e8d05685881f3e6b7be80cf0500719dbbb62ac3e4cbf2827b3ad",
+          "requested_max_completion_tokens": 650,
+          "stage_hint": "chapter_plan"
+        },
+        {
+          "actual_completion_tokens": 684,
+          "actual_prompt_tokens": 655,
+          "actual_request_sha256": "e48f2f7e8885b4ba843dc51c9b31844df09e3483943dee465c15c25c9ccef76a",
+          "elapsed_seconds": 76.711,
+          "finish_reason": "stop",
+          "index": 2,
+          "original_answer_sha256": "faacd4115afa5f3f79b0ee4313f8c49a75c12a5a4641f14147ce84f754731324",
+          "original_reply_path": "call_02_raw.json",
+          "packet_prompt_sha256": "cb5dd6e711be5fbc12c32dac79bfe81d47b6aaff197011df44000da559d8a547",
+          "raw_reply_sha256": "5e6c9e1c39e378e3f213f130abe05c6e105523b7fba96a52ff1824ed56528883",
+          "requested_max_completion_tokens": 1450,
+          "stage_hint": "writer_turn_or_replan"
+        },
+        {
+          "actual_completion_tokens": 210,
+          "actual_prompt_tokens": 943,
+          "actual_request_sha256": "303efc471a76123e05dda5d9bb9fe8e61c2456daea9f2547a12423ebe25ef9ae",
+          "elapsed_seconds": 42.603,
+          "finish_reason": "stop",
+          "index": 3,
+          "original_answer_sha256": "07bb7930ffaaf89365b0665c48081b9c35baf2d37f9bb5b270d8b34b68e3011c",
+          "original_reply_path": "call_03_raw.json",
+          "packet_prompt_sha256": "ebf9143628a43968d49417a06ff965c6aca93103fd84e67802dec1ede4b54741",
+          "raw_reply_sha256": "c2d243661db02a8f0e5c4a44bf799e61d0268ed40b04a0998811c65bcb2ab4a7",
+          "requested_max_completion_tokens": 1450,
+          "stage_hint": "writer_turn_or_replan"
+        }
+      ],
+      "completion_cap_reserved": 3550,
+      "completion_tokens": 998,
+      "error_message": "WF96_SCENE_TURN_REJECTED_WF96_TURN_PROSE_OR_TRACE_SCHEMA_INVALID",
+      "error_type": "WritingExecutionError",
+      "no_hidden_retry": true,
+      "prompt_tokens": 3003,
+      "scene": "medicine-rights",
+      "status": "FAILED_NO_RETRY",
+      "total_actual_tokens": 4001
+    },
+    {
+      "arm": "bare",
+      "author_accepted": false,
+      "calls": [
+        {
+          "actual_completion_tokens": 489,
+          "actual_prompt_tokens": 249,
+          "actual_request_sha256": "6a361515d34bbf1f7d7492848d8f0046b89a7b6ac721c70cacf33687f7dce018",
+          "elapsed_seconds": 48.294,
+          "finish_reason": "stop",
+          "index": 1,
+          "original_answer_sha256": "ac5646f866ad12f1d29897e62b788bc12b486c1a7bc924e59b83f3c8f6021dde",
+          "original_reply_path": "call_01_raw.json",
+          "packet_prompt_sha256": "d93cc9d3133e3d0f9dec486fa70369c22d63eef6bf0480a01eb7108bfe5b9c6e",
+          "raw_reply_sha256": "b58b829fb1cf44ced88d3e71ff0986b293cbbd932a3c112c92de95bc61293fa4",
+          "requested_max_completion_tokens": 5650,
+          "stage_hint": "chapter_plan"
+        }
+      ],
+      "candidate_prose_file": "bare_original_plan_and_text.json",
+      "completion_cap_reserved": 5650,
+      "completion_tokens": 489,
+      "no_hidden_retry": true,
+      "prompt_tokens": 249,
+      "scene": "mountain-array",
+      "status": "COMPLETED_UNGRADED",
+      "total_actual_tokens": 738
+    },
+    {
+      "arm": "wf_g",
+      "author_accepted": false,
+      "calls": [
+        {
+          "actual_completion_tokens": 172,
+          "actual_prompt_tokens": 511,
+          "actual_request_sha256": "0762fa32e09adfa994b5e3ae7c79251394c4777744d750cbfd48c138d5fbf028",
+          "elapsed_seconds": 30.911,
+          "finish_reason": "stop",
+          "index": 1,
+          "original_answer_sha256": "d3d9218de86d2108692edbb97b544efd99f83379652c5a9b895016665a79788c",
+          "original_reply_path": "call_01_raw.json",
+          "packet_prompt_sha256": "92ffa8727f9adbd70b28975a7cfd34463af3d18d90c6b0c59c12fe45b06c4b59",
+          "raw_reply_sha256": "e7a35b3c2fb9cbd82d3fea189001de031906ec0527c510e4a552240fae0c98af",
+          "requested_max_completion_tokens": 650,
+          "stage_hint": "chapter_plan"
+        },
+        {
+          "actual_completion_tokens": 638,
+          "actual_prompt_tokens": 732,
+          "actual_request_sha256": "66d0f9c0b6005028b42dbce899ba75820906cbe666603c52ddb6de65ae875729",
+          "elapsed_seconds": 75.616,
+          "finish_reason": "stop",
+          "index": 2,
+          "original_answer_sha256": "c6bc4ba90528435fd0859404ede026ca15ed718ac72475180e7aad49559dc781",
+          "original_reply_path": "call_02_raw.json",
+          "packet_prompt_sha256": "a901bd81fcf40ee2ac6fb46ca0d309be0acf1225bc69783a17dafee8b4e3df8a",
+          "raw_reply_sha256": "b84467177520368ff698b2d5e86a8ef0fabee5aac700d5eeabf48545c215d08c",
+          "requested_max_completion_tokens": 1450,
+          "stage_hint": "writer_turn_or_replan"
+        }
+      ],
+      "completion_cap_reserved": 2100,
+      "completion_tokens": 810,
+      "error_message": "WF96_SCENE_TURN_REJECTED_WF96_JSON_INVALID_OR_DUPLICATE_KEYS",
+      "error_type": "WritingExecutionError",
+      "no_hidden_retry": true,
+      "prompt_tokens": 1243,
+      "scene": "mountain-array",
+      "status": "FAILED_NO_RETRY",
+      "total_actual_tokens": 2053
+    },
+    {
+      "arm": "wf_g_reading",
+      "author_accepted": false,
+      "calls": [
+        {
+          "actual_completion_tokens": 153,
+          "actual_prompt_tokens": 1457,
+          "actual_request_sha256": "530f1ca518838e2f27eea7510048fd9fb6dc24094b67d8e2e9b59d3c4e967faf",
+          "elapsed_seconds": 60.807,
+          "finish_reason": "stop",
+          "index": 1,
+          "original_answer_sha256": "1b7995cdad74f76eea60be7c88de4521c58eeaf01038520a8916576eb4c4460f",
+          "original_reply_path": "call_01_raw.json",
+          "packet_prompt_sha256": "50d5124dc3f76a4b2a259f0649fde7b87b85cc61198f05722cecdfdb60c71fa3",
+          "raw_reply_sha256": "a81ea608205dafea84cfefe1fe6a310d6a110ba410c23a59176a459557015c12",
+          "requested_max_completion_tokens": 650,
+          "stage_hint": "chapter_plan"
+        },
+        {
+          "actual_completion_tokens": 600,
+          "actual_prompt_tokens": 696,
+          "actual_request_sha256": "c080329eb7e1cde217339a1840afa1d8da4e3676d20689da3077a72a7c11dbac",
+          "elapsed_seconds": 71.075,
+          "finish_reason": "stop",
+          "index": 2,
+          "original_answer_sha256": "6bd5ed71c42dfc06997eeb6a16c232b586f8b2c2b18c79f2ac88e1a0f1a683b2",
+          "original_reply_path": "call_02_raw.json",
+          "packet_prompt_sha256": "75c7768cb47c061025c324fe4724373f797e787432d27a5cb24350f68dc85327",
+          "raw_reply_sha256": "61d14f57dfafb10de7de3b64b9dce1de01bccced7389c06876173472188a81fa",
+          "requested_max_completion_tokens": 1450,
+          "stage_hint": "writer_turn_or_replan"
+        }
+      ],
+      "completion_cap_reserved": 2100,
+      "completion_tokens": 753,
+      "error_message": "WF96_SCENE_TURN_REJECTED_WF96_TURN_PLAN_FIELDS_ID_OR_CRAFT_INVALID",
+      "error_type": "WritingExecutionError",
+      "no_hidden_retry": true,
+      "prompt_tokens": 2153,
+      "scene": "mountain-array",
+      "status": "FAILED_NO_RETRY",
+      "total_actual_tokens": 2906
+    }
+  ],
+  "same_model_all_arms": true,
+  "same_scene_tasks_all_arms": true,
+  "seed": 20261029,
+  "status": "REAL_LOCAL_TRIAL_FINISHED_WITH_UNGRADED_OUTCOMES",
+  "temperature": 0,
+  "verified_weights_sha256": "9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94"
+}

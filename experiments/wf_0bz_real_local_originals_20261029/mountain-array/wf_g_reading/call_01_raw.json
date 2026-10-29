@@ -1,0 +1,19 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "logprobs": null,
+      "text": "```json\n{\n  \"objective\": \"护山阵阵井边，外门弟子林雁看见铜钉结霜，听到山民求开门，掌阵师兄坚持阵符正常。写林雁在不能断定阵法为何失灵时如何选择救人或查阵，并承担真实后果。\",\n  \"conflict\": \"林雁在面对山民求开门和掌阵师兄坚持阵符正常的情况下，需要在救人与查阵之间做出选择，而这种选择将带来不同的后果。\",\n  \"decision\": \"USE\",\n  \"outcome\": \"林雁选择救人，但未能查明阵法为何失灵，导致山民在暴风雪中受冻。\",\n  \"pov\": \"林雁\"\n}\n```"
+    }
+  ],
+  "created": 1793245356,
+  "id": "cmpl-3240b7d5-391f-4c4f-b634-734e352f9fd3",
+  "model": "/home/runner/work/_temp/wf0bz-qwen25-3b.gguf",
+  "object": "text_completion",
+  "usage": {
+    "completion_tokens": 153,
+    "prompt_tokens": 1457,
+    "total_tokens": 1610
+  }
+}

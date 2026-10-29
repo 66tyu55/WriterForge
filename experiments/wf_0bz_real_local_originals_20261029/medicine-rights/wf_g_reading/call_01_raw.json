@@ -1,0 +1,19 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "logprobs": null,
+      "text": "```json\n{\n  \"objective\": \"夏舟想要代姐姐领药，但掌事拒绝，排队的病人急需救命汤药。\",\n  \"conflict\": \"夏舟面临选择，要么替姐姐领药，要么让病人失望，同时还要面对掌事的拒绝。\",\n  \"decision\": \"SKIP\",\n  \"outcome\": \"夏舟在有限的认知下做出选择，但没有直接替任何人编造已经知道的结局。\",\n  \"pov\": \"夏舟\"\n}\n```"
+    }
+  ],
+  "created": 1793245028,
+  "id": "cmpl-a7cdf9da-e6b8-4e54-b997-ab97c138e4aa",
+  "model": "/home/runner/work/_temp/wf0bz-qwen25-3b.gguf",
+  "object": "text_completion",
+  "usage": {
+    "completion_tokens": 104,
+    "prompt_tokens": 1405,
+    "total_tokens": 1509
+  }
+}

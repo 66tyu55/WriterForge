@@ -1,0 +1,19 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "logprobs": null,
+      "text": "{\n  \"turns\": [\n    {\n      \"id\": \"t01\",\n      \"kind\": \"decision\",\n      \"actor\": \"夏舟\",\n      \"goal\": \"决定是否替姐姐代领药签\",\n      \"causal_parent\": null,\n      \"craft_focus\": [\"action\", \"decision\"]\n    },\n    {\n      \"id\": \"t02\",\n      \"kind\": \"quiet\",\n      \"actor\": \"掌事\",\n      \"goal\": \"扣住药签\",\n      \"causal_parent\": \"t01\",\n      \"craft_focus\": [\"action\"]\n    },\n    {\n      \"id\": \"t03\",\n      \"kind\": \"quiet\",\n      \"actor\": \"排队病人\",\n      \"goal\": \"急需领药\",\n      \"causal_parent\": \"t01\",\n      \"craft_focus\": [\"action\"]\n    },\n    {\n      \"id\": \"t04\",\n      \"kind\": \"quiet\",\n      \"actor\": \"药堂内\",\n      \"goal\": \"维持秩序\",\n      \"causal_parent\": \"t01\",\n      \"craft_focus\": [\"action\"]\n    },\n    {\n      \"id\": \"t05\",\n      \"kind\": \"quiet\",\n      \"actor\": \"夏舟\",\n      \"goal\": \"观察掌事的动作\",\n      \"causal_parent\": \"t01\",\n      \"craft_focus\": [\"observation\"]\n    },\n    {\n      \"id\": \"t06\",\n      \"kind\": \"quiet\",\n      \"actor\": \"掌事\",\n      \"goal\": \"继续扣住药签\",\n      \"causal_parent\": \"t04\",\n      \"craft_focus\": [\"action\"]\n    },\n    {\n      \"id\": \"t07\",\n      \"kind\": \"quiet\",\n      \"actor\": \"排队病人\",\n      \"goal\": \"继续等待领药\",\n      \"causal_parent\": \"t04\",\n      \"craft_focus\": [\"action\"]\n    },\n    {\n      \"id\": \"t08\",\n      \"kind\": \"quiet\",\n      \"actor\": \"夏舟\",\n      \"goal\": \"思考姐姐的生死\",\n      \"causal_parent\": \"t01\",\n      \"craft_focus\": [\"thought\"]\n    },\n    {\n      \"id\": \"t09\",\n      \"kind\": \"quiet\",\n      \"actor\": \"掌事\",\n      \"goal\": \"准备离开药堂\",\n      \"causal_parent\": \"t06\",\n      \"craft_focus\": [\"action\"]\n    },\n    {\n      \"id\": \"t10\",\n      \"kind\": \"quiet\",\n      \"actor\": \"排队病人\",\n      \"goal\": \"继续排队等待\",\n      \"causal_parent\": \"t09\",\n      \"craft_focus\": [\"action\"]\n    }\n  ]\n}"
+    }
+  ],
+  "created": 1793244958,
+  "id": "cmpl-fc8bf340-2db2-42b5-9f3d-b3ee4b858310",
+  "model": "/home/runner/work/_temp/wf0bz-qwen25-3b.gguf",
+  "object": "text_completion",
+  "usage": {
+    "completion_tokens": 582,
+    "prompt_tokens": 709,
+    "total_tokens": 1291
+  }
+}

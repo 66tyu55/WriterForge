@@ -1,0 +1,12 @@
+{
+  "format": "wf.writing.rejected-scene-turn.v96",
+  "chapter": 1,
+  "draft_mode": "continuity_guard",
+  "reason_code": "WF96_TURN_PROSE_OR_TRACE_SCHEMA_INVALID",
+  "model_output_sha256": "07bb7930ffaaf89365b0665c48081b9c35baf2d37f9bb5b270d8b34b68e3011c",
+  "previous_valid_turn_count": 0,
+  "canonical_fact_writes": 0,
+  "candidate_chapter_completed": false,
+  "automatic_repair_attempts": 0,
+  "real_original_or_private_prose_embedded": false
+}
