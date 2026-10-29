@@ -311,6 +311,75 @@ class RealAuthorSourceFirstRecovery(unittest.TestCase):
                 rt.exit()
                 db.close()
 
+    def test_actual_writer_does_not_reoffer_same_full_literary_text_in_one_job(self):
+        """WF scheduler must not repeat an already offered full source next chapter.
+
+        The author model is FIXED; this measures WF's own reading dispatch,
+        not host comprehension. The original 0.CC prose is kept intact.
+        """
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+        from writerforge import WriterForgeDB,RuntimeEngine,XuehaiStore
+        from writerforge.writing_assist import InvisibleWritingAssist,AutonomousWriting
+        from test_v26_invisible_writer import make_db, PLAN, BODY
+
+        corpus=json.loads((ROOT/"experiments/wf_0cc_four_distinct_original_fantasy_readings_A_20261029.json").read_text("utf8"))
+        row=next(x for x in corpus["items"] if x["id"]=="cc-01-star-rain-register")
+        full=("【出处】"+row["work"]+"·完整原创场景\n"
+              "【原文】\n"+row["original"]+"\n【批注】\n"+
+              "\n".join(f"{i+1}. "+note for i,note in enumerate(row["annotation"]))+
+              "\n【心得】\n"+row["reflection"])
+        goal="天雨署晏纸收到三澜县报牒，准备给雨簿的字迹存疑封条签字"
+        with TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            dbfile=root/"disposable-author.sqlite"
+            parent=make_db(dbfile)
+            db=WriterForgeDB(dbfile)
+            rt=RuntimeEngine()
+            rt.enter_learn()
+            store=XuehaiStore(db,rt)
+            sid=store.create_staging_snapshot(parent_id=parent)
+            store.add_entry(
+                sid,work_id="book-original",text=full,
+                source_role="original_annotation_reflection",
+                library_class="原创文学原文＋批注＋心得",
+                culture="中国",genre="玄幻",
+                function=row["topic"],effect=row["title"],
+                method_cluster=row["id"])
+            store.publish(sid)
+            rt.exit();rt.enter_write(sid)
+            try:
+                packets=[]
+                def author(packet,*,model,api_base,max_tokens):
+                    packets.append(packet)
+                    return PLAN if "请先规划本章" in packet.prompt else BODY
+                assist=InvisibleWritingAssist(
+                    db,rt,"wf0ch-reader-dispatch","rain",
+                    goal,model="fixture-no-real-inference",
+                    api_base="http://127.0.0.1:1",source_genre="玄幻")
+                with patch("writerforge.writing_assist.local_chat_completion",
+                           side_effect=author):
+                    output=AutonomousWriting(assist).run(
+                        outline="一座天雨署记下不同证词，居民还在雨里等待。",
+                        chapter_goals=[goal,goal],
+                        output_dir=root/"working",
+                        draft_mode="single",
+                        xuehai_readings_enabled=True)
+                self.assertEqual(len(packets),4)
+                self.assertEqual(output["chapter_count"],2)
+                first,second=(x["wf_literary_reading_before_planning"]
+                              for x in output["chapters"])
+                self.assertTrue(first["delivered_to_author_planning"])
+                self.assertFalse(second["delivered_to_author_planning"])
+                self.assertEqual(second["model_reading_decision"],"NOT_ASKED")
+                self.assertEqual(output["wf_literary_readings_delivered"],1)
+                self.assertEqual(packets[0].prompt.count(row["original"]),1)
+                self.assertNotIn(row["original"],packets[2].prompt)
+                self.assertEqual(output["chapters"][0]["accepted"],False)
+                self.assertEqual(output["chapters"][1]["accepted"],False)
+            finally:
+                rt.exit();db.close()
+
     def test_original_model_still_is_not_claimed_to_have_used_a_reading(self):
         for scene in ("medicine-rights","mountain-array"):
             answer=real_reply(scene,"wf_g_reading",1)
