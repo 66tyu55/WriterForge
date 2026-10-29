@@ -241,6 +241,93 @@ class XuehaiStore:
         return {"entry_id":entry_id,"source":source[4:],
                 "original":original,"annotations":notes,"reflection":reflection}
 
+    def select_literary_reading_for_author(self, *, goal: str,
+                                           max_chars: int = 4000) -> dict | None:
+        """One relevant COMPLETE three-part reading, for an opt-in author preplan.
+
+        Reuse the existing published Xuehai and its bounded source-role query.
+        A lexical match proposes a passage, NOT a semantic or literary verdict.
+        Return None rather than invent relevance or truncate 原文. No DB writes.
+        """
+        self.runtime.require(Mode.WRITE)
+        if (type(goal) is not str or not 8 <= len(goal.strip()) <= 450
+            or type(max_chars) is not int or not 500 <= max_chars <= 4900):
+            raise ValueError("XUEHAI_AUTHOR_READING_QUERY_INVALID")
+        # Chinese goal substrings rather than whitespace-only tokenization.
+        spans=re.findall(r"[\u4e00-\u9fff]{2,}", goal)
+        noise=frozenset((
+            "我们","他们","自己","这个","那个","一个","因为","然后",
+            "需要","怎么","什么","时候","现在","还有","没有","为了",
+            "可以","如果","人物","故事","场景","小说","应该","进行",
+            "最后","之间","写出","真正","一些","一个人","的时候",
+            "一次","作者","目标","如何","是否","希望","发生",
+        ))
+        grams={span[i:i+n] for span in spans for n in (2,3,4)
+               for i in range(len(span)-n+1)
+               if span[i:i+n] not in noise}
+        if len(grams)<2:
+            return None
+        # Bounded candidate shortlist; final selection is checked against
+        # full paragraph/notes, never the query's 80-character preview.
+        search_terms=tuple(sorted(grams,key=lambda v:(-len(v),v))[:6])
+        candidates=[]
+        for role in ("classical_original_annotation_reflection",
+                     "original_annotation_reflection"):
+            found=self.query(Query(
+                source_role=role,text_terms=search_terms,
+                limit=24,max_per_work=8,max_per_cluster=1))
+            for candidate in found:
+                try:
+                    reading=self.read_literary_reading(int(candidate["entry_id"]))
+                except ValueError:
+                    continue
+                original=reading["original"]
+                notes="\n".join(reading["annotations"])
+                reflection=reading["reflection"]
+                passage=(
+                    "【出处】"+reading["source"]+"\n【原文】\n"+original+
+                    "\n【批注】\n"+notes+"\n【心得】\n"+reflection)
+                if len(passage)>max_chars:
+                    continue
+                # No title-only hallucinated similarity: at least one
+                # meaningful 3-gram or three distinct 2-grams must occur in
+                # actual source/annotations.
+                body=(original+"\n"+notes+"\n"+reflection)
+                hits4={v for v in grams if len(v)==4 and v in body}
+                hits3={v for v in grams if len(v)==3 and v in body}
+                hits2={v for v in grams if len(v)==2 and v in body}
+                if not hits4 and len(hits3)<2 and len(hits2)<3:
+                    continue
+                topic=candidate["function"]+" "+candidate["effect"]
+                label_hits=sum((5 if len(v)>=3 else 2)
+                               for v in grams if v in topic)
+                score=(8*len(hits4)+4*len(hits3)+len(hits2)
+                       +min(label_hits,20))
+                candidates.append((score,role,candidate,reading,passage))
+        if not candidates:
+            return None
+        # 0.BQ unreviewed fiction is a useful counterexample, but prefer
+        # a comparable public-domain reading when the evidence is similar.
+        candidates.sort(key=lambda item:(
+            item[0],item[1]=="classical_original_annotation_reflection",
+            -len(item[4])),reverse=True)
+        score,role,entry,reading,passage=candidates[0]
+        return {
+            "entry_id":int(entry["entry_id"]),
+            "source_role":role,
+            "work_id":entry["work_id"],
+            "source":reading["source"],
+            "complete_reading":passage,
+            "reading_sha256":hashlib.sha256(
+                passage.encode("utf8")).hexdigest(),
+            "original_chars":len(reading["original"]),
+            "annotation_count":len(reading["annotations"]),
+            "reflection_chars":len(reading["reflection"]),
+            "relevance_is_unverified_lexical":True,
+            "author_use_must_be_decided_by_model":True,
+        }
+
+
     def mark_used(self, entry_id: int, project_id: str) -> None:
         self.runtime.require(Mode.WRITE)
         self.db.conn.execute(
