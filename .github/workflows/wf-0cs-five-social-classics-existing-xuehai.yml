@@ -54,7 +54,7 @@ jobs:
               with urlopen(Request(s["url"],headers={"User-Agent":"WF0CS-genuine-source-check/1"}),timeout=45) as h:
                   raw=h.read(s["source_size_bytes"]+1)
               assert len(raw)==s["source_size_bytes"]
-              assert sha1(b"blob "+str(len(raw)).encode()+b"\\0"+raw).hexdigest()==s["source_blob_sha1"]
+              assert sha1(b"blob "+str(len(raw)).encode()+b"\0"+raw).hexdigest()==s["source_blob_sha1"]
               (Path(os.environ["RUNNER_TEMP"])/s["filename"]).write_bytes(raw)
           verify_sources(p,Path(os.environ["RUNNER_TEMP"]))
           print("WF0CS_FIVE_REAL_CONTIGUOUS_ORIGINALS_VERIFIED",flush=True)
