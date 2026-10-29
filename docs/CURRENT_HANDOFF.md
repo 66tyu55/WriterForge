@@ -1,5 +1,7 @@
 # WriterForge 当前有效交接｜2026-10-29
 
+**轻量最新入口（不再全文读取本文件）**：[WF_ACTIVE_BRIEF.md](WF_ACTIVE_BRIEF.md)，含 0.CM 已保存的 131 条内容／83 篇三段式阅读、新 R2 快照 SHA、原来源核验和下一步。需要旧 RED 才局部读 0.CL 小节与详细报告。
+
 ## 0.CL 真实古籍跨场景任务分流修复｜不训练模型／保留错荐负例（2026-10-29）
 
 **最新完整交接：[0.CL 原始 RED→GREEN、14 题真实古籍与停止边界](WF_0CL_GENUINE_CLASSICS_ROUTING_AND_STOP_EVIDENCE_20261029.md)。** 先读这个报告，再读本文件下方 0.CJ—0.CK；不要重建现成学海、数据库、文学评判器。
