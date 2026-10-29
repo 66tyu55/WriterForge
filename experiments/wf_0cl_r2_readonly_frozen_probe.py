@@ -107,7 +107,8 @@ def run():
                         "selected":cluster,
                         "source_probe":_inspect_candidates(
                             store,db,c["writing_problem"],
-                            tuple(c["possible_sources"])),
+                            tuple(c["possible_sources"])+(
+                                (cluster,) if cluster else ())),
                     })
                 records.append({
                     "case":c["id"],"hypothesis_class":c["class"],
