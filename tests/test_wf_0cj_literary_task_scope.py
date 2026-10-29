@@ -54,6 +54,23 @@ class AuthorWritingProblemScope(unittest.TestCase):
         # when the retriever finds no matching source.
         self.assertNotIn("原文",_author_craft_scope("希望这一章写得更好"))
 
+    def test_structured_character_json_is_not_a_literary_question(self):
+        self.assertEqual(_author_craft_scope(
+            "如何把人物与剧情节点序列化成JSON字段，"
+            "存储每一次角色选择、人物关系、行动后果，"
+            "请输出符合Schema的数据结构和完整代码。"),"")
+
+    def test_hero_causality_sql_ddl_is_not_literary_question(self):
+        self.assertEqual(_author_craft_scope(
+            "如何设计人物关系与因果后果的SQL表结构，"
+            "给出CREATE TABLE语句、主键和外键约束，"
+            "不是对小说人物进行文学点评。"),"")
+
+    def test_programmer_character_scene_is_still_literary(self):
+        self.assertNotEqual(_author_craft_scope(
+            "想写出主角调试SQL以后因为错过朋友见面而产生的关系变化，"
+            "不要在小说正文中展示任何程序代码。"),"")
+
     def test_only_technical_question_after_literary_scene_is_not_craft(self):
         self.assertEqual(_author_craft_scope(
             "鬼王落在玄幻书院塔顶。如何设置Nginx的HTTP响应头？"),"")
