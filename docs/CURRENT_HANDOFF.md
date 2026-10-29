@@ -1,5 +1,15 @@
 # WriterForge 当前有效交接｜2026-10-29
 
+## 0.CG R2恢复后进入真实WF作者入口｜2026-10-29
+
+- **已经跑通R2→学海完整精读→作者构思→作者候选正文**：[0.CG GitHub Actions #40848926319 SUCCESS](https://github.com/66tyu55/WriterForge/actions/runs/40848926319)。真正从现有私有Cloudflare R2使用`R2StudyVault.restore`读取0.CF固定快照`d72d4ada31112409167454ada01974f7e660dd3daa22516fd962849254a2527d`，核验126条全文学海条目/78篇完整“原文＋批注＋心得”与整体内容SHA `2ced6f51076fa7f432a572e7c413d8f6260a32bcf19a4930780da76c39e7eebc`。云端只读，所有可能写入的WriterForgeDB都是**隔离临时副本**，原R2恢复源文件保持不变。
+- **原有`AutonomousWriting.run`确实被调用，而不是旁路静态Prompt**：复用0.BY的baseline/USE/SKIP与禁止直接照抄原文实验，再选学海新材料`cc-01`天雨署签文（USE）、`cc-08`赤星航海（SKIP），完整文学原文、三条批注和心得逐字送达作者的**第一条构思请求**，并检查作者是否能将其独立`reading_choice`带至下一条真正的正文写作调用；各组候选文字按原样保存、未接受、0正式Canon，12次固定模型回包，0次真正模型API/本地推理。两种题材的作者候选路径均能保存，STOP/SKIP可自发选择的**能力尚未由真实模型验证**。
+- **严格解读**：本轮外部作者回包来自**预先写定的测试夹具**。它仅证明旧WriterForge作者真实代码能消费用户现有R2学海；不能据此声称作者模型实际读懂内容、自己选择USE/SKIP、掌握文学知识、完成高质量真实章节或任何WF文学晋级。新脚本[`experiments/wf_0cg_existing_r2_to_real_writer_offline.py`](../experiments/wf_0cg_existing_r2_to_real_writer_offline.py)与[CI](../.github/workflows/wf-0cg-r2-real-writer-offline.yml)，只改开发分支；原main/Railway/正式Canon/旧R2快照、V26/V98/V119和唯一NarrativeCore不变。
+- **下一步文学问题不再是存储或接线**：需要在有能力且费用明确获准的**真实作者模型**下，让模型自己阅读一个不同于将要写的具体剧情的学海全文，自主保留或否定批注，观察它是否真的从原文的细节/人物/节奏获得启发。必须保留模型完整构思与小说全文、正反失败证据；裸模型与原WF-G/新WF-G全阅读同题同总token及费用上限，至少两类新的玄幻场景，盲评允许退步。0.BZ弱3B结构失败与0.CC原创题材直接雷同的污染风险不能被本轮Fixture绿灯消除。不擅自花付费模型额度、部署生产或增加独立文学评判模块。
+
+---
+
+
 ## 0.CF 已有R2永久学海快照＋独立冷恢复｜2026-10-29
 
 - **用户已经确认继续使用现有R2，不另建存储。** [真实GitHub Actions #40848048457](https://github.com/66tyu55/WriterForge/actions/runs/40848048457) 两个**不同GitHub runner**完成：第一台重建经过来源核验的0.CE全部**126条文学内容／78篇完整“原文＋批注＋心得”**，读遍78篇并验证每条来源哈希后，使用原`R2StudyVault.backup`把这一份公开领域原文与WF新原创的**学海SQLite快照**备份到原私有桶 `writerforge-private-library` 的**新隔离library** `wf-0cf-xuehai-literary-126-20261029-v1`。首次上传状态`NEW`，上传后同进程读取回验一致。
