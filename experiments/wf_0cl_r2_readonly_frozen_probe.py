@@ -53,9 +53,7 @@ def _inspect_candidates(store, db, writing_problem):
             out.append({"source":name,"in_retrieval_shortlist":False})
             continue
         reading=store.read_literary_reading(int(item["entry_id"]))
-        notes="
-".join(reading["annotations"])+"
-"+reading["reflection"]
+        notes="\n".join(reading["annotations"])+"\n"+reading["reflection"]
         grams=_literary_craft_grams(notes)
         hits=target&grams
         independent=[]
@@ -70,16 +68,9 @@ def _inspect_candidates(store, db, writing_problem):
             "original_anchor_count":sum(
                 1 for t in target if len(t)==4 and t in _literary_craft_grams(reading["original"])),
             "complete_reading_chars":len(
-                "【出处】"+reading["source"]+"
-【原文】
-"+reading["original"]
-                +"
-【批注】
-"+"
-".join(reading["annotations"])
-                +"
-【心得】
-"+reading["reflection"]),
+                "【出处】"+reading["source"]+"\n【原文】\n"+reading["original"]
+                +"\n【批注】\n"+"\n".join(reading["annotations"])
+                +"\n【心得】\n"+reading["reflection"]),
         })
     return {"explicit_craft_scope":scope[:250],
             "scope_length":len(scope),"scope_fragments":len(target),
