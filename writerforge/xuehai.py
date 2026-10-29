@@ -390,13 +390,24 @@ class XuehaiStore:
                         (1+math.log((total+1)/(document_frequency[t]+1)))
                         for t in independent)
                     score+=0.6*supported
+                    # The actual uninterrupted source, not just a plausible
+                    # critic's gloss, must also inform an ambiguous choice.
+                    # This is a capped tie-break AFTER three independent
+                    # note/reflection matches. It cannot admit a story-word
+                    # match with no annotated craft evidence.
+                    original_anchors={
+                        phrase for phrase in target
+                        if len(phrase)==4 and
+                        phrase in _literary_craft_grams(reading["original"])}
+                    score+=7.0*min(len(original_anchors),2)
                     relevant.append((
-                        score,role,item,reading,passage,len(independent),supported))
+                        score,role,item,reading,passage,
+                        len(independent),supported,len(original_anchors)))
                 if relevant:
                     relevant.sort(key=lambda r:(
                         r[0],r[1]=="classical_original_annotation_reflection",
                         -len(r[4])),reverse=True)
-                    score,role,entry,reading,passage,match_count,supported=relevant[0]
+                    score,role,entry,reading,passage,match_count,supported,anchors=relevant[0]
                     return {
                         "entry_id":int(entry["entry_id"]),
                         "source_role":role,
@@ -412,6 +423,7 @@ class XuehaiStore:
                         "matching_basis":"ANNOTATIONS_REFLECTIONS_TEXT_OVERLAP",
                         "matched_craft_fragments":match_count,
                         "supported_craft_clauses":supported,
+                        "real_original_anchor_phrases":anchors,
                         "literary_transfer_value_unproven":True,
                     }
             # An explicit writing issue cannot be replaced by a generic
