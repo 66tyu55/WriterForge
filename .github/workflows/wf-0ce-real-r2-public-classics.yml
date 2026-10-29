@@ -1,4 +1,4 @@
-name: WF 0.CE Real R2 Public Classics Source Windows - READ ONLY
+name: WF 0.CE R2 Public Classics Real Close Readings - NO R2 WRITE
 
 on:
   push:
@@ -6,10 +6,12 @@ on:
     paths:
       - .github/workflows/wf-0ce-real-r2-public-classics.yml
       - experiments/wf_0ce_extract_r2_public_readings.py
+      - experiments/wf_0ce_materialize_r2_verified_close_readings.py
+      - experiments/wf_0ce_r2_two_pinned_classics_four_reading_notes_20261029.json
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   read-two-pinned-public-books-only:
@@ -18,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          persist-credentials: true
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -32,6 +34,23 @@ jobs:
           WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
           WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
         run: python -m experiments.wf_0ce_extract_r2_public_readings "$RUNNER_TEMP/wf0ce-source-windows.json"
+      - name: Materialize four VERIFIED public original close readings, no R2 writes
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+        run: python -m experiments.wf_0ce_materialize_r2_verified_close_readings
+      - name: Keep four exact PUBLIC original excerpts and annotations on development branch
+        run: |
+          git config user.name writerforge-source-evidence-bot
+          git config user.email writerforge-source-evidence-bot@users.noreply.github.com
+          git add -- experiments/wf_0ce_r2_public_classics_four_full_readings_20261029.json
+          if ! git diff --cached --quiet; then
+            git commit -m "0.CE preserve four exact public-domain R2 source readings and notes"
+            git push origin HEAD:refactor-unified-scene-delivery-audit
+          fi
       - name: Preserve only four bounded PUBLIC original windows for actual literary reading
         uses: actions/upload-artifact@v4
         with:
