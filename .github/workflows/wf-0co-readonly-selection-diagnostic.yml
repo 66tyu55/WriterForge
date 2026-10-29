@@ -1,0 +1,48 @@
+name: WF 0.CO Source-Only Reading Candidate Diagnostic
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0co-readonly-selection-diagnostic.yml
+      - experiments/wf_0co_readonly_selection_diagnostic.py
+      - writerforge/xuehai.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  no-model-readonly-136-xuehai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing Xuehai and R2, no author model
+        run: python -m pip install -e '.[r2]'
+      - name: Inspect 136/88 pinned R2 and actual bounded shortlist
+        run: |
+          python -m experiments.wf_0co_readonly_selection_diagnostic > "$RUNNER_TEMP/wf0co.json"
+          python - <<'PY'
+          from pathlib import Path
+          import os,json
+          r=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0co.json").read_text("utf8"))
+          assert r["status"]=="WF0CO_READONLY_REAL_R2_CANDIDATE_COVERAGE"
+          assert r["entries"]==136 and r["readings"]==88
+          assert r["model_calls"]==r["r2_writes"]==r["canon_writes"]==0
+          print("WF0CO_REAL_SOURCE_ROLE_COUNTS",json.dumps(r["reading_source_counts"],ensure_ascii=False))
+          print("WF0CO_SHORTLIST_COUNTS",json.dumps(r["candidate_shortlist_counts"],ensure_ascii=False))
+          for c in r["cases"]:
+              print("WF0CO_REAL_CANDIDATE",json.dumps(c,ensure_ascii=False,sort_keys=True))
+          PY
