@@ -48,6 +48,34 @@ CASES=(
 )
 
 
+# Unseen after the 0.CI 4-case ranking repair. Purely diagnostic holdout:
+# NEVER tune the four source rules against these replies in this run.
+HOLDOUTS=(
+    {
+        "id":"ritual_respect_without_consent",
+        "possible_reference":"classic-fantasy-jh-4",
+        "goal":"修真宗门授一名学徒玉甲称号，礼官态度恭敬却强制他佩戴束住手臂的护具。",
+        "writing_problem":"想写出礼貌的称呼和一重重手续如何逐步剥夺当事人拒绝的机会；"
+                          "尊称与不能自行决定身体的处境形成反差，而非只写粗暴恶人。",
+    },
+    {
+        "id":"misread_warning_under_surveillance",
+        "possible_reference":"classic-fantasy-jh-3",
+        "goal":"圣城派巡夜者监视同门女修，师弟误将她提醒避祸的话上报，女修反遭惩戒。",
+        "writing_problem":"如何使人在受监视时把好友的好意误判为试探并主动上报，"
+                          "使真正想帮助他的人付出代价；后来一句后悔不能抹去伤害。",
+    },
+    {
+        "id":"power_interprets_own_words",
+        "possible_reference":"classic-fantasy-fs-1",
+        "goal":"仙宫议事时掌门把一句轻薄诗文刻在祖师石壁，侍立长老不敢劝阻。",
+        "writing_problem":"怎样让有权者任意解释自己所写的字句，众人表面不反对却并不等于同意；"
+                          "沉默来自权势压力，不必靠旁白提前宣告灭亡。",
+    },
+)
+
+
+
 def diagnose_existing_r2():
     with TemporaryDirectory(prefix="wf0ci-real-literature-") as tmp:
         base=Path(tmp)
@@ -120,6 +148,24 @@ def diagnose_existing_r2():
                     "current_goal_only_meets_registered_reference":
                         method_cluster(original)==item["expected"],
                     "no_semantic_quality_judgment":True,
+                })
+            # Independently phrased classical material never used for
+            # the four-case rule repair. Record both successes and failures.
+            unseen=[]
+            for candidate in HOLDOUTS:
+                picked=XuehaiStore(db,rt).select_literary_reading_for_author(
+                    goal=candidate["goal"],max_chars=4900,
+                    writing_problem=candidate["writing_problem"])
+                picked_cluster=(db.conn.execute(
+                    "SELECT method_cluster FROM xuehai_entries WHERE id=?",
+                    (picked["entry_id"],)).fetchone()["method_cluster"]
+                    if picked else None)
+                unseen.append({
+                    "case":candidate["id"],
+                    "possible_source":candidate["possible_reference"],
+                    "observed_source":picked_cluster,
+                    "matched_possible_source":picked_cluster==candidate["possible_reference"],
+                    "independent_literary_verdict":False,
                 })
             # This is WF's actual writing entrance, not just its selector.
             # A FIXED writer reply cannot prove model understanding, but can
@@ -195,7 +241,9 @@ def diagnose_existing_r2():
             return {"source_snapshot_exactly_verified":True,
                     "real_public_domain_works":2,
                     "literary_references_in_source":4,
-                    "cases":outcome,"model_calls":0,"r2_writes":0,
+                    "cases":outcome,
+                    "new_unseen_classical_holdouts":unseen,
+                    "model_calls":0,"r2_writes":0,
                     "actual_writer_entry_reached_with_real_public_source":True,
                     "writer_reply_scripted_no_real_model":True,
                     "full_original_and_three_annotations_in_first_prompt":True,
