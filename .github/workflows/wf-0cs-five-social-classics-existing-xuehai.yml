@@ -1,0 +1,159 @@
+name: WF 0.CS Five Social Classics - Existing Xuehai No Model
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0cs-five-social-classics-existing-xuehai.yml
+      - experiments/wf_0cs_five_doupeng_jiuming_social_readings_20261029.json
+      - experiments/wf_source_pinned_literary_incremental.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf0cs-immutable-literary-153-105
+  cancel-in-progress: false
+
+jobs:
+  append-into-existing-xuehai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    outputs:
+      snapshot: ${{ steps.backup.outputs.snapshot }}
+      digest: ${{ steps.backup.outputs.digest }}
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Use existing Xuehai and R2 - no model SDK
+        run: python -m pip install -e '.[r2]'
+      - name: Verify exactly two pinned US public-domain books and every original excerpt
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from urllib.request import Request,urlopen
+          from hashlib import sha1
+          from experiments.wf_source_pinned_literary_incremental import pack_from,verify_sources
+          p=pack_from(Path("experiments/wf_0cs_five_doupeng_jiuming_social_readings_20261029.json"))
+          assert not any(os.getenv(k) for k in ("OPENAI_API_KEY","DEEPSEEK_API_KEY","OPENROUTER_API_KEY","DISCOVERY_API_KEY"))
+          assert set(p["sources"])=={"dp","jm"}
+          for s in p["sources"].values():
+              assert s["url"].startswith("https://raw.githubusercontent.com/GITenberg/")
+              with urlopen(Request(s["url"],headers={"User-Agent":"WF0CS-genuine-source-check/1"}),timeout=45) as h:
+                  raw=h.read(s["source_size_bytes"]+1)
+              assert len(raw)==s["source_size_bytes"]
+              assert sha1(b"blob "+str(len(raw)).encode()+b"\\0"+raw).hexdigest()==s["source_blob_sha1"]
+              (Path(os.environ["RUNNER_TEMP"])/s["filename"]).write_bytes(raw)
+          verify_sources(p,Path(os.environ["RUNNER_TEMP"]))
+          print("WF0CS_FIVE_REAL_CONTIGUOUS_ORIGINALS_VERIFIED",flush=True)
+          PY
+      - name: Append five into a copy of old published 148/100 Xuehai
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental stage \
+            --pack experiments/wf_0cs_five_doupeng_jiuming_social_readings_20261029.json \
+            --source-dir "$RUNNER_TEMP" --db "$RUNNER_TEMP/wf0cs-153.sqlite3" \
+            > "$RUNNER_TEMP/wf0cs-stage.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cs-stage.json").read_text("utf8"))
+          assert j["status"]=="WF_SOURCE_EXISTING_XUEHAI_APPEND_FIVE"
+          assert j["entries"]==153 and j["full_readings"]==105 and j["added"]==5
+          assert j["model_calls"]==j["canon_writes"]==0 and j["old_r2_modified"] is False
+          print("WF0CS_OLD_148_CONTENT_SHA_VERIFIED_NEW_153_105_READABLE",flush=True)
+          PY
+      - name: Author entry real source delivery; no literary grade or expensive model
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          from writerforge import WriterForgeDB,RuntimeEngine,XuehaiStore
+          db=WriterForgeDB(Path(os.environ["RUNNER_TEMP"])/"wf0cs-153.sqlite3")
+          rt=RuntimeEngine()
+          s=XuehaiStore(db,rt)
+          rt.enter_write(s.latest_published())
+          cases=[
+            ("village-talk","炎热夏日，外门邻居坐在院棚下互讲人家私事，有青年怀疑故事不可靠。","怎样通过搭棚乘凉、闲谈、听众反驳和求证来描写一个村镇的群体议论？"),
+            ("inheritance","宗门亲族清点旧铺资产，争一套不能拆开的物件，公开竞价后落败者又想加价。","怎么写出竞价规则、当众见证、事后反悔与众人维护程序，留下人物不服气的余波？"),
+            ("tech-only","店铺库存与银两记账数据库。","仅需输出 SQL 字段、Python 合计公式和 JSON 库存统计，不要文学原文。")
+          ]
+          result=[]
+          try:
+              for key,goal,writing_problem in cases:
+                  entry=s.select_literary_reading_for_author(goal=goal,writing_problem=writing_problem,max_chars=4900)
+                  if entry is None: cluster=None
+                  else:
+                      assert all(tag in entry["complete_reading"] for tag in ("【原文】","【批注】","【心得】"))
+                      cluster=db.conn.execute("SELECT method_cluster FROM xuehai_entries WHERE id=?",(entry["entry_id"],)).fetchone()["method_cluster"]
+                  if key=="tech-only": assert cluster is None
+                  result.append([key,cluster])
+          finally:
+              rt.exit();db.close()
+          print("WF0CS_SOURCE_ONLY_AUTHOR_READING",json.dumps(result,ensure_ascii=False),flush=True)
+          PY
+      - name: Publish to a NEW immutable R2 library, never rewrite earlier editions
+        id: backup
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental publish \
+            --pack experiments/wf_0cs_five_doupeng_jiuming_social_readings_20261029.json \
+            --db "$RUNNER_TEMP/wf0cs-153.sqlite3" > "$RUNNER_TEMP/wf0cs-upload.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cs-upload.json").read_text("utf8"))
+          assert j["status"]=="WF_SOURCE_NEW_IMMUTABLE_R2_SUCCESSOR"
+          assert j["entries"]==153 and j["full_readings"]==105
+          assert j["old_prefix_modified"] is False
+          with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf8") as out:
+              out.write("snapshot="+j["snapshot"]+"\n")
+              out.write("digest="+j["all_content_sha256"]+"\n")
+          print("WF0CS_R2_SNAPSHOT",j["snapshot"],"CONTENT_SHA",j["all_content_sha256"],flush=True)
+          PY
+
+  fresh-runner-readonly-recovery:
+    needs: append-into-existing-xuehai
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+      WF0CS_SNAPSHOT: ${{ needs.append-into-existing-xuehai.outputs.snapshot }}
+      WF0CS_DIGEST: ${{ needs.append-into-existing-xuehai.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Existing Xuehai and R2 read-only adapter, not model
+        run: python -m pip install -e '.[r2]'
+      - name: Independently cold recover 153 originals and 105 complete reading entries
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental cold-restore \
+            --pack experiments/wf_0cs_five_doupeng_jiuming_social_readings_20261029.json \
+            --snapshot "$WF0CS_SNAPSHOT" --digest "$WF0CS_DIGEST" > "$RUNNER_TEMP/wf0cs-cold.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cs-cold.json").read_text("utf8"))
+          assert j["status"]=="WF_SOURCE_NEW_R2_COLD_READBACK_153_105"
+          assert j["entries"]==153 and j["full_readings"]==105 and j["added"]==5
+          assert j["r2_writes"]==j["model_calls"]==j["canon_writes"]==0
+          print("WF0CS_INDEPENDENT_COLD_RESTORE_153_105_SUCCESS",flush=True)
+          PY
