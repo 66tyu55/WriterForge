@@ -4175,9 +4175,9 @@ class AutonomousWriting:
                                         str(source_trace_error)==
                                         "WF96_TURN_PROSE_OR_TRACE_SCHEMA_INVALID")
                                     if (draft_mode!="continuity_guard" or
-                                        not (trace_failure_reviewable(
-                                            str(source_trace_error)) or
-                                             untrusted_trace_envelope)):
+                                        (not trace_failure_reviewable(
+                                            str(source_trace_error)) and
+                                         not untrusted_trace_envelope)):
                                         # Invalid JSON, actual prose/source,
                                         # knowledge or parent remain hard RED.
                                         raise
