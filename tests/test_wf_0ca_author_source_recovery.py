@@ -226,6 +226,60 @@ class RealAuthorSourceFirstRecovery(unittest.TestCase):
                 rt.exit()
                 db.close()
 
+    def test_real_invalid_first_turn_leaves_no_phantom_partial_manuscript(self):
+        """0.BZ mountain prose never started: no fake recovered candidate."""
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+        from writerforge import WriterForgeDB,RuntimeEngine
+        from writerforge.writing_assist import InvisibleWritingAssist,AutonomousWriting
+        from writerforge.verified_flow import WritingExecutionError
+        from test_v26_invisible_writer import make_db
+        from experiments.wf_0bz_real_local_literary_three_arm_once import SCENES
+        scene=SCENES[1]
+        originals=[real_reply("mountain-array","wf_g",1),
+                   real_reply("mountain-array","wf_g",2)]
+        with TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            dbfile=root/"disposable-source.sqlite"
+            sid=make_db(dbfile)
+            db=WriterForgeDB(dbfile)
+            rt=RuntimeEngine()
+            rt.enter_write(sid)
+            calls=[]
+            def replay(packet,*,model,api_base,max_tokens):
+                calls.append(packet.prompt_sha256)
+                return originals[len(calls)-1]
+            try:
+                assist=InvisibleWritingAssist(
+                    db,rt,"wf0cb-source-replay","mountain-array",scene["goal"],
+                    model="saved-Qwen25-replay-NO-INFERENCE",
+                    api_base="http://127.0.0.1:1/v1",source_genre="玄幻")
+                with patch("writerforge.writing_assist.local_chat_completion",
+                           side_effect=replay):
+                    with self.assertRaisesRegex(
+                        WritingExecutionError,
+                        "WF96_SCENE_TURN_REJECTED_WF96_JSON_INVALID_OR_DUPLICATE_KEYS"):
+                        AutonomousWriting(assist).run(
+                            outline=scene["outline"],chapter_goals=[scene["goal"]],
+                            output_dir=root/"work",
+                            draft_mode="continuity_guard",
+                            bootstrap_unified_core=True,
+                            narrative_memory_backend="local",
+                            g_rolling_author_planning=True,
+                            self_edit_rounds=0)
+                self.assertEqual(len(calls),2)
+                jobs=list((root/"work").glob("auto-*"))
+                self.assertEqual(len(jobs),1)
+                job=jobs[0]
+                failure=json.loads((job/"chapter-001-rejected.json").read_text("utf8"))
+                self.assertEqual(failure["previous_valid_turn_count"],0)
+                self.assertNotIn("partial_unaccepted_source_path",failure)
+                self.assertFalse(list(job.glob("*partial-unaccepted-prose.txt")))
+                self.assertFalse(list(job.rglob("candidate.md")))
+            finally:
+                rt.exit()
+                db.close()
+
     def test_original_model_still_is_not_claimed_to_have_used_a_reading(self):
         for scene in ("medicine-rights","mountain-array"):
             answer=real_reply(scene,"wf_g_reading",1)
