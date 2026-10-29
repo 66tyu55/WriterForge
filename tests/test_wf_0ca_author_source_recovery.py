@@ -193,10 +193,18 @@ class RealAuthorSourceFirstRecovery(unittest.TestCase):
                 self.assertIn("【完整阅读】",packets[0].prompt)
                 self.assertIn("【原文】",packets[0].prompt)
                 self.assertIn("【心得】",packets[0].prompt)
-                self.assertIn('"decision": "SKIP"',packets[2].prompt)
+                # This was the TRUE 0.BZ author error: top-level SKIP is
+                # a reading selector, not the character's story decision.
+                # WF must not propagate it as plot in turn planning/prose.
+                self.assertNotIn('"decision": "SKIP"',packets[1].prompt)
+                self.assertNotIn('"decision": "SKIP"',packets[2].prompt)
+                self.assertIn("人物决定仍需作者在正文中自行完成",packets[1].prompt)
                 jobs=list((root/"work").glob("auto-*"))
                 self.assertEqual(len(jobs),1)
                 job=jobs[0]
+                self.assertEqual(
+                    (job/"chapter-001-raw-author-plan-misplaced.json").read_text("utf8"),
+                    fixed_originals[0])
                 self.assertTrue((job/"chapter-001-turn-01-raw.json").is_file())
                 self.assertEqual(
                     (job/"chapter-001-turn-01-raw.json").read_text("utf8"),
