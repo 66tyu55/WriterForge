@@ -124,6 +124,6 @@ jobs:
           assert doc["canon_writes"]==0
           assert doc["models_actual_literary_gain_proven"] is False
           assert [x["author_choice"] for x in doc["baseline_and_reading_prompts_compared"]]==[
-              "NOT_ASKED","USE"]
-          print("WF0BY: actual AutonomousWriting planning consumed FULL source+annotation+reflection before prose, author USE recorded; baseline unchanged; model mocked/no fees",flush=True)
+              "NOT_ASKED","USE","SKIP"]
+          print("WF0BY: actual AutonomousWriting planning consumed FULL source+annotation+reflection before prose, author USE/SKIP recorded; baseline unchanged; model mocked/no fees",flush=True)
           PY
