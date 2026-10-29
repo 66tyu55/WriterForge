@@ -1,0 +1,51 @@
+name: WF 0.CK Truly Unseen Public Classic and Technical Negative Check - NO MODEL
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0ck-unseen-classic-probe.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-public-literature-independent-of-cj-repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Existing R2/Xuehai only; no model or study writes
+        run: python -m pip install -e '.[r2]'
+      - name: Observe seven new unseen holdouts (never auto-promote)
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+        run: |
+          python -m experiments.wf_0ck_real_classics_unseen_probe > "$RUNNER_TEMP/wf0ck.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0ck.json").read_text("utf8"))
+          assert j["status"]=="WF0CK_NEW_UNSEEN_REAL_LITERATURE_HOLDOUT_OBSERVED"
+          assert j["literary_sources"]==126 and j["three_part_readings"]==78
+          assert j["unseen_pre_registered_cases"]==7
+          assert not j["trained_any_model"] and not j["any_literary_truth_claim"]
+          assert j["r2_writes"]==j["canon_writes"]==j["model_calls"]==0
+          assert j["rule_modified_after_seeing_results"] is False
+          for case in j["outcomes"]:
+              print("WF0CK_UNSEEN_CASE",json.dumps(case,ensure_ascii=False))
+          from collections import Counter
+          print("WF0CK_RESULTS_NO_TUNING",json.dumps(
+              dict(Counter(x["status"] for x in j["outcomes"])),
+              sort_keys=True))
+          PY
