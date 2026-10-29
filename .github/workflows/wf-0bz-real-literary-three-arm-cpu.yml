@@ -123,7 +123,7 @@ jobs:
           printf '%s  %s\n' \
             '9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94' \
             "$RUNNER_TEMP/wf0bz-qwen25-3b.gguf" | sha256sum --check --status
-      - name: ACTUAL zero-paid model: two scenes x bare / original WF-G / WF-G+full reading
+      - name: "ACTUAL zero-paid model: two scenes x bare / original WF-G / WF-G+full reading"
         run: |
           python -m experiments.wf_0bz_real_local_literary_three_arm_once \
             --model "$RUNNER_TEMP/wf0bz-qwen25-3b.gguf" \
