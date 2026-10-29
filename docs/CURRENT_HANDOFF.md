@@ -1,5 +1,18 @@
 # WriterForge 当前有效交接｜2026-10-29
 
+## 0.CD—0.CE 利用既有私有R2真实原著补学海｜2026-10-29
+
+**用户纠正：R2早已存在，不要假装要重新建存储。** 当前WriterForge Railway项目生产服务 `wf-python-r2` 的 GitHub 源分支是旧 `v99-causal-quality-blind-review`，启动命令 `python -u wf_railway_v82_safe_idle.py`、部署 `SUCCESS`，仍配有旧Reader `WF_API_TOKEN` 与独立 `WF_INDEX_UPLOAD_TOKEN` 名称；这个运行服务**不是**开发分支0.CE的学海，也没有被重新部署。原私有R2桶 `writerforge-private-library` 仍使用，**未新建或改写**。
+
+- **0.CD真实私有R2只读元数据**：[0.CD CI #40843987955 SUCCESS](https://github.com/66tyu55/WriterForge/actions/runs/40843987955)，利用仓库已有S3配置只发 `ListObjectsV2` 和已知公版古籍库manifest读取，不读私人小说正文也不打印标题、对象Key或凭据。真实观察：`writerforge/v1/private-reading/` **80个对象、577,574,142字节、其中43个TXT、9个压缩包**；`libraries/`99个对象；`indexes/v1/`616个对象；`narrative-memory/v1/`15个对象；`learn/v1/`0个对象；现有 `R2StudyVault.corpus_readiness()` 验证**6部已正式按公版目录审定、章节完整且manifest有效的古籍学习库**。数字是对象数，不是已通读或真正会写的小说数，也不能将43个TXT都当作可发表的公版文字。
+- **0.CE确实把R2原著用于文学内容，不再只有库存统计**：以既有 `R2StudyVault.restore()` 真正恢复并SHA核查 `老殘遊記` #25124、`三國志演義` #23950的两份公版数字原著。先[0.CE实际只读来源 #40844303868 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40844303868)提取可阅读连续原文；随后[0.CE 原文+批注+心得生成 #40845120709 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40845120709)逐段按**原书Raw SHA256／Git Blob SHA1／字符区间／截段SHA256四层校验**，把四段真实连续原文与12条贴句批注、4段开放心得写进开发分支的[`experiments/wf_0ce_r2_public_classics_four_full_readings_20261029.json`](../experiments/wf_0ce_r2_public_classics_four_full_readings_20261029.json)；共2,981个原文字符。内容分别涉及白妞未上台前的说书期待与阶序、旅店口述‘清官’治盗副作用、曹操利用吕布疑心设伏时强征村人、刘关张从各自谋生/经历结成军事联盟。数字底本`囗`、重复标点等疑字不擅改；私有现代小说原著0公开复制。
+- **同一学海实际读回**：复用现有`XuehaiStore.add_entry/read_literary_reading`，在先建好0.CC **122条/74篇三段式**的同一个隔离SQLite中新增4篇（历史原文+批注+心得），读取内容与本批已核验原文**逐字一致**；结果**126条文学内容、78篇三段式全文可读**。[0.CE同库验收 #40845368874 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40845368874)。这些是真实历史作品内容，**不是WF作者模型调用**；本轮0付费模型、0正式Canon修改、0私有R2写入、0Railway部署、0独立记忆/新表/第二数据库。
+- **必须诚实区分R2原著与学海云端持久性**：原著确实已在R2并经过冷恢复；本轮0.CE的**126条全文学海SQLite只在CI隔离实例重建、读回，尚未备份为R2的一个新学海快照**。不能把‘R2有原著’或‘CI里读回126条’冒称‘云端WF已能持续读取126条’。如果下一步明确授权持久化，优先复用既有`R2StudyVault.backup/restore`与原桶、使用**隔离的全新library名、不可覆盖已有源库/Canon、上传后独立冷恢复校验**，无需创建新R2/新数据库。仅有GitHub R2秘钥不代表用户已经允许不加区分地上传任何私人著作。
+- **文学原则继续保持**：每篇“连续原文＋具体批注＋开放心得”；不把故事压缩成‘多细节／解决冲突’方法卡，不把原有真实现代小说权利状态未知的TXT公开转存，不把旧15章经验R2中的保存成功说成写作学习进步。真正文学收益仍待同能力真实作者全文对照。
+
+---
+
+
 ## 0.CC 完整原创玄幻场景八篇｜先扩充有不同叙述声音的原文（2026-10-29）
 
 **本轮仅补文学内容；不是新的真实作者模型文学增益实验。** 原先学海**114条内容、66篇完整原文＋批注＋心得**不改；本轮增加**8篇真正完整的独立原创玄幻场景、24条具体字句批注、8段带疑问和不同解法的阅读心得**，累计**122条文学内容、74篇三段式深读**。这些八篇是**本次对话新写的原创场景，不是假冒的已出版玄幻名著，不是不同真人作者的原著语料**；其“原文”指连续原创小说正文。全部未采纳、无人类独立文学盲评、无质量晋级。
