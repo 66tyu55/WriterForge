@@ -115,7 +115,11 @@ def inspect(dbfile:Path):
             raise ValueError("WF0CN_MISSING_PUBLISHED_CHILD")
         rt=RuntimeEngine()
         rt.enter_write(sid["id"])
-        store=XuehaiStore(_QueryOnlyDb(conn),rt)
+        readonly=_QueryOnlyDb(conn)
+        # 0.CF's original-only read adapter has no FTS flag because it was
+        # designed for direct readback, not author candidate selection.
+        readonly.fts_enabled=False
+        store=XuehaiStore(readonly,rt)
         try:
             count=0
             for r in rows:
