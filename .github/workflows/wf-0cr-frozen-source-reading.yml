@@ -1,0 +1,47 @@
+name: WF 0.CR Frozen Genuine Literary Source Mismatch Read-Only
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0cr-frozen-source-reading.yml
+      - experiments/wf_0cr_source_only_mismatch_probe.py
+      - experiments/wf_0cr_frozen_author_reading_cases_20261029.json
+      - writerforge/xuehai.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  independent-pinned-source-readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing Xuehai and read-only R2, no model
+        run: python -m pip install -e '.[r2]'
+      - name: Evaluate nine FROZEN cases on exact 145/97 real pinned R2
+        run: |
+          python -m experiments.wf_0cr_source_only_mismatch_probe > "$RUNNER_TEMP/wf0cr.json"
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          report=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cr.json").read_text("utf8"))
+          assert report["status"]=="WF0CR_PRECHANGE_FROZEN_REAL_145_SOURCE_READONLY"
+          assert report["entries"]==145 and report["readings"]==97 and len(report["cases"])==9
+          assert report["model_calls"]==report["r2_writes"]==report["canon_writes"]==0
+          for case in report["cases"]:
+              print("WF0CR_REAL_FROZEN_CASE",json.dumps(case,ensure_ascii=False,sort_keys=True),flush=True)
+          PY
