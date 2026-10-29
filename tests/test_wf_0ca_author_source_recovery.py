@@ -115,6 +115,102 @@ class RealAuthorSourceFirstRecovery(unittest.TestCase):
                 allow_untrusted_trace_envelope=True,
                 author_confirmed_forbidden_phrases=("失踪者姐姐的弟弟夏舟",))
 
+    def test_real_three_original_outputs_replayed_through_actual_g_before_forced_stop(self):
+        """Replay saved author bytes, NOT another 3B call or a fabricated chapter."""
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+        from writerforge import WriterForgeDB,RuntimeEngine,XuehaiStore
+        from writerforge.writing_assist import InvisibleWritingAssist,AutonomousWriting
+        from writerforge.verified_flow import WritingExecutionError
+        from test_v26_invisible_writer import make_db
+        from experiments.wf_0bz_real_local_literary_three_arm_once import SCENES
+
+        scene=SCENES[0]
+        pack=json.loads((ROOT/"experiments/wf_0bt_original_eight_close_readings_20261028.json").read_text("utf8"))
+        item=next(x for x in pack["items"] if x["id"]=="original-read-bq-09")
+        src=pack["sources"][item["source_key"]]
+        full=(f"【出处】{item['work']}·{item['chapter']}｜{src['url']}\n"
+              f"【原文】\n{item['original']}\n【批注】\n"+
+              "\n".join(f"{j}. {note}" for j,note in enumerate(item["annotation"],1))+
+              "\n【心得】\n"+item["reflection"])
+        fixed_originals=[
+            real_reply("medicine-rights","wf_g_reading",i)
+            for i in (1,2,3)
+        ]
+        with TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            dbfile=root/"only-isolated-source.sqlite"
+            parent=make_db(dbfile)
+            db=WriterForgeDB(dbfile)
+            rt=RuntimeEngine()
+            try:
+                rt.enter_learn()
+                store=XuehaiStore(db,rt)
+                sid=store.create_staging_snapshot(parent_id=parent)
+                entry=store.add_entry(
+                    sid,work_id="book-original",text=full,
+                    library_class="古代原文＋批注＋心得",
+                    culture="中国",genre="玄幻",
+                    source_role="original_annotation_reflection",
+                    function="宗门分药堂与失踪者姐姐代领药签",
+                    effect=item["title"],method_cluster=item["id"])
+                store.publish(sid)
+                rt.exit();rt.enter_write(sid)
+                selected=store.select_literary_reading_for_author(
+                    goal=scene["goal"],max_chars=4900)
+                self.assertEqual(selected["entry_id"],entry)
+                self.assertIn(item["original"],selected["complete_reading"])
+
+                assist=InvisibleWritingAssist(
+                    db,rt,"wf0cb-source-replay","medicine-rights",
+                    scene["goal"],model="saved-Qwen25-replay-NO-INFERENCE",
+                    api_base="http://127.0.0.1:1/v1",source_genre="玄幻")
+                packets=[]
+                def saved_author(packet,*,model,api_base,max_tokens):
+                    packets.append(packet)
+                    if len(packets)<=3:
+                        return fixed_originals[len(packets)-1]
+                    # Deliberate test-only invalid fourth answer to stop
+                    # before any made-up continuation is called a real model.
+                    return "{}"
+                with patch("writerforge.writing_assist.local_chat_completion",
+                           side_effect=saved_author):
+                    with self.assertRaisesRegex(
+                            WritingExecutionError,"WF96_SCENE_TURN_REJECTED_"):
+                        AutonomousWriting(assist).run(
+                            outline=scene["outline"],
+                            chapter_goals=[scene["goal"]],
+                            output_dir=root/"work",
+                            draft_mode="continuity_guard",
+                            bootstrap_unified_core=True,
+                            narrative_memory_backend="local",
+                            g_rolling_author_planning=True,
+                            self_edit_rounds=0,
+                            xuehai_methods_enabled=False,
+                            xuehai_readings_enabled=True)
+                self.assertEqual(len(packets),4)
+                self.assertIn("【完整阅读】",packets[0].prompt)
+                self.assertIn("【原文】",packets[0].prompt)
+                self.assertIn("【心得】",packets[0].prompt)
+                self.assertIn('"decision": "SKIP"',packets[2].prompt)
+                jobs=list((root/"work").glob("auto-*"))
+                self.assertEqual(len(jobs),1)
+                job=jobs[0]
+                self.assertTrue((job/"chapter-001-turn-01-raw.json").is_file())
+                self.assertEqual(
+                    (job/"chapter-001-turn-01-raw.json").read_text("utf8"),
+                    fixed_originals[2])
+                self.assertFalse(list(job.rglob("candidate.md")))
+                self.assertFalse(list(job.rglob("job_manifest.json")))
+                failure=json.loads((job/"chapter-001-rejected.json").read_text("utf8"))
+                self.assertEqual(failure["candidate_chapter_completed"],False)
+                self.assertEqual(failure["canonical_fact_writes"],0)
+                self.assertEqual(failure["previous_valid_turn_count"],1)
+                self.assertEqual(failure["automatic_repair_attempts"],0)
+            finally:
+                rt.exit()
+                db.close()
+
     def test_original_model_still_is_not_claimed_to_have_used_a_reading(self):
         for scene in ("medicine-rights","mountain-array"):
             answer=real_reply(scene,"wf_g_reading",1)
