@@ -121,10 +121,87 @@ def diagnose_existing_r2():
                         method_cluster(original)==item["expected"],
                     "no_semantic_quality_judgment":True,
                 })
+            # This is WF's actual writing entrance, not just its selector.
+            # A FIXED writer reply cannot prove model understanding, but can
+            # prove the selected REAL classic's complete text reached planning.
+            from unittest.mock import patch
+            from writerforge.writing_assist import (
+                InvisibleWritingAssist,AutonomousWriting)
+            case=CASES[0]
+            chosen=XuehaiStore(db,rt).select_literary_reading_for_author(
+                goal=case["goal"],max_chars=4900,
+                writing_problem=case["writing_problem"])
+            selected_cluster=db.conn.execute(
+                "SELECT method_cluster FROM xuehai_entries WHERE id=?",
+                (chosen["entry_id"],)).fetchone()["method_cluster"]
+            if selected_cluster!=case["expected"]:
+                raise AssertionError("WF0CI_WRITER_CRAFT_SOURCE_NOT_THE_REAL_CLASSIC")
+            wire=[]
+            plan={
+                "objective":"秋河请求先查明失踪者最后由谁亲眼看见",
+                "conflict":"当事人转述的证词尚未核实，追究也可能招致报复",
+                "decision":"秋河先收下证词并向另一位值守弟子交叉查问",
+                "outcome":"查证占用时间，使水牢外的守夜轮班受到影响",
+                "pov":"秋河仅凭现场观察与他人所说判断",
+                "needs":["dialogue","decision"],
+                "reading_choice":{
+                    "decision":"USE",
+                    "reason":"借鉴多重转述造成的悬疑，不复写老残的人物或结局，保留事件事实尚未证实的空间。",
+                },
+            }
+            prose=(
+                "秋河抵达水牢时，铜灯已烧到第二道刻痕。门边的值守弟子说师兄昨夜自己走了，"
+                "可他讲不出对方何时交还腰牌。秋河没有当面说那人撒谎，先将桌上的值班簿向前推去，"
+                "请他指认最后一次巡门的时辰。那弟子说火候过了寅时，墙外却有人在敲更鼓。"
+                "他们的争执招来另一名守夜者，对方刚听见师兄的名字就要回屋。"
+                "秋河只得拦下他问了第二遍，铜灯旁的排班牌因此迟迟没人换。"
+                "灯灭时，他所知道的仍只有两份互相矛盾的说法。"
+            )
+            def fixed_writer(packet,*,model,api_base,max_tokens):
+                wire.append(packet)
+                if len(wire)==1:
+                    if chosen["complete_reading"] not in packet.prompt:
+                        raise AssertionError("WF0CI_REAL_ORIGINAL_AND_NOTES_NOT_DELIVERED")
+                    return json.dumps(plan,ensure_ascii=False)
+                if len(wire)!=2 or plan["reading_choice"]["reason"] not in packet.prompt:
+                    raise AssertionError("WF0CI_AUTHOR_CHOICE_NOT_CARRIED_TO_PROSE")
+                return prose
+            assist=InvisibleWritingAssist(
+                db,rt,"wf0ci-source-only","witness",case["goal"],
+                model="FIXED_AUTHOR_REPLY_NOT_REAL_LLM",
+                api_base="http://127.0.0.1:1",
+                source_genre="玄幻")
+            with patch("writerforge.writing_assist.local_chat_completion",
+                       side_effect=fixed_writer):
+                job=AutonomousWriting(assist).run(
+                    outline=case["goal"]+"。\n"+case["writing_problem"],
+                    chapter_goals=[case["goal"]],
+                    output_dir=base/"unaccepted-writer",
+                    draft_mode="single",
+                    xuehai_readings_enabled=True)
+            receipt=job["chapters"][0]["wf_literary_reading_before_planning"]
+            if (len(wire)!=2
+                or job["wf_literary_readings_author_used"]!=1
+                or receipt["entry_id"]!=chosen["entry_id"]
+                or receipt["matching_basis"]!="ANNOTATIONS_REFLECTIONS_TEXT_OVERLAP"
+                or job["chapters"][0]["accepted"] is not False
+                or Path(job["chapters"][0]["candidate"]).read_text("utf8")!=prose):
+                raise AssertionError("WF0CI_REAL_WRITING_PIPELINE_OR_SOURCE_MISMATCH")
+            weak=XuehaiStore(db,rt).select_literary_reading_for_author(
+                goal=case["goal"],writing_problem="希望这一章写得更好",
+                max_chars=4900)
+            if weak is not None:
+                raise AssertionError("WF0CI_GENERIC_IMPROVEMENT_AS_CRAFT_EVIDENCE")
             return {"source_snapshot_exactly_verified":True,
                     "real_public_domain_works":2,
                     "literary_references_in_source":4,
                     "cases":outcome,"model_calls":0,"r2_writes":0,
+                    "actual_writer_entry_reached_with_real_public_source":True,
+                    "writer_reply_scripted_no_real_model":True,
+                    "full_original_and_three_annotations_in_first_prompt":True,
+                    "nonspecific_craft_question_no_forced_reading":True,
+                    "unaccepted_literary_candidate_unchanged":True,
+                    "canon_writes":0,
                     "literary_gain_proven":False}
         finally:
             rt.exit()
