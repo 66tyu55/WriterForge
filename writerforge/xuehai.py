@@ -106,6 +106,63 @@ def _source_overlap(source: str, guidance: str, window: int = 14) -> bool:
         return len(source) >= 8 and source in guidance
     return any(source[i:i+window] in guidance for i in range(len(source)-window+1))
 
+
+# 0.CI: normalize ONLY retrieval comparisons, never alter original text.
+# These are common one-character traditional/simplified variants in real
+# public-domain annotations, not an author voice/genre style conversion.
+_LITERARY_READING_FOLD = str.maketrans(dict(
+    pair for pair in (
+        ("傳","传"),("聞","闻"),("證","证"),("詞","词"),("說","说"),
+        ("敘","叙"),("實","实"),("際","际"),("觀","观"),("眾","众"),
+        ("書","书"),("時","时"),("間","间"),("來","来"),("見","见"),
+        ("為","为"),("對","对"),("誤","误"),("論","论"),("後","后"),
+        ("應","应"),("報","报"),("內","内"),("該","该"),("務","务"),
+        ("獨","独"),("聲","声"),("號","号"),("覺","觉"),("從","从"),
+        ("計","计"),("謀","谋"),("設","设"),("驗","验"),("資","资"),
+        ("財","财"),("歷","历"),("經","经"),("風","风"),("險","险"),
+        ("結","结"),("義","义"),("關","关"),("願","愿"),("還","还"),
+        ("體","体"),("動","动"),("選","选"),("擇","择"),("並","并"),
+        ("戰","战"),("爭","争"),("舉","举"),("勢","势"),("顯","显"),
+        ("畫","画"),("闡","阐"),("單","单"),("張","张"),("飛","飞"),
+        ("長","长"),("臺","台"),("場","场"),("讓","让"),("維","维"),
+        ("給","给"),("讀","读"),("寫","写"),("組","组"),("變","变"),
+        ("傷","伤"),("細","细"),("層","层"),("價","价"),("牽","牵"),
+        ("連","连"),("這","这"),("種","种"),("樣","样"),("別","别"),
+        ("舊","旧"),("卻","却"),("餘","余"),("進","进"),("導","导"),
+        ("顧","顾"),("現","现"),("劃","划"),("聽","听"),("術","术"),
+        ("鄉","乡"),("喪","丧"),("協","协"),("簡","简"),("區","区"),
+        ("誌","志"),("適","适"),("隨","随"),("頭","头"),("話","话"),
+        ("屬","属"),("決","决"),("點","点"),("權","权"),("數","数"),
+        ("問","问"),("產","产"),("葉","叶"),("帶","带"),("講","讲"),
+        ("壞","坏"),("辦","办"),("縣","县"),("鎖","锁"),("詩","诗"),
+        ("壓","压"),("暫","暂"),("離","离"),("臉","脸"),("難","难"),
+    )
+))
+_LITERARY_GENERIC_GRAMS = frozenset((
+    "人物","故事","原文","这个","自己","他们","我们","为了","这样",
+    "有些","的是","而不","不是","而不是","或者","任何","直接",
+    "主人","人公","主人公","因此","可以","以及","应该",
+    "为何","如何","怎样","开始","然后","下来","一个","时候",
+))
+
+def _literary_craft_grams(text: str) -> set[str]:
+    """Evidence of shared phrasing, NOT semantic or aesthetic verification."""
+    spans=re.findall(r"[\u4e00-\u9fff]{2,}",text.translate(_LITERARY_READING_FOLD))
+    return {s[i:i+n] for s in spans for n in (2,3,4)
+            for i in range(len(s)-n+1)
+            if s[i:i+n] not in _LITERARY_GENERIC_GRAMS
+            and s[i] not in "的了呢吗啊着"
+            and s[i+n-1] not in "的了呢吗啊着"}
+
+def _author_craft_scope(outline: str) -> str:
+    """Ignore plain plot/background: only explicit writing questions matter."""
+    clauses=re.split(r"[。！？；;\n]",outline)
+    return "。".join(c.strip() for c in clauses
+        if re.search(r"怎样|如何|怎么|寫出|写出|敘述|叙述|描写|"
+                     r"表现|呈现|避免|旁白|读者|不要|不让|希望|"
+                     r"而不是|而非|想写|要让",c))[:600]
+
+
 class XuehaiStore:
     def __init__(self, db: WriterForgeDB, runtime: RuntimeEngine):
         self.db = db
@@ -243,7 +300,8 @@ class XuehaiStore:
 
     def select_literary_reading_for_author(self, *, goal: str,
                                            max_chars: int = 4000,
-                                           exclude_entry_ids: tuple[int,...] = ()) -> dict | None:
+                                           exclude_entry_ids: tuple[int,...] = (),
+                                           writing_problem: str | None = None) -> dict | None:
         """One relevant COMPLETE three-part reading, for an opt-in author preplan.
 
         Reuse the existing published Xuehai and its bounded source-role query.
@@ -264,6 +322,82 @@ class XuehaiStore:
             or any(type(v) is not int or v<=0 for v in exclude_entry_ids)):
             raise ValueError("XUEHAI_AUTHOR_READING_EXCLUSIONS_INVALID")
         excluded=set(exclude_entry_ids)
+        if (writing_problem is not None and
+            (type(writing_problem) is not str or len(writing_problem)>2300)):
+            raise ValueError("XUEHAI_AUTHOR_WRITING_PROBLEM_INVALID")
+        craft_scope=_author_craft_scope(writing_problem or "")
+        if craft_scope:
+            # Real source quotations remain complete; rank ONLY their
+            # line-anchored annotations/open reflections by an explicitly
+            # stated cross-setting writing problem (not a plot prop/name).
+            target=_literary_craft_grams(craft_scope)
+            shortlist=[]
+            seen=set()
+            if len(target)>=3:
+                for role in ("classical_original_annotation_reflection",
+                             "original_annotation_reflection"):
+                    for item in self.query(Query(
+                        source_role=role,limit=32,
+                        max_per_work=8,max_per_cluster=1)):
+                        entry_id=int(item["entry_id"])
+                        if entry_id in excluded or entry_id in seen:
+                            continue
+                        seen.add(entry_id)
+                        try:
+                            reading=self.read_literary_reading(entry_id)
+                        except ValueError:
+                            continue
+                        passage=("【出处】"+reading["source"]+"\n【原文】\n"
+                                 +reading["original"]+"\n【批注】\n"
+                                 +"\n".join(reading["annotations"])
+                                 +"\n【心得】\n"+reading["reflection"])
+                        if len(passage)>max_chars:
+                            continue
+                        grams=_literary_craft_grams(
+                            "\n".join(reading["annotations"])+"\n"+reading["reflection"])
+                        shortlist.append((role,item,reading,passage,grams))
+            if shortlist:
+                from collections import Counter
+                document_frequency=Counter(
+                    word for _,_,_,_,words in shortlist for word in words)
+                total=len(shortlist)
+                relevant=[]
+                for role,item,reading,passage,grams in shortlist:
+                    hits=target & grams
+                    n2=sum(len(t)==2 for t in hits)
+                    n3=sum(len(t)==3 for t in hits)
+                    n4=sum(len(t)==4 for t in hits)
+                    if len(hits)<3 or not (n2>=4 or n3>=2 or n4>=1):
+                        continue
+                    score=sum(
+                        (1 if len(t)==2 else 2.2 if len(t)==3 else 3.6)*
+                        (1+math.log((total+1)/(document_frequency[t]+1)))
+                        for t in hits)
+                    relevant.append((score,role,item,reading,passage,len(hits)))
+                if relevant:
+                    relevant.sort(key=lambda r:(
+                        r[0],r[1]=="classical_original_annotation_reflection",
+                        -len(r[4])),reverse=True)
+                    score,role,entry,reading,passage,match_count=relevant[0]
+                    return {
+                        "entry_id":int(entry["entry_id"]),
+                        "source_role":role,
+                        "work_id":entry["work_id"],
+                        "source":reading["source"],
+                        "complete_reading":passage,
+                        "reading_sha256":hashlib.sha256(passage.encode("utf8")).hexdigest(),
+                        "original_chars":len(reading["original"]),
+                        "annotation_count":len(reading["annotations"]),
+                        "reflection_chars":len(reading["reflection"]),
+                        "relevance_is_unverified_lexical":True,
+                        "author_use_must_be_decided_by_model":True,
+                        "matching_basis":"ANNOTATIONS_REFLECTIONS_TEXT_OVERLAP",
+                        "matched_craft_fragments":match_count,
+                        "literary_transfer_value_unproven":True,
+                    }
+            # An explicit writing issue cannot be replaced by a generic
+            # plot-topic match when no reading truly addressed the issue.
+            return None
         # Chinese goal substrings rather than whitespace-only tokenization.
         spans=re.findall(r"[\u4e00-\u9fff]{2,}", goal)
         noise=frozenset((
