@@ -85,9 +85,10 @@ jobs:
           s=XuehaiStore(db,rt)
           rt.enter_write(s.latest_published())
           cases=[
-            ("village-talk","炎热夏日，外门邻居坐在院棚下互讲人家私事，有青年怀疑故事不可靠。","怎样通过搭棚乘凉、闲谈、听众反驳和求证来描写一个村镇的群体议论？"),
-            ("inheritance","宗门亲族清点旧铺资产，争一套不能拆开的物件，公开竞价后落败者又想加价。","怎么写出竞价规则、当众见证、事后反悔与众人维护程序，留下人物不服气的余波？"),
-            ("tech-only","店铺库存与银两记账数据库。","仅需输出 SQL 字段、Python 合计公式和 JSON 库存统计，不要文学原文。")
+            ("earned-money","仙门女工攒下的会钱被亲属索取，冬衣又被人拿去典当；旁人喊停争吵却没有解决衣食。","怎样描写做工之人对于自己挣来的会钱、被典当的皮袄争辩，以及看客有限的声援？"),
+            ("gift-and-pledge","世家女子并不愿用华贵首饰交换一个含糊的承诺，她提出可以兑现的交往条件。","如何写出拒绝金钏、谈关系条件和交换凭据，既有个人意愿又无法摆脱经济关系？"),
+            ("public-ceremony","一位高门夫人面对宗亲指责婚服越礼，亲自出面讲清暂借礼服的现实原因。","怎么描写夫人在众目睽睽之下解释礼服、职分与暂借身份的条件，同时保留礼制的等级？"),
+            ("technical-only","店铺库存与银两记账数据库。","仅需输出 SQL 字段、Python 合计公式和 JSON 库存统计，不要文学原文。")
           ]
           result=[]
           try:
@@ -97,7 +98,7 @@ jobs:
                   else:
                       assert all(tag in entry["complete_reading"] for tag in ("【原文】","【批注】","【心得】"))
                       cluster=db.conn.execute("SELECT method_cluster FROM xuehai_entries WHERE id=?",(entry["entry_id"],)).fetchone()["method_cluster"]
-                  if key=="tech-only": assert cluster is None
+                  if key=="technical-only": assert cluster is None
                   result.append([key,cluster])
           finally:
               rt.exit();db.close()
