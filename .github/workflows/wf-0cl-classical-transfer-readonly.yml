@@ -1,0 +1,53 @@
+name: WF 0.CL Frozen New Classical Transfer and Legacy 0.CK Root Diagnostics - NO MODEL
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0cl-classical-transfer-readonly.yml
+      - experiments/wf_0cl_frozen_unseen_transfer_cases_20261029.json
+      - experiments/wf_0cl_r2_readonly_frozen_probe.py
+      - writerforge/xuehai.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-only-evidence-no-literary-grade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Reuse existing read-only Xuehai R2 restoration, no LLM
+        run: python -m pip install -e '.[r2]'
+      - name: Run frozen new-source probe plus preserve 0.CK negatives
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+        run: |
+          python -m experiments.wf_0cl_r2_readonly_frozen_probe > "$RUNNER_TEMP/wf0cl.json"
+          python - <<'PY'
+          from pathlib import Path
+          import json,os
+          report=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cl.json").read_text("utf8"))
+          assert report["status"]=="WF0CL_FROZEN_REAL_READONLY_BASELINE"
+          assert report["source_contents"]==126
+          assert report["source_complete_readings"]==78
+          assert report["cases_frozen_before_first_run"]==14
+          assert report["model_calls"]==report["paid_api_calls"]==0
+          assert report["r2_writes"]==report["canon_writes"]==0
+          for row in report["new_cases"]:
+              print("WF0CL_FROZEN_NEW",json.dumps(row,ensure_ascii=False,sort_keys=True))
+          for key,diag in report["old_0ck_root_diagnostics"].items():
+              print("WF0CL_OLD_CK_DIAG",key,json.dumps(diag,ensure_ascii=False,sort_keys=True))
+          print("WF0CL_OBSERVATION_ONLY_NOT_A_LITERARY_VERDICT",flush=True)
+          PY
