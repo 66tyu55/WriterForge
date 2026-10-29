@@ -7,6 +7,7 @@ on:
       - .github/workflows/wf-0co-readonly-selection-diagnostic.yml
       - experiments/wf_0co_readonly_selection_diagnostic.py
       - writerforge/xuehai.py
+      - tests/test_wf_0co_classical_candidate_coverage.py
   workflow_dispatch:
 
 permissions:
@@ -31,6 +32,8 @@ jobs:
           python-version: '3.11'
       - name: Install existing Xuehai and R2, no author model
         run: python -m pip install -e '.[r2]'
+      - name: Genuine source hidden by recency-only shortlist RED GREEN
+        run: python -m unittest discover -s tests -p test_wf_0co_classical_candidate_coverage.py -v
       - name: Inspect 136/88 pinned R2 and actual bounded shortlist
         run: |
           python -m experiments.wf_0co_readonly_selection_diagnostic > "$RUNNER_TEMP/wf0co.json"
