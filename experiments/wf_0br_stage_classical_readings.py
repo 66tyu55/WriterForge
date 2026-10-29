@@ -805,6 +805,130 @@ def stage_with_fantasy_six(db_path:Path,files:dict[str,Path],
         db.close()
 
 
+
+# 0.CC content-only continuation: eight NEW original fantasy literary readings.
+# Same Xuehai tables, source roles and published snapshot lineage; no new store.
+CC_ORIGINAL_PACKS=(
+    ROOT/"experiments/wf_0cc_four_distinct_original_fantasy_readings_A_20261029.json",
+    ROOT/"experiments/wf_0cc_four_distinct_original_fantasy_readings_B_20261029.json",
+)
+
+
+def append_cc_original_eight(db_path:Path)->dict:
+    """Append eight 原文＋批注＋心得 to an EXISTING disposable 114-entry Xuehai.
+
+    This is content insertion/readback, NOT a writer model run or an automatic
+    literary verdict. Caller stages the full 0.BX 114 first; never overwrite
+    the source snapshot or touch formal Canon.
+    """
+    items=[]
+    for file in CC_ORIGINAL_PACKS:
+        pack=json.loads(file.read_text("utf8"))
+        if (pack.get("format")!="wf.literary-reading.original-annotation-reflection.v1"
+            or pack.get("origin","").find("Original")<0 and
+                 pack.get("origin","").find("original")<0
+            or pack.get("literary_gain_proven") is not False
+            or pack.get("independently_reviewed") is not False
+            or len(pack.get("items",[]))!=4):
+            raise ValueError("WF0CC_NEW_LITERARY_PACK_INVALID")
+        for row in pack["items"]:
+            if (not row["id"].startswith("cc-")
+                or type(row.get("original")) is not str
+                or not 650<=len(row["original"])<=2400
+                or type(row.get("annotation")) is not list
+                or len(row["annotation"])!=3
+                or any(type(x) is not str or len(x)<70 or "\n" in x
+                       for x in row["annotation"])
+                or type(row.get("reflection")) is not str
+                or len(row["reflection"])<130
+                or type(row.get("form")) is not str
+                or type(row.get("topic")) is not str):
+                raise ValueError("WF0CC_LITERARY_TEXT_OR_NOTES_INCOMPLETE")
+            source={"url":(
+                "https://github.com/66tyu55/WriterForge/blob/"
+                "refactor-unified-scene-delivery-audit/"+
+                file.relative_to(ROOT).as_posix())}
+            whole=reading_text({**row,"chapter":"完整原创场景"},source)
+            if not 200<=len(whole)<=4900:
+                raise ValueError("WF0CC_FULL_READING_MUST_FIT_AUTHOR_CONTEXT")
+            items.append((row,whole))
+    if (len(items)!=8 or len({r["id"] for r,_ in items})!=8
+        or len({r["form"] for r,_ in items})<7):
+        raise ValueError("WF0CC_ORIGINAL_DISTINCT_READING_SET_REQUIRED")
+
+    db=WriterForgeDB(db_path)
+    rt=RuntimeEngine()
+    try:
+        store=XuehaiStore(db,rt)
+        parent=store.latest_published()
+        roles=("original_complete_scene_unreviewed",
+               "public_domain_continuous_detail_prose_unreviewed",
+               ROLE,ORIGINAL_ROLE)
+        counts=dict(db.conn.execute(
+            "SELECT source_role,COUNT(*) FROM xuehai_entries "
+            "WHERE source_role IN (?,?,?,?) GROUP BY source_role",roles))
+        if (parent is None or counts!=dict(zip(roles,(24,24,42,24)))):
+            raise ValueError("WF0CC_OLD_114_CONTENT_MUST_BE_PRESERVED")
+        rt.enter_learn()
+        sid=store.create_staging_snapshot(
+            parent_id=parent,note="WF0CC_EIGHT_DISTINCT_ORIGINAL_FULL_READINGS")
+        inserted={}
+        for row,whole in items:
+            eid=store.add_entry(
+                sid,work_id="wf-original-"+row["id"],
+                text=whole,library_class="原创玄幻：原文＋批注＋心得",
+                culture="中国",genre="玄幻／仙侠",
+                source_role=ORIGINAL_ROLE,function=row["topic"],
+                effect=row["title"],method_cluster=row["id"],
+                reuse_policy="read_reflect_not_copy")
+            inserted[row["id"]]=eid
+        store.publish(sid)
+        rt.exit()
+        rt.enter_write(sid)
+        for row,whole in items:
+            full=store.read_literary_reading(inserted[row["id"]])
+            if (full["original"]!=row["original"]
+                or full["reflection"]!=row["reflection"]
+                or len(full["annotations"])!=3
+                or any(note not in full["annotations"][i]
+                       for i,note in enumerate(row["annotation"]))
+                or "【原文】" not in whole
+                or "【批注】" not in whole
+                or "【心得】" not in whole):
+                raise RuntimeError("WF0CC_WHOLE_ORIGINAL_READING_READBACK_FAILED")
+        now=dict(db.conn.execute(
+            "SELECT source_role,COUNT(*) FROM xuehai_entries "
+            "WHERE source_role IN (?,?,?,?) GROUP BY source_role",roles))
+        methods=db.conn.execute(
+            "SELECT COUNT(*) FROM xuehai_method_cards").fetchone()[0]
+        if (now!=dict(zip(roles,(24,24,42,32))) or
+            methods!=0 or
+            db.conn.execute("SELECT COUNT(*) FROM accepted_prose").fetchone()[0]!=0):
+            raise RuntimeError("WF0CC_OLD_CORPUS_OR_NO_METHOD_BOUNDARY_CHANGED")
+        return {
+            "status":"EIGHT_NEW_COMPLETE_ORIGINAL_FANTASY_READINGS_IN_EXISTING_XUEHAI",
+            "new_original_full_readings":len(items),
+            "new_original_full_prose_characters":sum(len(r["original"]) for r,_ in items),
+            "new_specific_annotations":sum(len(r["annotation"]) for r,_ in items),
+            "new_open_reflections":len(items),
+            "reading_forms":list(dict.fromkeys(row["form"] for row,_ in items)),
+            "old_literary_content_preserved":114,
+            "old_three_part_readings_preserved":66,
+            "all_literary_content_entries":sum(now.values()),
+            "all_three_part_readings":now[ROLE]+now[ORIGINAL_ROLE],
+            "all_original_and_notes_exact_readback":True,
+            "existing_method_cards":methods,
+            "new_paid_author_model_requests":0,
+            "writer_literary_gain_proven":False,
+            "separate_database_created":False,
+            "r2_reads_or_writes":0,
+            "canonical_fact_writes":0,
+        }
+    finally:
+        rt.exit()
+        db.close()
+
+
 if __name__=="__main__":
     p=argparse.ArgumentParser()
     p.add_argument("--db",type=Path,required=True)
@@ -822,6 +946,8 @@ if __name__=="__main__":
                    help="also read six longer pinned source passages and whole chapters")
     p.add_argument("--fantasy18",action="store_true",
                    help="include three more distinct fantasy books, source-verified in same Xuehai")
+    p.add_argument("--cc-original8",action="store_true",
+                   help="append eight new complete original fantasy readings after existing 114")
     for key in ("fs","jh","lz","hx","dd","zb"):
         p.add_argument("--"+key,type=Path)
     args=p.parse_args()
@@ -844,4 +970,11 @@ if __name__=="__main__":
                 else stage_with_original_eight if args.original8
                 else stage_all_24 if args.all24 else stage)
         output=runner(args.db,old_files)
+    if args.cc_original8:
+        if not args.fantasy18:
+            p.error("--cc-original8 requires --fantasy18 to preserve all 114")
+        old_114_status=output["status"]
+        new_content=append_cc_original_eight(args.db)
+        output.update(new_content)
+        output["previous_114_stage_status"]=old_114_status
     print(json.dumps(output,ensure_ascii=False,indent=2,sort_keys=True))
