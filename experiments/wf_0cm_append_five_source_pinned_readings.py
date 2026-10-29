@@ -167,7 +167,7 @@ def stage(dbfile:Path, *, hx:Path, zb:Path):
     try:
         store=XuehaiStore(db,rt)
         parent=store.latest_published()
-        if parent is None or db.conn.execute("SELECT COUNT(*) FROM xuehai_entries").fetchone()[0]!=126:
+        if parent is None or db.conn.execute("SELECT COUNT(*) FROM xuehai_entries WHERE source_role IN (?,?,?,?)",ROLES).fetchone()[0]!=126:
             raise ValueError("WF0CM_NO_BASE_PUBLISHED_126")
         rt.enter_learn()
         sid=store.create_staging_snapshot(parent_id=parent,note=STAGE_NOTE)
