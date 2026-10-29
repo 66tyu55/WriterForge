@@ -90,6 +90,7 @@ jobs:
               out.write("snapshot="+r["snapshot"]+"\n")
               out.write("content_sha="+r["all_131_sha256"]+"\n")
           print("WF0CM_SUCCESSOR_PUBLISHED_OLD_0CF_UNCHANGED",flush=True)
+          print("WF0CM_PINNED_SNAPSHOT",r["snapshot"],"CONTENT_SHA",r["all_131_sha256"],flush=True)
           PY
 
   fresh-process-read-only-cold-restore:
