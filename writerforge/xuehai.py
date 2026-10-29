@@ -463,11 +463,13 @@ class XuehaiStore:
                         # DIFFERENT future scenario. It is worth reading but
                         # must not alone prove that the original passage
                         # actually handles the author's present craft issue.
-                        # Require two independent links to text-anchored
-                        # annotations before proposing a candidate.
+                        # Require at least one independent link to
+                        # source-anchored annotation before proposing a
+                        # candidate. Two or more excluded an established
+                        # 0.CI historical source on its limited wording.
                         annotated=_independent_literary_hits(
                             target,_literary_craft_grams(notes))
-                        if len(evidence)<3 or len(annotated)<2:
+                        if len(evidence)<3 or len(annotated)<1:
                             continue
                         coverage=sum(bool(part & grams) for part in clauses)
                         ranked.append(((len(evidence),coverage,entry_id),row))
@@ -521,7 +523,7 @@ class XuehaiStore:
                     annotated=_independent_literary_hits(
                         target,_literary_craft_grams(
                             "\n".join(reading["annotations"])))
-                    if len(independent)<3 or len(annotated)<2:
+                    if len(independent)<3 or len(annotated)<1:
                         continue
                     supported=sum(bool(part & grams) for part in clauses)
                     score=sum(
