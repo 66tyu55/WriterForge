@@ -1,4 +1,20 @@
-# WriterForge 轻量最新交接｜0.CN｜2026-10-29
+# WriterForge 轻量最新交接｜0.CP｜2026-10-29
+
+**下次先读本页前半部分，不要全文读取庞大的 `CURRENT_HANDOFF.md`。** 所有新代码与 R2 都只在开发分支 `refactor-unified-scene-delivery-audit`；main、正式 Canon、Railway 不动。宿主作者模型最终自行 USE/SKIP，不训练宿主、不重复建设存储/规则/文学评分体系。V26/V98/V119 和唯一 NarrativeCore 不变。
+
+## 最新 0.CO—0.CP（2026-10-29）
+
+- **0.CO 真实 bug**：`writerforge/xuehai.py` 过去先根据全局新旧顺序按角色取32条，古籍实际56篇导致24篇在文学问题比较前被排除。原 136/88 R2 实测 [#40883463393](https://github.com/66tyu55/WriterForge/actions/runs/40883463393) 确认。以既有《红楼梦》第三回饭席原文＋批注＋心得为真实来源、再插40条无关测试材料，旧代码 [#40884257009](https://github.com/66tyu55/WriterForge/actions/runs/40884257009) RED（相关旧读本被屏蔽）。
+- **修复**：继续复用原 `XuehaiStore._candidate_rows` 的 SQL 有界池（每类最多512行），先用实际**批注＋心得**的独立文本证据做候选预选，再只交付最多32篇经过现有来源哈希、三段式与长度验证的完整阅读。保留每作品8篇限制、不用书名映射、不改原文、不降低三条独立证据门槛；超出有界池仍可能保守NONE，未来扩容应另核实而非不受限扫描。回归 [#40884556007](https://github.com/66tyu55/WriterForge/actions/runs/40884556007) GREEN；0.CI—0.CN 原有 CI 回归正常，[全仓 #40884556013](https://github.com/66tyu55/WriterForge/actions/runs/40884556013) **2101 tests，8 skipped，0 failures**。
+- **安静照顾仍允许不荐**：0.CO 新旧真实读本核验显示王冕母子的文本确实在候选中，但原特定问题只有**两处**独立批注/心得词面关联；同类问题改写后有三处而可召回。不能为了刷该题把阈值从3降低、强制推荐或宣称“文学理解已提高”。
+- **0.CP 内容新增**：`experiments/wf_0cp_four_lao_can_sequel_social_close_readings_20261029.json` 四篇《老殘遊記續集》原著连续片段＋12条具体批注＋4段开放心得：①高人道号的雅俗辩论；②客人猜错逸云与靓云的身份；③逸云谈去留、旧人情与旅行约定；④老残与姊丈赏花、作诗、打趣。共新增**2727 字连续原文**；GITenberg `lao-can-you-ji-xu-pian_56291` 固定 Git commit `bc807d8364509c7d682ed62ae46c2808cf6dc7b2`，原始 blob SHA `1c232e716d7b4fae637e1c209d8a45aa982cfc18`，只做匹配校验，不改动原文的疑似转录瑕疵。美国公版，其他法域版权另核。
+- **实际学海持久增量 136/88 → 140/92**，只复用现有 `WriterForgeDB`、`XuehaiStore`、R2StudyVault，旧136条内容SHA与所有旧原文未变。新独立 R2 库 `wf-0cp-xuehai-literary-140-20261029-v1`，snapshot **`e425a2fe3809905b6d12c7c1c36e8f7647c2c4efd310364dc4ebe3b010de6ac8`**，内容 SHA **`5877223c8189e5136ebfb74ae4782845d0f67028c5784f1c223905de9dcabdf5`**。源锁定、旧源内容对比、92篇三段式全量读回以及全新 CI 冷进程只读 R2 恢复 [#40885794902](https://github.com/66tyu55/WriterForge/actions/runs/40885794902) 均 SUCCESS。0模型调用、0付费请求、0正式 Canon写入、0旧 R2 库覆盖；**未切换正式作者生产环境到新140/92**。
+- 下轮只读 `docs/WF_ACTIVE_BRIEF.md` + 当前需要的源码片段即可，**不要重跑历史原始 RED、不反复付费实测、也不要为追求局部全绿调整文学口味**。若要补下一批内容，选不同题材公版原文3–5篇，贴字批注、开放心得；若要测作者写作辅助，只测读本是否如实送达和明显错荐，作者仍USE/SKIP，不能把工程正确等同文学品质成长。
+
+---
+
+## 上一轮 0.CN 历史记录（保留，不必在每次新聊天读取）
+
 
 **换聊天优先读本页（约 3 KB），不要全文拉取 32 万字符的 `CURRENT_HANDOFF.md`。** 如须调查旧错误，再用 GitHub `fetch_file(start_line,end_line)` 局部读对应源码／实验及失败日志。当前开发分支：`refactor-unified-scene-delivery-audit`。
 
