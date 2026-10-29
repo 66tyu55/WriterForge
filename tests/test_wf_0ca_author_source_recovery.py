@@ -230,7 +230,7 @@ class RealAuthorSourceFirstRecovery(unittest.TestCase):
         """0.BZ mountain prose never started: no fake recovered candidate."""
         from tempfile import TemporaryDirectory
         from unittest.mock import patch
-        from writerforge import WriterForgeDB,RuntimeEngine
+        from writerforge import WriterForgeDB,RuntimeEngine,XuehaiStore
         from writerforge.writing_assist import InvisibleWritingAssist,AutonomousWriting
         from writerforge.verified_flow import WritingExecutionError
         from test_v26_invisible_writer import make_db
@@ -244,7 +244,30 @@ class RealAuthorSourceFirstRecovery(unittest.TestCase):
             sid=make_db(dbfile)
             db=WriterForgeDB(dbfile)
             rt=RuntimeEngine()
-            rt.enter_write(sid)
+            rt.enter_learn()
+            # This disposable source must be relevant to the real scenario.
+            # Otherwise original WF correctly rejects missing source BEFORE
+            # seeing any of the two saved model replies.
+            book=json.loads((
+                ROOT/"experiments/wf_0bu_remaining_sixteen_original_close_readings_20261028.json"
+            ).read_text("utf8"))
+            row=next(r for r in book["items"]
+                     if r["id"]=="original-read-bq-03")
+            src=book["sources"][row["source_key"]]
+            full=(f"【出处】{row['work']}·{row['chapter']}｜{src['url']}\n"
+                  f"【原文】\n{row['original']}\n【批注】\n"+
+                  "\n".join(f"{j}. {x}" for j,x in enumerate(row["annotation"],1))+
+                  "\n【心得】\n"+row["reflection"])
+            store=XuehaiStore(db,rt)
+            child=store.create_staging_snapshot(parent_id=sid)
+            store.add_entry(child,work_id="book-original",text=full,
+                            source_role="original_annotation_reflection",
+                            library_class="原创小说原文＋批注＋心得",
+                            culture="中国",genre="玄幻",
+                            function="护山阵阵井与铜钉结霜",
+                            effect=row["title"],method_cluster=row["id"])
+            store.publish(child)
+            rt.exit();rt.enter_write(child)
             calls=[]
             def replay(packet,*,model,api_base,max_tokens):
                 calls.append(packet.prompt_sha256)
