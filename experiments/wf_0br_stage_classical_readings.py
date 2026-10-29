@@ -34,6 +34,8 @@ FANTASY_READINGS=ROOT/"experiments/wf_0bv_three_fantasy_classics_six_close_readi
 FANTASY_NOTE="WF0BV_THREE_PUBLIC_DOMAIN_FANTASY_BOOKS_SIX_FULL_READINGS"
 FANTASY_LONG=ROOT/"experiments/wf_0bw_three_fantasy_classics_six_long_readings_20261029.json"
 FANTASY_LONG_NOTE="WF0BW_THREE_FANTASY_BOOKS_TWELVE_COMPLETE_READINGS"
+NEXT_FANTASY=ROOT/"experiments/wf_0bx_three_new_fantasy_books_six_close_readings_20261029.json"
+NEXT_FANTASY_NOTE="WF0BX_SIX_BOOKS_EIGHTEEN_COMPLETE_FANTASY_READINGS"
 # The first six deep readings overlap these six source excerpts. Keep them unchanged.
 PREVIOUSLY_COVERED={"x02","x07","h03","h06","s03","s07"}
 
@@ -663,14 +665,67 @@ def load_fantasy_long(sources:dict,files:dict[str,Path])->list[dict]:
     return extra
 
 
+def load_next_fantasy(files:dict[str,Path])->tuple[dict,list[dict]]:
+    """Six authentic new readings; reuse the existing source-aware Xuehai path."""
+    data=json.loads(NEXT_FANTASY.read_text("utf8"))
+    sources,items=data.get("sources"),data.get("items")
+    if (data.get("format")!="wf.literary-reading.original-annotation-reflection.v1"
+        or data.get("literary_gain_proven") is not False
+        or data.get("independently_reviewed") is not False
+        or data.get("source_scope")!="USA_PUBLIC_DOMAIN_ONLY_NONUS_UNVERIFIED"
+        or type(sources) is not dict or set(sources)!={"hx","dd","zb"}
+        or type(items) is not list or len(items)!=6
+        or set(files)!=set(sources)):
+        raise ValueError("WF0BX_INVALID_NEW_FANTASY_READINGS")
+    previous={x["id"] for x in load_fantasy_six()[1]}
+    previous.update(x["id"] for x in json.loads(FANTASY_LONG.read_text("utf8"))["items"])
+    seen=set()
+    texts={}
+    for key,source in sources.items():
+        original=Path(files[key]).read_bytes()
+        actual=sha1(b"blob "+str(len(original)).encode("ascii")+b"\0"+original).hexdigest()
+        if (len(original)!=source["source_size_bytes"]
+            or actual!=source["source_blob_sha1"]):
+            raise ValueError("WF0BX_PINNED_BOOK_CHANGED_"+key)
+        texts[key]=original.decode("utf-8-sig").replace("\r\n","\n").replace("\r","\n")
+    for row in items:
+        key=row.get("source_key")
+        if (key not in sources or row.get("id") in previous|seen
+            or row.get("work")!=sources[key]["work"]
+            or type(row.get("original")) is not str
+            or not 750<=len(row["original"])<=2500
+            or type(row.get("original_source_start")) is not int
+            or type(row.get("original_source_end")) is not int
+            or row["original_source_start"]<0
+            or row["original_source_end"]!=row["original_source_start"]+len(row["original"])
+            or texts[key][row["original_source_start"]:row["original_source_end"]]
+               !=row["original"]
+            or type(row.get("annotation")) is not list
+            or len(row["annotation"])!=3
+            or any(type(note) is not str or len(note)<75 for note in row["annotation"])
+            or type(row.get("reflection")) is not str
+            or len(row["reflection"])<150
+            or not 200<=len(reading_text(row,sources[key]))<=5000):
+            raise ValueError("WF0BX_COMPLETE_SOURCE_OR_READING_CHANGED")
+        seen.add(row["id"])
+    if {key:sum(item["source_key"]==key for item in items)
+        for key in sources}!={key:2 for key in sources}:
+        raise ValueError("WF0BX_TWO_READINGS_PER_BOOK_REQUIRED")
+    return sources,items
+
+
 def stage_with_fantasy_six(db_path:Path,files:dict[str,Path],
-                           fantasy_files:dict[str,Path],long_readings:bool=False)->dict:
-    """Extend the SAME isolated Xuehai with 6 or 12 complete classical readings."""
+                           fantasy_files:dict[str,Path],long_readings:bool=False,
+                           new_fantasy_files:dict[str,Path]|None=None)->dict:
+    """One isolated Xuehai: retain old literary readings, then add new genuine prose."""
     stage_with_all_original_24(db_path,files)
     sources,items=load_fantasy_six()
     verify_fantasy_books(fantasy_files,sources,items)
     extra=load_fantasy_long(sources,fantasy_files) if long_readings else []
-    items=items+extra
+    fresh_sources,fresh=(load_next_fantasy(new_fantasy_files)
+                         if new_fantasy_files is not None else ({},[]))
+    sources={**sources,**fresh_sources}
+    items=items+extra+fresh
     db=WriterForgeDB(db_path)
     rt=RuntimeEngine();rt.enter_learn()
     store=XuehaiStore(db,rt)
@@ -682,7 +737,9 @@ def stage_with_fantasy_six(db_path:Path,files:dict[str,Path],
         if parent is None:
             raise RuntimeError("WF0BV_PREVIOUS_96_ENTRIES_NOT_PUBLISHED")
         sid=store.create_staging_snapshot(
-            parent_id=parent["id"],note=(FANTASY_LONG_NOTE if long_readings else FANTASY_NOTE))
+            parent_id=parent["id"],note=(NEXT_FANTASY_NOTE if fresh
+                                            else FANTASY_LONG_NOTE if long_readings
+                                            else FANTASY_NOTE))
         for item in items:
             src=sources[item["source_key"]]
             store.add_entry(
@@ -719,16 +776,18 @@ def stage_with_fantasy_six(db_path:Path,files:dict[str,Path],
             "SELECT source_role,COUNT(*) FROM xuehai_entries "
             "WHERE source_role IN (?,?,?,?) GROUP BY source_role",roles
         ).fetchall())
-        expected=dict(zip(roles,(24,24,30+len(extra),24)))
+        expected=dict(zip(roles,(24,24,30+len(extra)+len(fresh),24)))
         method_count=db.conn.execute(
             "SELECT COUNT(*) FROM xuehai_method_cards").fetchone()[0]
         if counts!=expected or method_count!=0:
             raise RuntimeError("WF0BV_LOST_PREVIOUS_MATERIAL_"+str(counts))
         return {
-            "status":("THREE_FANTASY_CLASSICS_TWELVE_COMPLETE_READINGS"
-                      if long_readings else "THREE_REAL_FANTASY_CLASSICS_SIX_COMPLETE_READINGS"),
-            "new_books":3,"new_complete_fantasy_readings":len(items),
-            "previous_fantasy_readings_preserved":6 if long_readings else 0,
+            "status":("SIX_FANTASY_CLASSICS_EIGHTEEN_COMPLETE_READINGS" if fresh
+                      else "THREE_FANTASY_CLASSICS_TWELVE_COMPLETE_READINGS" if long_readings
+                      else "THREE_REAL_FANTASY_CLASSICS_SIX_COMPLETE_READINGS"),
+            "new_books":len(sources),"new_complete_fantasy_readings":len(items),
+            "previous_fantasy_readings_preserved":len(items)-len(fresh) if fresh else (6 if long_readings else 0),
+            "added_books":len(fresh_sources),"added_readings":len(fresh),
             "additional_long_readings":len(extra),
             "old_readings_preserved":48,
             "all_literary_content_entries":sum(counts.values()),
@@ -761,18 +820,25 @@ if __name__=="__main__":
                    help="append six authentic fantasy passages from three pinned public books")
     p.add_argument("--fantasy12",action="store_true",
                    help="also read six longer pinned source passages and whole chapters")
-    for key in ("fs","jh","lz"):
+    p.add_argument("--fantasy18",action="store_true",
+                   help="include three more distinct fantasy books, source-verified in same Xuehai")
+    for key in ("fs","jh","lz","hx","dd","zb"):
         p.add_argument("--"+key,type=Path)
     args=p.parse_args()
     old_files={key:getattr(args,key) for key in ("xy","hl","sh")}
-    if args.fantasy6 or args.fantasy12:
-        if args.fantasy6 and args.fantasy12:
-            p.error("choose only --fantasy6 or --fantasy12")
-        fresh={key:getattr(args,key) for key in ("fs","jh","lz")}
-        if any(v is None for v in fresh.values()):
+    if args.fantasy6 or args.fantasy12 or args.fantasy18:
+        if sum((args.fantasy6,args.fantasy12,args.fantasy18))!=1:
+            p.error("choose exactly one fantasy reading option")
+        fantasy_files={key:getattr(args,key) for key in ("fs","jh","lz")}
+        if any(v is None for v in fantasy_files.values()):
             p.error("fantasy readings require --fs --jh --lz")
+        next_files={key:getattr(args,key) for key in ("hx","dd","zb")} if args.fantasy18 else None
+        if next_files is not None and any(v is None for v in next_files.values()):
+            p.error("--fantasy18 requires --hx --dd --zb")
         output=stage_with_fantasy_six(
-            args.db,old_files,fresh,long_readings=args.fantasy12)
+            args.db,old_files,fantasy_files,
+            long_readings=args.fantasy12 or args.fantasy18,
+            new_fantasy_files=next_files)
     else:
         runner=(stage_with_all_original_24 if args.original24
                 else stage_with_original_eight if args.original8
