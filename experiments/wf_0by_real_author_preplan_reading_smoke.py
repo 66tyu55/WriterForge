@@ -31,6 +31,10 @@ CHOICE = {
     "decision":"USE",
     "reason":"我想借鉴一纸手续给活人带来的犹豫，但保留等待治病者的立场，不复制古籍的角色或结尾。",
 }
+SKIP_CHOICE = {
+    "decision":"SKIP",
+    "reason":"这篇的责任冲突可能有启发，但我这次更愿从角色当下所见出发，不依赖借来的结构或结尾。",
+}
 PROSE = (
     "夏舟站在药堂门槛外，手里攥着三枚旧木签。掌事问他是谁派来的，他没有立即解释姐姐去了哪里，"
     "而是先看向门外排队的老人。那人咳得弯下腰，身后的药篓却仍空着。"
@@ -60,7 +64,9 @@ def run_smoke(db_path: Path) -> dict:
         # The baseline and opt-in are the same model, prompt and budget; only
         # the presence of the complete Xuehai material changes.
         result=[]
-        for enabled in (False,True):
+        for mode,enabled,writer_choice in (
+            ("baseline",False,None),("use",True,CHOICE),
+            ("skip",True,SKIP_CHOICE)):
             calls=[]
             def fake_author(packet, *, model, api_base, max_tokens):
                 calls.append({"prompt":packet.prompt,
@@ -74,14 +80,14 @@ def run_smoke(db_path: Path) -> dict:
                             "【原文】","【批注】","【心得】"))
                         assert "【完整阅读】" in packet.prompt
                         assert study["complete_reading"] in packet.prompt
-                        body["reading_choice"]=CHOICE
+                        body["reading_choice"]=writer_choice
                     else:
                         assert "【学海文学深读" not in packet.prompt
                     return json.dumps(body,ensure_ascii=False)
                 # The actual writer's choice travels into prose planning.
                 if enabled:
                     assert '"writer_reading_choice"' in packet.prompt
-                    assert CHOICE["reason"] in packet.prompt
+                    assert writer_choice["reason"] in packet.prompt
                 return PROSE
             assist=InvisibleWritingAssist(
                 db,rt,"wf0by-local-pilot","pilot-scene",GOAL,
@@ -98,7 +104,8 @@ def run_smoke(db_path: Path) -> dict:
                 assert len(calls)==2
                 assert trial["wf_literary_preplan_extra_model_calls"]==0
                 assert trial["wf_literary_readings_delivered"]==int(enabled)
-                assert trial["wf_literary_readings_author_used"]==int(enabled)
+                assert trial["wf_literary_readings_author_used"]==int(mode=="use")
+                assert trial["wf_literary_readings_author_skipped"]==int(mode=="skip")
                 assert trial["wf_literary_learning_quality_verified"] is False
                 chapter=trial["chapters"][0]
                 reading=chapter["wf_literary_reading_before_planning"]
@@ -106,11 +113,11 @@ def run_smoke(db_path: Path) -> dict:
                 if enabled:
                     assert reading["reading_sha256"]==study["reading_sha256"]
                     assert reading["planning_prompt_sha256"]==calls[0]["prompt_sha256"]
-                    assert reading["model_reading_decision"]=="USE"
+                    assert reading["model_reading_decision"]==writer_choice["decision"]
                 assert Path(chapter["candidate"]).read_text("utf8")==PROSE
                 assert chapter["accepted"] is False
                 result.append({
-                    "enabled":enabled,
+                    "mode":mode,"enabled":enabled,
                     "plan_prompt_sha256":calls[0]["prompt_sha256"],
                     "actual_model_calls":len(calls),
                     "source_id":reading["entry_id"],
