@@ -1,4 +1,4 @@
-name: WF 0.BX Three New Fantasy Works Source-Exact Readings
+name: WF 0.BY Full Xuehai Reading Before Real Author Planning
 
 on:
   push:
@@ -12,6 +12,10 @@ on:
       - experiments/wf_0bv_three_fantasy_classics_six_close_readings_20261028.json
       - experiments/wf_0bw_three_fantasy_classics_six_long_readings_20261029.json
       - experiments/wf_0bx_three_new_fantasy_books_six_close_readings_20261029.json
+      - experiments/wf_0by_real_author_preplan_reading_smoke.py
+      - writerforge/writing_assist.py
+      - writerforge/studio_server.py
+      - writerforge/ui/studio.html
       - experiments/wf_0br_stage_classical_readings.py
       - writerforge/xuehai.py
   workflow_dispatch:
@@ -105,4 +109,21 @@ jobs:
           assert x["model_calls"]==0
           assert x["method_cards"]==0
           print("WF0BX: 3部新古籍＋6篇真实原文批注心得，原108条完整保存，114内容条目/66三段式逐篇读回",flush=True)
+          PY
+      - name: Verify actual author model sees whole reading before JSON chapter plan
+        run: |
+          python -m experiments.wf_0by_real_author_preplan_reading_smoke \
+            --db "$RUNNER_TEMP/wf0br-30-full-texts.db" > "$RUNNER_TEMP/wf0by-result.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          doc=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0by-result.json").read_text("utf8"))
+          assert doc["status"]=="REAL_AUTONOMOUS_WRITER_PREPLAN_FULL_READING_DELIVERED"
+          assert doc["real_provider_model_calls"]==0
+          assert doc["additional_model_calls"]==0
+          assert doc["canon_writes"]==0
+          assert doc["models_actual_literary_gain_proven"] is False
+          assert [x["author_choice"] for x in doc["baseline_and_reading_prompts_compared"]]==[
+              "NOT_ASKED","USE"]
+          print("WF0BY: actual AutonomousWriting planning consumed FULL source+annotation+reflection before prose, author USE recorded; baseline unchanged; model mocked/no fees",flush=True)
           PY
