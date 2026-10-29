@@ -94,6 +94,11 @@ label{font-size:13px;font-weight:600;display:block;margin-top:13px}
     </select>
     <p class="note">新模式在写完一个可观察的事件段后，请同一个模型选择继续或回读。它必须说明修改的原文依据、保留不改的风险和想实现的阅读效果，WF 只负责执行和复查。当前并不是观察模型私有思考或生成一半 token 时删除，仍属于实验功能。</p>
     <label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:normal">
+      <input id="xuehai-readings" type="checkbox" />
+      学海完整阅读参与构思（实验，默认关闭；AI 自己选择使用或拒绝）
+    </label>
+    <p class="note">从已发布学海中挑选一篇相关的完整原文＋批注＋心得，在作者决定人物与章节走向之前阅读；不复制名作，也不改变既有模型调用次数。若没有合适全文或提示空间不足，就不强塞材料。生成后只报告作者实际选择，不能当作文学水平已提升。</p>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:normal">
       <input id="reader-first-self-review" type="checkbox" />
       G · 同一个写作 AI 先做一次独立读者式原文复述，再自己决定保留／修改（实验，默认关闭）
     </label>
@@ -330,6 +335,7 @@ async function startAuto(){
     const continue_unreviewed=(draft_mode==="continuity_guard"&&$("continue-unreviewed").checked);
     const ai_chapter_review=$("ai-chapter-review").checked;
     const reader_first_self_review=$("reader-first-self-review").checked;
+    const xuehai_readings_enabled=$("xuehai-readings").checked;
     if(reader_first_self_review&&!(draft_mode==="continuity_guard"&&
       self_edit_rounds>0&&self_edit_timing==="ai_decides")){
       throw Error("独立读者复述只支持 G 模式且需启用 AI 自主审稿。");
@@ -342,7 +348,7 @@ async function startAuto(){
     const job=await send("/api/autodraft",{
       outline,chapters,draft_mode,pause_between_turns,continue_unreviewed,
       self_edit_rounds,self_edit_timing,ai_chapter_review,
-      reader_first_self_review});
+      reader_first_self_review,xuehai_readings_enabled});
     currentJobId=job.job_id;
     $("auto-results").replaceChildren();
     $("branch-panel").hidden=true;
