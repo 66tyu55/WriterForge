@@ -136,7 +136,10 @@ def run():
                 "any_literary_truth_claim":False,
                 "trained_any_model":False,
                 "r2_writes":0,"model_calls":0,"canon_writes":0,
-                "rule_modified_after_seeing_results":False,
+                "original_first_holdout_run_id":40869281958,
+                "original_unseen_result_preserved":True,
+                "now_a_repair_regression_not_a_new_blind_holdout":True,
+                "rule_modified_after_seeing_results":True,
             }
         finally:
             rt.exit()

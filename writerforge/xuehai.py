@@ -164,7 +164,7 @@ def _author_craft_scope(outline: str) -> str:
     # simply because its cast contains '人物', '关系' or '后果'. WF routes the
     # task; it does NOT reinterpret the host's request or train the model.
     technical_artifact=re.search(
-        r"代码|表结构|主键|外键|字段|JSON|SQL|CSS|HTML|Schema|CREATE\\s+TABLE",
+        r"代码|表结构|主键|外键|字段|JSON|SQL|CSS|HTML|Schema|CREATE[ ]+TABLE",
         outline,flags=re.IGNORECASE)
     software_output=re.search(
         r"输出|返回|给出|提供|编写|实现|配置|序列化|构造|设计|生成",

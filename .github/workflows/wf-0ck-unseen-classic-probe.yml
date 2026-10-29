@@ -5,6 +5,8 @@ on:
     branches: [refactor-unified-scene-delivery-audit]
     paths:
       - .github/workflows/wf-0ck-unseen-classic-probe.yml
+      - experiments/wf_0ck_real_classics_unseen_probe.py
+      - writerforge/xuehai.py
   workflow_dispatch:
 
 permissions:
@@ -41,7 +43,10 @@ jobs:
           assert j["unseen_pre_registered_cases"]==7
           assert not j["trained_any_model"] and not j["any_literary_truth_claim"]
           assert j["r2_writes"]==j["canon_writes"]==j["model_calls"]==0
-          assert j["rule_modified_after_seeing_results"] is False
+          assert j["original_first_holdout_run_id"]==40869281958
+          assert j["original_unseen_result_preserved"] is True
+          assert j["now_a_repair_regression_not_a_new_blind_holdout"] is True
+          assert j["rule_modified_after_seeing_results"] is True
           for case in j["outcomes"]:
               print("WF0CK_UNSEEN_CASE",json.dumps(case,ensure_ascii=False))
           from collections import Counter
