@@ -97,6 +97,64 @@ def inspect_holdouts():
                         picked.get("matched_craft_fragments",0) if picked else 0),
                     "one_best_not_a_literary_truth":True,
                 })
+            # Exercising the real author entry, not a side-route query:
+            # a story-flavored software task must not receive literary
+            # 原文 in the actual chapter-planning provider request.
+            from unittest.mock import patch
+            from writerforge.writing_assist import (
+                InvisibleWritingAssist, AutonomousWriting)
+            technical=next(c for c in frozen["cases"]
+                           if c["id"]=="new-genre-noun-not-method")
+            packets=[]
+            plan={
+                "objective":"青年书生请摊主核对丹药出售时的药材登记",
+                "conflict":"药丹包装旧损，摊主认为仍然可以使用",
+                "decision":"书生决定先检查登记再考虑支付钱款",
+                "outcome":"两人暂时停下买卖等待核验",
+                "pov":"只记录书生眼前所见的货物和言语",
+                "needs":["dialogue","decision"],
+            }
+            manuscript=("书生来到摊前时，看见铺垫的草席被风吹得卷起一角。"
+                        "摊主从木柜里取出一枚旧丹，却说瓶封只是有些磨损，"
+                        "并不能证明药已经不能用。书生没有出钱，先请他翻找"
+                        "原有的进货账簿。摊主把柜门重新合上，四周的人便"
+                        "都停下来听他们谈这桩交易。书生拿着钱袋没有"
+                        "离开，也没有冒然判断摊主故意欺诈。")
+            def script_reply(packet,*,model,api_base,max_tokens):
+                packets.append(packet)
+                return (json.dumps(plan,ensure_ascii=False)
+                        if "请先规划本章" in packet.prompt else manuscript)
+            assist=InvisibleWritingAssist(
+                db,rt,"wf0cj-technical-is-not-literature","novel-prop",
+                technical["goal"],model="FIXED_REPLY_NO_INFERENCE",
+                api_base="http://127.0.0.1:1",source_genre="玄幻")
+            with patch("writerforge.writing_assist.local_chat_completion",
+                       side_effect=script_reply):
+                trial=AutonomousWriting(assist).run(
+                    outline=technical["goal"]+"。\\n"+
+                            technical["writing_problem"],
+                    chapter_goals=[technical["goal"]],
+                    output_dir=base/"technical-not-literature",
+                    draft_mode="single",xuehai_readings_enabled=True)
+            receipt=trial["chapters"][0]["wf_literary_reading_before_planning"]
+            if (len(packets)!=2 or
+                receipt["delivered_to_author_planning"] or
+                trial["wf_literary_readings_delivered"]!=0 or
+                "【学海文学深读" in packets[0].prompt or
+                trial["chapters"][0]["accepted"] is not False):
+                raise AssertionError("WF0CJ_TECHNICAL_TASK_WAS_GIVEN_LITERATURE")
+            # Ordinary story text containing "不要" is not necessarily an
+            # explicit literary how-to. Preserve the legacy goal-based
+            # reading path if author didn't ask an actual craft question.
+            old_goal="天雨署晏纸收到三澜县报牒，准备给雨簿的字迹存疑封条签字"
+            baseline=store.select_literary_reading_for_author(
+                goal=old_goal,max_chars=4900)
+            story_only=store.select_literary_reading_for_author(
+                goal=old_goal,max_chars=4900,
+                writing_problem="他不要师兄替自己宣誓，今天仍守着天雨署的账桌。")
+            if (baseline is None or story_only is None
+                or baseline["entry_id"]!=story_only["entry_id"]):
+                raise AssertionError("WF0CJ_ORDINARY_STORY_GOAL_FALLBACK_BROKEN")
             # Re-read the untouched ORIGINAL restore, not the local mutable
             # copy. No new method/value evaluation is ever written.
             unchanged=inspect_literary_db(Path(restored["db"]))
@@ -111,7 +169,11 @@ def inspect_holdouts():
                 "source_cases":report,
                 "r2_writes":0,"canon_writes":0,
                 "model_requests":0,"literary_gain_proven":False,
-                "criteria_not_tuned_in_this_run":True,
+                "ordinary_novel_goal_fallback_preserved":True,
+                "real_writer_technical_request_received_no_literary_text":True,
+                "real_writer_reply_scripted_not_a_model_test":True,
+                "frozen_cases_committed_before_first_run":True,
+                "cases_now_used_as_repair_regression_not_new_blind_holdout":True,
             }
         finally:
             rt.exit()

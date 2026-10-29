@@ -348,7 +348,7 @@ class XuehaiStore:
         # request still follows the previous story-based reading path.
         if (writing_problem is not None and not craft_scope and
             re.search(r"如何|怎样|怎么|希望|想让|想写|写出|"
-                      r"写成|不要|不让|請|请",writing_problem)):
+                      r"写成",writing_problem)):
             return None
         if craft_scope:
             # Real source quotations remain complete; rank ONLY their
