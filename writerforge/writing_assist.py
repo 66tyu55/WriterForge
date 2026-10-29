@@ -3315,6 +3315,12 @@ class AutonomousWriting:
                     plan_raw,encoding="utf8")
             try:
                 plan=_chapter_plan(plan_raw,goal)
+                # WF owns the contract between READING choice and STORY choice.
+                # Do not send a misplaced USE/SKIP root label back as a
+                # character's action. Keep every byte of the original model
+                # answer and let the author choose the actual plot in its
+                # existing turn/prose call; never invent a character decision.
+                author_plan_prompt_view=plan
                 if reading_receipt["delivered_to_author_planning"]:
                     author_choice=_xuehai_author_reading_choice(plan_raw)
                     if author_choice is not None:
@@ -3325,6 +3331,24 @@ class AutonomousWriting:
                         plan["writer_reading_choice"]=author_choice
                     else:
                         reading_receipt["model_reading_decision"]="NOT_EXPRESSED"
+                    if plan["decision"] in ("USE","SKIP"):
+                        # A single top-level label does not prove USE or SKIP
+                        # and is not a character action. Do not reject already
+                        # written prose or spend another model call.
+                        (job/f"chapter-{index:03d}-raw-author-plan-misplaced.json").write_text(
+                            plan_raw,encoding="utf8")
+                        reading_receipt["root_reading_label_misplaced_as_plot"]=True
+                        reading_receipt["missing_real_character_decision"]=True
+                        reading_receipt["root_not_a_valid_reading_choice"]=True
+                        if author_choice is None:
+                            reading_receipt["model_reading_decision"]=(
+                                "NOT_EXPRESSED_MISPLACED_ROOT")
+                        author_plan_prompt_view={
+                            k:v for k,v in plan.items() if k!="decision"}
+                        author_plan_prompt_view["author_decision_pending"]=(
+                            "人物决定仍需作者在正文中自行完成；"
+                            "原始章节计划把阅读取舍标签误填为人物行动，"
+                            "WF不替作者作出选择。")
                 author_reading_receipts.append(reading_receipt)
             except WritingExecutionError:
                 if draft_mode=="foresight_rolling":
@@ -3397,7 +3421,7 @@ class AutonomousWriting:
             packet=_enrich(
                 body_base,
                 "\n【完整原创大纲】\n"+outline[:2300]
-                +"\n【本章内部规划】\n"+json.dumps(plan,ensure_ascii=False)
+                +"\n【本章内部规划】\n"+json.dumps(author_plan_prompt_view,ensure_ascii=False)
                 +"\n【上一章尚未被作者接受的候选末尾】\n"+previous[-700:]
                 +("\n【上章遗留人物变化和未解决后果】"+
                   last_chapter_pressure if last_chapter_pressure else "")
@@ -3437,7 +3461,7 @@ class AutonomousWriting:
                     body_base,
                     "\n【本章目标（不是已成事实）】"+goal+
                     "\n【已有候选章节计划】"+json.dumps(
-                        plan,ensure_ascii=False)+
+                        author_plan_prompt_view,ensure_ascii=False)+
                     "\n优先规划2到4个真正必要的叙事事件，允许安静过渡，"
                     "不强迫每段反转。只输出JSON对象turns数组，"
                     "每项字段：id(t01等顺序)、kind(action/decision/"
@@ -3704,7 +3728,7 @@ class AutonomousWriting:
                                         body_base,plan=(
                                             g_writer_active_plan_view(plan)
                                             if g_rolling_author_planning and turn_index>0
-                                            else plan),
+                                            else author_plan_prompt_view),
                                         hard_turn_addition=turn_addition,
                                         facets=facets,
                                         dependency_hint=dependency_hint,
