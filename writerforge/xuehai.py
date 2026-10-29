@@ -113,6 +113,7 @@ def _source_overlap(source: str, guidance: str, window: int = 14) -> bool:
 _LITERARY_READING_FOLD = str.maketrans(dict(
     pair for pair in (
         ("傳","传"),("聞","闻"),("證","证"),("詞","词"),("說","说"),
+        ("換","换"),("飾","饰"),("態","态"),("禮","礼"),
         ("敘","叙"),("實","实"),("際","际"),("觀","观"),("眾","众"),
         ("書","书"),("時","时"),("間","间"),("來","来"),("見","见"),
         ("為","为"),("對","对"),("誤","误"),("論","论"),("後","后"),
@@ -144,6 +145,7 @@ _LITERARY_GENERIC_GRAMS = frozenset((
     "有些","的是","而不","不是","而不是","或者","任何","直接",
     "主人","人公","主人公","因此","可以","以及","应该",
     "为何","如何","怎样","开始","然后","下来","一个","时候",
+    "一点","并不","需要","写成",
 ))
 
 def _literary_craft_grams(text: str) -> set[str]:
@@ -188,8 +190,18 @@ def _author_craft_scope(outline: str) -> str:
                r"身世|命運|命运|壓力|压力|危險|危险|"
                r"权勢|權勢|权力|權力|人物動機|人物动机|"
                r"合作|聯盟|联盟|盟約|盟约|資源|资源|風險|风险")
+    # A direct scene-writing instruction can describe how one person's
+    # treatment changes without saying "character", "plot" or "narrative".
+    # This is only an author-task gate; actual reading still requires
+    # evidence in its complete annotation/reflection and source text.
+    directed_person_scene=(
+        r"(?:怎样|如何|怎么)(?:让|把)|(?:想|希望|要)(?:让|把)")
+    human_participant=r"人|他|她|对方|自己|同门|师弟|师兄|父亲|母亲|友人"
     return "。".join(c.strip() for c in clauses
-                     if re.search(request,c) and re.search(narrative,c))[:600]
+                     if re.search(request,c) and (
+                         re.search(narrative,c) or (
+                             re.search(directed_person_scene,c)
+                             and re.search(human_participant,c))))[:600]
 
 
 class XuehaiStore:
@@ -358,10 +370,19 @@ class XuehaiStore:
         # A technical or generic explicit HOW-TO is not permission for a
         # plot-noun fallback. A normal chapter outline without an explicit
         # request still follows the previous story-based reading path.
-        if (writing_problem is not None and not craft_scope and
-            re.search(r"如何|怎样|怎么|希望|想让|想写|写出|"
-                      r"写成",writing_problem)):
-            return None
+        if writing_problem is not None and not craft_scope:
+            # "Only calculate ... and list formulas" is a real deliverable
+            # instruction even without HOW-TO wording. Never fall back to
+            # a fantasy plot noun and inject a novel into technical output.
+            explicit_nonliterary_result=re.search(
+                r"(?:只需|仅需|请|要求).{0,120}"
+                r"(?:计算|列出|统计|校验|验证|返回|给出).{0,120}"
+                r"(?:公式|误差|浓度|单位换算|代码|表格|参数|数据)",
+                writing_problem,flags=re.IGNORECASE)
+            if (explicit_nonliterary_result or
+                re.search(r"如何|怎样|怎么|希望|想让|想写|写出|"
+                          r"写成",writing_problem)):
+                return None
         if craft_scope:
             # Real source quotations remain complete; rank ONLY their
             # line-anchored annotations/open reflections by an explicitly
