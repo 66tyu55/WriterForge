@@ -78,6 +78,30 @@ def diagnose_existing_r2():
                         "SELECT method_cluster FROM xuehai_entries WHERE id=?",
                         (reading["entry_id"],)).fetchone()
                     return row["method_cluster"]
+                from writerforge.xuehai import (
+                    _literary_craft_grams,_author_craft_scope)
+                craft_scope=_author_craft_scope(item["writing_problem"])
+                parts=[
+                    _literary_craft_grams(v)
+                    for v in __import__("re").split("[，,；;]",craft_scope)
+                    if len(v.strip())>=5]
+                def source_support(entry):
+                    if entry is None:
+                        return None
+                    study=XuehaiStore(db,rt).read_literary_reading(entry["entry_id"])
+                    note="\\n".join(study["annotations"])+"\\n"+study["reflection"]
+                    g=_literary_craft_grams(note)
+                    hits=_literary_craft_grams(craft_scope)&g
+                    return {
+                        "clauses_supported":sum(bool(v&g) for v in parts),
+                        "craft_fragments":len(hits),
+                        "match_2grams":sorted(w for w in hits if len(w)==2)[:30],
+                    }
+                expected_row=db.conn.execute(
+                    "SELECT id FROM xuehai_entries WHERE method_cluster=?",
+                    (item["expected"],)).fetchone()
+                expected_entry=(
+                    {"entry_id":expected_row["id"]} if expected_row else None)
                 outcome.append({
                     "case":item["id"],"expected_possible_literary_reference":item["expected"],
                     "current_goal_only":method_cluster(original),
@@ -91,6 +115,8 @@ def diagnose_existing_r2():
                         if transferred else 0),
                     "craft_transfer_meets_possible_literary_reference":
                         method_cluster(transferred)==item["expected"],
+                    "selected_source_support":source_support(transferred),
+                    "pre_registered_source_support":source_support(expected_entry),
                     "current_goal_only_meets_registered_reference":
                         method_cluster(original)==item["expected"],
                     "no_semantic_quality_judgment":True,
