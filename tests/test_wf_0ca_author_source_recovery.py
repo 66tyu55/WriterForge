@@ -7,6 +7,7 @@ prose, prohibited source text and unsourced character choices stay RED.
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 from pathlib import Path
 import unittest
 
@@ -207,6 +208,20 @@ class RealAuthorSourceFirstRecovery(unittest.TestCase):
                 self.assertEqual(failure["canonical_fact_writes"],0)
                 self.assertEqual(failure["previous_valid_turn_count"],1)
                 self.assertEqual(failure["automatic_repair_attempts"],0)
+                partial=job/"chapter-001-partial-unaccepted-prose.txt"
+                self.assertTrue(partial.is_file())
+                self.assertEqual(partial.read_text("utf8"),
+                                 json.loads(fixed_originals[2])["prose"].strip())
+                self.assertEqual(
+                    failure["partial_unaccepted_source_sha256"],
+                    sha256(partial.read_bytes()).hexdigest())
+                self.assertEqual(failure["partial_unaccepted_turns"],1)
+                self.assertTrue(
+                    failure["partial_unaccepted_requires_author_review"])
+                self.assertFalse(
+                    failure["partial_unaccepted_eligible_for_canon"])
+                self.assertFalse(
+                    failure["partial_unaccepted_causal_truth_proven"])
             finally:
                 rt.exit()
                 db.close()

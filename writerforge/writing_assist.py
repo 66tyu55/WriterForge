@@ -4598,6 +4598,38 @@ class AutonomousWriting:
                         "automatic_repair_attempts":0,
                         "real_original_or_private_prose_embedded":False,
                     }
+                    # Preserve the ACTUAL already-written prose when a
+                    # later G/V98 turn fails. This remains a *partial*
+                    # unaccepted local manuscript, never a completed
+                    # candidate, a source-backed effect, or Canon. Do not
+                    # save prohibited verbatim reuse of the study passage.
+                    if draft_mode=="continuity_guard" and accepted_turns:
+                        partial="\n\n".join(
+                            part["prose"] for part in accepted_turns)
+                        if (selected_complete_literature is not None and
+                            rejects_verbatim_copy(
+                                partial,selected_complete_literature)):
+                            issue["partial_unaccepted_source_copy_blocked"]=True
+                        else:
+                            partial_path=(job/f"chapter-{index:03d}-"
+                                          "partial-unaccepted-prose.txt")
+                            try:
+                                with partial_path.open("x",encoding="utf8") as stream:
+                                    stream.write(partial)
+                            except OSError:
+                                # Keep the original failure, never retry the
+                                # author or pretend the private save succeeded.
+                                issue["partial_unaccepted_source_save_failed"]=True
+                            else:
+                                issue.update({
+                                    "partial_unaccepted_source_path":str(partial_path),
+                                    "partial_unaccepted_source_sha256":sha256(
+                                        partial.encode("utf8")).hexdigest(),
+                                    "partial_unaccepted_turns":len(accepted_turns),
+                                    "partial_unaccepted_requires_author_review":True,
+                                    "partial_unaccepted_eligible_for_canon":False,
+                                    "partial_unaccepted_causal_truth_proven":False,
+                                })
                     (job/f"chapter-{index:03d}-rejected.json").write_text(
                         json.dumps(issue,ensure_ascii=False,indent=2),
                         encoding="utf8")
