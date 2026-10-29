@@ -36,7 +36,7 @@ def _cluster(db, entry_id):
                         (entry_id,)).fetchone()
     return row["method_cluster"] if row else None
 
-def _inspect_candidates(store, db, writing_problem):
+def _inspect_candidates(store, db, writing_problem, source_names=INSPECT_CLUSTERS):
     scope=_author_craft_scope(writing_problem)
     candidates={}
     for role in ROLES:
@@ -47,7 +47,7 @@ def _inspect_candidates(store, db, writing_problem):
     clauses=[_literary_craft_grams(s) for s in re.split(r"[，,；;]",scope)
              if len(s.strip())>=5]
     out=[]
-    for name in INSPECT_CLUSTERS:
+    for name in source_names:
         item=candidates.get(name)
         if not item:
             out.append({"source":name,"in_retrieval_shortlist":False})
@@ -95,10 +95,20 @@ def run():
         try:
             store=XuehaiStore(db,rt)
             records=[]
+            insufficient_source_evidence=[]
             for c in frozen["cases"]:
                 selected=store.select_literary_reading_for_author(
                     goal=c["goal"],writing_problem=c["writing_problem"],max_chars=4900)
                 cluster=_cluster(db,selected["entry_id"]) if selected else None
+                if (c["possible_sources"] and
+                    cluster not in c["possible_sources"]):
+                    insufficient_source_evidence.append({
+                        "case":c["id"],
+                        "selected":cluster,
+                        "source_probe":_inspect_candidates(
+                            store,db,c["writing_problem"],
+                            tuple(c["possible_sources"])),
+                    })
                 records.append({
                     "case":c["id"],"hypothesis_class":c["class"],
                     "plausible_nonexclusive_sources":c["possible_sources"],
@@ -129,7 +139,9 @@ def run():
                 "source_contents":proof["contents"],
                 "source_complete_readings":proof["complete_three_part_readings"],
                 "cases_frozen_before_first_run":len(records),
-                "new_cases":records,"old_0ck_root_diagnostics":original,
+                "new_cases":records,
+                "unmatched_references_source_evidence":insufficient_source_evidence,
+                "old_0ck_root_diagnostics":original,
                 "literary_gain_proven":False,
                 "model_calls":0,"paid_api_calls":0,"r2_writes":0,"canon_writes":0,
             }
