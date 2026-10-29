@@ -1,4 +1,4 @@
-name: WF 0.CC Eight Original Full Literary Readings in Existing Xuehai
+name: WF 0.CE 126 Xuehai Contents Including Four Real R2 Public Classic Readings
 
 on:
   push:
@@ -14,6 +14,8 @@ on:
       - experiments/wf_0bx_three_new_fantasy_books_six_close_readings_20261029.json
       - experiments/wf_0cc_four_distinct_original_fantasy_readings_A_20261029.json
       - experiments/wf_0cc_four_distinct_original_fantasy_readings_B_20261029.json
+      - experiments/wf_0ce_r2_public_classics_four_full_readings_20261029.json
+      - experiments/wf_0ce_stage_r2_public_readings.py
       - experiments/wf_0by_real_author_preplan_reading_smoke.py
       - writerforge/writing_assist.py
       - writerforge/studio_server.py
@@ -123,6 +125,26 @@ jobs:
           assert x["model_calls"]==0
           assert x["method_cards"]==0
           print("WF0CC: 8篇全新原创玄幻原文＋24条贴句批注＋8段开放心得；114旧条目保留，现122内容/74三段式完整读回。零额外模型调用。",flush=True)
+          PY
+      - name: Append four authenticated public R2 original literary readings to SAME SQLite
+        run: |
+          python -m experiments.wf_0ce_stage_r2_public_readings "$RUNNER_TEMP/wf0br-30-full-texts.db" > "$RUNNER_TEMP/wf0ce-result.json"
+          python - <<'PY'
+          from pathlib import Path
+          import json,os
+          report=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0ce-result.json").read_text("utf8"))
+          assert report["prior_contents"]==122
+          assert report["prior_full_three_part_readings"]==74
+          assert report["new_real_historical_contiguous_originals"]==4
+          assert report["new_specific_annotations"]==12
+          assert report["new_open_reflections"]==4
+          assert report["contents_total"]==126
+          assert report["full_three_part_readings_total"]==78
+          assert report["four_exact_source_readbacks"] is True
+          assert report["new_paid_model_calls"]==0
+          assert report["private_r2_writes"]==0
+          assert report["canon_writes"]==0
+          print("WF0CE: 122旧条目完整保留，4段R2原著实文＋12条批注＋4段心得，126内容/78三段式完整读回",flush=True)
           PY
       - name: Verify actual author model sees whole reading before JSON chapter plan
         run: |
