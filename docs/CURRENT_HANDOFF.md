@@ -1,5 +1,19 @@
 # WriterForge 当前有效交接｜2026-10-29
 
+## 0.CB 源稿不中断式保留｜真实0.BZ模型回复在原G链路的回放（2026-10-29）
+
+**唯一目标仍然是WF实际小说写作质量，而非CI、提示词或学海条数增长。** 本轮以0.BZ永久保存的真实Qwen2.5-3B原始输出为固定来源，**没有新模型推理/付费API**。只修改开发分支，未改main、Railway、私有R2、正式Canon；V26/V98/V119和唯一NarrativeCore均保留。
+
+- **先证明0.CA是真的接通原G，而不是只测试解析器**：在既有`tests/test_wf_0ca_author_source_recovery.py`中，用原0.BZ学海分药组前三个真实模型回包逐字回放`AutonomousWriting.run(continuity_guard+V98+NarrativeCore+xuehai_readings_enabled=True)`。临时学海放入原0.BT完整《未归人的药》原文/批注/心得，不虚构新书；实际第一条计划请求含全部三段式。第三次回包原样保留为`TRACE_REJECTED_SOURCE_PROSE_REVIEW_ONLY`的**已写、未认定因果的正文**，原链路推进至第四条请求。第四条只用明确标记的测试用非法JSON强制停止，**不是模型真实续写**。源回放 [#40821149307 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40821149307)。
+- **真实作者已经写的段落在后续失败时不应只剩难读的JSON**：原`writing_assist.py`的G失败分支在先前已有`accepted_turns`时，追加写入同一**私有作业目录**的`chapter-001-partial-unaccepted-prose.txt`，内容是此前确实经过现有G源文本路径留下的原句/原段，不拼接模型没写的故事。既有`chapter-001-rejected.json`只新增路径、SHA、已写段数、`requires_author_review=True`、`eligible_for_canon=False`、`causal_truth_proven=False`；绝非完整候选`candidate.md`、Canon、第二记忆或作者同意；在学海原文逐字复制保护触发时拒绝留存。该文件只是恢复作者原稿的本地位置，**不等于章节成功或文学进步**。
+- **失败时不能造不存在的稿**：另用原0.BZ护山阵原G两份真实模型回包，放在含旧0.BU《山门旧阵》真实三段式的隔离来源中回放，原模型第二条缺闭合括号，故写作在首段产生前拒绝，`previous_valid_turn_count=0`，无partial文件、无候选章节、无自动修复。对比“有真实正文时保留”和“无正文时绝不凭空补写”，没有把错误的`trace`或不完整JSON晋升为事实。[0.CB离线回放 GREEN #40821602224](https://github.com/66tyu55/WriterForge/actions/runs/40821602224)，含7项0.CA/CB来源测试和原V96/G旧回归。
+- **文学负面信息仍然成立，勿被工程GREEN掩盖**：0.BZ分药学海组首段只有“焦急/信任/尊严”等自我解释，药签能否领、药材能否治病、代价由谁承担并未真正发生。两篇裸模型样本均以掌权人“沉默片刻，最终点头”快速解决核心冲突，说明作者宿主存在跨题重复处理；但与该学海组尚无可公平比较的完整WF正文。旧学海命中与实验题材过于近似，不能自称跨文本文学迁移。**现实结果仍是WF完整章节0/4，无文学胜者。**
+- **回归精确边界**：新核心提交后[0.CA回归 #40821309958 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40821309958)、[0.BY完整阅读 #40821309927 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40821309927)、[0.BL全仓离线 #40821309837 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40821309837)：**2,077 tests、8 skipped、0 failures**；新增护山阵源码回放 [#40821602224 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40821602224)。另旧0.AY及统一场景工作流依旧缺少封存的真实0.AY工件而有8项`WF0BD_ORIGINAL_0AY_ARTIFACT_REQUIRED_NO_SYNTHETIC_FALLBACK`，不是本轮新文学问题，绝不补合成来源造GREEN。
+- **下一步不靠再造系统**：现有局部稿恢复后，不要无限微调3B的JSON提示，也不要继续堆方法卡/检查器。获得有能力且费用清楚获准的真实作者模型前，只能分析并保留负面证据；未来必须至少两种**与学海现有原文情节不同**的新玄幻场景、同模型同题总token费用上限一致、保存作者原始构思与完整正文，比较是否真正写出有根由的选择、可见代价与后果、不同人物的有限认知以及文学语言。仍需允许平手或退步。
+
+---
+
+
 ## 0.CA 小范围作者正文源保护修复｜2026-10-29
 
 **最高目标未变：要的是文学质量进步，不是更多规则或测试GREEN。** 本轮只处理0.BZ真实Qwen2.5-3B十一份原始回包已暴露的作者写作阻断，**没有新模型推理、更没有付费API、没有新增独立记忆/数据库/评判系统**。
