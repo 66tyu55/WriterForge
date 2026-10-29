@@ -197,9 +197,19 @@ def _author_craft_scope(outline: str) -> str:
     directed_person_scene=(
         r"(?:怎样|如何|怎么)(?:让|把)|(?:想|希望|要)(?:让|把)")
     human_participant=r"人|他|她|对方|自己|同门|师弟|师兄|父亲|母亲|友人"
+    # A prose intention can concern a social/ethical mechanism without
+    # using conventional fiction labels such as "人物" or "情节".
+    # Keep generic wishes out: the explicit prose operation needs a
+    # substantive clause, not simply "写得更好".
+    literary_prose_intent=(
+        r"(?:想|希望|要).{0,24}(?:写出|写实|写成|描写|表现|呈现)|"
+        r"(?:怎样|如何|怎么)(?:描写|写出|写|表现|呈现|叙述)"
+    )
     return "。".join(c.strip() for c in clauses
                      if re.search(request,c) and (
                          re.search(narrative,c) or (
+                             re.search(literary_prose_intent,c)
+                             and len(c.strip())>=24) or (
                              re.search(directed_person_scene,c)
                              and re.search(human_participant,c))))[:600]
 
