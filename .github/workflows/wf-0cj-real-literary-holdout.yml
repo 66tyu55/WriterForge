@@ -7,6 +7,7 @@ on:
       - .github/workflows/wf-0cj-real-literary-holdout.yml
       - experiments/wf_0cj_independent_real_classic_holdouts_20261029.json
       - experiments/wf_0cj_independent_real_classic_probe.py
+      - tests/test_wf_0cj_literary_task_scope.py
       - writerforge/xuehai.py
   workflow_dispatch:
 
@@ -30,6 +31,8 @@ jobs:
           python-version: '3.11'
       - name: Install existing Xuehai and R2 SDK; no LLM client
         run: python -m pip install -e '.[r2]'
+      - name: WF explicit literary intent vs technical-task regression (source only)
+        run: python -m unittest discover -s tests -p test_wf_0cj_literary_task_scope.py -v
       - name: Nine pre-registered genuine literature and non-literature holdouts
         env:
           WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
