@@ -1,5 +1,17 @@
 # WriterForge 当前有效交接｜2026-10-29
 
+## 0.CH 专注WF本体｜阅读决策隔离＋任务内学海阅读调度｜2026-10-29
+
+**用户最新纠偏：核心工作是提升WriterForge自身，而不是训练某个宿主大模型的文学理解。** 宿主提供推理资源；WF负责阅读调度、写作组织、真实已写来源与人物选择的区分，以及可迁移/可证伪/可停止的认知习惯。学海的“原文＋批注＋心得”作为真正的阅读资源，不改成口号、方法卡或新数据库。保留V26/V98/V119、唯一NarrativeCore，且不动main、生产Railway、现有私有R2学海快照、正式Canon；**0新增模型API调用和0文学质量晋级**。
+
+- **真实旧0.BZ负例驱动的WF修复**：旧0.BZ本地Qwen3B原始作者章计划把`"decision":"SKIP"`误写在顶层人物剧情决定，而作者应把阅读取舍写入独立`reading_choice`。原`_chapter_plan`仅检长度，WF竟把`SKIP`当人物行动反复喂给后续叙事。先以0.BZ封存真实回包RED：[0.CH #40851055245](https://github.com/66tyu55/WriterForge/actions/runs/40851055245)。修复只在**确实发送完整文学阅读**且根剧情决定恰为`USE/SKIP`时起效：将原始模型回包逐字留在私有作业目录`chapter-001-raw-author-plan-misplaced.json`；增加阅读收据中的`root_reading_label_misplaced_as_plot`和`missing_real_character_decision`；向后续作者正文/回合规划传递的是**不含伪剧情决定**的临时只读提示视图，并明确让作者**自己**在已有后续请求中决定人物行动。**绝不自动将顶层USE/SKIP记为已授权的阅读选择、不篡改原始章计划、不替宿主编造故事、不多调模型、不取消0.CB真实已写段落的保存**。G+V98仍可读取真实已写正文，并保留错误源原件。
+- **WF而非模型的第二项调度能力**：旧WF在同一`AutonomousWriting.run`写作任务连续两章时，哪怕第一章已投递完整三段式文学文本，仍会把完全相同材料再次塞进第二章的构思Prompt；原0.CC天雨署真实原创阅读构成RED：[0.CH #40851547751](https://github.com/66tyu55/WriterForge/actions/runs/40851547751)。在原`XuehaiStore.select_literary_reading_for_author`上增加有界`exclude_entry_ids`，只引用已经存在的`author_reading_receipts`记录本次作业哪些全文**已经被投递**（无论作者USE还是SKIP）；下一章自动排除已投递条目，**有另一篇真正匹配的才能送，无合适文本就不重复**。无需新表、持久使用习惯库、宿主再判断或模型请求；外部直接查询默认参数不改变。无历史阅读投递时旧Xuehai搜索行为保留。
+- **源回归结果**：[最终0.CA/CH同文件真实来源回归 #40851707173 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40851707173)（0.BZ原作者回包、旧V96/G相关用例及双章真实WF入口）；[0.CE原文学海内容 #40851707180 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40851707180)，原126条内容/78篇三段式读回仍正常；[0.BL全仓离线 #40851707325 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40851707325)：**2,081 tests, 8 skipped, 0 failures**。两次RED是真实失败，不是只写方案；GREEN证明WF层行为修复，不代表宿主写出了更好的文学。
+- **0.CH尚未做到的核心能力**：学海候选仍只用启发式词面检索，**不能自称已经判断文学经验的真实跨题迁移价值**；元Skill仍需依既有可信Registry/调度与宿主预算授权进行可证伪试验，不能将工程回归当认知习惯已跨宿主成功。下轮优先排查WF如何依据作者明确的创作问题而不只依据道具名称选择完整阅读，以及如何用真实已写来源验证习惯有用/可停止；修复不能强迫故事模板、借阅读文本代替作者判断、或追加无价值工程模块。
+
+---
+
+
 ## 0.CG R2恢复后进入真实WF作者入口｜2026-10-29
 
 - **已经跑通R2→学海完整精读→作者构思→作者候选正文**：[0.CG GitHub Actions #40848926319 SUCCESS](https://github.com/66tyu55/WriterForge/actions/runs/40848926319)。真正从现有私有Cloudflare R2使用`R2StudyVault.restore`读取0.CF固定快照`d72d4ada31112409167454ada01974f7e660dd3daa22516fd962849254a2527d`，核验126条全文学海条目/78篇完整“原文＋批注＋心得”与整体内容SHA `2ced6f51076fa7f432a572e7c413d8f6260a32bcf19a4930780da76c39e7eebc`。云端只读，所有可能写入的WriterForgeDB都是**隔离临时副本**，原R2恢复源文件保持不变。
