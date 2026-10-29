@@ -160,10 +160,23 @@ def _author_craft_scope(outline: str) -> str:
     # Keep linked consequences across a semicolon. A writing problem such
     # as witness reliability; subsequent retaliation must be read TOGETHER.
     clauses=re.split(r"[。！？\n]",outline)
+    # A bare "如何" also introduces ordinary computer-programming tasks.
+    # The job's creative writing question must contain BOTH an authored
+    # intention and a concrete narrative subject/operation; this gate is
+    # independent of the book chosen and is not a model literary verdict.
+    request=r"怎样|如何|怎么|寫出|写出|敘述|叙述|描写|表現|表现|呈现|避免|旁白|读者|不要|不让|希望|而不是|而非|想写|想让|想把|要让"
+    narrative=(r"人物|角色|主角|讀者|读者|情節|情节|故事|敘事|叙事|"
+               r"敘述|叙述|对白|對話|对话|场景|場景|視角|视角|"
+               r"伏筆|伏笔|铺垫|鋪墊|節奏|节奏|气氛|氣氛|"
+               r"緊張|紧张|誤判|误判|選擇|选择|決定|决定|"
+               r"關係|关系|衝突|冲突|後果|后果|代價|代价|"
+               r"行動|行动|傷害|伤害|牽連|牵连|"
+               r"名聲|名声|出場|出场|怪事|真相|妖物|法術|法术|"
+               r"反轉|反转|結尾|结尾|感受|情緒|情绪|"
+               r"身世|命運|命运|壓力|压力|危險|危险|"
+               r"权勢|權勢|权力|權力|人物動機|人物动机")
     return "。".join(c.strip() for c in clauses
-        if re.search(r"怎样|如何|怎么|寫出|写出|敘述|叙述|描写|"
-                     r"表现|呈现|避免|旁白|读者|不要|不让|希望|"
-                     r"而不是|而非|想写|要让",c))[:600]
+                     if re.search(request,c) and re.search(narrative,c))[:600]
 
 
 class XuehaiStore:
