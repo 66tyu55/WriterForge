@@ -1,5 +1,16 @@
 # WriterForge 当前有效交接｜2026-10-29
 
+## 0.CF 已有R2永久学海快照＋独立冷恢复｜2026-10-29
+
+- **用户已经确认继续使用现有R2，不另建存储。** [真实GitHub Actions #40848048457](https://github.com/66tyu55/WriterForge/actions/runs/40848048457) 两个**不同GitHub runner**完成：第一台重建经过来源核验的0.CE全部**126条文学内容／78篇完整“原文＋批注＋心得”**，读遍78篇并验证每条来源哈希后，使用原`R2StudyVault.backup`把这一份公开领域原文与WF新原创的**学海SQLite快照**备份到原私有桶 `writerforge-private-library` 的**新隔离library** `wf-0cf-xuehai-literary-126-20261029-v1`。首次上传状态`NEW`，上传后同进程读取回验一致。
+- **关键独立冷恢复已真实成功**：第二个全新runner调用原`R2StudyVault.restore`，使用第一阶段输出的固定快照SHA，且S3客户端仅暴露`HEAD/GET/download`三种读取方法。独立检查SQLite quick_check、数据源哈希、四个文学角色条目数24/24/46/32，以及78篇三段式的完整原文、三条批注和心得，得到`WF0CF_INDEPENDENT_R2_126_LITERATURE_COLD_RESTORE_VERIFIED`，0次恢复写入/0次模型请求。**文学内容整体SHA256** `2ced6f51076fa7f432a572e7c413d8f6260a32bcf19a4930780da76c39e7eebc`；**R2版本快照SHA256** `d72d4ada31112409167454ada01974f7e660dd3daa22516fd962849254a2527d`。
+- **不影响旧R2**：所有备份写入只落在新的`writerforge/v1/libraries/wf-0cf-xuehai-literary-126-20261029-v1/`前缀；旧公开古籍库、用户私有现代小说、历史15章经验、私有索引与原有Canon均未改动。现有library若存在不同文学内容，脚本只读比对后明确拒绝覆盖，而非改变latest。单次准备SQLite限制≤64MiB；本次未调用付费模型、未部署Railway或修改main、V26/V98/V119与唯一NarrativeCore。
+- **代码**：[`experiments/wf_0cf_r2_durable_literary_snapshot.py`](../experiments/wf_0cf_r2_durable_literary_snapshot.py) 仅用旧XuehaiStore和R2StudyVault；[独立上传/恢复工作流](../.github/workflows/wf-0cf-126-readings-r2-cold-restore.yml)。CI输出只含计数、版本与摘要，未公开任何用户私人小说正文或密钥。
+- **现阶段的诚实边界**：R2快照已经持久且可跨进程恢复；**但生产Railway服务仍是旧V99安全待机，不会自动加载0.CF版本**。存储成功≠文学能力提升，更不代表WF开始自发深读或已经有优秀完整章节。下一轮若要运行WF作者，可在私有受控环境用已固定的R2快照恢复到临时SQLite，按原`AutonomousWriting.run`读取完整三段式；仍须先验证自主文学取舍及正文质量，不允许默认部署/付费，不能把CI绿灯写成文学成绩。
+
+---
+
+
 ## 0.CD—0.CE 利用既有私有R2真实原著补学海｜2026-10-29
 
 **用户纠正：R2早已存在，不要假装要重新建存储。** 当前WriterForge Railway项目生产服务 `wf-python-r2` 的 GitHub 源分支是旧 `v99-causal-quality-blind-review`，启动命令 `python -u wf_railway_v82_safe_idle.py`、部署 `SUCCESS`，仍配有旧Reader `WF_API_TOKEN` 与独立 `WF_INDEX_UPLOAD_TOKEN` 名称；这个运行服务**不是**开发分支0.CE的学海，也没有被重新部署。原私有R2桶 `writerforge-private-library` 仍使用，**未新建或改写**。
