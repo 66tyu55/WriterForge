@@ -1,5 +1,18 @@
 # WriterForge 当前有效交接｜2026-10-29
 
+## 0.CA 小范围作者正文源保护修复｜2026-10-29
+
+**最高目标未变：要的是文学质量进步，不是更多规则或测试GREEN。** 本轮只处理0.BZ真实Qwen2.5-3B十一份原始回包已暴露的作者写作阻断，**没有新模型推理、更没有付费API、没有新增独立记忆/数据库/评判系统**。
+
+- **原模型失败复盘**：旧G宗门分药回合计划中 `扣住药签` 等真实作者短目标受V96原8字符下限误拦；G+阅读宗门分药已有一段真实小说正文，但模型`trace={}`并在顶层错写`parent_effect_quote`。新修复只接受3字起的具体短目标，并仅在现有`continuity_guard`写作路径，允许`review_only_model_turn(...allow_untrusted_trace_envelope=True)`保留**原字节可读正文作为待审候选**；忽略错误自引句，标注`TRACE_REJECTED_SOURCE_PROSE_REVIEW_ONLY`、`untrusted_trace_envelope_ignored`。不赋予假`effect_quote`或已验证的因果关系，不能进入Canon/FactJournal/经验晋升；原V96严格`check_turn`仍拒绝此JSON；超长/缺失正文、私有知识排除、非法JSON、无已写父回合、额外故事事实都仍失败。
+- **减少误导作者**：`writing_assist.py`原学海阅读提示明确顶层`decision`必须是人物行动，不是`USE/SKIP`，阅读选择只能独立放`reading_choice`；建议优先2—4个必要回合，而非诱使模型生成十个重复动作。**这是提示澄清，不是新模型已纠正；0.BZ历史两份根字段误填仍然有效。** 旧V26/V98/V119与唯一NarrativeCore不改变、没有替模型做文学判断。
+- **真实来源零推理回放**：新增`tests/test_wf_0ca_author_source_recovery.py`直接读取存档中的真实0.BZ响应字节：宗门原G短目标计划现可按作者原文读入；宗门学海组的首段原作者正文现可作为源文本待审，不产生或核准任何后果。原始护山阵G缺右大括号、C的非支持回合`kind:scene`**仍严格拒绝**，没有从提示臆造缺失JSON。**这是可再利用原始局部成果，不代表重写成完整章节，也不是文学改善证据。**
+- **测试证据**：旧行为RED [0.CA #40817981950](https://github.com/66tyu55/WriterForge/actions/runs/40817981950)，修复GREEN [0.CA #40818314251](https://github.com/66tyu55/WriterForge/actions/runs/40818314251)（0.BZ原来源重放+旧V96原文/因果保护+G/V98离线模拟）；[0.BY全文阅读回归 #40818314408](https://github.com/66tyu55/WriterForge/actions/runs/40818314408) GREEN；[0.BL全仓离线 #40818314403](https://github.com/66tyu55/WriterForge/actions/runs/40818314403) **2,076 tests, 8 skipped, 0 failed**。另外0.AY与统一场景两工作流因**原0.AY真实历史工件未注入**各出现同一组8项`WF0BD_ORIGINAL_0AY_ARTIFACT_REQUIRED_NO_SYNTHETIC_FALLBACK`失败；不得将这类来源依赖RED虚报为全量GREEN，也不得伪造原件补齐。
+- **下一步仍只有文学目标**：不要再用同一个弱3B反复生成碰运气。先确认作者模型确能在原G写出完整、保留局限认知与代价的小说候选；之后才用严格预算授权的同模型/同题/不同阅读来源完整三臂对照，看原文+批注+心得是否改善真实叙事。现代受保护原著未经许可不得上传。仅开发分支，main、Railway、私有R2、正式Canon零修改。
+
+---
+
+
 ## 0.BZ 真实本地三臂文学负证据｜2026-10-29
 
 - **实测已经发生，不再是假provider**：[GitHub Actions #40812185906](https://github.com/66tyu55/WriterForge/actions/runs/40812185906) 同一Qwen2.5-3B本地权重、两种玄幻场景，裸模型／原WF-G／WF-G+构思前完整学海阅读共**11次真实本地推理，0次付费API**。6个结果为**裸作者2个完成短稿、WF-G四个均在V96回合JSON/字段/正文trace契约阶段失败**；实际完整WF候选正文**0/4**。脚本实验完成不等于WF文学成功，不得评分造假。
