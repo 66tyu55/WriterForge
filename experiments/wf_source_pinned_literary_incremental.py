@@ -98,13 +98,16 @@ def inspect(dbpath:Path,p):
             "FROM xuehai_entries WHERE source_role IN (?,?,?,?) "
             "ORDER BY work_id,source_role,source_hash,text",ROLES
         ).fetchall()
-        old=[v for v in rows if not str(v["method_cluster"]).startswith("classic-0cq-")]
-        new=[v for v in rows if str(v["method_cluster"]).startswith("classic-0cq-")]
+        # Compare the explicit, frozen IDs in this edition only; "classic-0cq"
+        # is a valid part of the OLD 145-entry snapshot during 0.CR.
+        new_ids={r["id"] for r in p["items"]}
+        old=[v for v in rows if v["method_cluster"] not in new_ids]
+        new=[v for v in rows if v["method_cluster"] in new_ids]
         if (len(rows)!=p["expected_entries"] or len(old)!=p["old_entries"]
             or len(new)!=p["new_entries"]
             or _fingerprint(old)!=p["base_content_sha256"]
             or {v["method_cluster"] for v in new}!={r["id"] for r in p["items"]}):
-            raise ValueError("WF_SOURCE_OLD_140_OR_NEW_5_NOT_EXACT")
+            raise ValueError("WF_SOURCE_OLD_EDITION_OR_NEW_ENTRIES_NOT_EXACT")
         latest=conn.execute("SELECT id FROM snapshots WHERE status='published' "
                             "ORDER BY id DESC LIMIT 1").fetchone()
         if not latest:
