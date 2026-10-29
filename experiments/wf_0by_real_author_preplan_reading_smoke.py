@@ -124,6 +124,30 @@ def run_smoke(db_path: Path) -> dict:
                     "author_choice":reading["model_reading_decision"],
                     "candidate_accepted":False,
                 })
+        # A full reading is meant for transfer, not copying into the book.
+        # The real writer path must reject even a model that returns the entire
+        # public-domain reading as if it were original prose.
+        def copy_provider(packet, *, model, api_base, max_tokens):
+            if "请先规划本章" in packet.prompt:
+                return json.dumps({**PLAN,"reading_choice":CHOICE},ensure_ascii=False)
+            return study["complete_reading"]
+        copy_assist=InvisibleWritingAssist(
+            db,rt,"wf0by-local-pilot","pilot-scene",GOAL,
+            model="mocked-no-paid-model",api_base="http://127.0.0.1:1",
+            source_genre="玄幻")
+        with tempfile.TemporaryDirectory(prefix="wf0by-copy-") as dest:
+            with patch("writerforge.writing_assist.local_chat_completion",
+                       side_effect=copy_provider):
+                try:
+                    AutonomousWriting(copy_assist).run(
+                        outline=OUTLINE,chapter_goals=[GOAL],
+                        output_dir=dest,draft_mode="single",
+                        xuehai_readings_enabled=True)
+                except WritingExecutionError as exc:
+                    assert str(exc)=="XUEHAI_AUTHOR_COPIED_FULL_READING_PROSE"
+                else:
+                    raise AssertionError("VERBATIM_MODEL_COPY_WAS_ACCEPTED")
+            assert not list(Path(dest).rglob("candidate.md"))
         # Invalid options never reach the model or create a draft directory.
         assist=InvisibleWritingAssist(
             db,rt,"wf0by-local-pilot","pilot-scene",GOAL,
@@ -154,6 +178,7 @@ def run_smoke(db_path: Path) -> dict:
             "db":"DISPOSABLE_ONLY",
             "canon_writes":0,
             "manual_writing_judgement_from_WF":0,
+            "verbatim_model_copy_rejected":True,
         }
     finally:
         rt.exit()
