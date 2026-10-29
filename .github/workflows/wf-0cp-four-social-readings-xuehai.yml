@@ -1,0 +1,126 @@
+name: WF 0.CP Four Original Conversation Scenes in Existing Xuehai - No Model
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0cp-four-social-readings-xuehai.yml
+      - experiments/wf_0cp_append_four_social_readings.py
+      - experiments/wf_0cp_four_lao_can_sequel_social_close_readings_20261029.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf-0cp-existing-literary-xuehai-append
+  cancel-in-progress: false
+
+jobs:
+  append-source-verified-classical-readings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    outputs:
+      snapshot: ${{ steps.publish.outputs.snapshot }}
+      digest: ${{ steps.publish.outputs.digest }}
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Existing Xuehai and R2 only, never a model client
+        run: python -m pip install -e '.[r2]'
+      - name: Download only one pinned US public-domain original and verify full Git SHA
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from urllib.request import Request,urlopen
+          from hashlib import sha1
+          from experiments.wf_0cp_append_four_social_readings import load_pack,verify_source
+          assert not any(os.getenv(k) for k in ("DEEPSEEK_API_KEY","OPENAI_API_KEY","OPENROUTER_API_KEY","DISCOVERY_API_KEY"))
+          p=load_pack()
+          src=p["sources"]["lc"]
+          assert src["url"].startswith("https://raw.githubusercontent.com/GITenberg/")
+          with urlopen(Request(src["url"],headers={"User-Agent":"WF-pinned-old-chinese-prose/1"}),timeout=40) as response:
+              raw=response.read(src["source_size_bytes"]+1)
+          assert len(raw)==src["source_size_bytes"]
+          assert sha1(b"blob "+str(len(raw)).encode()+b"\0"+raw).hexdigest()==src["source_blob_sha1"]
+          dest=Path(os.environ["RUNNER_TEMP"])/src["filename"]
+          dest.write_bytes(raw)
+          verify_source(p,dest)
+          print("WF0CP_FOUR_FULL_LITERAL_ORIGINALS_SOURCE_VERIFIED",flush=True)
+          PY
+      - name: Append 4 to a scratch copy of immutable 136/88 existing Xuehai
+        run: |
+          python -m experiments.wf_0cp_append_four_social_readings stage \
+            --db "$RUNNER_TEMP/wf0cp-140.sqlite3" \
+            --original "$RUNNER_TEMP/56291-0.txt" > "$RUNNER_TEMP/wf0cp-stage.json"
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          r=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cp-stage.json").read_text("utf8"))
+          assert r["entries"]==140 and r["full_readings"]==92 and r["new_readings"]==4
+          assert r["model_calls"]==r["canon_writes"]==0 and not r["old_r2_modified"]
+          print("WF0CP_140_92_EXISTING_XUEHAI_FULL_READBACK",flush=True)
+          PY
+      - name: Publish new immutable 140/92 R2 edition (old 136 never modified)
+        id: publish
+        run: |
+          python -m experiments.wf_0cp_append_four_social_readings publish \
+            --db "$RUNNER_TEMP/wf0cp-140.sqlite3" > "$RUNNER_TEMP/wf0cp-published.json"
+          python - <<'PY'
+          from pathlib import Path
+          import os,json
+          r=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cp-published.json").read_text("utf8"))
+          assert r["status"]=="WF0CP_R2_NEW_LIBRARY_WRITTEN"
+          assert r["entries"]==140 and r["full_readings"]==92
+          assert r["older_libraries_unchanged"] and r["model_calls"]==0
+          with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf8") as f:
+              f.write("snapshot="+r["snapshot"]+"\n")
+              f.write("digest="+r["all_140_sha256"]+"\n")
+          print("WF0CP_PINNED_SNAPSHOT",r["snapshot"],"CONTENT_SHA",r["all_140_sha256"],flush=True)
+          PY
+
+  independent-r2-cold-recovery:
+    needs: append-source-verified-classical-readings
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+      WF0CP_SNAPSHOT: ${{ needs.append-source-verified-classical-readings.outputs.snapshot }}
+      WF0CP_DIGEST: ${{ needs.append-source-verified-classical-readings.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Existing read-only R2 adapter, no author model
+        run: python -m pip install -e '.[r2]'
+      - name: Independent immutable readback of all 140 entries and 92 complete three-part readings
+        run: |
+          python -m experiments.wf_0cp_append_four_social_readings cold-restore \
+            --snapshot "$WF0CP_SNAPSHOT" --digest "$WF0CP_DIGEST" > "$RUNNER_TEMP/wf0cp-cold.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cp-cold.json").read_text("utf8"))
+          assert r["status"]=="WF0CP_INDEPENDENT_140_92_READBACK"
+          assert r["entries"]==140 and r["full_readings"]==92
+          assert r["model_calls"]==r["r2_writes"]==r["canon_writes"]==0
+          print("WF0CP_NEW_FOUR_AND_OLD_136_INDEPENDENTLY_VERIFIED",flush=True)
+          PY
