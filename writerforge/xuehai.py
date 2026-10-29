@@ -242,7 +242,8 @@ class XuehaiStore:
                 "original":original,"annotations":notes,"reflection":reflection}
 
     def select_literary_reading_for_author(self, *, goal: str,
-                                           max_chars: int = 4000) -> dict | None:
+                                           max_chars: int = 4000,
+                                           exclude_entry_ids: tuple[int,...] = ()) -> dict | None:
         """One relevant COMPLETE three-part reading, for an opt-in author preplan.
 
         Reuse the existing published Xuehai and its bounded source-role query.
@@ -253,6 +254,16 @@ class XuehaiStore:
         if (type(goal) is not str or not 8 <= len(goal.strip()) <= 450
             or type(max_chars) is not int or not 500 <= max_chars <= 4900):
             raise ValueError("XUEHAI_AUTHOR_READING_QUERY_INVALID")
+        # WF's own within-job reading discipline: a full original already
+        # delivered to the writer is not immediately sent again as "new"
+        # learning. Reuse the existing caller receipt; no memory table or
+        # judgment of the author's literary taste.
+        if (type(exclude_entry_ids) is not tuple
+            or len(exclude_entry_ids)>6
+            or len(set(exclude_entry_ids))!=len(exclude_entry_ids)
+            or any(type(v) is not int or v<=0 for v in exclude_entry_ids)):
+            raise ValueError("XUEHAI_AUTHOR_READING_EXCLUSIONS_INVALID")
+        excluded=set(exclude_entry_ids)
         # Chinese goal substrings rather than whitespace-only tokenization.
         spans=re.findall(r"[\u4e00-\u9fff]{2,}", goal)
         noise=frozenset((
@@ -277,6 +288,8 @@ class XuehaiStore:
                 source_role=role,text_terms=search_terms,
                 limit=24,max_per_work=8,max_per_cluster=1))
             for candidate in found:
+                if candidate["entry_id"] in excluded:
+                    continue
                 try:
                     reading=self.read_literary_reading(int(candidate["entry_id"]))
                 except ValueError:

@@ -3278,8 +3278,15 @@ class AutonomousWriting:
                 room=MAX_PROMPT_CHARS-len(plan_prompt.prompt)-len(reading_intro)-1
                 if room>=500:
                     try:
+                        already_offered=tuple(
+                            row["entry_id"] for row in author_reading_receipts
+                            if row.get("delivered_to_author_planning") and
+                            type(row.get("entry_id")) is int)
                         reading=self.assist.flow.xuehai.select_literary_reading_for_author(
-                            goal=goal,max_chars=min(4900,room))
+                            goal=goal,max_chars=min(4900,room),
+                            exclude_entry_ids=already_offered)
+                        reading_receipt["previously_offered_readings_excluded"]=(
+                            len(already_offered))
                     except ValueError as exc:
                         raise WritingExecutionError(
                             "XUEHAI_AUTHOR_READING_RETRIEVAL_FAILED") from exc
@@ -3299,7 +3306,9 @@ class AutonomousWriting:
                             "planning_prompt_sha256":plan_prompt.prompt_sha256,
                         })
                     else:
-                        reading_receipt["not_delivered_reason"]="NO_RELEVANT_FULL_READING_FITS"
+                        reading_receipt["not_delivered_reason"]=(
+                            "NO_OTHER_RELEVANT_FULL_READING_FITS"
+                            if already_offered else "NO_RELEVANT_FULL_READING_FITS")
                 else:
                     reading_receipt["not_delivered_reason"]="FULL_CONTEXT_WOULD_OVERFLOW"
             plan_raw=ask_model(
