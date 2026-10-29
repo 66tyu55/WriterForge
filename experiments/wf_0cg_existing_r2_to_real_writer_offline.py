@@ -215,7 +215,7 @@ def exercise_existing_r2_author_pipeline():
             "two_distinct_scene_author_tests":cross,
             "author_model_responses_fixed_not_real":True,
             "actual_paid_or_local_model_inferences":0,
-            "scripted_author_model_reply_calls":10,
+            "scripted_author_model_reply_calls":12,
             "true_literary_skill_gain_demonstrated":False,
             "production_railway_touched":False,
             "r2_writes":0,
