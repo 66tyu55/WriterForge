@@ -896,6 +896,25 @@ def append_cc_original_eight(db_path:Path)->dict:
                 or "【批注】" not in whole
                 or "【心得】" not in whole):
                 raise RuntimeError("WF0CC_WHOLE_ORIGINAL_READING_READBACK_FAILED")
+        # Four direct WRITE-time lookup examples: these new full readings
+        # must be discoverable, not merely stored under an entry ID.
+        sample_goals=(
+            ("cc-01-star-rain-register",
+             "天雨署晏纸收到三澜县报牒，准备给雨簿的字迹存疑封条签字"),
+            ("cc-06-pawned-midday",
+             "典午楼阮三娘要把整个午时当在柜台，给发热的女儿换诊金"),
+            ("cc-07-moving-city",
+             "负城龟醒后东市贺娘想替轮车孩子迁城搭临时木坡"),
+            ("cc-08-sky-sail-log",
+             "赤星航海舵师和船医争论白石群，铜雀哑了而水桶里有盐味"),
+        )
+        retrieved={}
+        for expected_id,goal in sample_goals:
+            chosen=store.select_literary_reading_for_author(
+                goal=goal,max_chars=4900)
+            if chosen is None or chosen["entry_id"]!=inserted[expected_id]:
+                raise RuntimeError("WF0CC_NEW_READING_NOT_DISCOVERABLE_"+expected_id)
+            retrieved[expected_id]=chosen["reading_sha256"]
         now=dict(db.conn.execute(
             "SELECT source_role,COUNT(*) FROM xuehai_entries "
             "WHERE source_role IN (?,?,?,?) GROUP BY source_role",roles))
@@ -917,6 +936,7 @@ def append_cc_original_eight(db_path:Path)->dict:
             "all_literary_content_entries":sum(now.values()),
             "all_three_part_readings":now[ROLE]+now[ORIGINAL_ROLE],
             "all_original_and_notes_exact_readback":True,
+            "new_full_readings_retrieved_by_actual_author_query":len(retrieved),
             "existing_method_cards":methods,
             "new_paid_author_model_requests":0,
             "writer_literary_gain_proven":False,
