@@ -3284,7 +3284,8 @@ class AutonomousWriting:
                             type(row.get("entry_id")) is int)
                         reading=self.assist.flow.xuehai.select_literary_reading_for_author(
                             goal=goal,max_chars=min(4900,room),
-                            exclude_entry_ids=already_offered)
+                            exclude_entry_ids=already_offered,
+                            writing_problem=outline[:2300])
                         reading_receipt["previously_offered_readings_excluded"]=(
                             len(already_offered))
                     except ValueError as exc:
@@ -3299,6 +3300,10 @@ class AutonomousWriting:
                             "entry_id":reading["entry_id"],
                             "reading_sha256":reading["reading_sha256"],
                             "source_role":reading["source_role"],
+                            "matching_basis":reading.get(
+                                "matching_basis","STORY_GOAL_TEXT_OVERLAP"),
+                            "matched_craft_fragments":reading.get(
+                                "matched_craft_fragments",0),
                             "original_characters":reading["original_chars"],
                             "annotation_count":reading["annotation_count"],
                             "reflection_characters":reading["reflection_chars"],
