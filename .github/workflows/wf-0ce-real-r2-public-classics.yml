@@ -1,0 +1,40 @@
+name: WF 0.CE Real R2 Public Classics Source Windows - READ ONLY
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0ce-real-r2-public-classics.yml
+      - experiments/wf_0ce_extract_r2_public_readings.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  read-two-pinned-public-books-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Use the EXISTING R2 library and source catalog, zero model
+        run: python -m pip install -e '.[r2]'
+      - name: Read two exact public-domain source snapshots from EXISTING R2
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+        run: python -m experiments.wf_0ce_extract_r2_public_readings "$RUNNER_TEMP/wf0ce-source-windows.json"
+      - name: Preserve only four bounded PUBLIC original windows for actual literary reading
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-0CE-EXISTING-R2-PINNED-PUBLIC-ORIGINAL-WINDOWS
+          path: ${{ runner.temp }}/wf0ce-source-windows.json
+          retention-days: 30
