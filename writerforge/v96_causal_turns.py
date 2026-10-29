@@ -110,7 +110,7 @@ def parse_turn_outline(raw):
              beat["id"]==f"t{idx:02d}" and
              type(beat["kind"]) is str and beat["kind"] in KINDS and
              _text(beat["actor"],1,70) and
-             _text(beat["goal"],8,220) and
+             _text(beat["goal"],3,220) and
              type(beat["craft_focus"]) is list and
              0<=len(beat["craft_focus"])<=2 and
              all(type(c) is str and c in CRAFT for c in beat["craft_focus"]) and
@@ -207,7 +207,10 @@ def _verified_review_only_temporal_parent(prior):
          r.get("causal_check")=="TRACE_REJECTED_SOURCE_PROSE_REVIEW_ONLY" and
          r.get("source_causal_review_reason")=="TRACE_REJECTED" and
          r.get("source_causal_review_required") is True and
-         r.get("model_trace_failure_code") in TRACE_ONLY_REVIEW_ERRORS and
+         (r.get("model_trace_failure_code") in TRACE_ONLY_REVIEW_ERRORS or
+          (r.get("model_trace_failure_code")==
+               "WF96_TURN_PROSE_OR_TRACE_SCHEMA_INVALID" and
+           r.get("untrusted_trace_envelope_ignored") is True)) and
          r.get("model_trace_not_proof_of_causality") is True and
          r.get("prose_sha256")==digest(prose.encode("utf8")) and
          r.get("receipt_sha256")==digest(canonical({
@@ -645,7 +648,8 @@ def trace_failure_reviewable(failure_code):
 
 def review_only_model_turn(raw,beat,*,failure_code,accepted=(),
                            author_confirmed_forbidden_phrases=(),
-                           max_prose_chars=MAX_PROSE_CHARS):
+                           max_prose_chars=MAX_PROSE_CHARS,
+                           allow_untrusted_trace_envelope=False):
     """Salvage a source-valid literary DRAFT, not a proven causal turn.
 
     Optional model trace mistakes (overlapping/self-contradictory citations,
@@ -654,17 +658,39 @@ def review_only_model_turn(raw,beat,*,failure_code,accepted=(),
     malformed prose, author exclusions and declared parent IDs remain hard.
     Nothing from this draft is eligible for canon/knowledge promotion.
     """
-    need(trace_failure_reviewable(failure_code),
+    untrusted_envelope=(
+        allow_untrusted_trace_envelope is True and
+        failure_code=="WF96_TURN_PROSE_OR_TRACE_SCHEMA_INVALID")
+    need(trace_failure_reviewable(failure_code) or untrusted_envelope,
          "WF96_TRACE_RECOVERY_NOT_AN_OPTIONAL_CITATION_FAILURE")
     need(type(max_prose_chars) is int and max_prose_chars in
          (MAX_PROSE_CHARS,CONTINUITY_MAX_PROSE_CHARS),
          "WF96_UNTRUSTED_TURN_PROSE_LIMIT")
     doc=_strict_json(raw,MAX_TURN_JSON_BYTES)
+    # G ONLY: the *model-authored* prose can remain readable when its
+    # optional self-reported citations have the wrong envelope. Neither the
+    # stray parent_effect_quote nor the incomplete trace is used as evidence.
+    # This is NOT a JSON repair, a source-causality inference, or a Canon
+    # promotion. The V96 strict parser remains unchanged for every caller.
+    valid_shape=(set(doc)==TURN_FIELDS and
+                 type(doc.get("trace")) is dict and
+                 set(doc["trace"])==TRACE_FIELDS)
+    if untrusted_envelope:
+        extra=set(doc)-TURN_FIELDS
+        trace=doc.get("trace")
+        valid_shape=(
+            not (extra-{"parent_effect_quote"}) and
+            {"prose","trace"}.issubset(doc) and
+            type(trace) is dict and set(trace).issubset(TRACE_FIELDS) and
+            all(v is None or (type(v) is str and
+                             len(v)<=MAX_QUOTE_CHARS)
+                for v in trace.values()) and
+            (not extra or doc["parent_effect_quote"] is None or
+             (type(doc["parent_effect_quote"]) is str and
+              len(doc["parent_effect_quote"])<=MAX_QUOTE_CHARS)))
     need(type(beat) is dict and set(beat)==BEAT_FIELDS and
-         set(doc)==TURN_FIELDS and
          _text(doc.get("prose"),MIN_PROSE_CHARS,max_prose_chars) and
-         type(doc.get("trace")) is dict and
-         set(doc["trace"])==TRACE_FIELDS,
+         valid_shape,
          "WF96_TRACE_RECOVERY_UNSAFE_PROSE_OR_SCHEMA")
     prose=doc["prose"].strip()
     need(len(canonical(doc))<=MAX_TURN_JSON_BYTES,
@@ -715,6 +741,10 @@ def review_only_model_turn(raw,beat,*,failure_code,accepted=(),
         "source_novel_text_in_receipt":False,
         "model_calls_for_validation":0,
     }
+    if untrusted_envelope:
+        # The optional trace was not validated, so NO action or effect from
+        # it can be inherited even when the prose itself is retained.
+        receipt["untrusted_trace_envelope_ignored"]=True
     receipt["receipt_sha256"]=digest(canonical(receipt))
     return {"beat_id":beat["id"],"prose":prose,
             "effect_quote":None,"receipt":receipt}

@@ -3267,9 +3267,11 @@ class AutonomousWriting:
                     "人物、设定和句子不能照搬，也不要自动模仿其修辞。"
                     "\n请自行判断它与本章是否相关、有哪些局限；"
                     "本章人物的选择与故事因果始终由你决定。"
-                    "\n如果你确实作了阅读判断，规划JSON可额外包含"
-                    '例如"reading_choice":{"decision":"USE","reason":"为什么有用"}；'
-                    "decision的值只能是USE或SKIP；reason须解释实际取舍。"
+                    "\n【不要混淆阅读取舍与剧情抉择】"
+                    "章节JSON顶层decision必须写人物打算做什么，不能只写USE或SKIP。"
+                    "如要说明阅读判断，可另设顶层reading_choice对象："
+                    '{"decision":"USE","reason":"针对本章的具体取舍"}'
+                    "或同结构的SKIP；这不是人物的决定，也可以完全不采用阅读。"
                     "不得在正文解释或提及阅读材料。"
                     "\n【完整阅读】\n"
                 )
@@ -3436,7 +3438,7 @@ class AutonomousWriting:
                     "\n【本章目标（不是已成事实）】"+goal+
                     "\n【已有候选章节计划】"+json.dumps(
                         plan,ensure_ascii=False)+
-                    "\n规划2到12个真正必要的叙事事件，允许安静过渡，"
+                    "\n优先规划2到4个真正必要的叙事事件，允许安静过渡，"
                     "不强迫每段反转。只输出JSON对象turns数组，"
                     "每项字段：id(t01等顺序)、kind(action/decision/"
                     "reversal/setup/dialogue/quiet/aftermath/transition)、"
@@ -4169,11 +4171,15 @@ class AutonomousWriting:
                                             if draft_mode=="continuity_guard"
                                             else _WF96_LEGACY_TURN_CHARS))
                                 except V96CausalDraftError as source_trace_error:
+                                    untrusted_trace_envelope=(
+                                        str(source_trace_error)==
+                                        "WF96_TURN_PROSE_OR_TRACE_SCHEMA_INVALID")
                                     if (draft_mode!="continuity_guard" or
-                                        not trace_failure_reviewable(
-                                            str(source_trace_error))):
-                                        # Never disguise length/schema/source
-                                        # errors as a model self-citation review.
+                                        not (trace_failure_reviewable(
+                                            str(source_trace_error)) or
+                                             untrusted_trace_envelope)):
+                                        # Invalid JSON, actual prose/source,
+                                        # knowledge or parent remain hard RED.
                                         raise
                                     # Keep genuine paragraphs; do not claim
                                     # model's incorrect quote proves causality.
@@ -4185,7 +4191,9 @@ class AutonomousWriting:
                                         accepted=tuple(accepted_turns),
                                         author_confirmed_forbidden_phrases=(
                                             author_confirmed_forbidden_phrases),
-                                        max_prose_chars=_WF96_GUARDED_TURN_CHARS)
+                                        max_prose_chars=_WF96_GUARDED_TURN_CHARS,
+                                        allow_untrusted_trace_envelope=(
+                                            untrusted_trace_envelope))
                                     model_trace_review_failures.append({
                                         "turn_id":beat["id"],
                                         "code":str(source_trace_error),
