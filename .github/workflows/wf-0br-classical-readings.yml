@@ -122,6 +122,7 @@ jobs:
           assert doc["real_provider_model_calls"]==0
           assert doc["additional_model_calls"]==0
           assert doc["canon_writes"]==0
+          assert doc["verbatim_model_copy_rejected"] is True
           assert doc["models_actual_literary_gain_proven"] is False
           assert [x["author_choice"] for x in doc["baseline_and_reading_prompts_compared"]]==[
               "NOT_ASKED","USE","SKIP"]
