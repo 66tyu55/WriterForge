@@ -1,0 +1,128 @@
+name: WF 0.CM Five New Genuine Classics in Existing Xuehai - No Model
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0cm-five-real-classical-readings-durable.yml
+      - experiments/wf_0cm_append_five_source_pinned_readings.py
+      - experiments/wf_0cm_five_genuine_classics_original_annotation_reflection_20261029.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf-0cm-five-genuine-literary-contents
+  cancel-in-progress: false
+
+jobs:
+  append-five-and-commit-new-r2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    outputs:
+      snapshot: ${{ steps.publish.outputs.snapshot }}
+      content_sha: ${{ steps.publish.outputs.content_sha }}
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Existing Xuehai and R2, not a new learning subsystem
+        run: python -m pip install -e '.[r2]'
+      - name: Fetch and verify only two pinned public-domain source files
+        run: |
+          python - <<'PY'
+          from hashlib import sha1
+          from urllib.request import urlopen, Request
+          from pathlib import Path
+          import os
+          from experiments.wf_0cm_append_five_source_pinned_readings import load_pack,verify_public_sources
+          assert not any(os.getenv(k) for k in ("OPENAI_API_KEY","DEEPSEEK_API_KEY","OPENROUTER_API_KEY","DISCOVERY_API_KEY"))
+          pack=load_pack()
+          paths={}
+          for key,source in pack["sources"].items():
+              assert source["url"].startswith("https://raw.githubusercontent.com/GITenberg/")
+              with urlopen(Request(source["url"],headers={"User-Agent":"WF-source-pinned-only/1"}),timeout=45) as response:
+                  raw=response.read(source["source_size_bytes"]+1)
+              assert len(raw)==source["source_size_bytes"]
+              assert sha1(b"blob "+str(len(raw)).encode()+b"\0"+raw).hexdigest()==source["source_blob_sha1"]
+              path=Path(os.environ["RUNNER_TEMP"])/source["filename"]
+              path.write_bytes(raw)
+              paths[key]=path
+          verify_public_sources(pack,hx=paths["hx"],zb=paths["zb"])
+          print("WF0CM_SOURCE_EXACT_FULL_ORIGINALS_VERIFIED",flush=True)
+          PY
+      - name: Restore immutable 0.CF and append to disposable same-schema Xuehai
+        run: |
+          python -m experiments.wf_0cm_append_five_source_pinned_readings stage \
+            --db "$RUNNER_TEMP/wf0cm-131-83.sqlite3" \
+            --hx "$RUNNER_TEMP/24231-0.txt" \
+            --zb "$RUNNER_TEMP/25245-0.txt" > "$RUNNER_TEMP/wf0cm-stage.json"
+          python - <<'PY'
+          from pathlib import Path
+          import json,os
+          r=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cm-stage.json").read_text("utf8"))
+          assert r["entries"]==131 and r["full_readings"]==83 and r["added"]==5
+          assert r["old_r2_modified"] is False and r["model_calls"]==0
+          print("WF0CM_FIVE_NEW_COMPLETE_READINGS_IN_EXISTING_XUEHAI_GREEN",flush=True)
+          PY
+      - name: Backup successor to a NEW immutable R2 library; do not change 0.CF
+        id: publish
+        run: |
+          python -m experiments.wf_0cm_append_five_source_pinned_readings publish \
+            --db "$RUNNER_TEMP/wf0cm-131-83.sqlite3" > "$RUNNER_TEMP/wf0cm-published.json"
+          python - <<'PY'
+          from pathlib import Path
+          import json,os
+          r=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cm-published.json").read_text("utf8"))
+          assert r["entries"]==131 and r["full_readings"]==83
+          assert r["old_library_unchanged"] and r["model_calls"]==0
+          with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf8") as out:
+              out.write("snapshot="+r["snapshot"]+"\n")
+              out.write("content_sha="+r["all_131_sha256"]+"\n")
+          print("WF0CM_SUCCESSOR_PUBLISHED_OLD_0CF_UNCHANGED",flush=True)
+          PY
+
+  fresh-process-read-only-cold-restore:
+    needs: append-five-and-commit-new-r2
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+      WF0CM_SNAPSHOT: ${{ needs.append-five-and-commit-new-r2.outputs.snapshot }}
+      WF0CM_CONTENT_SHA: ${{ needs.append-five-and-commit-new-r2.outputs.content_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing R2 read-only restore and Xuehai, no model SDK
+        run: python -m pip install -e '.[r2]'
+      - name: Independently read original 126 and all 5 additional complete readings
+        run: |
+          python -m experiments.wf_0cm_append_five_source_pinned_readings cold-restore \
+            --snapshot "$WF0CM_SNAPSHOT" --sha "$WF0CM_CONTENT_SHA" > "$RUNNER_TEMP/wf0cm-cold.json"
+          python - <<'PY'
+          from pathlib import Path
+          import json,os
+          r=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cm-cold.json").read_text("utf8"))
+          assert r["status"]=="WF0CM_INDEPENDENT_COLD_RESTORE_131_83"
+          assert r["entries"]==131 and r["full_readings"]==83
+          assert r["r2_writes"]==r["model_calls"]==r["canon_writes"]==0
+          print("WF0CM_INDEPENDENT_READONLY_COLD_RESTORE_131_83_GREEN",flush=True)
+          PY
