@@ -374,21 +374,24 @@ class XuehaiStore:
                 relevant=[]
                 for role,item,reading,passage,grams in shortlist:
                     hits=target & grams
-                    n2=sum(len(t)==2 for t in hits)
-                    n3=sum(len(t)==3 for t in hits)
-                    n4=sum(len(t)==4 for t in hits)
-                    if len(hits)<3 or not (n2>=4 or n3>=2 or n4>=1):
+                    # Multiple overlapping n-grams from ONE phrase are a
+                    # single piece of evidence ("不是旁白" cannot count as
+                    # five independent literary insights). Distinct anchored
+                    # details matter more than keyword length.
+                    independent=[]
+                    for token in sorted(hits,key=lambda v:(-len(v),v)):
+                        if not any(token in earlier for earlier in independent):
+                            independent.append(token)
+                    if len(independent)<3:
                         continue
                     supported=sum(bool(part & grams) for part in clauses)
-                    if len(clauses)>=2 and supported<2:
-                        continue
                     score=sum(
-                        (1 if len(t)==2 else 2.2 if len(t)==3 else 3.6)*
+                        (1+0.1*(len(t)-2))*
                         (1+math.log((total+1)/(document_frequency[t]+1)))
-                        for t in hits)
-                    score+=5.0*supported
+                        for t in independent)
+                    score+=0.6*supported
                     relevant.append((
-                        score,role,item,reading,passage,len(hits),supported))
+                        score,role,item,reading,passage,len(independent),supported))
                 if relevant:
                     relevant.sort(key=lambda r:(
                         r[0],r[1]=="classical_original_annotation_reflection",
