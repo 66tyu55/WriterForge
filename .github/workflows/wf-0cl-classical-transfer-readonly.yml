@@ -8,6 +8,7 @@ on:
       - experiments/wf_0cl_frozen_unseen_transfer_cases_20261029.json
       - experiments/wf_0cl_r2_readonly_frozen_probe.py
       - writerforge/xuehai.py
+      - tests/test_wf_0cl_source_grounded_selection.py
   workflow_dispatch:
 
 permissions:
@@ -51,3 +52,5 @@ jobs:
               print("WF0CL_OLD_CK_DIAG",key,json.dumps(diag,ensure_ascii=False,sort_keys=True))
           print("WF0CL_OBSERVATION_ONLY_NOT_A_LITERARY_VERDICT",flush=True)
           PY
+      - name: Source-only RED GREEN from original classics (no network)
+        run: python -m unittest discover -s tests -p test_wf_0cl_source_grounded_selection.py -v
