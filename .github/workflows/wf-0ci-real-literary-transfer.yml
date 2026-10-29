@@ -56,5 +56,12 @@ jobs:
                      for case in r["cases"]), "WF0CI_REAL_CLASSIC_CRAFT_TRANSFER_STILL_RED"
           assert all(case["craft_evidence_basis"]=="ANNOTATIONS_REFLECTIONS_TEXT_OVERLAP"
                      for case in r["cases"])
+          assert r["actual_writer_entry_reached_with_real_public_source"] is True
+          assert r["writer_reply_scripted_no_real_model"] is True
+          assert r["full_original_and_three_annotations_in_first_prompt"] is True
+          assert r["nonspecific_craft_question_no_forced_reading"] is True
+          assert r["unaccepted_literary_candidate_unchanged"] is True
+          assert r["canon_writes"]==0 and r["model_calls"]==0 and r["r2_writes"]==0
           print("WF0CI_4_REAL_CLASSICAL_CROSS_GENRE_CRAFT_READINGS_DELIVERABLE_ZERO_MODEL",flush=True)
+          print("WF0CI_ACTUAL_WRITER_RECEIVES_REAL_PUBLIC_ORIGINAL_ANNOTATIONS_REFLECTION_NO_MODEL",flush=True)
           PY
