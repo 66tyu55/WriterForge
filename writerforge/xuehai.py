@@ -205,13 +205,33 @@ def _author_craft_scope(outline: str) -> str:
         r"(?:想|希望|要).{0,24}(?:写出|写实|写成|描写|表现|呈现)|"
         r"(?:怎样|如何|怎么)(?:描写|写出|写|表现|呈现|叙述)"
     )
-    return "。".join(c.strip() for c in clauses
-                     if re.search(request,c) and (
-                         re.search(narrative,c) or (
-                             re.search(literary_prose_intent,c)
-                             and len(c.strip())>=24) or (
-                             re.search(directed_person_scene,c)
-                             and re.search(human_participant,c))))[:600]
+    # 0.CN real-source negative: an author may ask "怎样写...？"
+    # then specify the actual narrative operation in the next sentence
+    # ("用饭菜...带出人物之间的感情"). Split punctuation must not erase
+    # that evidence before we even search the published reading.
+    # Only join a short explicit WRITING instruction to a consecutive
+    # concrete narrative clause. Technical output and generic wishes still
+    # cannot use story-only fallback; no title/technique mapping is added.
+    linked=[]
+    for i,clause in enumerate(clauses):
+        s=clause.strip()
+        if (i+1<len(clauses) and s and
+            re.search(r"(?:怎样|如何|怎么)(?:写|描写|表现|呈现|叙述)",s) and
+            not re.search(narrative,s)):
+            following=clauses[i+1].strip()
+            if (len(s)+len(following)<=240 and
+                re.match(r"^(?:用|通过|透过|借|以)",following) and
+                re.search(narrative,following) and
+                not re.search(request,following)):
+                s=s+"，"+following
+        if (re.search(request,s) and (
+            re.search(narrative,s) or (
+                re.search(literary_prose_intent,s)
+                and len(s)>=24) or (
+                re.search(directed_person_scene,s)
+                and re.search(human_participant,s)))):
+            linked.append(s)
+    return "。".join(linked)[:600]
 
 
 class XuehaiStore:
