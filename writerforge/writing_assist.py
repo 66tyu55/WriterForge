@@ -3268,8 +3268,8 @@ class AutonomousWriting:
                     "\n请自行判断它与本章是否相关、有哪些局限；"
                     "本章人物的选择与故事因果始终由你决定。"
                     "\n如果你确实作了阅读判断，规划JSON可额外包含"
-                    '"reading_choice":{"decision":"USE或SKIP",'
-                    '"reason":"结合材料与本章目标，说明想借鉴什么或为何不用"}；'
+                    '例如"reading_choice":{"decision":"USE","reason":"为什么有用"}；'
+                    "decision的值只能是USE或SKIP；reason须解释实际取舍。"
                     "不得在正文解释或提及阅读材料。"
                     "\n【完整阅读】\n"
                 )
