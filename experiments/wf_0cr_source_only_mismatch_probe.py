@@ -73,6 +73,10 @@ def run():
                         notes=_literary_craft_grams(
                             "\n".join(reading["annotations"])+"\n"+reading["reflection"])
                         independent=_independent_literary_hits(target,notes)
+                        annotation_hits=_independent_literary_hits(
+                            target,_literary_craft_grams("\n".join(reading["annotations"])))
+                        reflection_hits=_independent_literary_hits(
+                            target,_literary_craft_grams(reading["reflection"]))
                         if len(independent)<2:
                             continue
                         clauses=[_literary_craft_grams(c)
@@ -87,6 +91,8 @@ def run():
                             "supported_clauses":supported,
                             "source_anchors":len(anchors),
                             "first_fragments":independent[:12],
+                            "annotation_hits":annotation_hits[:12],
+                            "reflection_hits":reflection_hits[:12],
                             "role":role
                         })
                 rows.sort(key=lambda v:(-v["source_anchors"],-v["note_fragments"],-v["supported_clauses"],v["cluster"]))
