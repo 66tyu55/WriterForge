@@ -4,7 +4,7 @@
 
 - 作者核心`AutonomousWriting.run`过去**先生成JSON章计划，后才给300字的学海方法卡**；现在可显式开启`xuehai_readings_enabled=True`，由旧`XuehaiStore`选择**一篇完整原文＋3条批注＋心得**，在原作者模型**第一次章节构思请求之前**阅读，模型可自行回复`reading_choice: USE/SKIP`和原因，决定要不要借鉴，自己的解释进入后续创作计划，不用WF替它决策。不加模型调用，不新建第二记忆/库/表/方法卡。
 - Studio新增“学海完整阅读参与构思”勾选，默认关闭，可直接和关闭状态比较；内容若不相关或完整篇章超过旧10,000字符提示预算就不偷截原文，记录未送达。原文较长的逐字照搬使用旧prose-style guard拦截。
-- 同一个隔离Xuehai上的真实`AutonomousWriting.run`**全链路**使用固定假provider替身验证了OFF/USE/SKIP、完整三段式确实进入构思前的提示与后续的模型自选解释，真实名作原文复制会被拦截；[0.BY CI #40810035346 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40810035346)。没有真实付费作者模型文学提升证据，所有评测指标仍为`unverified`。上游文库114条、三段式66篇未删改。
+- 同一个隔离Xuehai上的真实`AutonomousWriting.run`**全链路**使用固定假provider替身验证了OFF/USE/SKIP、完整三段式确实进入构思前的提示与后续的模型自选解释，真实名作原文复制会被拦截；[0.BY CI #40810129302 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40810129302)。没有真实付费作者模型文学提升证据，所有评测指标仍为`unverified`。上游文库114条、三段式66篇未删改。
 - **下轮不要重复做学海储存工程**。重点是同模型/同题/同总预算的**真实作者对照**，保存裸模型、G、G+完整阅读的原始模型计划与正文，匿名文学判断人物行动、因果、有限认知、代价与语句气韵，允许无改善或负改善。缺少授权或模型额度便不擅自调用，也别把假模型当真实盲评。旧全量测试因8项0.BD历史0.AY源证据缺失而红，不要造假补齐。
 - 只改开发分支`refactor-unified-scene-delivery-audit`，main、Railway、私有R2、正式Canon不动，V26/V98/V119以及唯一NarrativeCore保留。
 
