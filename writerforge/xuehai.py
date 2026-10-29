@@ -136,6 +136,7 @@ _LITERARY_READING_FOLD = str.maketrans(dict(
         ("問","问"),("產","产"),("葉","叶"),("帶","带"),("講","讲"),
         ("壞","坏"),("辦","办"),("縣","县"),("鎖","锁"),("詩","诗"),
         ("壓","压"),("暫","暂"),("離","离"),("臉","脸"),("難","难"),
+        ("轉","转"),("復","复"),("談","谈"),("錄","录"),
     )
 ))
 _LITERARY_GENERIC_GRAMS = frozenset((
@@ -156,7 +157,9 @@ def _literary_craft_grams(text: str) -> set[str]:
 
 def _author_craft_scope(outline: str) -> str:
     """Ignore plain plot/background: only explicit writing questions matter."""
-    clauses=re.split(r"[。！？；;\n]",outline)
+    # Keep linked consequences across a semicolon. A writing problem such
+    # as witness reliability; subsequent retaliation must be read TOGETHER.
+    clauses=re.split(r"[。！？\n]",outline)
     return "。".join(c.strip() for c in clauses
         if re.search(r"怎样|如何|怎么|寫出|写出|敘述|叙述|描写|"
                      r"表现|呈现|避免|旁白|读者|不要|不让|希望|"
@@ -361,6 +364,13 @@ class XuehaiStore:
                 document_frequency=Counter(
                     word for _,_,_,_,words in shortlist for word in words)
                 total=len(shortlist)
+                # A craft issue may contain several independent concerns:
+                # a source sharing ONE generic clause must not outrank an
+                # annotation actually addressing the rest of the problem.
+                clauses=[
+                    _literary_craft_grams(part)
+                    for part in re.split(r"[，,；;]",craft_scope)
+                    if len(part.strip())>=5]
                 relevant=[]
                 for role,item,reading,passage,grams in shortlist:
                     hits=target & grams
@@ -369,16 +379,21 @@ class XuehaiStore:
                     n4=sum(len(t)==4 for t in hits)
                     if len(hits)<3 or not (n2>=4 or n3>=2 or n4>=1):
                         continue
+                    supported=sum(bool(part & grams) for part in clauses)
+                    if len(clauses)>=2 and supported<2:
+                        continue
                     score=sum(
                         (1 if len(t)==2 else 2.2 if len(t)==3 else 3.6)*
                         (1+math.log((total+1)/(document_frequency[t]+1)))
                         for t in hits)
-                    relevant.append((score,role,item,reading,passage,len(hits)))
+                    score+=5.0*supported
+                    relevant.append((
+                        score,role,item,reading,passage,len(hits),supported))
                 if relevant:
                     relevant.sort(key=lambda r:(
                         r[0],r[1]=="classical_original_annotation_reflection",
                         -len(r[4])),reverse=True)
-                    score,role,entry,reading,passage,match_count=relevant[0]
+                    score,role,entry,reading,passage,match_count,supported=relevant[0]
                     return {
                         "entry_id":int(entry["entry_id"]),
                         "source_role":role,
@@ -393,6 +408,7 @@ class XuehaiStore:
                         "author_use_must_be_decided_by_model":True,
                         "matching_basis":"ANNOTATIONS_REFLECTIONS_TEXT_OVERLAP",
                         "matched_craft_fragments":match_count,
+                        "supported_craft_clauses":supported,
                         "literary_transfer_value_unproven":True,
                     }
             # An explicit writing issue cannot be replaced by a generic
