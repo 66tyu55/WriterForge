@@ -1,0 +1,188 @@
+name: WF 0.CF Durable 126 Literary Readings in Existing R2 and Independent Cold Restore
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0cf-126-readings-r2-cold-restore.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf-0cf-126-readings-r2-cold-restore
+  cancel-in-progress: false
+
+jobs:
+  build-public-literature-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    outputs:
+      snapshot: ${{ steps.publish.outputs.snapshot }}
+      content_sha: ${{ steps.publish.outputs.content_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Existing Xuehai and existing R2StudyVault, no model package
+        run: python -m pip install -e '.[r2]'
+      - name: Fetch only nine pinned public-domain sources
+        run: |
+          python - <<'PY'
+          import json,os
+          from hashlib import sha1
+          from pathlib import Path
+          from urllib.request import Request,urlopen
+          meta=json.loads(Path("experiments/wf_0br_classical_original_annotation_reflection_20261028.json").read_text("utf8"))
+          for key,source in meta["sources"].items():
+              url=source["url"]
+              assert url.startswith("https://raw.githubusercontent.com/GITenberg/")
+              with urlopen(Request(url,headers={"User-Agent":"WriterForge-original-literary-reading/1"}),timeout=45) as r:
+                  raw=r.read(4_000_001)
+              assert 100_000<len(raw)<4_000_000
+              filename={"xy":"23962-0.txt","hl":"24264-0.txt","sh":"23863-0.txt"}[key]
+              (Path(os.environ["RUNNER_TEMP"])/filename).write_bytes(raw)
+          fantasy=json.loads(Path("experiments/wf_0bv_three_fantasy_classics_six_close_readings_20261028.json").read_text("utf8"))
+          for key,src in fantasy["sources"].items():
+              url=src["url"]
+              assert url.startswith("https://raw.githubusercontent.com/GITenberg/")
+              with urlopen(Request(url,headers={"User-Agent":"WriterForge-public-domain-fantasy-literary-reading/1"}),timeout=45) as r:
+                  raw=r.read(3_000_001)
+              actual=sha1(b"blob "+str(len(raw)).encode("ascii")+b"\0"+raw).hexdigest()
+              assert len(raw)==src["source_size_bytes"]
+              assert actual==src["source_blob_sha1"]
+              (Path(os.environ["RUNNER_TEMP"])/src["filename"]).write_bytes(raw)
+          newpack=json.loads(Path("experiments/wf_0bx_three_new_fantasy_books_six_close_readings_20261029.json").read_text("utf8"))
+          for key,src in newpack["sources"].items():
+              url=src["url"]
+              assert url.startswith("https://raw.githubusercontent.com/GITenberg/")
+              with urlopen(Request(url,headers={"User-Agent":"WriterForge-literary-fantasy-public-domain/1"}),timeout=45) as r:
+                  raw=r.read(3_000_001)
+              actual=sha1(b"blob "+str(len(raw)).encode("ascii")+b"\0"+raw).hexdigest()
+              assert len(raw)==src["source_size_bytes"]
+              assert actual==src["source_blob_sha1"]
+              (Path(os.environ["RUNNER_TEMP"])/src["filename"]).write_bytes(raw)
+          PY
+      - name: Preserve 114 existing entries and append 8 complete new original literary readings
+        run: |
+          python -m experiments.wf_0br_stage_classical_readings \
+            --db "$RUNNER_TEMP/wf0br-30-full-texts.db" \
+            --xy "$RUNNER_TEMP/23962-0.txt" \
+            --hl "$RUNNER_TEMP/24264-0.txt" \
+            --sh "$RUNNER_TEMP/23863-0.txt" \
+            --fs "$RUNNER_TEMP/23910-0.txt" \
+            --jh "$RUNNER_TEMP/23818-0.txt" \
+            --lz "$RUNNER_TEMP/51828-0.txt" \
+            --hx "$RUNNER_TEMP/24231-0.txt" \
+            --dd "$RUNNER_TEMP/24233-0.txt" \
+            --zb "$RUNNER_TEMP/25245-0.txt" \
+            --fantasy18 --cc-original8 > "$RUNNER_TEMP/wf0br-result.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          x=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0br-result.json").read_text("utf8"))
+          assert x["new_books"]==6
+          assert x["new_complete_fantasy_readings"]==18
+          assert x["old_readings_preserved"]==48
+          assert x["previous_fantasy_readings_preserved"]==12
+          assert x["additional_long_readings"]==6
+          assert x["added_books"]==3
+          assert x["added_readings"]==6
+          assert x["old_literary_content_preserved"]==114
+          assert x["old_three_part_readings_preserved"]==66
+          assert x["all_literary_content_entries"]==122
+          assert x["all_three_part_readings"]==74
+          assert x["new_original_full_readings"]==8
+          assert x["new_specific_annotations"]==24
+          assert x["new_open_reflections"]==8
+          assert x["new_original_full_prose_characters"]>6000
+          assert x["all_original_and_notes_exact_readback"] is True
+          assert x["new_full_readings_retrieved_by_actual_author_query"]==4
+          assert len(x["reading_forms"])==8
+          assert x["new_paid_author_model_requests"]==0
+          assert x["writer_literary_gain_proven"] is False
+          assert x["canonical_fact_writes"]==0
+          assert x["new_long_original_characters"]>16000
+          assert x["full_fantasy_readback"] is True
+          assert x["source_editions_pin_verified"] is True
+          assert x["model_calls"]==0
+          assert x["method_cards"]==0
+          print("WF0CC: 8篇全新原创玄幻原文＋24条贴句批注＋8段开放心得；114旧条目保留，现122内容/74三段式完整读回。零额外模型调用。",flush=True)
+          PY
+      - name: Append four authenticated public R2 original literary readings to SAME SQLite
+        run: |
+          python -m experiments.wf_0ce_stage_r2_public_readings "$RUNNER_TEMP/wf0br-30-full-texts.db" > "$RUNNER_TEMP/wf0ce-result.json"
+          python - <<'PY'
+          from pathlib import Path
+          import json,os
+          report=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0ce-result.json").read_text("utf8"))
+          assert report["prior_contents"]==122
+          assert report["prior_full_three_part_readings"]==74
+          assert report["new_real_historical_contiguous_originals"]==4
+          assert report["new_specific_annotations"]==12
+          assert report["new_open_reflections"]==4
+          assert report["contents_total"]==126
+          assert report["full_three_part_readings_total"]==78
+          assert report["four_exact_source_readbacks"] is True
+          assert report["new_paid_model_calls"]==0
+          assert report["private_r2_writes"]==0
+          assert report["canon_writes"]==0
+          print("WF0CE: 122旧条目完整保留，4段R2原著实文＋12条批注＋4段心得，126内容/78三段式完整读回",flush=True)
+          PY
+
+      - name: Preflight all original 126 texts and 78 three-part READS before any R2 upload
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          from experiments.wf_0cf_r2_durable_literary_snapshot import inspect_literary_db
+          db=Path(os.environ["RUNNER_TEMP"])/"wf0br-30-full-texts.db"
+          assert db.stat().st_size<=64*1024*1024, "WF0CF_R2_SINGLE_UPLOAD_LIMIT_64_MIB"
+          result=inspect_literary_db(db)
+          assert result["contents"]==126
+          assert result["complete_three_part_readings"]==78
+          print("WF0CF_ALL_126_LITERARY_RECORDS_AND_78_COMPLETE_STUDIES_PRECHECK_OK")
+          PY
+      - name: Publish ONLY isolated R2 study library or read matching existing, never overwrite
+        id: publish
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+        run: |
+          python -m experiments.wf_0cf_r2_durable_literary_snapshot publish \
+            --db "$RUNNER_TEMP/wf0br-30-full-texts.db" \
+            --github-output "$GITHUB_OUTPUT"
+
+  independent-read-only-cold-restore:
+    needs: [build-public-literature-and-publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original R2StudyVault in a NEW runner, no model client
+        run: python -m pip install -e '.[r2]'
+      - name: Reopen pinned source snapshot and all 78 complete readings with READ ONLY methods
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+          WF0CF_SNAPSHOT: ${{ needs.build-public-literature-and-publish.outputs.snapshot }}
+          WF0CF_CONTENT_SHA: ${{ needs.build-public-literature-and-publish.outputs.content_sha }}
+        run: |
+          python -m experiments.wf_0cf_r2_durable_literary_snapshot cold-restore \
+            --expected-snapshot "$WF0CF_SNAPSHOT" \
+            --expected-content "$WF0CF_CONTENT_SHA"
