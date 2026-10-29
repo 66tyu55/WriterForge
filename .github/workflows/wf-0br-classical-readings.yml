@@ -1,4 +1,4 @@
-name: WF 0.BW Longer Fantasy Original Readings in Existing Xuehai
+name: WF 0.BX Three New Fantasy Works Source-Exact Readings
 
 on:
   push:
@@ -11,6 +11,7 @@ on:
       - experiments/wf_0bu_remaining_sixteen_original_close_readings_20261028.json
       - experiments/wf_0bv_three_fantasy_classics_six_close_readings_20261028.json
       - experiments/wf_0bw_three_fantasy_classics_six_long_readings_20261029.json
+      - experiments/wf_0bx_three_new_fantasy_books_six_close_readings_20261029.json
       - experiments/wf_0br_stage_classical_readings.py
       - writerforge/xuehai.py
   workflow_dispatch:
@@ -34,7 +35,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -e .
-      - name: Fetch six pinned public-domain source texts only
+      - name: Fetch only nine pinned public-domain sources
         run: |
           python - <<'PY'
           import json,os
@@ -60,8 +61,18 @@ jobs:
               assert len(raw)==src["source_size_bytes"]
               assert actual==src["source_blob_sha1"]
               (Path(os.environ["RUNNER_TEMP"])/src["filename"]).write_bytes(raw)
+          newpack=json.loads(Path("experiments/wf_0bx_three_new_fantasy_books_six_close_readings_20261029.json").read_text("utf8"))
+          for key,src in newpack["sources"].items():
+              url=src["url"]
+              assert url.startswith("https://raw.githubusercontent.com/GITenberg/")
+              with urlopen(Request(url,headers={"User-Agent":"WriterForge-literary-fantasy-public-domain/1"}),timeout=45) as r:
+                  raw=r.read(3_000_001)
+              actual=sha1(b"blob "+str(len(raw)).encode("ascii")+b"\0"+raw).hexdigest()
+              assert len(raw)==src["source_size_bytes"]
+              assert actual==src["source_blob_sha1"]
+              (Path(os.environ["RUNNER_TEMP"])/src["filename"]).write_bytes(raw)
           PY
-      - name: Read back all existing content plus six source-exact longer fantasy readings
+      - name: Preserve old 108 content entries and read back six new complete fantasy studies
         run: |
           python -m experiments.wf_0br_stage_classical_readings \
             --db "$RUNNER_TEMP/wf0br-30-full-texts.db" \
@@ -71,22 +82,27 @@ jobs:
             --fs "$RUNNER_TEMP/23910-0.txt" \
             --jh "$RUNNER_TEMP/23818-0.txt" \
             --lz "$RUNNER_TEMP/51828-0.txt" \
-            --fantasy12 > "$RUNNER_TEMP/wf0br-result.json"
+            --hx "$RUNNER_TEMP/24231-0.txt" \
+            --dd "$RUNNER_TEMP/24233-0.txt" \
+            --zb "$RUNNER_TEMP/25245-0.txt" \
+            --fantasy18 > "$RUNNER_TEMP/wf0br-result.json"
           python - <<'PY'
           import json,os
           from pathlib import Path
           x=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0br-result.json").read_text("utf8"))
-          assert x["new_books"]==3
-          assert x["new_complete_fantasy_readings"]==12
+          assert x["new_books"]==6
+          assert x["new_complete_fantasy_readings"]==18
           assert x["old_readings_preserved"]==48
-          assert x["previous_fantasy_readings_preserved"]==6
+          assert x["previous_fantasy_readings_preserved"]==12
           assert x["additional_long_readings"]==6
-          assert x["all_literary_content_entries"]==108
-          assert x["all_three_part_readings"]==60
+          assert x["added_books"]==3
+          assert x["added_readings"]==6
+          assert x["all_literary_content_entries"]==114
+          assert x["all_three_part_readings"]==66
           assert x["new_long_original_characters"]>16000
           assert x["full_fantasy_readback"] is True
           assert x["source_editions_pin_verified"] is True
           assert x["model_calls"]==0
           assert x["method_cards"]==0
-          print("WF0BW: 6篇新的长文本（含镜花缘两整回及聊斋两整篇）、108条内容、60篇深读，隔离学海逐篇读回",flush=True)
+          print("WF0BX: 3部新古籍＋6篇真实原文批注心得，原108条完整保存，114内容条目/66三段式逐篇读回",flush=True)
           PY
