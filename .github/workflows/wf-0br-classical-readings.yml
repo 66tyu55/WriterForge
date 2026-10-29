@@ -1,4 +1,4 @@
-name: WF 0.BY Full Xuehai Reading Before Real Author Planning
+name: WF 0.CC Eight Original Full Literary Readings in Existing Xuehai
 
 on:
   push:
@@ -12,6 +12,8 @@ on:
       - experiments/wf_0bv_three_fantasy_classics_six_close_readings_20261028.json
       - experiments/wf_0bw_three_fantasy_classics_six_long_readings_20261029.json
       - experiments/wf_0bx_three_new_fantasy_books_six_close_readings_20261029.json
+      - experiments/wf_0cc_four_distinct_original_fantasy_readings_A_20261029.json
+      - experiments/wf_0cc_four_distinct_original_fantasy_readings_B_20261029.json
       - experiments/wf_0by_real_author_preplan_reading_smoke.py
       - writerforge/writing_assist.py
       - writerforge/studio_server.py
@@ -76,7 +78,7 @@ jobs:
               assert actual==src["source_blob_sha1"]
               (Path(os.environ["RUNNER_TEMP"])/src["filename"]).write_bytes(raw)
           PY
-      - name: Preserve old 108 content entries and read back six new complete fantasy studies
+      - name: Preserve 114 existing entries and append 8 complete new original literary readings
         run: |
           python -m experiments.wf_0br_stage_classical_readings \
             --db "$RUNNER_TEMP/wf0br-30-full-texts.db" \
@@ -89,7 +91,7 @@ jobs:
             --hx "$RUNNER_TEMP/24231-0.txt" \
             --dd "$RUNNER_TEMP/24233-0.txt" \
             --zb "$RUNNER_TEMP/25245-0.txt" \
-            --fantasy18 > "$RUNNER_TEMP/wf0br-result.json"
+            --fantasy18 --cc-original8 > "$RUNNER_TEMP/wf0br-result.json"
           python - <<'PY'
           import json,os
           from pathlib import Path
@@ -101,14 +103,25 @@ jobs:
           assert x["additional_long_readings"]==6
           assert x["added_books"]==3
           assert x["added_readings"]==6
-          assert x["all_literary_content_entries"]==114
-          assert x["all_three_part_readings"]==66
+          assert x["old_literary_content_preserved"]==114
+          assert x["old_three_part_readings_preserved"]==66
+          assert x["all_literary_content_entries"]==122
+          assert x["all_three_part_readings"]==74
+          assert x["new_original_full_readings"]==8
+          assert x["new_specific_annotations"]==24
+          assert x["new_open_reflections"]==8
+          assert x["new_original_full_prose_characters"]>6000
+          assert x["all_original_and_notes_exact_readback"] is True
+          assert len(x["reading_forms"])==8
+          assert x["new_paid_author_model_requests"]==0
+          assert x["writer_literary_gain_proven"] is False
+          assert x["canonical_fact_writes"]==0
           assert x["new_long_original_characters"]>16000
           assert x["full_fantasy_readback"] is True
           assert x["source_editions_pin_verified"] is True
           assert x["model_calls"]==0
           assert x["method_cards"]==0
-          print("WF0BX: 3部新古籍＋6篇真实原文批注心得，原108条完整保存，114内容条目/66三段式逐篇读回",flush=True)
+          print("WF0CC: 8篇全新原创玄幻原文＋24条贴句批注＋8段开放心得；114旧条目保留，现122内容/74三段式完整读回。零额外模型调用。",flush=True)
           PY
       - name: Verify actual author model sees whole reading before JSON chapter plan
         run: |
