@@ -510,7 +510,8 @@ class StudioService:
                    self_edit_rounds:int=0,
                    self_edit_timing:str="always_offer",
                    ai_chapter_review:bool=False,
-                   reader_first_self_review:bool=False) -> dict:
+                   reader_first_self_review:bool=False,
+                   xuehai_readings_enabled:bool=False) -> dict:
         # Author chooses A (single) or segmented B-F. For segmented Studio
         # work, default to SHOW EACH TURN and wait for explicit continuation.
         if draft_mode not in ("single","split_only","causal_guard",
@@ -538,6 +539,8 @@ class StudioService:
                 "WF_STUDIO_READER_FIRST_REQUIRES_G_AI_DECIDES")
         if type(ai_chapter_review) is not bool:
             raise StudioError("WF_STUDIO_CHAPTER_REVIEW_FLAG_INVALID")
+        if type(xuehai_readings_enabled) is not bool:
+            raise StudioError("WF_STUDIO_PREPLAN_READING_FLAG_INVALID")
         if (ai_chapter_review and
             (draft_mode!="continuity_guard" or
              not continue_unreviewed or
@@ -613,6 +616,7 @@ class StudioService:
                     "self_edit_rounds":self_edit_rounds,
                     "self_edit_timing":self_edit_timing,
                     "reader_first_self_review":reader_first_self_review,
+                    "xuehai_readings_enabled":xuehai_readings_enabled,
                     "ai_chapter_review":ai_chapter_review,
                     "pending_turn":None,
                     "cancel_requested":False,
@@ -671,6 +675,7 @@ class StudioService:
                         self_edit_rounds=self_edit_rounds,
                         self_edit_timing=self_edit_timing,
                         reader_first_self_review=reader_first_self_review,
+                        xuehai_readings_enabled=xuehai_readings_enabled,
                     )
                     candidate_branches={"original":result}
                     selected_candidate="original"
@@ -734,7 +739,8 @@ class StudioService:
                                     cross_chapter_fork=proposal,
                                     self_edit_rounds=self_edit_rounds,
                                     self_edit_timing=self_edit_timing,
-                                    reader_first_self_review=reader_first_self_review)
+                                    reader_first_self_review=reader_first_self_review,
+                                    xuehai_readings_enabled=xuehai_readings_enabled)
                                 check_author_stop()
                             except WriterDraftCancelled:
                                 raise
@@ -1077,6 +1083,8 @@ class StudioHandler(BaseHTTPRequestHandler):
                         "ai_chapter_review",False),
                     reader_first_self_review=payload.get(
                         "reader_first_self_review",False),
+                    xuehai_readings_enabled=payload.get(
+                        "xuehai_readings_enabled",False),
                 )
             elif self.path=="/api/autodraft/cancel":
                 result=svc.cancel_auto(payload.get("job_id"))
