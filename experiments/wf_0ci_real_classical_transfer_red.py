@@ -68,6 +68,9 @@ def diagnose_existing_r2():
                     goal=item["goal"],max_chars=4900)
                 mixed=XuehaiStore(db,rt).select_literary_reading_for_author(
                     goal=item["goal"]+" "+item["writing_problem"],max_chars=4900)
+                transferred=XuehaiStore(db,rt).select_literary_reading_for_author(
+                    goal=item["goal"],max_chars=4900,
+                    writing_problem=item["writing_problem"])
                 def method_cluster(reading):
                     if reading is None:
                         return None
@@ -79,6 +82,15 @@ def diagnose_existing_r2():
                     "case":item["id"],"expected_possible_literary_reference":item["expected"],
                     "current_goal_only":method_cluster(original),
                     "naively_joined_goal_plus_problem":method_cluster(mixed),
+                    "source_annotation_and_reflection_selected":
+                        method_cluster(transferred),
+                    "craft_evidence_basis":(
+                        transferred.get("matching_basis") if transferred else None),
+                    "matched_craft_fragments":(
+                        transferred.get("matched_craft_fragments",0)
+                        if transferred else 0),
+                    "craft_transfer_meets_possible_literary_reference":
+                        method_cluster(transferred)==item["expected"],
                     "current_goal_only_meets_registered_reference":
                         method_cluster(original)==item["expected"],
                     "no_semantic_quality_judgment":True,

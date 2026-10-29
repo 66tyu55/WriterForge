@@ -50,6 +50,11 @@ jobs:
               print("WF0CI_CASE",json.dumps(case,ensure_ascii=False))
           assert len(r["cases"])==4
           assert r["model_calls"]==0 and r["r2_writes"]==0
-          assert all(case["current_goal_only_meets_registered_reference"]
-                     for case in r["cases"]), "WF0CI_REAL_CLASSIC_CRAFT_TRANSFER_RED"
+          assert not any(case["current_goal_only_meets_registered_reference"]
+                         for case in r["cases"]), "WF0CI_BASELINE_SOURCE_LOCKED_DRIFTED"
+          assert all(case["craft_transfer_meets_possible_literary_reference"]
+                     for case in r["cases"]), "WF0CI_REAL_CLASSIC_CRAFT_TRANSFER_STILL_RED"
+          assert all(case["craft_evidence_basis"]=="ANNOTATIONS_REFLECTIONS_TEXT_OVERLAP"
+                     for case in r["cases"])
+          print("WF0CI_4_REAL_CLASSICAL_CROSS_GENRE_CRAFT_READINGS_DELIVERABLE_ZERO_MODEL",flush=True)
           PY
