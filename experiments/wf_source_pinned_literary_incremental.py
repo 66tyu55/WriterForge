@@ -37,6 +37,8 @@ def pack_from(path:Path):
             (140,97,5,"wf-0cq-xuehai-literary-145-","classic-0cq-"),
         "wf.0cr.three-anchored-classical-close-readings.v1":
             (145,100,3,"wf-0cr-xuehai-literary-148-","classic-0cr-"),
+        "wf.0cs.five-social-dialogue-close-readings.v1":
+            (148,105,5,"wf-0cs-xuehai-literary-153-","classic-0cs-"),
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
@@ -50,7 +52,9 @@ def pack_from(path:Path):
         or p.get("model_calls")!=0
         or len({v["id"] for v in rows})!=len(rows)
         or not str(p.get("new_library","")).startswith(spec[3])
-        or set(p.get("sources",{}))!={"fs","ss"}):
+        or set(p.get("sources",{}))!=(
+            {"dp","jm"} if p.get("format")=="wf.0cs.five-social-dialogue-close-readings.v1"
+            else {"fs","ss"})):
         raise ValueError("WF_SOURCE_PACK_NOT_FROZEN_SUCCESSOR")
     for r in rows:
         if (not r["id"].startswith(spec[4])
