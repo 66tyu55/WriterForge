@@ -1,0 +1,75 @@
+name: WF 0.BZ Pin REAL local source originals - OFFLINE NO MODEL
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0bz-pin-real-local-source-originals.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  preserve-source-originals-not-literary-approval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor-unified-scene-delivery-audit
+          persist-credentials: true
+      - name: Download actual previous author trial WITHOUT new model calls
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 40812185906
+          name: WF-0BZ-REAL-LOCAL-TWO-SCENE-THREE-ARM-ORIGINALS
+          github-token: ${{ github.token }}
+          path: wf0bz_source_only
+      - name: Preserve exact model requests, reply bytes, source candidate, failure ledger
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json,shutil
+          src=Path("wf0bz_source_only")
+          out=Path("experiments/wf_0bz_real_local_originals_20261029")
+          assert src.is_dir() and not out.exists()
+          ledger=json.loads((src/"STATUS.json").read_text("utf8"))
+          assert ledger["status"]=="REAL_LOCAL_TRIAL_FINISHED_WITH_UNGRADED_OUTCOMES"
+          assert ledger["new_paid_model_api_calls"]==0
+          assert ledger["calls"]==11 and len(ledger["results"])==6
+          assert len([r for r in ledger["results"] if r["arm"]=="bare" and r["status"]=="COMPLETED_UNGRADED"])==2
+          assert len([r for r in ledger["results"] if r["arm"]!="bare" and r["status"]=="FAILED_NO_RETRY"])==4
+          allowed={"STATUS.json","bare_original_plan_and_text.json",
+                   "original_candidate_prose.json"}
+          original_replies=0
+          original_requests=0
+          for f in src.rglob("*"):
+              if not f.is_file():
+                  continue
+              rel=f.relative_to(src)
+              if not (f.name in allowed or
+                      f.name.startswith("call_") and f.name.endswith("_raw.json") or
+                      f.name.startswith("call_") and f.name.endswith("_original_input.json") or
+                      f.name.endswith("-raw-model-turn-outline.json") or
+                      f.name.endswith("-turn-01-raw.json") or
+                      f.name.endswith("-rejected.json")):
+                  continue
+              if f.name.startswith("call_") and f.name.endswith("_raw.json"):
+                  original_replies+=1
+              if f.name.startswith("call_") and f.name.endswith("_original_input.json"):
+                  original_requests+=1
+              dst=out/rel
+              dst.parent.mkdir(parents=True,exist_ok=True)
+              shutil.copyfile(f,dst)
+          assert original_replies==11 and original_requests==11
+          assert (out/"STATUS.json").is_file()
+          print("SAVED_11_ACTUAL_RAW_REPLY_BYTES_11_REQUESTS_2_BARE_PROSE_4_WF_FAILURES",flush=True)
+          PY
+      - name: Commit source originals ONLY to the existing development branch
+        run: |
+          git config user.name "writerforge-evidence-bot"
+          git config user.email "writerforge-evidence-bot@users.noreply.github.com"
+          git add -- experiments/wf_0bz_real_local_originals_20261029/
+          git commit -m "0.BZ: preserve 11 real local model replies and four negative WF outcomes"
+          git push origin HEAD:refactor-unified-scene-delivery-audit
