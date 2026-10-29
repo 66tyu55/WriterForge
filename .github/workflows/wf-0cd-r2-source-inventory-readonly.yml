@@ -1,0 +1,37 @@
+name: WF 0.CD Existing Private R2 Literary Inventory - READ ONLY
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0cd-r2-source-inventory-readonly.yml
+      - experiments/wf_0cd_private_r2_xuehai_inventory.py
+      - tests/test_wf_0cd_r2_source_inventory.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-existing-private-r2-metadata-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Existing R2 package only, no model client
+        run: python -m pip install -e '.[r2]'
+      - name: Offline security boundaries first
+        run: python -m unittest discover -s tests -p test_wf_0cd_r2_source_inventory.py -v
+      - name: Read actual existing R2 metadata ONLY; never download originals or write
+        env:
+          WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+          WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+          WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+          WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+          WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+        run: python -m experiments.wf_0cd_private_r2_xuehai_inventory
