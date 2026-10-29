@@ -1,39 +1,20 @@
-# WriterForge 轻量最新交接｜0.CP｜2026-10-29
+# WriterForge 当前轻量交接｜0.CQ｜2026-10-29
 
-**下次先读本页前半部分，不要全文读取庞大的 `CURRENT_HANDOFF.md`。** 所有新代码与 R2 都只在开发分支 `refactor-unified-scene-delivery-audit`；main、正式 Canon、Railway 不动。宿主作者模型最终自行 USE/SKIP，不训练宿主、不重复建设存储/规则/文学评分体系。V26/V98/V119 和唯一 NarrativeCore 不变。
+**换聊天请先读本页，不要全文读取 32 万字的 `CURRENT_HANDOFF.md`。** 开发分支 `refactor-unified-scene-delivery-audit`；坚持**内容优先、逐步积累、真实 bug 才修**，不训练宿主模型，不另外建立记忆/文学判官/规则库，不追求不断证明“文学能力提高”。作者模型仍自行 USE/SKIP。V26/V98/V119、唯一 NarrativeCore 保留，main、正式 Railway、Canonical 都不改。
 
-## 最新 0.CO—0.CP（2026-10-29）
+## 本轮 0.CQ 真正做了什么
 
-- **0.CO 真实 bug**：`writerforge/xuehai.py` 过去先根据全局新旧顺序按角色取32条，古籍实际56篇导致24篇在文学问题比较前被排除。原 136/88 R2 实测 [#40883463393](https://github.com/66tyu55/WriterForge/actions/runs/40883463393) 确认。以既有《红楼梦》第三回饭席原文＋批注＋心得为真实来源、再插40条无关测试材料，旧代码 [#40884257009](https://github.com/66tyu55/WriterForge/actions/runs/40884257009) RED（相关旧读本被屏蔽）。
-- **修复**：继续复用原 `XuehaiStore._candidate_rows` 的 SQL 有界池（每类最多512行），先用实际**批注＋心得**的独立文本证据做候选预选，再只交付最多32篇经过现有来源哈希、三段式与长度验证的完整阅读。保留每作品8篇限制、不用书名映射、不改原文、不降低三条独立证据门槛；超出有界池仍可能保守NONE，未来扩容应另核实而非不受限扫描。回归 [#40884556007](https://github.com/66tyu55/WriterForge/actions/runs/40884556007) GREEN；0.CI—0.CN 原有 CI 回归正常，[全仓 #40884556013](https://github.com/66tyu55/WriterForge/actions/runs/40884556013) **2101 tests，8 skipped，0 failures**。
-- **安静照顾仍允许不荐**：0.CO 新旧真实读本核验显示王冕母子的文本确实在候选中，但原特定问题只有**两处**独立批注/心得词面关联；同类问题改写后有三处而可召回。不能为了刷该题把阈值从3降低、强制推荐或宣称“文学理解已提高”。
-- **0.CP 内容新增**：`experiments/wf_0cp_four_lao_can_sequel_social_close_readings_20261029.json` 四篇《老殘遊記續集》原著连续片段＋12条具体批注＋4段开放心得：①高人道号的雅俗辩论；②客人猜错逸云与靓云的身份；③逸云谈去留、旧人情与旅行约定；④老残与姊丈赏花、作诗、打趣。共新增**2727 字连续原文**；GITenberg `lao-can-you-ji-xu-pian_56291` 固定 Git commit `bc807d8364509c7d682ed62ae46c2808cf6dc7b2`，原始 blob SHA `1c232e716d7b4fae637e1c209d8a45aa982cfc18`，只做匹配校验，不改动原文的疑似转录瑕疵。美国公版，其他法域版权另核。
-- **实际学海持久增量 136/88 → 140/92**，只复用现有 `WriterForgeDB`、`XuehaiStore`、R2StudyVault，旧136条内容SHA与所有旧原文未变。新独立 R2 库 `wf-0cp-xuehai-literary-140-20261029-v1`，snapshot **`e425a2fe3809905b6d12c7c1c36e8f7647c2c4efd310364dc4ebe3b010de6ac8`**，内容 SHA **`5877223c8189e5136ebfb74ae4782845d0f67028c5784f1c223905de9dcabdf5`**。源锁定、旧源内容对比、92篇三段式全量读回以及全新 CI 冷进程只读 R2 恢复 [#40885794902](https://github.com/66tyu55/WriterForge/actions/runs/40885794902) 均 SUCCESS。0模型调用、0付费请求、0正式 Canon写入、0旧 R2 库覆盖；**未切换正式作者生产环境到新140/92**。
-- 下轮只读 `docs/WF_ACTIVE_BRIEF.md` + 当前需要的源码片段即可，**不要重跑历史原始 RED、不反复付费实测、也不要为追求局部全绿调整文学口味**。若要补下一批内容，选不同题材公版原文3–5篇，贴字批注、开放心得；若要测作者写作辅助，只测读本是否如实送达和明显错荐，作者仍USE/SKIP，不能把工程正确等同文学品质成长。
+1. 已完成 5 篇新的真实文学阅读，来自**《浮生六記》3 篇、《世說新語》2 篇**：藏暖粥后被亲友取笑、花田野餐借馄饨摊的锅灶、梅花食盒与旧衣缝补、华歆王朗同舟避难的承诺、王子猷雪夜乘舟访戴却不进门。每篇是**原文连续段落或完整独立轶事＋三条贴句批注＋开放心得**，非技巧卡片。内容 `experiments/wf_0cq_five_fusheng_shishuo_close_readings_20261029.json`，两份来源为固定 Git commit、blob SHA 的 GITenberg 原著；美国公版，其他法域另行核查。保留原始转录，不悄悄修字。
+2. 在**原有 XuehaiStore＋原有 WriterForgeDB**里追加，文学内容 **140→145** 条，完整三段式阅读 **92→97** 篇。旧 140 条内容 fingerprint 保持不变，不会改写旧存档、正式 Canon、main 或生产 Railway。追加工具 `experiments/wf_source_pinned_literary_incremental.py` 只运行于实验临时库，与现有 R2StudyVault 配合。
+3. 保存新的**不可变 R2 后继快照**，库名 `wf-0cq-xuehai-literary-145-20261029-v1`，快照 SHA `c5c30544c0644380f0ce59945a65b1002a77a68e51806578a603f59ab87deea6`，全部文学内容 SHA `4361d3e95eac69b5c58925b59d9a8688f7ce1dd40db06a9989436847977e32f9`。CI [#40887865900](https://github.com/66tyu55/WriterForge/actions/runs/40887865900) **两个任务全部 GREEN**：真实原著 SHA/逐字原文校验、旧 140 全文对比、145 条库内完整读回、97 篇原文批注心得读回、新库发布、另一独立 runner 只读 R2 冷恢复。0 作者模型调用／0付费／0旧 R2 写入／0正式 Canon 修改。
+4. 从**同一真实新学海**运行现有 `select_literary_reading_for_author` 的四个写作问题：藏粥静谧照顾命中新增 `classic-0cq-fs-01`；花田野餐返回 **NONE**（弱证据或措辞差异，未调阈值）；危险中遵守承诺却选到旧 `classic-xy-play`（《西游记》猴群游戏立约，**可能是泛词错配，需要更多无关题再证明后修复**）；要求 SQL/JSON 代码任务返回 **NONE**。**这里只是WF实际投递观察，不是文学质量成绩。**
 
----
+## 前轮0.CO及依赖
 
-## 上一轮 0.CN 历史记录（保留，不必在每次新聊天读取）
+- 0.CO 找到真实 bug：原本古籍 56 篇中仅按新旧选 32 篇，旧《红楼梦》第三回座次/漱茶的原文被挡在候选之外。源测试先 RED [#40884257009](https://github.com/66tyu55/WriterForge/actions/runs/40884257009)，修复后 GREEN [#40884556007](https://github.com/66tyu55/WriterForge/actions/runs/40884556007)。在 `writerforge/xuehai.py` 内复用已有 SQL-bounded 最大 512 候选/角色，先从**实际批注+心得**对写作问题取证再最多选 32 篇完整原文，原文严格读回；没有硬写书名规则、没有降低三条独立证据阈值。旧安静照顾提示仍可保守 NONE。[全仓 #40884556013](https://github.com/66tyu55/WriterForge/actions/runs/40884556013) **2101 项，8 跳过，0 失败**。0.CQ 未再改生产代码，这一全仓结果仍是最近一次完整回归。
+- 0.CP 140/92 库 `wf-0cp-xuehai-literary-140-20261029-v1`，快照 SHA `e425a2fe3809905b6d12c7c1c36e8f7647c2c4efd310364dc4ebe3b010de6ac8`，内容 SHA `5877223c8189e5136ebfb74ae4782845d0f67028c5784f1c223905de9dcabdf5`；旧库及文献绝不覆盖。
+- **使用边界**：145/97 是开发版 R2 内容，正式作者运行环境未自动换源。开发者可通过新 library/snapshot 显式冷恢复到原 DB，沿真实 `XuehaiStore`/WRITE 原入口选择完整材料。不得说作者写作水平已上升。
 
+## 下一步
 
-**换聊天优先读本页（约 3 KB），不要全文拉取 32 万字符的 `CURRENT_HANDOFF.md`。** 如须调查旧错误，再用 GitHub `fetch_file(start_line,end_line)` 局部读对应源码／实验及失败日志。当前开发分支：`refactor-unified-scene-delivery-audit`。
-
-## 0.CN：本轮真实完成
-
-- 按用户要求，停止反复宣称“文学能力提高”。**先补真实文学内容，再小修确有证据的 WF 调度错误**；不训练或替代宿主作者模型，不新增独立存储/元规则/评分器。V26/V98/V119 与唯一 NarrativeCore 保留，最终 USE/SKIP 权在作者。
-- 文学新增材料：`experiments/wf_0cn_five_daily_life_classics_20261029.json`，**5 篇连续真实古籍片段＋15 条具体批注＋5 段开放心得**，分别为《儒林外史》王冕母子照料、第二十七回新婚厨房礼俗、第三十三回杜少卿夫妻春游、第四十六回虞博士送别，以及《子不语》第六卷《人同》异兽与主人离别。共 2,116 个原文字码（含选段边界），文字来源真实、未经过改写。来源固定 Git commit＋blob SHA，CI 原文件逐字节校验。美国公版；其他法域另核版权。
-- 新增条目使用的仍是 **同一个现有 WriterForgeDB/XuehaiStore**，不是另一套方法卡或文学规则库：**131 → 136 条文学内容，83 → 88 篇完整三段式阅读**。追加脚本 `experiments/wf_0cn_append_daily_classics.py`（只读恢复 0.CM 后复制临时 SQLite，创建后继 published snapshot，检验前 131 条全文 SHA 不变）。
-- 新的不可变 R2 库 `wf-0cn-xuehai-literary-136-20261029-v1`：snapshot **`ae522ac98ae083a7c59f1bf0823f712c5d757a9bec144bd91defd235938a2e2a`**；全部136文学内容 SHA **`6d48800a611834546107dea3c22aab50bee56b2824121abfc75a466c3ddd09ce`**。新旧全部 88 篇均用现有三段式读回接口检查；全新 CI 进程独立 R2 冷恢复成功。[最终 0.CN CI #40881854071](https://github.com/66tyu55/WriterForge/actions/runs/40881854071) SUCCESS。旧 0.CF 126/78、0.CM 131/83 R2 快照及其原文不动；main、正式 Canon、Railway 均未修改。
-- **小型真实程序 RED→GREEN**：第一次使用现有只读 `_QueryOnlyDb` 查询作者推荐时报 `fts_enabled` 属性缺失（不是来源坏），仅在 0.CN 只读适配器关闭 FTS，保留原来正式 DB 功能；失败 [#40881311651](https://github.com/66tyu55/WriterForge/actions/runs/40881311651)。然后实际作者问题“怎样写不多言的照顾？用饭菜、衣着、劳作……带出人物之间的感情”因问号分隔，导致 `_author_craft_scope` 完全丢弃意图，首次固定 test [#40881698951](https://github.com/66tyu55/WriterForge/actions/runs/40881698951) RED。只在原 `writerforge/xuehai.py` 把**紧邻、确有叙事细节的写作要求**按语法连接，不增加书名规则。四项局部测试 GREEN，原 0.CL/CJ/CK/CI 全部 GREEN；[0.BL 全仓 #40881853975](https://github.com/66tyu55/WriterForge/actions/runs/40881853975) **2,100 项执行，8 跳过，0 失败**。
-- **阅读调度真实观察而非“升级成绩”**：同一新版 R2 学海运行 `select_literary_reading_for_author`，按顺序「灶间安静照顾、师友送别、婚宴做鱼礼俗」返回 **`[NONE, classic-0cn-rl-04, classic-0cn-rl-02]`**。第二/第三题实际得到完整原文＋批注＋心得；第一题在修复分句范围后仍 NONE，属**仍未解决的弱证据检索/保守弃荐**，不可强称已召回王冕母子。确认源内容实际存在，保留本次 NONE 作为下一轮可能研究的负例；不要为凑齐 3/3 添加专属书名→技法、禁词表或增益评级。
-- 本轮 0 个新作者模型 API、0 付费调用、0 模型训练、0 Canon 写入，不修改正式服务。以上只是来源、工程及调度实际行为，不是文学作品质量提升证明。
-
-## 上一轮 0.CM 及历史定位
-
-- 0.CM 已成功保存 **131/83**，R2 library `wf-0cm-xuehai-literary-131-20261029-v1`；snapshot `d5faee67a3ce4379b8790831ca4ad09314a6ed52cff493306467e20098d830af`，文学内容 SHA `521386ca1c404cff6bdc81b9afa2132b5f54290f1c60af975a95b236fc69fb56`；原文／心得来自《韩湘子全传》2、《子不语》3，见 `experiments/wf_0cm_five_genuine_classics_original_annotation_reflection_20261029.json`。
-- 0.CL 《镜花缘》衣服揭势利漏检及安静日常误荐修复详见 `docs/WF_0CL_GENUINE_CLASSICS_ROUTING_AND_STOP_EVIDENCE_20261029.md`；《韩湘子全传》花草讽喻错荐原创补衣题仍未修复，**禁止追绿过拟合**。
-- 当前**新的 136/88 并未自动切换正式作者运行时的默认库**。实验可以用 0.CN 新 library＋snapshot 显式恢复至相同 `XuehaiStore`/WRITE；原 0.CF 实验源应保持历史锁定。
-
-## 下次继续（不要先造系统）
-
-优先扩充 **另外一两个真实古籍来源**、多个不同日常/人情/对话/社会差序场景，每轮 3–5 篇连续原文＋贴字批注＋开放心得；只用已锁 SHA 的公版材料并验证原文。然后从作者实际构思入口读取 136/88（或其后续版本），自然观察能否找到有价值的读本。仅有可复现的跨例源码缺陷才小修 WF；不做文学品质绩效表，也不对少量留出题逐次调阈值。既有元 Skill 的可迁移、可证伪、可停止/休眠原则不变。
+优先真正有变化的其他文学作品、普通日常/人物选择/语言/讽刺的连续原文阅读，每轮 3–5 篇并完整批注反思。若查 0.CQ “承诺选猴群”负例，要先用其他完全独立的作品与写作问题找共因、保留合法部分关联，**不要为同题硬调字符串或多造方法模块**。若无可靠跨例 bug，允许 NONE，继续补内容。不重复当前 GitHub Actions 源原稿/日志；简短交接只维护本文件。
