@@ -1,4 +1,10 @@
-# WriterForge 0.BS—0.BW 文学内容续接｜原文＋批注＋心得（2026-10-29）
+# WriterForge 0.BS—0.BX 内容优先交接｜原文＋批注＋心得（2026-10-29）
+
+## 0.BX 已完成
+
+- 新收《韓湘子全傳》《東度記》《子不語》各两篇不同原文、批注、心得，共**8,232字符原文／18条具体批注／6段心得**。完整内容：`experiments/wf_0bx_three_new_fantasy_books_six_close_readings_20261029.json`，三书GITenberg固定源及美国公有领域范围写在资料内（其他司法辖区不冒认）。不要重复创建这些条目。
+- 继续复用现有XuehaiStore与旧入库脚本`--fantasy18`，在独立临时SQLite核对新书固定源及6段精确原文、逐篇读回三段式、旧108条保留；现在**114条内容、66篇完整三段式**。[CI #40807910950 GREEN](https://github.com/66tyu55/WriterForge/actions/runs/40807910950)。只说明材料可用，尚未证明模型学会写作。
+- **下轮只做需要的文学**：读更多不同可靠原文、批注应保留疑问与多种解释；不要再堆数据库/审核/方法卡。若要验证提升，必须真实让作者在构思前有机会完整读材料、自主决定用不用，才能有值得比较的文本证据。禁动main、Railway、私有R2、正式Canon、V26/V98/V119、唯一NarrativeCore。未经许可不调用付费作者模型。
 
 ## 0.BW 已执行｜不要重复选取这六篇长情节
 
@@ -66,4 +72,4 @@
 
 ## 下一聊天可直接说
 
-> 继续WriterForge 0.BW之后的学海内容优先工作。先读开发分支`docs/CURRENT_HANDOFF.md`顶部0.BW、`experiments/wf_0bw_three_fantasy_classics_six_long_readings_20261029.json`和0.BV旧6篇。现在三部古典神魔奇幻有12篇连续阅读，含《镜花缘》两整回、《聊斋志异》两整篇；同一个临时Xuehai共108条内容/60篇三段式，来源逐段核对、原文批注心得全文读回。不要重复加这六篇，不要假装现代版权小说全文已读。下一步依然是不同原文、具体字句的思考和文学中的多义，必要时找真实授权的新现代玄幻来源，之后才检验作者构思是否实际受益。别添数据库/新记忆/审核器/短方法卡；不能把GREEN当文学进步。只改开发分支，禁止改main/Railway/私有R2/正式Canon，保留V26/V98/V119/唯一NarrativeCore。
+> 继续WriterForge 0.BX学海文学内容。先看开发分支CURRENT_HANDOFF顶部及`experiments/wf_0bx_three_new_fantasy_books_six_close_readings_20261029.json`。新增韩湘子全传、东度记、子不语各2段完整真实原文＋具体批注＋心得，隔离学海现有114条内容、66篇三段式经真实CI完整读回；不重复旧篇。下一步优先读不同真实作品与更长情节，反思人物选择的代价（例如仙道与家庭、忠诚与牺牲），少做工程、不做短方法提示，也不把存储数目当文学进步。未经授权不调用付费模型，不改main/Railway/R2/Canon；保持V26/V98/V119与唯一NarrativeCore。
