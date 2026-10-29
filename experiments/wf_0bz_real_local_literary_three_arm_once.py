@@ -107,7 +107,12 @@ def run(*, model_path: Path, db_path: Path, output: Path) -> dict:
     # Verify the expected corpus without changing source or publishing Canon.
     db = WriterForgeDB(db_path)
     try:
-        n = db.conn.execute("SELECT COUNT(*) FROM xuehai_entries").fetchone()[0]
+        n = db.conn.execute(
+            "SELECT COUNT(*) FROM xuehai_entries WHERE source_role IN "
+            "('original_complete_scene_unreviewed',"
+            "'public_domain_continuous_detail_prose_unreviewed',"
+            "'classical_original_annotation_reflection',"
+            "'original_annotation_reflection')").fetchone()[0]
         n_three = db.conn.execute(
             "SELECT COUNT(*) FROM xuehai_entries WHERE source_role IN "
             "('classical_original_annotation_reflection',"
@@ -192,6 +197,12 @@ def run(*, model_path: Path, db_path: Path, output: Path) -> dict:
                             "writer_turn_or_replan"),
                     }
                     state["calls"].append(call)
+                    dump(folder / f"call_{index:02d}_original_input.json", {
+                        "unmodified_packet_prompt": prompt,
+                        "actual_qwen_wrapped_prompt": wrapped,
+                        "prompt_sha256": packet.prompt_sha256,
+                        "actual_request_sha256": call["actual_request_sha256"],
+                    })
                     save()
                     t = time.perf_counter()
                     response = engine.create_completion(
