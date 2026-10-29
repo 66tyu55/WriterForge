@@ -157,6 +157,15 @@ def _literary_craft_grams(text: str) -> set[str]:
             and s[i] not in "的了呢吗啊着"
             and s[i+n-1] not in "的了呢吗啊着"}
 
+def _independent_literary_hits(target: set[str], notes: set[str]) -> list[str]:
+    """Treat overlapping phrase fragments as one piece of textual evidence."""
+    independent=[]
+    for token in sorted(target & notes,key=lambda v:(-len(v),v)):
+        if not any(token in earlier for earlier in independent):
+            independent.append(token)
+    return independent
+
+
 def _author_craft_scope(outline: str) -> str:
     """Ignore plain plot/background: only explicit writing questions matter."""
     # Keep linked consequences across a semicolon. A writing problem such
@@ -420,16 +429,50 @@ class XuehaiStore:
             target=_literary_craft_grams(craft_scope)
             shortlist=[]
             seen=set()
+            # 0.CO RED: the generic Xuehai query returned only the newest
+            # 32 readings per role BEFORE considering the author's problem.
+            # An older real 红楼梦 reading with direct evidence was hidden.
+            # Reuse the existing SQL-bounded <=512 candidate rows per role,
+            # rank by actual annotation/reflection fragments, and verify
+            # only up to 32 complete sources with the existing read gate.
+            # Neither titles nor story prop keywords constitute craft proof.
+            clauses=[
+                _literary_craft_grams(part)
+                for part in re.split(r"[，,；;]",craft_scope)
+                if len(part.strip())>=5]
             if len(target)>=3:
                 for role in ("classical_original_annotation_reflection",
                              "original_annotation_reflection"):
-                    for item in self.query(Query(
+                    ranked=[]
+                    for row in self._candidate_rows(Query(
                         source_role=role,limit=32,
                         max_per_work=8,max_per_cluster=1)):
-                        entry_id=int(item["entry_id"])
+                        entry_id=int(row["id"])
                         if entry_id in excluded or entry_id in seen:
                             continue
-                        seen.add(entry_id)
+                        text=row.get("text") or ""
+                        if len(text)>max_chars+40:
+                            continue
+                        before,marker,after=text.partition("\n【批注】\n")
+                        notes,separator,reflection=after.partition("\n【心得】\n")
+                        if not marker or not separator or not before or not reflection:
+                            continue
+                        grams=_literary_craft_grams(notes+"\n"+reflection)
+                        evidence=_independent_literary_hits(target,grams)
+                        if len(evidence)<3:
+                            continue
+                        coverage=sum(bool(part & grams) for part in clauses)
+                        ranked.append(((len(evidence),coverage,entry_id),row))
+                    ranked.sort(key=lambda v:v[0],reverse=True)
+                    per_work,per_cluster={},{}
+                    chosen=0
+                    for _,row in ranked:
+                        work=row.get("work_id") or ""
+                        cluster=row.get("method_cluster") or ""
+                        if (per_work.get(work,0)>=8 or
+                            (cluster and per_cluster.get(cluster,0)>=1)):
+                            continue
+                        entry_id=int(row["id"])
                         try:
                             reading=self.read_literary_reading(entry_id)
                         except ValueError:
@@ -440,9 +483,17 @@ class XuehaiStore:
                                  +"\n【心得】\n"+reading["reflection"])
                         if len(passage)>max_chars:
                             continue
+                        seen.add(entry_id)
+                        item={"entry_id":entry_id,"work_id":row["work_id"]}
                         grams=_literary_craft_grams(
                             "\n".join(reading["annotations"])+"\n"+reading["reflection"])
                         shortlist.append((role,item,reading,passage,grams))
+                        per_work[work]=per_work.get(work,0)+1
+                        if cluster:
+                            per_cluster[cluster]=per_cluster.get(cluster,0)+1
+                        chosen+=1
+                        if chosen>=32:
+                            break
             if shortlist:
                 from collections import Counter
                 document_frequency=Counter(
@@ -451,10 +502,6 @@ class XuehaiStore:
                 # A craft issue may contain several independent concerns:
                 # a source sharing ONE generic clause must not outrank an
                 # annotation actually addressing the rest of the problem.
-                clauses=[
-                    _literary_craft_grams(part)
-                    for part in re.split(r"[，,；;]",craft_scope)
-                    if len(part.strip())>=5]
                 relevant=[]
                 for role,item,reading,passage,grams in shortlist:
                     hits=target & grams
@@ -462,10 +509,7 @@ class XuehaiStore:
                     # single piece of evidence ("不是旁白" cannot count as
                     # five independent literary insights). Distinct anchored
                     # details matter more than keyword length.
-                    independent=[]
-                    for token in sorted(hits,key=lambda v:(-len(v),v)):
-                        if not any(token in earlier for earlier in independent):
-                            independent.append(token)
+                    independent=_independent_literary_hits(target,grams)
                     if len(independent)<3:
                         continue
                     supported=sum(bool(part & grams) for part in clauses)
