@@ -1,5 +1,23 @@
 # WriterForge 当前有效交接｜2026-10-29
 
+## 0.CJ—0.CK WF自身文学任务分流／可拒绝学习｜真实原著固定R2验收（2026-10-29）
+
+**用户核心要求**：WF本身借助真实文学成长，不是训练、提升或替代宿主模型的理解能力。沿用现有私有R2固定0.CF学海快照126条内容、78篇原文＋批注＋心得，0模型推理、0付费、0 R2上传/修改、0正式Canon写入、0Railway/main部署、0新增记忆/DB/方法卡/文学评价器。现有V26/V98/V119与唯一NarrativeCore保留。
+
+**真实古籍来源与可证伪结果：**
+
+1. **0.CJ先冻结9题再运行旧代码**：[初次完整事实 #40867640844](https://github.com/66tyu55/WriterForge/actions/runs/40867640844)。四道《聊斋志异》源流的不同写作问题（山魈逐门逼近、狐变化身体逃出绳套、促织制度摊派、聂小倩法器角色转变），只**3/4命中**所登记的可能参考；四道非文学技术任务仅**2/4能自行不推荐**；还有一道权势言语的复杂可选多解题选中未登记的日常阅读。旧WF忽略“想让……”写作请求，把CSS/服务器配置的“如何”当文学问题，**误荐而且未阻止story-only回退**。
+2. **0.CJ RED→GREEN的底层修复**：沿用原`writerforge/xuehai.py`的`_author_craft_scope`与`select_literary_reading_for_author`，识别普通“想让…”的创作意图；无叙事工作对象的技术HOW-TO或泛泛“希望写得更好”不得转回按情节道具强推原著；没有明确请求的普通剧情大纲仍遵守原旧目标相关检索，且正常小说情节提到“他不要…”等不应被误判成写作指令。在真实R2学海里0.CJ九题修复后**明确参考4/4、应拒绝4/4、另1道非唯一关联仍无法确认为充分相关**。对应生产写作入口`AutonomousWriting.run`的固定无模型回包也验证了软件问题不收到原文、普通故事仍能走原学海。原先8项小单测在修复前5项RED [#40867982196](https://github.com/66tyu55/WriterForge/actions/runs/40867982196)；通过后另检查完整来源/旧文学 [#40868878657](https://github.com/66tyu55/WriterForge/actions/runs/40868878657)。**修复后的九题仅是有来源的回归集，不是独立盲测。**
+3. **0.CK新一批7题在该修复完成后才首次跑，不调参**：[真实未见数据 #40869281958](https://github.com/66tyu55/WriterForge/actions/runs/40869281958)。三道新古籍参考只**2/3命中**：水浒鲁达酒楼席次与对弱者的急躁、红楼凤姐在长辈面前向黛玉言语表演成功；镜花缘衣饰变化揭露势利失败、返回NONE。三道程序代码需求中含“人物关系/选择/因果后果”等文学词时，只**1/3能不强荐**，另外两个错荐了学海条目；一题安静日常返回另一种可能不合用的场景读本。请保留这些**失败，不许说当前算法已经会真正判断文学适用性**。
+4. **0.CK的真正WF工作分流缺口随后单独RED→修复**：WF不能因为技术交付物JSON/SQL字段、人物关系数据结构也包含“人物/关系/选择”便推荐完整文学。新增**对明确软件产物的交付约束**检查（代码、字段、表结构、JSON/SQL等要求配合编写/输出等动作），只阻止错误荐文；一名程序员角色在小说里调试SQL仍是合法文学写作场景，不能因提到技术名词就屏蔽。两个新单测真实RED [#40869476209](https://github.com/66tyu55/WriterForge/actions/runs/40869476209)。[修复后0.CK #40869815935](https://github.com/66tyu55/WriterForge/actions/runs/40869815935) 验证代码任务**3/3不荐文学**，原两项正面参考仍成功、镜花缘检索失败和日常弱关联依然留红/待判断。**0.CK修复后也只能叫回归，不再冒充未见题独立验收。**
+5. **工程总回归**：[0.BL全仓 #40869815912](https://github.com/66tyu55/WriterForge/actions/runs/40869815912) **2,092 tests, 8 skipped, 0 failures**。[旧0.CI完整《老残》《三国》跨场景和真正作者入口 #40869815819](https://github.com/66tyu55/WriterForge/actions/runs/40869815819) GREEN、[原0.CE 126/78文献整库回读 #40869815849](https://github.com/66tyu55/WriterForge/actions/runs/40869815849) GREEN，原0.BM/BO也正常。测试代表WF路由、来源与候选字节行为，**不是宿主模型文学进步、不是外部盲评、更不是跨宿主元Skill已晋级**。
+6. **注意下一次不要继续为了同题刷GREEN**：当前两类真实边界明确未解决：同义改述/真实读法不同但相近时易返回NONE；日常文学需求可能选到只沾零碎词汇、实际文学处理不合的问题读本。优先研究**可检查的适用依据、弱关联时如何标注不确定/选择不荐，以及何时停止无价值迭代**；使用更多未参与任何修复的文学原文+不同表述检验，不能写死某书=某技法。旧0.CJ/0.CK的原本失败和未见成绩必须永久保留，不能因修好代码覆盖。作者仍有USE/SKIP的最终决定权；WF只做资料筛选/过程组织，不给文学真值。
+
+**修改/证据文件**：原有[`writerforge/xuehai.py`](../writerforge/xuehai.py)（仅正常写作入口WF工作分流），[`tests/test_wf_0cj_literary_task_scope.py`](../tests/test_wf_0cj_literary_task_scope.py)；先冻结九题[`wf_0cj_independent_real_classic_holdouts_20261029.json`](../experiments/wf_0cj_independent_real_classic_holdouts_20261029.json)及实际只读R2入口[`wf_0cj_independent_real_classic_probe.py`](../experiments/wf_0cj_independent_real_classic_probe.py)；新7题和两个时点证据[`wf_0ck_real_classics_unseen_probe.py`](../experiments/wf_0ck_real_classics_unseen_probe.py)。CI日志均只含作品引用ID、计数、回归状态，没有任何私有现代小说原文或API密钥。
+
+---
+
+
 ## 0.CI 真实文学跨场景阅读调度｜改进WF本体而非训练模型（2026-10-29）
 
 **用户明确“借助真实文学”来提升WF本身。** 本轮真正用已在私人R2保存且原件SHA锁定的《老殘遊記》《三國志演義》及现有“完整连续原文＋贴句批注＋开放心得”，寻找WF能否在不同小说世界中调度可借鉴的**叙述处理方法**；绝不通过重训或要求宿主模型记住原著实现。仅开发分支`refactor-unified-scene-delivery-audit`；保留V26/V98/V119及唯一NarrativeCore；0模型API/付费/推理、0生产Railway变更、0 R2写入、0正式Canon写入。
