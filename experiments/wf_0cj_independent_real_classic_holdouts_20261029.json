@@ -1,0 +1,97 @@
+{
+  "format": "wf.0cj.pre-registered.classic-holdouts.v1",
+  "created": "2026-10-29",
+  "independent_of": "0.CI four repair cases; new genuine 0.BW / 0.BV / 0.BS classical originals",
+  "evaluation": "Source-grounded human-suggested suitable examples, not an objective literary truth or model grade.",
+  "classes": [
+    "potentially_helpful",
+    "partial_not_unique",
+    "should_abstain"
+  ],
+  "original_sources": "Existing private R2 pinned Xuehai 0.CF / previously SHA-verified public-domain classics",
+  "cases": [
+    {
+      "id": "new-horror-threshold",
+      "class": "potentially_helpful",
+      "work": "聊斋志异",
+      "possible_sources": [
+        "classic-fantasy-lz-1"
+      ],
+      "goal": "一位筑基修士借住已经荒废的山塔，夜里听见由外向内的异声。",
+      "writing_problem": "想让原本安静的房间一点点变得不安全，每跨过一道门声响就逼近一层；结尾可以留下实物痕迹，但不能把怪事真相全部解释明白。"
+    },
+    {
+      "id": "new-body-technique-break",
+      "class": "potentially_helpful",
+      "work": "聊斋志异",
+      "possible_sources": [
+        "classic-fantasy-lz-2"
+      ],
+      "goal": "一名巡山刀手试着用绳套捉住会缩骨的山精，附近同伴正找刀。",
+      "writing_problem": "怎样把妖物的身体变化和绳索实际松紧联在一起，使抓捕一度奏效；最后因为捉者短暂转头分神而逃掉，不凭空增加法术数值。"
+    },
+    {
+      "id": "new-demand-cascade",
+      "class": "potentially_helpful",
+      "work": "聊斋志异",
+      "possible_sources": [
+        "classic-fantasy-lz-3"
+      ],
+      "goal": "仙门长老喜欢一种发光灵蝶，负责进贡的执事催普通村民献蝶，很多家庭失去糊口收入。",
+      "writing_problem": "想写出上层偶然喜好怎样经过数级办事人变成民间强制征集，每一步各有迎合与推卸；最终主角家得奖也不能抹掉其他人已经受的损伤。"
+    },
+    {
+      "id": "new-weapon-relational-role",
+      "class": "potentially_helpful",
+      "work": "聊斋志异",
+      "possible_sources": [
+        "classic-fantasy-lz-4"
+      ],
+      "goal": "逃离鬼王控制的女子来到庵堂求收留，护门仙剑仍悬在她的床前。",
+      "writing_problem": "如何让同一件法器在人物处境改变前后从威胁变为庇护，不用一句它是好法宝便概括；同时保留求助者即使获救仍缺自主选择权的复杂处境。"
+    },
+    {
+      "id": "new-praise-vs-absolute-power",
+      "class": "partial_not_unique",
+      "work": "封神演义 / 红楼梦",
+      "possible_sources": [
+        "classic-fantasy-fs-1",
+        "classic-0bs-h04"
+      ],
+      "goal": "仙城领主在宴会公开写下一句轻慢的歌辞，身侧老臣不敢当众驳他。",
+      "writing_problem": "希望写出权势让在场者不敢质疑一段话的含义，也关心众人表面顺从与真心认可之间的区别，不必依靠全知旁白宣布命运。"
+    },
+    {
+      "id": "new-poem-technical-counterexample",
+      "class": "should_abstain",
+      "work": "NONE",
+      "possible_sources": [],
+      "goal": "玄幻主角想写一首形式极严的回文诗，交给门派铭文老师逐字核算。",
+      "writing_problem": "如何生成每行恰好十一个汉字的回文诗，逐字反向读必须和正向读完全一致，请输出可机器验证的字符序列。"
+    },
+    {
+      "id": "new-css-technical-counterexample",
+      "class": "should_abstain",
+      "work": "NONE",
+      "possible_sources": [],
+      "goal": "玄幻游戏制作人要为作品里的书院菜单设计鼠标悬停按钮。",
+      "writing_problem": "如何实现CSS悬停按钮的键盘焦点样式，要求触控设备也兼容且所有变量命名采用kebab-case，并显示具体样式代码。"
+    },
+    {
+      "id": "new-json-technical-counterexample",
+      "class": "should_abstain",
+      "work": "NONE",
+      "possible_sources": [],
+      "goal": "一个穿越修士在笔记里记录数据库连接参数，希望机器能读取。",
+      "writing_problem": "怎样构造严格符合JSON Schema Draft 2020-12的对象，逐一设置integer字段的minimum值，输出合法JSON结构并由验证器检查。"
+    },
+    {
+      "id": "new-genre-noun-not-method",
+      "class": "should_abstain",
+      "work": "NONE",
+      "possible_sources": [],
+      "goal": "青年书生在玄幻坊市里买过期药丹，摊主叫卖声很大。",
+      "writing_problem": "请解释如何配置Apache HTTP服务的跨域请求头，并提供可执行的Nginx配置；这不是文学写作技法问题。"
+    }
+  ]
+}
