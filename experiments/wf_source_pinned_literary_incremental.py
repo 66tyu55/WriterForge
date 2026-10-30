@@ -61,6 +61,8 @@ def pack_from(path:Path):
             (192,148,4,"wf-0dc-xuehai-literary-196-","classic-0dc-"),
         "wf.0dd.four-immersive-concrete-classics.v1":
             (196,152,4,"wf-0dd-xuehai-literary-200-","classic-0dd-"),
+        "wf.0de.four-lived-material-and-supernatural-readings.v1":
+            (200,156,4,"wf-0de-xuehai-literary-204-","classic-0de-"),
     }
     expected_source_sets={
         "wf.0cq.five-public-classics-close-readings.v1": {"fs","ss"},
@@ -77,6 +79,7 @@ def pack_from(path:Path):
         "wf.0db.four-genuine-human-relations-close-readings.v1": {"ym","ek","fs","rl"},
         "wf.0dc.four-genuine-causality-and-responsibility-readings.v1": {"sg","xy","lc","lz"},
         "wf.0dd.four-immersive-concrete-classics.v1": {"hl","sh","lc","rl"},
+        "wf.0de.four-lived-material-and-supernatural-readings.v1": {"fs","ek","sj","rl"},
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
