@@ -1,0 +1,129 @@
+name: WF 0.DA Three Cross-Genre Genuine Literary Readings - Existing Xuehai No Model
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0da-three-cross-genre-genuine-readings-existing-xuehai.yml
+      - experiments/wf_0da_three_cross_genre_genuine_readings_20261030.json
+      - experiments/wf_source_pinned_literary_incremental.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf0da-immutable-literary-188-140
+  cancel-in-progress: false
+
+jobs:
+  append-and-publish-existing-xuehai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    outputs:
+      snapshot: ${{ steps.backup.outputs.snapshot }}
+      digest: ${{ steps.backup.outputs.digest }}
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing WriterForge Xuehai and R2 only
+        run: python -m pip install -e '.[r2]'
+      - name: Verify three immutable public-domain sources and three literal contiguous originals
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from urllib.request import Request,urlopen
+          from hashlib import sha1
+          from experiments.wf_source_pinned_literary_incremental import pack_from,verify_sources
+          p=pack_from(Path("experiments/wf_0da_three_cross_genre_genuine_readings_20261030.json"))
+          assert set(p["sources"])=={"xx","xh","xk"}
+          assert not any(os.getenv(k) for k in ("OPENAI_API_KEY","DEEPSEEK_API_KEY","OPENROUTER_API_KEY","DISCOVERY_API_KEY"))
+          for src in p["sources"].values():
+              assert src["url"].startswith("https://raw.githubusercontent.com/GITenberg/")
+              with urlopen(Request(src["url"],headers={"User-Agent":"WF0DA-genuine-original-check/1"}),timeout=65) as stream:
+                  raw=stream.read(src["source_size_bytes"]+1)
+              assert len(raw)==src["source_size_bytes"]
+              assert sha1(b"blob "+str(len(raw)).encode()+b"\0"+raw).hexdigest()==src["source_blob_sha1"]
+              (Path(os.environ["RUNNER_TEMP"])/src["filename"]).write_bytes(raw)
+          verify_sources(p,Path(os.environ["RUNNER_TEMP"]))
+          print("WF0DA_THREE_GENUINE_EDITION_SOURCES_AND_THREE_COMPLETE_CONTIGUOUS_ORIGINALS_VERIFIED",flush=True)
+          PY
+      - name: Preserve all previous 185 originals and add three 3-part readings to existing Xuehai
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental stage \
+            --pack experiments/wf_0da_three_cross_genre_genuine_readings_20261030.json \
+            --source-dir "$RUNNER_TEMP" --db "$RUNNER_TEMP/wf0da-188.sqlite3" \
+            > "$RUNNER_TEMP/wf0da-stage.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0da-stage.json").read_text("utf8"))
+          assert j["entries"]==188 and j["full_readings"]==140 and j["added"]==3
+          assert j["old_content_sha256"]=="8a4ae4d98e50adc87a2340a271c475cf81594fe6c6fee2d791c4740f103181a7"
+          assert j["old_r2_modified"] is False and j["model_calls"]==j["canon_writes"]==0
+          print("WF0DA_185_FROZEN_OLD_LITERATURE_VERIFIED_NEW_188_140_READABLE",flush=True)
+          PY
+      - name: Publish new immutable R2 successor
+        id: backup
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental publish \
+            --pack experiments/wf_0da_three_cross_genre_genuine_readings_20261030.json \
+            --db "$RUNNER_TEMP/wf0da-188.sqlite3" > "$RUNNER_TEMP/wf0da-publish.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0da-publish.json").read_text("utf8"))
+          assert j["entries"]==188 and j["full_readings"]==140 and j["old_prefix_modified"] is False
+          assert j["model_calls"]==j["canon_writes"]==0
+          with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf8") as f:
+              f.write("snapshot="+j["snapshot"]+"\n")
+              f.write("digest="+j["all_content_sha256"]+"\n")
+          print("WF0DA_R2_SNAPSHOT",j["library"],j["snapshot"],"CONTENT_SHA",j["all_content_sha256"],flush=True)
+          PY
+
+  fresh-runner-readonly-cold-restore:
+    needs: append-and-publish-existing-xuehai
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+      WF0DA_SNAPSHOT: ${{ needs.append-and-publish-existing-xuehai.outputs.snapshot }}
+      WF0DA_DIGEST: ${{ needs.append-and-publish-existing-xuehai.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing Xuehai and R2 read-only adapter - no model
+        run: python -m pip install -e '.[r2]'
+      - name: Independently cold recover new 188-entry 140-three-part Xuehai
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental cold-restore \
+            --pack experiments/wf_0da_three_cross_genre_genuine_readings_20261030.json \
+            --snapshot "$WF0DA_SNAPSHOT" --digest "$WF0DA_DIGEST" > "$RUNNER_TEMP/wf0da-cold.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0da-cold.json").read_text("utf8"))
+          assert j["status"]=="WF_SOURCE_NEW_R2_COLD_READBACK_188_140"
+          assert j["entries"]==188 and j["full_readings"]==140 and j["added"]==3
+          assert j["r2_writes"]==j["model_calls"]==j["canon_writes"]==0
+          print("WF0DA_FRESH_RUNNER_READONLY_COLD_RESTORE_188_140_SUCCESS",flush=True)
+          PY
