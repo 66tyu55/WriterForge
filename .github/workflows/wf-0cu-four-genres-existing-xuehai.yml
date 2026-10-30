@@ -1,0 +1,127 @@
+name: WF 0.CU Four Social Genres - Existing Xuehai No Model
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0cu-four-genres-existing-xuehai.yml
+      - experiments/wf_0cu_four_literary_genre_readings_20261030.json
+      - experiments/wf_source_pinned_literary_incremental.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf0cu-immutable-literary-161-113
+  cancel-in-progress: false
+
+jobs:
+  append-and-publish-existing-xuehai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      snapshot: ${{ steps.backup.outputs.snapshot }}
+      digest: ${{ steps.backup.outputs.digest }}
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing WriterForge Xuehai and R2 only
+        run: python -m pip install -e '.[r2]'
+      - name: Verify four fixed public-domain originals and contiguous excerpts
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+          from hashlib import sha1
+          from experiments.wf_source_pinned_literary_incremental import pack_from,verify_sources
+          p=pack_from(Path("experiments/wf_0cu_four_literary_genre_readings_20261030.json"))
+          assert set(p["sources"])=={"fu","ru","er","gc"}
+          assert not any(os.getenv(k) for k in ("OPENAI_API_KEY","DEEPSEEK_API_KEY","OPENROUTER_API_KEY","DISCOVERY_API_KEY"))
+          for s in p["sources"].values():
+              with urlopen(Request(s["url"],headers={"User-Agent":"WF0CU-pinned-original/1"}),timeout=65) as resp:
+                  raw=resp.read(s["source_size_bytes"]+1)
+              assert len(raw)==s["source_size_bytes"]
+              assert sha1(b"blob "+str(len(raw)).encode()+b"\0"+raw).hexdigest()==s["source_blob_sha1"]
+              (Path(os.environ["RUNNER_TEMP"])/s["filename"]).write_bytes(raw)
+          verify_sources(p,Path(os.environ["RUNNER_TEMP"]))
+          print("WF0CU_FOUR_PUBLIC_DOMAIN_ORIGINALS_AND_CONTIGUITY_VERIFIED",flush=True)
+          PY
+      - name: Append four to old published Xuehai copy preserving 157 entries
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental stage \
+            --pack experiments/wf_0cu_four_literary_genre_readings_20261030.json \
+            --source-dir "$RUNNER_TEMP" --db "$RUNNER_TEMP/wf0cu-161.sqlite3" \
+            > "$RUNNER_TEMP/wf0cu-stage.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cu-stage.json").read_text("utf8"))
+          assert j["entries"]==161 and j["full_readings"]==113 and j["added"]==4
+          assert j["old_content_sha256"]=="385df66ce76761bc2db78cfa9193b0d767f93d673cc35365f404840acc043d3a"
+          assert j["old_r2_modified"] is False and j["model_calls"]==j["canon_writes"]==0
+          print("WF0CU_157_OLD_EXACT_FINGERPRINT_AND_161_113_READBACK_OK",flush=True)
+          PY
+      - name: Publish new immutable R2 successor and verify
+        id: backup
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental publish \
+            --pack experiments/wf_0cu_four_literary_genre_readings_20261030.json \
+            --db "$RUNNER_TEMP/wf0cu-161.sqlite3" > "$RUNNER_TEMP/wf0cu-publish.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cu-publish.json").read_text("utf8"))
+          assert j["entries"]==161 and j["full_readings"]==113 and j["old_prefix_modified"] is False
+          with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf8") as f:
+              f.write("snapshot="+j["snapshot"]+"\n")
+              f.write("digest="+j["all_content_sha256"]+"\n")
+          print("WF0CU_NEW_R2",j["library"],"SNAPSHOT",j["snapshot"],"DIGEST",j["all_content_sha256"],flush=True)
+          PY
+
+  separate-runner-readonly-cold-restore:
+    needs: append-and-publish-existing-xuehai
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+      WF0CU_SNAPSHOT: ${{ needs.append-and-publish-existing-xuehai.outputs.snapshot }}
+      WF0CU_DIGEST: ${{ needs.append-and-publish-existing-xuehai.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Existing Xuehai read-only R2 adapter - no model
+        run: python -m pip install -e '.[r2]'
+      - name: Fresh runner recovers 161 originals and 113 complete readings
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental cold-restore \
+            --pack experiments/wf_0cu_four_literary_genre_readings_20261030.json \
+            --snapshot "$WF0CU_SNAPSHOT" --digest "$WF0CU_DIGEST" > "$RUNNER_TEMP/wf0cu-cold.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cu-cold.json").read_text("utf8"))
+          assert j["status"]=="WF_SOURCE_NEW_R2_COLD_READBACK_161_113"
+          assert j["entries"]==161 and j["full_readings"]==113 and j["added"]==4
+          assert j["r2_writes"]==j["model_calls"]==j["canon_writes"]==0
+          print("WF0CU_INDEPENDENT_R2_COLD_RESTORE_161_113_SUCCESS",flush=True)
+          PY

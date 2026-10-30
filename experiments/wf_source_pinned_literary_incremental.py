@@ -41,6 +41,8 @@ def pack_from(path:Path):
             (148,105,5,"wf-0cs-xuehai-literary-153-","classic-0cs-"),
         "wf.0ct.four-voices-and-negotiation-classics.v1":
             (153,109,4,"wf-0ct-xuehai-literary-157-","classic-0ct-"),
+        "wf.0cu.four-genre-real-world-close-readings.v1":
+            (157,113,4,"wf-0cu-xuehai-literary-161-","classic-0cu-"),
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
@@ -55,9 +57,10 @@ def pack_from(path:Path):
         or len({v["id"] for v in rows})!=len(rows)
         or not str(p.get("new_library","")).startswith(spec[3])
         or set(p.get("sources",{}))!=(
-            {"hh","nh"} if p.get("format")=="wf.0ct.four-voices-and-negotiation-classics.v1"
+            {"fu","ru","er","gc"} if p.get("format")=="wf.0cu.four-genre-real-world-close-readings.v1"
+            else ({"hh","nh"} if p.get("format")=="wf.0ct.four-voices-and-negotiation-classics.v1"
             else ({"dp","jm"} if p.get("format")=="wf.0cs.five-social-dialogue-close-readings.v1"
-            else {"fs","ss"}))):
+            else {"fs","ss"})))):
         raise ValueError("WF_SOURCE_PACK_NOT_FROZEN_SUCCESSOR")
     for r in rows:
         if (not r["id"].startswith(spec[4])
@@ -173,7 +176,7 @@ def stage(dbpath:Path,p,source_dir:Path):
             store.add_entry(sid,work_id="gitenberg-pinned-"+r["source_key"],
                             text=complete_text(r,p["sources"][r["source_key"]]),
                             library_class="美国公版完整原文＋贴句批注＋开放心得",
-                            culture="中国",genre="古典世情／笔记／家常",
+                            culture="中国",genre=r.get("genre","古典世情／笔记／家常"),
                             source_role=ROLE,function=r["topic"],effect=r["title"],
                             method_cluster=r["id"],reuse_policy="read_reflect_not_copy")
         store.publish(sid)
