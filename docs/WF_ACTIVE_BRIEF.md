@@ -5,9 +5,9 @@
 ## 0.CU 已完成（真实保存）
 
 - 原有学海 **157→161 条文学内容，完整「原文＋批注＋心得」109→113 篇**。新增四部不同作品、四篇连续原文合计 **4,460 字符**、12 条贴字句批注、4 段含疑问与不同解释的开放心得。材料：`experiments/wf_0cu_four_literary_genre_readings_20261030.json`。
-- 四篇具体阅读：①《浮生六記》芸提出借道太湖出行、与船家女同行及流言误传；②《儒林外史》王冕母亲针黹谋生、儿子放牛读书、雨后荷花与官场谈资；③《兒女英雄傳》何玉凤提出随行、葬亲、守墓三条件，安老爷以茶立誓；④《官場現形記》欠米钱/工钱的徐都老爷、二十五两银票与胡理向另一方声称一百两。
+- 四篇具体阅读：①《浮生六記》芸提出借道太湖出行、与船家女同行及流言误传；②《儒林外史》王冕母亲针黹谋生、儿子放牛读书、雨后荷花与官场谈资；③《兒女英雄傳》何玉凤提出随行、葬亲、守墓三条件，安老爷以茶立誓；④《官場現形記》第三回欠米钱/工钱的徐都老爷、二十五两银票与胡理向另一方声称一百两。
 - 每篇固定 GITenberg Git commit 与 blob SHA、原文字节区间，CI 已核对文件字节及连续原文，作者阅读入口可读回三段。仅小改原有 `experiments/wf_source_pinned_literary_incremental.py` 格式白名单，并允许新增条目沿用 Xuehai 的 `genre` 字段，**没有新增模型、库、记忆或评分器**。
-- 旧 157 内容的 SHA256 **`385df66ce76761bc2db78cfa9193b0d767f93d673cc35365f404840acc043d3a`** 原封不动。新 R2 不可变独立前缀：`wf-0cu-xuehai-literary-161-20261030-v1`；Snapshot **`c8a0f1cd6d1d0ca03fb1febe15680d19c30b685c0fa66facf80eacd8e9982dca`**；全 161 内容 SHA256 **`04c637120f5533c07bbdb17cf1f8e1f6fa84e0e736d150987b125a98fcca8c3f`**。GitHub Actions [#40994273976](https://github.com/66tyu55/WriterForge/actions/runs/40994273976) 两个 job SUCCESS：固定原著、追加、持久化、另一 runner 只读冷恢复。提交 [9487ab1](https://github.com/66tyu55/WriterForge/commit/9487ab188b742c3f72d2c5f475f1a30d781ca07b)。美国公版，其他法域版权另核查。
+- 旧 157 内容的 SHA256 **`385df66ce76761bc2db78cfa9193b0d767f93d673cc35365f404840acc043d3a`** 原封不动。新 R2 不可变独立前缀：`wf-0cu-xuehai-literary-161-20261030-v2`；Snapshot **`3a024821727dbc7114d2a14f402ee50d42e162ee079a90c288a669bf38302106`**；全 161 内容 SHA256 **`cf04af4bfd26b3e02efbd22e92dab05aaead3ef9bcfb9d6d67b2743f1ee563b8`**。GitHub Actions [#40994557752](https://github.com/66tyu55/WriterForge/actions/runs/40994557752) 两个 job SUCCESS：固定原著、追加、持久化、另一 runner 只读冷恢复。提交 [9487ab1](https://github.com/66tyu55/WriterForge/commit/9487ab188b742c3f72d2c5f475f1a30d781ca07b)。 出处章节曾在首版误标「第二回末」，已于 [5a0003e](https://github.com/66tyu55/WriterForge/commit/5a0003e746aeb6f12309afc52b3cf3da045c6ba6) 修为「第三回」并重新保存为 **v2**；初版 v1 R2 依然保留、未覆盖。美国公版，其他法域版权另核查。
 - **未切换正式作者/Canon/Railway/main，也未在用户 Windows 本地自动恢复运行。** 0 模型 API、0 付费调用；没有本轮文学写作质量提升证明或对错荐的重复刷题。
 
 ## 第一阶段目标与分类边界（新要求）
