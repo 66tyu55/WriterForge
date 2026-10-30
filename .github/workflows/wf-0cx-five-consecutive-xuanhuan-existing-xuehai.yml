@@ -1,0 +1,132 @@
+name: WF 0.CX Five Consecutive Xuanhuan - Existing Xuehai No Model
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0cx-five-consecutive-xuanhuan-existing-xuehai.yml
+      - experiments/wf_0cx_five_consecutive_xuanhuan_readings_20261030.json
+      - experiments/wf_source_pinned_literary_incremental.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf0cx-immutable-continuations-175-127
+  cancel-in-progress: false
+
+jobs:
+  append-and-publish-existing-xuehai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      snapshot: ${{ steps.backup.outputs.snapshot }}
+      digest: ${{ steps.backup.outputs.digest }}
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing WriterForge Xuehai and R2 only
+        run: python -m pip install -e '.[r2]'
+      - name: Verify pinned original SHA and five unchanged continuous literary texts
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from urllib.request import Request,urlopen
+          from hashlib import sha1
+          from experiments.wf_source_pinned_literary_incremental import pack_from,verify_sources
+          p=pack_from(Path("experiments/wf_0cx_five_consecutive_xuanhuan_readings_20261030.json"))
+          assert set(p["sources"])=={"own"}
+          assert p["source_scope"]=="ORIGINAL_GENERATED_FOR_WRITERFORGE_USER_PROJECT"
+          assert not any(os.getenv(k) for k in ("OPENAI_API_KEY","DEEPSEEK_API_KEY","OPENROUTER_API_KEY","DISCOVERY_API_KEY"))
+          src=p["sources"]["own"]
+          assert src["source_commit"]=="1de8954bc4e8ccb70d75c02b5716e7d6ed4d8f41"
+          assert src["source_blob_sha1"]=="3df2069cf8612c7f9e273c4cfc89a3eae76e36dd"
+          with urlopen(Request(src["url"],headers={"User-Agent":"WF0CX-original-immutable-check/1"}),timeout=50) as fh:
+              raw=fh.read(src["source_size_bytes"]+1)
+          assert len(raw)==src["source_size_bytes"]
+          assert sha1(b"blob "+str(len(raw)).encode()+b"\0"+raw).hexdigest()==src["source_blob_sha1"]
+          target=Path(os.environ["RUNNER_TEMP"])/src["filename"]
+          target.parent.mkdir(parents=True,exist_ok=True)
+          target.write_bytes(raw)
+          verify_sources(p,Path(os.environ["RUNNER_TEMP"]))
+          print("WF0CX_SOURCE_PINNED_FIVE_CONTINUOUS_ORIGINALS_VERIFIED",flush=True)
+          PY
+      - name: Append five to existing Xuehai copied from immutable R2 old 170
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental stage \
+            --pack experiments/wf_0cx_five_consecutive_xuanhuan_readings_20261030.json --source-dir "$RUNNER_TEMP" \
+            --db "$RUNNER_TEMP/wf0cx-175.sqlite3" > "$RUNNER_TEMP/wf0cx-stage.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          audit=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cx-stage.json").read_text("utf8"))
+          assert audit["entries"]==175 and audit["full_readings"]==127 and audit["added"]==5
+          assert audit["old_content_sha256"]=="651fd3f0a9cdb76cc5875597734e831b7005eb4ffa3ba8d94a1721dccf188eff"
+          assert audit["old_r2_modified"] is False and audit["model_calls"]==audit["canon_writes"]==0
+          print("WF0CX_170_OLD_ORIGINALS_UNCHANGED_175_127_READABLE",flush=True)
+          PY
+      - name: Publish to new immutable R2 successor prefix without overwriting ancestors
+        id: backup
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental publish \
+            --pack experiments/wf_0cx_five_consecutive_xuanhuan_readings_20261030.json \
+            --db "$RUNNER_TEMP/wf0cx-175.sqlite3" > "$RUNNER_TEMP/wf0cx-publish.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cx-publish.json").read_text("utf8"))
+          assert j["entries"]==175 and j["full_readings"]==127
+          assert j["old_prefix_modified"] is False and j["model_calls"]==j["canon_writes"]==0
+          with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf8") as f:
+              f.write("snapshot="+j["snapshot"]+"\n")
+              f.write("digest="+j["all_content_sha256"]+"\n")
+          print("WF0CX_NEW_R2",j["library"],"SNAPSHOT",j["snapshot"],"CONTENT_SHA",j["all_content_sha256"],flush=True)
+          PY
+
+  fresh-runner-readonly-cold-recovery:
+    needs: append-and-publish-existing-xuehai
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+      WF0CX_SNAPSHOT: ${{ needs.append-and-publish-existing-xuehai.outputs.snapshot }}
+      WF0CX_DIGEST: ${{ needs.append-and-publish-existing-xuehai.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Reinstall existing R2 read-only adapter without model
+        run: python -m pip install -e '.[r2]'
+      - name: Fresh runner cold restore 175 literature and 127 complete readings
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental cold-restore \
+            --pack experiments/wf_0cx_five_consecutive_xuanhuan_readings_20261030.json --snapshot "$WF0CX_SNAPSHOT" --digest "$WF0CX_DIGEST" \
+            > "$RUNNER_TEMP/wf0cx-cold.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cx-cold.json").read_text("utf8"))
+          assert j["status"]=="WF_SOURCE_NEW_R2_COLD_READBACK_175_127"
+          assert j["entries"]==175 and j["full_readings"]==127 and j["added"]==5
+          assert j["r2_writes"]==j["model_calls"]==j["canon_writes"]==0
+          print("WF0CX_FRESH_RUNNER_READONLY_COLD_R2_175_127_SUCCESS",flush=True)
+          PY
