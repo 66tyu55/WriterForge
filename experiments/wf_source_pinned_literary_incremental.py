@@ -51,6 +51,20 @@ def pack_from(path:Path):
             (170,127,5,"wf-0cx-xuehai-literary-175-","classic-0cx-original-"),
         "wf.0cy.five-diverse-original-xuanhuan-scenes.v1":
             (175,132,5,"wf-0cy-xuehai-literary-180-","classic-0cy-original-"),
+        "wf.0cz.five-distinct-public-domain-classic-close-readings.v1":
+            (180,137,5,"wf-0cz-xuehai-literary-185-","classic-0cz-"),
+    }
+    expected_source_sets={
+        "wf.0cq.five-public-classics-close-readings.v1": {"fs","ss"},
+        "wf.0cr.three-anchored-classical-close-readings.v1": {"fs","ss"},
+        "wf.0cs.five-social-dialogue-close-readings.v1": {"dp","jm"},
+        "wf.0ct.four-voices-and-negotiation-classics.v1": {"hh","nh"},
+        "wf.0cu.four-genre-real-world-close-readings.v1": {"fu","ru","er","gc"},
+        "wf.0cv.five-supernatural-and-human-cost-close-readings.v1": {"fg","jh","lz","sj"},
+        "wf.0cw.four-original-xuanhuan-scenes.v1": {"own"},
+        "wf.0cx.five-original-xuanhuan-continuations.v1": {"own"},
+        "wf.0cy.five-diverse-original-xuanhuan-scenes.v1": {"own"},
+        "wf.0cz.five-distinct-public-domain-classic-close-readings.v1": {"hl","sh","md","th","jt"},
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
@@ -64,16 +78,7 @@ def pack_from(path:Path):
         or p.get("model_calls")!=0
         or len({v["id"] for v in rows})!=len(rows)
         or not str(p.get("new_library","")).startswith(spec[3])
-        or set(p.get("sources",{}))!=(
-            {"own"} if p.get("format") in (
-                "wf.0cw.four-original-xuanhuan-scenes.v1",
-                "wf.0cx.five-original-xuanhuan-continuations.v1",
-                "wf.0cy.five-diverse-original-xuanhuan-scenes.v1")
-            else ({"fg","jh","lz","sj"} if p.get("format")=="wf.0cv.five-supernatural-and-human-cost-close-readings.v1"
-            else ({"fu","ru","er","gc"} if p.get("format")=="wf.0cu.four-genre-real-world-close-readings.v1"
-            else ({"hh","nh"} if p.get("format")=="wf.0ct.four-voices-and-negotiation-classics.v1"
-            else ({"dp","jm"} if p.get("format")=="wf.0cs.five-social-dialogue-close-readings.v1"
-            else {"fs","ss"})))))):
+        or set(p.get("sources",{}))!=expected_source_sets.get(p.get("format"),set())):
         raise ValueError("WF_SOURCE_PACK_NOT_FROZEN_SUCCESSOR")
     for r in rows:
         if (not r["id"].startswith(spec[4])
