@@ -69,6 +69,8 @@ def pack_from(path:Path):
             (209,166,5,"wf-0dg-xuehai-literary-214-","classic-0dg-"),
         "wf.0dh.four-wages-inheritance-taxes-readings.v1":
             (214,170,4,"wf-0dh-xuehai-literary-218-","classic-0dh-"),
+        "wf.0di.five-famine-trade-labor-inheritance-readings.v1":
+            (218,175,5,"wf-0di-xuehai-literary-223-","classic-0di-"),
     }
     expected_source_sets={
         "wf.0cq.five-public-classics-close-readings.v1": {"fs","ss"},
@@ -89,6 +91,7 @@ def pack_from(path:Path):
         "wf.0df.five-labor-travel-object-power-readings.v1": {"ek","lc","rl","th"},
         "wf.0dg.five-tenant-evidence-fire-family-pawn-readings.v1": {"jm","hh","nh","dp"},
         "wf.0dh.four-wages-inheritance-taxes-readings.v1": {"hh","rl","ek"},
+        "wf.0di.five-famine-trade-labor-inheritance-readings.v1": {"jt","xh","ym"},
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
