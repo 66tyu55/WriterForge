@@ -10,7 +10,7 @@
   "new_entries": 4,
   "expected_entries": 161,
   "expected_full_readings": 113,
-  "new_library": "wf-0cu-xuehai-literary-161-20261030-v1",
+  "new_library": "wf-0cu-xuehai-literary-161-20261030-v2",
   "preserve_originals": true,
   "model_calls": 0,
   "new_rules_or_memory": false,
@@ -125,7 +125,7 @@
     },
     {
       "id": "classic-0cu-gc-01",
-      "chapter": "第二回末·徐都老爷与胡理的银票和书信",
+      "chapter": "第三回·徐都老爷与胡理的银票和书信",
       "title": "短缺的工钱与米钱，如何让一封荐信被两边说成不同的价钱",
       "topic": "官场人情账、普通随从工资、生活欠款、转述失真和关系中介",
       "genre": "官场讽刺／世情",
