@@ -59,6 +59,8 @@ def pack_from(path:Path):
             (188,144,4,"wf-0db-xuehai-literary-192-","classic-0db-"),
         "wf.0dc.four-genuine-causality-and-responsibility-readings.v1":
             (192,148,4,"wf-0dc-xuehai-literary-196-","classic-0dc-"),
+        "wf.0dd.four-immersive-concrete-classics.v1":
+            (196,152,4,"wf-0dd-xuehai-literary-200-","classic-0dd-"),
     }
     expected_source_sets={
         "wf.0cq.five-public-classics-close-readings.v1": {"fs","ss"},
@@ -74,6 +76,7 @@ def pack_from(path:Path):
         "wf.0da.three-cross-genre-genuine-classics.v1": {"xx","xh","xk"},
         "wf.0db.four-genuine-human-relations-close-readings.v1": {"ym","ek","fs","rl"},
         "wf.0dc.four-genuine-causality-and-responsibility-readings.v1": {"sg","xy","lc","lz"},
+        "wf.0dd.four-immersive-concrete-classics.v1": {"hl","sh","lc","rl"},
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
