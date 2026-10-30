@@ -79,7 +79,7 @@ jobs:
         run: |
           python -m experiments.wf_source_pinned_literary_incremental publish \
             --pack experiments/wf_0de_four_lived_material_supernatural_readings_20261030.json \
-            --db "$RUNNER_TEMP/wf0de-200.sqlite3" > "$RUNNER_TEMP/wf0de-publish.json"
+            --db "$RUNNER_TEMP/wf0de-204.sqlite3" > "$RUNNER_TEMP/wf0de-publish.json"
           python - <<'PY'
           import json,os
           from pathlib import Path
