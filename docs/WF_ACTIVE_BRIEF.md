@@ -13,7 +13,7 @@
 - ②《二刻拍案驚奇》原自实故事：家富时借旧友三百两不收文券；战乱举家乘船投奔旧友，讨债遭推诿，除夕被答应送米柴，等错两次路过的米担与钱担，最终米柴没到；**两位过路人并非有证据的设计骗局，不能冒充普遍债法**。
 - ③《儒林外史》第十六回：匡超人拿剩余盘程钱买猪蹄孝养卧床父亲，买猪卖肉、磨豆腐卖钱，夜里设灰盆板凳托父亲双腿、服侍至四鼓；**保持身体动作、器物、辛劳与家庭角色，不把古代临时护理当现代卫生建议**。
 - ④《豆棚閒話》第九则：秋天扁豆开花结籽留来年，秋风同时令贫富家庭面对不同的冬衣储备；**并没有写灾后真实借种、借耕牛或偿还，更不能将作者把贫穷联想到不良行为的道德判断当客观事实**。
-- 资料：`experiments/wf_0dk_four_household_debt_care_seasonal_readings_20261030.json`；来源脚本 `experiments/wf_source_pinned_literary_incremental.py` **只新增冻结白名单**，继续使用唯一 `XuehaiStore`，不建第二数据库、模型训练或评分器。不改 NarrartiveCore（现有 `NarrativeCore`）、V26/V98/V119、USE/SKIP。
+- 资料：`experiments/wf_0dk_four_household_debt_care_seasonal_readings_20261030.json`；来源脚本 `experiments/wf_source_pinned_literary_incremental.py` **只新增冻结白名单**，继续使用唯一 `XuehaiStore`，不建第二数据库、模型训练或评分器。不改 `NarrativeCore`、V26/V98/V119、USE/SKIP。
 - 数据提交 `fc88a2ac7fbd6634cae063a1cdb8d537105b1df5`、白名单 `0036c83868fb33343f8ed1f4fb612dc0618739ad` 用 `[skip ci]`；新增验收工作流提交 `d4763ee568205ccf676ca1356963d977db435315`。
 - **[GitHub Actions #41078362796](https://github.com/66tyu55/WriterForge/actions/runs/41078362796) 两任务 SUCCESS**：四份原文来源、连续性、3 锚点与批注验收；旧库 227 条内容指纹相等、新库 231/183 学海真读；新不可变 R2；另一全新 runner 只读冷恢复成功。作者模型调用 0、正式 Canon 写入 0。
 - 旧 227 内容 SHA256：`71cae32abad1b8fc968d101f6c142de18c5286c5ac1e88b6f74b8aab8e6e0e3c`；新 231 内容 SHA256：`d17f6a14f827f51246b650009ca836f906211a93e12b9609b1b959d7fc5cdb55`。
