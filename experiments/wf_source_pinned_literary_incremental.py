@@ -55,6 +55,8 @@ def pack_from(path:Path):
             (180,137,5,"wf-0cz-xuehai-literary-185-","classic-0cz-"),
         "wf.0da.three-cross-genre-genuine-classics.v1":
             (185,140,3,"wf-0da-xuehai-literary-188-","classic-0da-"),
+        "wf.0db.four-genuine-human-relations-close-readings.v1":
+            (188,144,4,"wf-0db-xuehai-literary-192-","classic-0db-"),
     }
     expected_source_sets={
         "wf.0cq.five-public-classics-close-readings.v1": {"fs","ss"},
@@ -68,6 +70,7 @@ def pack_from(path:Path):
         "wf.0cy.five-diverse-original-xuanhuan-scenes.v1": {"own"},
         "wf.0cz.five-distinct-public-domain-classic-close-readings.v1": {"hl","sh","md","th","jt"},
         "wf.0da.three-cross-genre-genuine-classics.v1": {"xx","xh","xk"},
+        "wf.0db.four-genuine-human-relations-close-readings.v1": {"ym","ek","fs","rl"},
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
