@@ -65,6 +65,8 @@ def pack_from(path:Path):
             (200,156,4,"wf-0de-xuehai-literary-204-","classic-0de-"),
         "wf.0df.five-labor-travel-object-power-readings.v1":
             (204,161,5,"wf-0df-xuehai-literary-209-","classic-0df-"),
+        "wf.0dg.five-tenant-evidence-fire-family-pawn-readings.v1":
+            (209,166,5,"wf-0dg-xuehai-literary-214-","classic-0dg-"),
     }
     expected_source_sets={
         "wf.0cq.five-public-classics-close-readings.v1": {"fs","ss"},
@@ -83,6 +85,7 @@ def pack_from(path:Path):
         "wf.0dd.four-immersive-concrete-classics.v1": {"hl","sh","lc","rl"},
         "wf.0de.four-lived-material-and-supernatural-readings.v1": {"fs","ek","sj","rl"},
         "wf.0df.five-labor-travel-object-power-readings.v1": {"ek","lc","rl","th"},
+        "wf.0dg.five-tenant-evidence-fire-family-pawn-readings.v1": {"jm","hh","nh","dp"},
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
