@@ -45,6 +45,8 @@ def pack_from(path:Path):
             (157,113,4,"wf-0cu-xuehai-literary-161-","classic-0cu-"),
         "wf.0cv.five-supernatural-and-human-cost-close-readings.v1":
             (161,118,5,"wf-0cv-xuehai-literary-166-","classic-0cv-"),
+        "wf.0cw.four-original-xuanhuan-scenes.v1":
+            (166,122,4,"wf-0cw-xuehai-literary-170-","classic-0cw-original-"),
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
@@ -59,11 +61,12 @@ def pack_from(path:Path):
         or len({v["id"] for v in rows})!=len(rows)
         or not str(p.get("new_library","")).startswith(spec[3])
         or set(p.get("sources",{}))!=(
-            {"fg","jh","lz","sj"} if p.get("format")=="wf.0cv.five-supernatural-and-human-cost-close-readings.v1"
+            {"own"} if p.get("format")=="wf.0cw.four-original-xuanhuan-scenes.v1"
+            else ({"fg","jh","lz","sj"} if p.get("format")=="wf.0cv.five-supernatural-and-human-cost-close-readings.v1"
             else ({"fu","ru","er","gc"} if p.get("format")=="wf.0cu.four-genre-real-world-close-readings.v1"
             else ({"hh","nh"} if p.get("format")=="wf.0ct.four-voices-and-negotiation-classics.v1"
             else ({"dp","jm"} if p.get("format")=="wf.0cs.five-social-dialogue-close-readings.v1"
-            else {"fs","ss"}))))):
+            else {"fs","ss"})))))):
         raise ValueError("WF_SOURCE_PACK_NOT_FROZEN_SUCCESSOR")
     for r in rows:
         if (not r["id"].startswith(spec[4])
@@ -82,7 +85,12 @@ def verify_sources(p,source_dir:Path):
     for key,src in p["sources"].items():
         if (src["url"]!="https://raw.githubusercontent.com/"+src["source_repo"]+"/"
                 +src["source_commit"]+"/"+src["filename"]
-            or not src["source_repo"].startswith("GITenberg/")):
+            or not (src["source_repo"].startswith("GITenberg/")
+                    if p.get("format")!="wf.0cw.four-original-xuanhuan-scenes.v1"
+                    else (src["source_repo"]=="66tyu55/WriterForge"
+                          and src["filename"]=="experiments/wf_0cw_original_xuanhuan_scenes_20261030.txt"
+                          and src.get("provenance")=="CHATGPT_WRITTEN_IN_THIS_USER_REQUEST_UNREVIEWED"
+                          and len(src["source_commit"])==40)))):
             raise ValueError("WF_SOURCE_PINNED_URL_INVALID")
         raw=(Path(source_dir)/src["filename"]).read_bytes()
         git=sha1(b"blob "+str(len(raw)).encode("ascii")+b"\0"+raw).hexdigest()
@@ -176,9 +184,12 @@ def stage(dbpath:Path,p,source_dir:Path):
         sid=store.create_staging_snapshot(parent_id=store.latest_published(),
                                           note="WF_SOURCE_FIVE_PINNED_CLASSIC_CLOSE_READINGS")
         for r in p["items"]:
-            store.add_entry(sid,work_id="gitenberg-pinned-"+r["source_key"],
+            is_original=p.get("format")=="wf.0cw.four-original-xuanhuan-scenes.v1"
+            store.add_entry(sid,work_id=("wf-original-pinned-"+r["source_key"]
+                                         if is_original else "gitenberg-pinned-"+r["source_key"]),
                             text=complete_text(r,p["sources"][r["source_key"]]),
-                            library_class="美国公版完整原文＋贴句批注＋开放心得",
+                            library_class=("本轮新写原创玄幻完整场景，非古籍且未经人工文学评审"
+                                           if is_original else "美国公版完整原文＋贴句批注＋开放心得"),
                             culture="中国",genre=r.get("genre","古典世情／笔记／家常"),
                             source_role=ROLE,function=r["topic"],effect=r["title"],
                             method_cluster=r["id"],reuse_policy="read_reflect_not_copy")

@@ -1,0 +1,133 @@
+name: WF 0.CW Four Original Xuanhuan - Existing Xuehai No Model
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0cw-four-original-xuanhuan-existing-xuehai.yml
+      - experiments/wf_0cw_four_original_xuanhuan_readings_20261030.json
+      - experiments/wf_source_pinned_literary_incremental.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf0cw-immutable-original-literary-170-122
+  cancel-in-progress: false
+
+jobs:
+  append-and-publish-existing-xuehai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      snapshot: ${{ steps.backup.outputs.snapshot }}
+      digest: ${{ steps.backup.outputs.digest }}
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing Xuehai and R2 (no paid author model)
+        run: python -m pip install -e '.[r2]'
+      - name: Verify own pinned original source SHA and four exact contiguous scenes
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from urllib.request import Request,urlopen
+          from hashlib import sha1
+          from experiments.wf_source_pinned_literary_incremental import pack_from,verify_sources
+          pack=Path("experiments/wf_0cw_four_original_xuanhuan_readings_20261030.json")
+          p=pack_from(pack)
+          assert set(p["sources"])=={"own"}
+          assert p["source_scope"]=="ORIGINAL_GENERATED_FOR_WRITERFORGE_USER_PROJECT"
+          assert not any(os.getenv(k) for k in ("OPENAI_API_KEY","DEEPSEEK_API_KEY","OPENROUTER_API_KEY","DISCOVERY_API_KEY"))
+          src=p["sources"]["own"]
+          assert src["source_commit"]=="a859627cafa5b6434e862f7707cf15e96e4818a7"
+          assert src["source_blob_sha1"]=="643f38df3c1f7119ecdeac8fae6e98422922dc5e"
+          with urlopen(Request(src["url"],headers={"User-Agent":"WF0CW-immutable-original-check/1"}),timeout=45) as handle:
+              raw=handle.read(src["source_size_bytes"]+1)
+          assert len(raw)==src["source_size_bytes"]
+          assert sha1(b"blob "+str(len(raw)).encode()+b"\0"+raw).hexdigest()==src["source_blob_sha1"]
+          target=Path(os.environ["RUNNER_TEMP"])/src["filename"]
+          target.parent.mkdir(parents=True,exist_ok=True)
+          target.write_bytes(raw)
+          verify_sources(p,Path(os.environ["RUNNER_TEMP"]))
+          print("WF0CW_FOUR_GENUINE_THIS_SESSION_ORIGINAL_SCENES_VERIFIED",flush=True)
+          PY
+      - name: Stage original complete passages and notes into a copy of existing Xuehai
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental stage \
+            --pack experiments/wf_0cw_four_original_xuanhuan_readings_20261030.json \
+            --source-dir "$RUNNER_TEMP" --db "$RUNNER_TEMP/wf0cw-170.sqlite3" > "$RUNNER_TEMP/wf0cw-stage.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"wf0cw-stage.json"
+          audit=json.loads(p.read_text("utf8"))
+          assert audit["entries"]==170 and audit["full_readings"]==122 and audit["added"]==4
+          assert audit["old_content_sha256"]=="1b569ea7f0e073f5c22d7c5df96ff0594331049b49753ebd6f5f3dcb680381ab"
+          assert audit["old_r2_modified"] is False and audit["model_calls"]==audit["canon_writes"]==0
+          print("WF0CW_FROZEN_166_AND_NEW_170_122_THREE_PART_READBACK_OK",flush=True)
+          PY
+      - name: Publish independent immutable R2 successor, never overwrite prior library
+        id: backup
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental publish \
+            --pack experiments/wf_0cw_four_original_xuanhuan_readings_20261030.json \
+            --db "$RUNNER_TEMP/wf0cw-170.sqlite3" > "$RUNNER_TEMP/wf0cw-publish.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          audit=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cw-publish.json").read_text("utf8"))
+          assert audit["entries"]==170 and audit["full_readings"]==122 and audit["old_prefix_modified"] is False
+          with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf8") as handle:
+              handle.write("snapshot="+audit["snapshot"]+"\n")
+              handle.write("digest="+audit["all_content_sha256"]+"\n")
+          print("WF0CW_NEW_R2",audit["library"],"SNAPSHOT",audit["snapshot"],"CONTENT_SHA",audit["all_content_sha256"],flush=True)
+          PY
+
+  fresh-runner-readonly-cold-restore:
+    needs: append-and-publish-existing-xuehai
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+      WF0CW_SNAPSHOT: ${{ needs.append-and-publish-existing-xuehai.outputs.snapshot }}
+      WF0CW_DIGEST: ${{ needs.append-and-publish-existing-xuehai.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install only existing Xuehai and R2 adapter
+        run: python -m pip install -e '.[r2]'
+      - name: Separately read-only cold restore 170 entries and 122 full original/annotated readings
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental cold-restore \
+            --pack experiments/wf_0cw_four_original_xuanhuan_readings_20261030.json \
+            --snapshot "$WF0CW_SNAPSHOT" --digest "$WF0CW_DIGEST" > "$RUNNER_TEMP/wf0cw-cold.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          audit=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0cw-cold.json").read_text("utf8"))
+          assert audit["status"]=="WF_SOURCE_NEW_R2_COLD_READBACK_170_122"
+          assert audit["entries"]==170 and audit["full_readings"]==122 and audit["added"]==4
+          assert audit["r2_writes"]==audit["model_calls"]==audit["canon_writes"]==0
+          print("WF0CW_INDEPENDENT_READONLY_COLD_R2_170_122_SUCCESS",flush=True)
+          PY
