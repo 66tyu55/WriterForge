@@ -49,6 +49,8 @@ def pack_from(path:Path):
             (166,122,4,"wf-0cw-xuehai-literary-170-","classic-0cw-original-"),
         "wf.0cx.five-original-xuanhuan-continuations.v1":
             (170,127,5,"wf-0cx-xuehai-literary-175-","classic-0cx-original-"),
+        "wf.0cy.five-diverse-original-xuanhuan-scenes.v1":
+            (175,132,5,"wf-0cy-xuehai-literary-180-","classic-0cy-original-"),
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
@@ -65,7 +67,8 @@ def pack_from(path:Path):
         or set(p.get("sources",{}))!=(
             {"own"} if p.get("format") in (
                 "wf.0cw.four-original-xuanhuan-scenes.v1",
-                "wf.0cx.five-original-xuanhuan-continuations.v1")
+                "wf.0cx.five-original-xuanhuan-continuations.v1",
+                "wf.0cy.five-diverse-original-xuanhuan-scenes.v1")
             else ({"fg","jh","lz","sj"} if p.get("format")=="wf.0cv.five-supernatural-and-human-cost-close-readings.v1"
             else ({"fu","ru","er","gc"} if p.get("format")=="wf.0cu.four-genre-real-world-close-readings.v1"
             else ({"hh","nh"} if p.get("format")=="wf.0ct.four-voices-and-negotiation-classics.v1"
@@ -96,6 +99,8 @@ def verify_sources(p,source_dir:Path):
                 "experiments/wf_0cw_original_xuanhuan_scenes_20261030.txt",
             "wf.0cx.five-original-xuanhuan-continuations.v1":
                 "experiments/wf_0cx_original_xuanhuan_continuations_20261030.txt",
+            "wf.0cy.five-diverse-original-xuanhuan-scenes.v1":
+                "experiments/wf_0cy_five_diverse_xuanhuan_scenes_20261030.txt",
         }
         if p.get("format") in original_editions:
             if (src["source_repo"]!="66tyu55/WriterForge"
@@ -199,7 +204,8 @@ def stage(dbpath:Path,p,source_dir:Path):
         for r in p["items"]:
             is_original=p.get("format") in (
                 "wf.0cw.four-original-xuanhuan-scenes.v1",
-                "wf.0cx.five-original-xuanhuan-continuations.v1")
+                "wf.0cx.five-original-xuanhuan-continuations.v1",
+                "wf.0cy.five-diverse-original-xuanhuan-scenes.v1")
             store.add_entry(sid,work_id=("wf-original-pinned-"+r["source_key"]
                                          if is_original else "gitenberg-pinned-"+r["source_key"]),
                             text=complete_text(r,p["sources"][r["source_key"]]),
