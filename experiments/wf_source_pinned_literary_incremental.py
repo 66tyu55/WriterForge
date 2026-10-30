@@ -90,7 +90,7 @@ def verify_sources(p,source_dir:Path):
                     else (src["source_repo"]=="66tyu55/WriterForge"
                           and src["filename"]=="experiments/wf_0cw_original_xuanhuan_scenes_20261030.txt"
                           and src.get("provenance")=="CHATGPT_WRITTEN_IN_THIS_USER_REQUEST_UNREVIEWED"
-                          and len(src["source_commit"])==40)))):
+                          and len(src["source_commit"])==40))):
             raise ValueError("WF_SOURCE_PINNED_URL_INVALID")
         raw=(Path(source_dir)/src["filename"]).read_bytes()
         git=sha1(b"blob "+str(len(raw)).encode("ascii")+b"\0"+raw).hexdigest()
