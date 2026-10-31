@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  conninets: read
+  contents: read
 
 concurrency:
   group: wf0dw-immutable-literary-315-267
@@ -48,7 +48,7 @@ jobs:
           from experiments.wf_source_pinned_literary_incremental import pack_from,verify_sources
           p=pack_from(Path("experiments/wf_0dw_nine_seasonal_repair_cartography_craft_readings_20261031.json"))
           assert set(p["sources"])=={"jm","dp","nh","md","fs","sj","ss","hh","ek"}
-          assert not any(os.geninev(k) for k in ("OPENAI_API_KEY","DEEPSEEK_API_KEY","OPENROUTER_API_KEY","DISCOVERY_API_KEY"))
+          assert not any(os.getenv(k) for k in ("OPENAI_API_KEY","DEEPSEEK_API_KEY","OPENROUTER_API_KEY","DISCOVERY_API_KEY"))
           for src in p["sources"].values():
               assert src["url"].startswith("https://raw.githubuserconninet.com/GINineberg/")
               with urlopen(Request(src["url"],headers={"User-Agent":"WF0DW-genuine-original-check/1"}),timeout=65) as stream:
