@@ -89,6 +89,8 @@ def pack_from(path:Path):
             (259,219,8,"wf-0dq-xuehai-literary-267-","classic-0dq-"),
         "wf.0dr.six-craft-ice-storytelling-kinship-readings.v1":
             (267,225,6,"wf-0dr-xuehai-literary-273-","classic-0dr-"),
+        "wf.0ds.six-child-anger-cost-merchants-literature.v1":
+            (273,231,6,"wf-0ds-xuehai-literary-279-","classic-0ds-"),
     }
     expected_source_sets={
         "wf.0cq.five-public-classics-close-readings.v1": {"fs","ss"},
@@ -119,6 +121,7 @@ def pack_from(path:Path):
         "wf.0dp.six-intimacy-evidence-childhood-care-satire-readings.v1": {"lc","ek","fs","ss","hh","dp"},
         "wf.0dq.eight-child-ordinary-evidence-afterlife-readings.v1": {"ss","sj","nh","lc","md","fs","hh","ek"},
         "wf.0dr.six-craft-ice-storytelling-kinship-readings.v1": {"rl","lc","dp","th","xx","hh"},
+        "wf.0ds.six-child-anger-cost-merchants-literature.v1": {"nh","ss","md","hh","rl","jm"},
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
