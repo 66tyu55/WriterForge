@@ -79,6 +79,8 @@ def pack_from(path:Path):
             (231,187,4,"wf-0dl-xuehai-literary-235-","classic-0dl-"),
         "wf.0dm.four-conscience-borrowed-goods-cash-land-readings.v1":
             (235,191,4,"wf-0dm-xuehai-literary-239-","classic-0dm-"),
+        "wf.0dn.eight-living-labor-risk-dialogue-readings.v1":
+            (239,199,8,"wf-0dn-xuehai-literary-247-","classic-0dn-"),
     }
     expected_source_sets={
         "wf.0cq.five-public-classics-close-readings.v1": {"fs","ss"},
@@ -104,6 +106,7 @@ def pack_from(path:Path):
         "wf.0dk.four-household-debt-care-seasonal-readings.v1": {"jm","ek","rl","dp"},
         "wf.0dl.four-object-child-family-women-agency-readings.v1": {"xh","ym","rl","hh"},
         "wf.0dm.four-conscience-borrowed-goods-cash-land-readings.v1": {"jm","ek","rl","dp"},
+        "wf.0dn.eight-living-labor-risk-dialogue-readings.v1": {"fs","lc","sj","nh","hh","md","th","ss"},
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
