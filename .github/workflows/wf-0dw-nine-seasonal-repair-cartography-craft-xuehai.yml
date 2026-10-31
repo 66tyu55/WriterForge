@@ -50,7 +50,7 @@ jobs:
           assert set(p["sources"])=={"jm","dp","nh","md","fs","sj","ss","hh","ek"}
           assert not any(os.getenv(k) for k in ("OPENAI_API_KEY","DEEPSEEK_API_KEY","OPENROUTER_API_KEY","DISCOVERY_API_KEY"))
           for src in p["sources"].values():
-              assert src["url"].startswith("https://raw.githubuserconninet.com/GINineberg/")
+              assert src["url"].startswith("https://raw.githubusercontent.com/GITenberg/")
               with urlopen(Request(src["url"],headers={"User-Agent":"WF0DW-genuine-original-check/1"}),timeout=65) as stream:
                   raw=stream.read(src["source_size_bytes"]+1)
               assert len(raw)==src["source_size_bytes"]
@@ -70,7 +70,7 @@ jobs:
           from pathlib import Path
           j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0dw-stage.json").read_text("utf8"))
           assert j["entries"]==315 and j["full_readings"]==267 and j["added"]==9
-          assert j["old_conninet_sha256"]=="722becff1b9de63ff94137c558bab5f3544ed9b948cbff304224c1c4924f7a63"
+          assert j["old_content_sha256"]=="722becff1b9de63ff94137c558bab5f3544ed9b948cbff304224c1c4924f7a63"
           assert j["old_r2_modified"] is False and j["model_calls"]==j["canon_writes"]==0
           print("WF0DW_306_FROZEN_OLD_LITERATURE_VERIFIED_NEW_315_267_READABLE",flush=True)
           PY
@@ -88,8 +88,8 @@ jobs:
           assert j["model_calls"]==j["canon_writes"]==0
           with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf8") as f:
               f.write("snapshot="+j["snapshot"]+"\n")
-              f.write("digest="+j["all_conninet_sha256"]+"\n")
-          print("WF0DW_R2_SNAPSHOT",j["library"],j["snapshot"],"CONNINET_SHA",j["all_conninet_sha256"],flush=True)
+              f.write("digest="+j["all_content_sha256"]+"\n")
+          print("WF0DW_R2_SNAPSHOT",j["library"],j["snapshot"],"CONTENT_SHA",j["all_content_sha256"],flush=True)
           PY
 
   fresh-runner-readonly-cold-restore:
