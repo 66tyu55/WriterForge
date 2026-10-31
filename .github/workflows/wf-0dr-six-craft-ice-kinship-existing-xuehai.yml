@@ -1,0 +1,129 @@
+name: WF 0.DR Six Craft, Ice, Storytelling and Kinship Readings - Existing Xuehai No Model
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0dr-six-craft-ice-kinship-existing-xuehai.yml
+      - experiments/wf_0dr_six_craft_ice_storytelling_kinship_readings_20261031.json
+      - experiments/wf_source_pinned_literary_incremental.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf0dr-immutable-literary-273-225
+  cancel-in-progress: false
+
+jobs:
+  append-and-publish-existing-xuehai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    outputs:
+      snapshot: ${{ steps.backup.outputs.snapshot }}
+      digest: ${{ steps.backup.outputs.digest }}
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing WriterForge Xuehai and R2 only
+        run: python -m pip install -e '.[r2]'
+      - name: Verify six immutable public-domain sources and six literal contiguous originals
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from urllib.request import Request,urlopen
+          from hashlib import sha1
+          from experiments.wf_source_pinned_literary_incremental import pack_from,verify_sources
+          p=pack_from(Path("experiments/wf_0dr_six_craft_ice_storytelling_kinship_readings_20261031.json"))
+          assert set(p["sources"])=={"rl","lc","dp","th","xx","hh"}
+          assert not any(os.getenv(k) for k in ("OPENAI_API_KEY","DEEPSEEK_API_KEY","OPENROUTER_API_KEY","DISCOVERY_API_KEY"))
+          for src in p["sources"].values():
+              assert src["url"].startswith("https://raw.githubusercontent.com/GITenberg/")
+              with urlopen(Request(src["url"],headers={"User-Agent":"WF0DR-genuine-original-check/1"}),timeout=65) as stream:
+                  raw=stream.read(src["source_size_bytes"]+1)
+              assert len(raw)==src["source_size_bytes"]
+              assert sha1(b"blob "+str(len(raw)).encode()+b"\0"+raw).hexdigest()==src["source_blob_sha1"]
+              (Path(os.environ["RUNNER_TEMP"])/src["filename"]).write_bytes(raw)
+          verify_sources(p,Path(os.environ["RUNNER_TEMP"]))
+          print("WF0DR_SIX_GENUINE_EDITION_SOURCES_AND_SIX_COMPLETE_CONTIGUOUS_ORIGINALS_VERIFIED",flush=True)
+          PY
+      - name: Preserve all previous 267 originals and add six 3-part readings to existing Xuehai
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental stage \
+            --pack experiments/wf_0dr_six_craft_ice_storytelling_kinship_readings_20261031.json \
+            --source-dir "$RUNNER_TEMP" --db "$RUNNER_TEMP/wf0dr-273.sqlite3" \
+            > "$RUNNER_TEMP/wf0dr-stage.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0dr-stage.json").read_text("utf8"))
+          assert j["entries"]==273 and j["full_readings"]==225 and j["added"]==6
+          assert j["old_content_sha256"]=="29eb39e4bac7f847a578b180360415806fbc4ead3122a4ef10f3b783299576a6"
+          assert j["old_r2_modified"] is False and j["model_calls"]==j["canon_writes"]==0
+          print("WF0DR_267_FROZEN_OLD_LITERATURE_VERIFIED_NEW_273_225_READABLE",flush=True)
+          PY
+      - name: Publish new immutable R2 successor
+        id: backup
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental publish \
+            --pack experiments/wf_0dr_six_craft_ice_storytelling_kinship_readings_20261031.json \
+            --db "$RUNNER_TEMP/wf0dr-273.sqlite3" > "$RUNNER_TEMP/wf0dr-publish.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0dr-publish.json").read_text("utf8"))
+          assert j["entries"]==273 and j["full_readings"]==225 and j["old_prefix_modified"] is False
+          assert j["model_calls"]==j["canon_writes"]==0
+          with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf8") as f:
+              f.write("snapshot="+j["snapshot"]+"\n")
+              f.write("digest="+j["all_content_sha256"]+"\n")
+          print("WF0DR_R2_SNAPSHOT",j["library"],j["snapshot"],"CONTENT_SHA",j["all_content_sha256"],flush=True)
+          PY
+
+  fresh-runner-readonly-cold-restore:
+    needs: append-and-publish-existing-xuehai
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+      WF0DR_SNAPSHOT: ${{ needs.append-and-publish-existing-xuehai.outputs.snapshot }}
+      WF0DR_DIGEST: ${{ needs.append-and-publish-existing-xuehai.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing Xuehai and R2 read-only adapter - no model
+        run: python -m pip install -e '.[r2]'
+      - name: Independently cold recover new 273-entry 225-reading Xuehai
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental cold-restore \
+            --pack experiments/wf_0dr_six_craft_ice_storytelling_kinship_readings_20261031.json \
+            --snapshot "$WF0DR_SNAPSHOT" --digest "$WF0DR_DIGEST" > "$RUNNER_TEMP/wf0dr-cold.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0dr-cold.json").read_text("utf8"))
+          assert j["status"]=="WF_SOURCE_NEW_R2_COLD_READBACK_273_225"
+          assert j["entries"]==273 and j["full_readings"]==225 and j["added"]==6
+          assert j["r2_writes"]==j["model_calls"]==j["canon_writes"]==0
+          print("WF0DR_FRESH_RUNNER_READONLY_COLD_RESTORE_273_225_SUCCESS",flush=True)
+          PY
