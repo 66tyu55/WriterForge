@@ -81,6 +81,8 @@ def pack_from(path:Path):
             (235,191,4,"wf-0dm-xuehai-literary-239-","classic-0dm-"),
         "wf.0dn.eight-living-labor-risk-dialogue-readings.v1":
             (239,199,8,"wf-0dn-xuehai-literary-247-","classic-0dn-"),
+        "wf.0do.six-travel-disaster-performance-supernatural-readings.v1":
+            (247,205,6,"wf-0do-xuehai-literary-253-","classic-0do-"),
     }
     expected_source_sets={
         "wf.0cq.five-public-classics-close-readings.v1": {"fs","ss"},
@@ -107,6 +109,7 @@ def pack_from(path:Path):
         "wf.0dl.four-object-child-family-women-agency-readings.v1": {"xh","ym","rl","hh"},
         "wf.0dm.four-conscience-borrowed-goods-cash-land-readings.v1": {"jm","ek","rl","dp"},
         "wf.0dn.eight-living-labor-risk-dialogue-readings.v1": {"fs","lc","sj","nh","hh","md","th","ss"},
+        "wf.0do.six-travel-disaster-performance-supernatural-readings.v1": {"fs","lc","ek","rl","sj","xx"},
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
