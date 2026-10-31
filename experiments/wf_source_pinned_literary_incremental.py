@@ -95,6 +95,8 @@ def pack_from(path:Path):
             (279,239,8,"wf-0dt-xuehai-literary-287-","classic-0dt-"),
         "wf.0du.nine-child-agency-craft-care-market-public-power-readings.v1":
             (287,248,9,"wf-0du-xuehai-literary-296-","classic-0du-"),
+        "wf.0dv.ten-craft-community-conduct-and-refugee-readings.v1":
+            (296,258,10,"wf-0dv-xuehai-literary-306-","classic-0dv-"),
     }
     expected_source_sets={
         "wf.0cq.five-public-classics-close-readings.v1": {"fs","ss"},
@@ -128,6 +130,7 @@ def pack_from(path:Path):
         "wf.0ds.six-child-anger-cost-merchants-literature.v1": {"nh","ss","md","hh","rl","jm"},
         "wf.0dt.eight-lived-neighbor-care-craft-market-supernatural-readings.v1": {"fs","sj","xx","rl","lc","ek","dp"},
         "wf.0du.nine-child-agency-craft-care-market-public-power-readings.v1": {"ss","rl","hh","th","jm","md","fs","dp","sj"},
+        "wf.0dv.ten-craft-community-conduct-and-refugee-readings.v1": {"rl","ek","lc","fs","ss","sj","hh","th"},
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
