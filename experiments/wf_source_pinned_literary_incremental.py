@@ -91,6 +91,8 @@ def pack_from(path:Path):
             (267,225,6,"wf-0dr-xuehai-literary-273-","classic-0dr-"),
         "wf.0ds.six-child-anger-cost-merchants-literature.v1":
             (273,231,6,"wf-0ds-xuehai-literary-279-","classic-0ds-"),
+        "wf.0dt.eight-lived-neighbor-care-craft-market-supernatural-readings.v1":
+            (279,239,8,"wf-0dt-xuehai-literary-287-","classic-0dt-"),
     }
     expected_source_sets={
         "wf.0cq.five-public-classics-close-readings.v1": {"fs","ss"},
@@ -122,6 +124,7 @@ def pack_from(path:Path):
         "wf.0dq.eight-child-ordinary-evidence-afterlife-readings.v1": {"ss","sj","nh","lc","md","fs","hh","ek"},
         "wf.0dr.six-craft-ice-storytelling-kinship-readings.v1": {"rl","lc","dp","th","xx","hh"},
         "wf.0ds.six-child-anger-cost-merchants-literature.v1": {"nh","ss","md","hh","rl","jm"},
+        "wf.0dt.eight-lived-neighbor-care-craft-market-supernatural-readings.v1": {"fs","sj","xx","rl","lc","ek","dp"},
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
