@@ -99,6 +99,8 @@ def pack_from(path:Path):
             (296,258,10,"wf-0dv-xuehai-literary-306-","classic-0dv-"),
         "wf.0dw.nine-seasonal-repair-cartography-craft-readings.v1":
             (306,267,9,"wf-0dw-xuehai-literary-315-","classic-0dw-"),
+        "wf.0dx.six-care-debt-flood-agency-evidence-readings.v1":
+            (315,273,6,"wf-0dx-xuehai-literary-321-","classic-0dx-"),
     }
     expected_source_sets={
         "wf.0cq.five-public-classics-close-readings.v1": {"fs","ss"},
@@ -134,6 +136,7 @@ def pack_from(path:Path):
         "wf.0du.nine-child-agency-craft-care-market-public-power-readings.v1": {"ss","rl","hh","th","jm","md","fs","dp","sj"},
         "wf.0dv.ten-craft-community-conduct-and-refugee-readings.v1": {"rl","ek","lc","fs","ss","sj","hh","th"},
         "wf.0dw.nine-seasonal-repair-cartography-craft-readings.v1": {"jm","dp","nh","md","fs","sj","ss","hh","ek"},
+        "wf.0dx.six-care-debt-flood-agency-evidence-readings.v1": {"fs","rl","lc","dp","ek"},
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
