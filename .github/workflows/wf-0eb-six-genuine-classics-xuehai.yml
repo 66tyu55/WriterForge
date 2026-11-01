@@ -1,0 +1,152 @@
+name: WF 0.EB Six Genuine Classics Voice and Fantasy Transfer - Existing Xuehai No Model
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0eb-six-genuine-classics-xuehai.yml
+      - experiments/wf_0eb_six_genuine_classics_voices_fantasy_transfer_readings_20261101.json
+      - experiments/wf_source_pinned_literary_incremental.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf0eb-immutable-genuine-classics-352-304
+  cancel-in-progress: false
+
+jobs:
+  append-and-publish-existing-xuehai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    outputs:
+      snapshot: ${{ steps.backup.outputs.snapshot }}
+      digest: ${{ steps.backup.outputs.digest }}
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing Xuehai and R2 only
+        run: python -m pip install -e '.[r2]'
+      - name: Verify six frozen GITenberg genuine originals and reject overlap with previous selected sources
+        run: |
+          python - <<'PY'
+          import json,os
+          from hashlib import sha1
+          from pathlib import Path
+          from urllib.request import Request,urlopen
+          from experiments.wf_source_pinned_literary_incremental import pack_from,verify_sources
+          path=Path("experiments/wf_0eb_six_genuine_classics_voices_fantasy_transfer_readings_20261101.json")
+          p=pack_from(path)
+          assert set(p["sources"])=={"fs","sj","md","th","lc","xx"}
+          assert p["source_scope"]=="GITENBERG_PINNED_REAL_HUMAN_CLASSICS"
+          assert not any(os.getenv(k) for k in ("OPENAI_API_KEY","DEEPSEEK_API_KEY","OPENROUTER_API_KEY","DISCOVERY_API_KEY"))
+          for src in p["sources"].values():
+              assert src["source_repo"].startswith("GITenberg/")
+              with urlopen(Request(src["url"],headers={"User-Agent":"WF0EB-immutable-public-domain-classics/1"}),timeout=65) as f:
+                  data=f.read(src["source_size_bytes"]+1)
+              assert len(data)==src["source_size_bytes"]
+              assert sha1(b"blob "+str(len(data)).encode("ascii")+b"\0"+data).hexdigest()==src["source_blob_sha1"]
+              (Path(os.environ["RUNNER_TEMP"])/src["filename"]).write_bytes(data)
+          verify_sources(p,Path(os.environ["RUNNER_TEMP"]))
+          old_examined=0
+          for previous in Path("experiments").glob("wf_0*.json"):
+              if previous==path:
+                  continue
+              try:
+                  old=json.loads(previous.read_text("utf8"))
+              except (ValueError,UnicodeError):
+                  continue
+              if not isinstance(old,dict) or not isinstance(old.get("items"),list) or not isinstance(old.get("sources"),dict):
+                  continue
+              for row in old["items"]:
+                  if not isinstance(row,dict) or row.get("source_key") not in old["sources"]:
+                      continue
+                  old_src=old["sources"][row["source_key"]]
+                  if not isinstance(old_src,dict) or "original_source_start" not in row or "original_source_end" not in row:
+                      continue
+                  old_examined+=1
+                  for fresh in p["items"]:
+                      new_src=p["sources"][fresh["source_key"]]
+                      same=(old_src.get("source_repo")==new_src["source_repo"] and old_src.get("source_blob_sha1")==new_src["source_blob_sha1"])
+                      if same and max(row["original_source_start"],fresh["original_source_start"]) < min(row["original_source_end"],fresh["original_source_end"]):
+                          raise AssertionError("WF0EB_REPEATED_HUMAN_SOURCE_SPAN "+str(previous)+"/"+fresh["id"])
+          print("WF0EB_SIX_GENUINE_SOURCES_PINNED_AND_PREVIOUS_SPANS_DISJOINT",old_examined,flush=True)
+          PY
+      - name: Restore old immutable 346-entry Xuehai and append six genuine literary readings
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental stage \
+            --pack experiments/wf_0eb_six_genuine_classics_voices_fantasy_transfer_readings_20261101.json \
+            --source-dir "$RUNNER_TEMP" --db "$RUNNER_TEMP/wf0eb-352.sqlite3" > "$RUNNER_TEMP/wf0eb-stage.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0eb-stage.json").read_text("utf8"))
+          assert j["entries"]==352 and j["full_readings"]==304 and j["added"]==6
+          assert j["old_content_sha256"]=="ead677963bf03e3152d30f92a2b9f7eb38699424cd16c553cc6ab48fb107d77a"
+          assert j["old_r2_modified"] is False and j["model_calls"]==j["canon_writes"]==0
+          print("WF0EB_OLD_346_ORIGINALS_UNCHANGED_352_304_COMPLETE_READINGS",flush=True)
+          PY
+      - name: Publish only new immutable R2 successor and verify readback
+        id: backup
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental publish \
+            --pack experiments/wf_0eb_six_genuine_classics_voices_fantasy_transfer_readings_20261101.json \
+            --db "$RUNNER_TEMP/wf0eb-352.sqlite3" > "$RUNNER_TEMP/wf0eb-publish.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0eb-publish.json").read_text("utf8"))
+          assert j["entries"]==352 and j["full_readings"]==304 and j["old_prefix_modified"] is False
+          assert j["model_calls"]==j["canon_writes"]==0
+          with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf8") as f:
+              f.write("snapshot="+j["snapshot"]+"\n")
+              f.write("digest="+j["all_content_sha256"]+"\n")
+          print("WF0EB_NEW_IMMUTABLE_R2",j["library"],"SNAPSHOT",j["snapshot"],"SHA256",j["all_content_sha256"],flush=True)
+          PY
+
+  fresh-runner-readonly-cold-restore:
+    needs: append-and-publish-existing-xuehai
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      WRITERFORGE_R2_ACCOUNT_ID: ${{ secrets.WRITERFORGE_R2_ACCOUNT_ID }}
+      WRITERFORGE_R2_BUCKET: ${{ secrets.WRITERFORGE_R2_BUCKET }}
+      WRITERFORGE_R2_ACCESS_KEY_ID: ${{ secrets.WRITERFORGE_R2_ACCESS_KEY_ID }}
+      WRITERFORGE_R2_SECRET_ACCESS_KEY: ${{ secrets.WRITERFORGE_R2_SECRET_ACCESS_KEY }}
+      WRITERFORGE_R2_JURISDICTION: ${{ vars.WRITERFORGE_R2_JURISDICTION }}
+      WF0EB_SNAPSHOT: ${{ needs.append-and-publish-existing-xuehai.outputs.snapshot }}
+      WF0EB_DIGEST: ${{ needs.append-and-publish-existing-xuehai.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing read-only Xuehai R2 adapter, no author model
+        run: python -m pip install -e '.[r2]'
+      - name: Read-only cold restore 352-entry 304-reading Xuehai on independent runner
+        run: |
+          python -m experiments.wf_source_pinned_literary_incremental cold-restore \
+            --pack experiments/wf_0eb_six_genuine_classics_voices_fantasy_transfer_readings_20261101.json \
+            --snapshot "$WF0EB_SNAPSHOT" --digest "$WF0EB_DIGEST" > "$RUNNER_TEMP/wf0eb-cold.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"wf0eb-cold.json").read_text("utf8"))
+          assert j["status"]=="WF_SOURCE_NEW_R2_COLD_READBACK_352_304"
+          assert j["entries"]==352 and j["full_readings"]==304 and j["added"]==6
+          assert j["r2_writes"]==j["model_calls"]==j["canon_writes"]==0
+          print("WF0EB_FRESH_RUNNER_READONLY_COLD_R2_352_304_SUCCESS",flush=True)
+          PY
