@@ -101,6 +101,8 @@ def pack_from(path:Path):
             (306,267,9,"wf-0dw-xuehai-literary-315-","classic-0dw-"),
         "wf.0dx.six-care-debt-flood-agency-evidence-readings.v1":
             (315,273,6,"wf-0dx-xuehai-literary-321-","classic-0dx-"),
+        "wf.0dy.twelve-original-xuanhuan-literature-transpositions.v1":
+            (321,285,12,"wf-0dy-xuehai-literary-333-","classic-0dy-original-"),
     }
     expected_source_sets={
         "wf.0cq.five-public-classics-close-readings.v1": {"fs","ss"},
@@ -137,6 +139,7 @@ def pack_from(path:Path):
         "wf.0dv.ten-craft-community-conduct-and-refugee-readings.v1": {"rl","ek","lc","fs","ss","sj","hh","th"},
         "wf.0dw.nine-seasonal-repair-cartography-craft-readings.v1": {"jm","dp","nh","md","fs","sj","ss","hh","ek"},
         "wf.0dx.six-care-debt-flood-agency-evidence-readings.v1": {"fs","rl","lc","dp","ek"},
+        "wf.0dy.twelve-original-xuanhuan-literature-transpositions.v1": {"own"},
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
@@ -178,6 +181,8 @@ def verify_sources(p,source_dir:Path):
                 "experiments/wf_0cx_original_xuanhuan_continuations_20261030.txt",
             "wf.0cy.five-diverse-original-xuanhuan-scenes.v1":
                 "experiments/wf_0cy_five_diverse_xuanhuan_scenes_20261030.txt",
+            "wf.0dy.twelve-original-xuanhuan-literature-transpositions.v1":
+                "experiments/wf_0dy_original_fantasy_literary_transpositions_20261031.txt",
         }
         if p.get("format") in original_editions:
             if (src["source_repo"]!="66tyu55/WriterForge"
@@ -282,7 +287,8 @@ def stage(dbpath:Path,p,source_dir:Path):
             is_original=p.get("format") in (
                 "wf.0cw.four-original-xuanhuan-scenes.v1",
                 "wf.0cx.five-original-xuanhuan-continuations.v1",
-                "wf.0cy.five-diverse-original-xuanhuan-scenes.v1")
+                "wf.0cy.five-diverse-original-xuanhuan-scenes.v1",
+                "wf.0dy.twelve-original-xuanhuan-literature-transpositions.v1")
             store.add_entry(sid,work_id=("wf-original-pinned-"+r["source_key"]
                                          if is_original else "gitenberg-pinned-"+r["source_key"]),
                             text=complete_text(r,p["sources"][r["source_key"]]),
