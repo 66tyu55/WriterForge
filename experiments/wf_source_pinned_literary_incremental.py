@@ -105,6 +105,8 @@ def pack_from(path:Path):
             (321,285,12,"wf-0dy-xuehai-literary-333-","classic-0dy-original-"),
         "wf.0dz.seven-real-classics-fantasy-transfer-readings.v1":
             (333,292,7,"wf-0dz-xuehai-literary-340-","classic-0dz-"),
+        "wf.0ea.six-original-xuanhuan-lived-world-readings.v1":
+            (340,298,6,"wf-0ea-xuehai-literary-346-","classic-0ea-original-"),
     }
     expected_source_sets={
         "wf.0cq.five-public-classics-close-readings.v1": {"fs","ss"},
@@ -143,6 +145,7 @@ def pack_from(path:Path):
         "wf.0dx.six-care-debt-flood-agency-evidence-readings.v1": {"fs","rl","lc","dp","ek"},
         "wf.0dy.twelve-original-xuanhuan-literature-transpositions.v1": {"own"},
         "wf.0dz.seven-real-classics-fantasy-transfer-readings.v1": {"fg","xy","jh","lz","sh","hl","xk"},
+        "wf.0ea.six-original-xuanhuan-lived-world-readings.v1": {"own"},
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
@@ -186,6 +189,8 @@ def verify_sources(p,source_dir:Path):
                 "experiments/wf_0cy_five_diverse_xuanhuan_scenes_20261030.txt",
             "wf.0dy.twelve-original-xuanhuan-literature-transpositions.v1":
                 "experiments/wf_0dy_original_fantasy_literary_transpositions_20261031.txt",
+            "wf.0ea.six-original-xuanhuan-lived-world-readings.v1":
+                "experiments/wf_0ea_six_original_xuanhuan_lived_world_scenes_20261101.txt",
         }
         if p.get("format") in original_editions:
             if (src["source_repo"]!="66tyu55/WriterForge"
@@ -291,7 +296,8 @@ def stage(dbpath:Path,p,source_dir:Path):
                 "wf.0cw.four-original-xuanhuan-scenes.v1",
                 "wf.0cx.five-original-xuanhuan-continuations.v1",
                 "wf.0cy.five-diverse-original-xuanhuan-scenes.v1",
-                "wf.0dy.twelve-original-xuanhuan-literature-transpositions.v1")
+                "wf.0dy.twelve-original-xuanhuan-literature-transpositions.v1",
+                "wf.0ea.six-original-xuanhuan-lived-world-readings.v1")
             store.add_entry(sid,work_id=("wf-original-pinned-"+r["source_key"]
                                          if is_original else "gitenberg-pinned-"+r["source_key"]),
                             text=complete_text(r,p["sources"][r["source_key"]]),
