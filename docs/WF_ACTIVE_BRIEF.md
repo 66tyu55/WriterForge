@@ -114,7 +114,7 @@
 - 六篇来自真正人类公版作者的**连续原文**，每段严格保留3个原文字串锚点、3条贴句一行批注、开放心得，**六部书、共6,467个Unicode原文字符**。①《浮生六記》芸与沈复论李杜诗、吴地方言玩笑；②《搜神記》刘玄石饮千日酒、家人误葬、三年后复醒；③《牡丹亭》杜丽娘自画像、春香追问梦中书生及托裱；④《桃花扇》柳敬亭携书投左良玉军门、摔茶钟并借饥饿当面谏阻移兵；⑤《老殘遊記》卖布的尺寸证据被官府嫁祸、店伙夜谈与站笼恐惧；⑥《西廂記》围寺时争取三日、惠明递送援书。
 - 首轮[Actions #41325422865](https://github.com/66tyu55/WriterForge/actions/runs/41325422865) **故障必须保留**：原先《桃花扇》血扇画花与已存0.CZ [20536,21462)重叠，旧原文去重门正确拒绝，**没有被算作入库成功**。改为同一本数字底本[11325,12562)的柳敬亭劝兵全段，与旧包不重叠。更新数据提交 `a7b391b2ed1a616a505a3aee2e79a5fa55e0af50`。
 - 正确数据包 [`experiments/wf_0eb_six_genuine_classics_voices_fantasy_transfer_readings_20261101.json`](../experiments/wf_0eb_six_genuine_classics_voices_fantasy_transfer_readings_20261101.json)；保持原有唯一 `experiments/wf_source_pinned_literary_incremental.py` 增量 runner（0.EB白名单提交 `6d0164551ac1fcbe3fe423a37a8d5f423fd81939`）；没有第二个记忆库、没有写作评审器。
-- 修复后的 [Actions #41436956427](https://github.com/66tyu55/WriterForge/actions/runs/41436956427) **两个Job均 SUCCESS**。固定六个 GITenberg Git commit/blob SHA1及完整原文位置校验，旧来源区间与全库347?不计新增无重叠：实际preflight审查旧**232**段区间，旧346条完整指纹保持；新六篇进入同一XuehaiStore并独立只读冷恢复 `WF0EB_FRESH_RUNNER_READONLY_COLD_R2_352_304_SUCCESS`。
+- 修复后的 [Actions #41436956427](https://github.com/66tyu55/WriterForge/actions/runs/41436956427) **两个Job均 SUCCESS**。固定六个 GITenberg Git commit/blob SHA1及完整原文位置校验，旧源与新段不重叠：实际preflight审查旧**232**段区间，旧346条完整指纹保持；新六篇进入同一XuehaiStore并独立只读冷恢复 `WF0EB_FRESH_RUNNER_READONLY_COLD_R2_352_304_SUCCESS`。
 - 不可变 R2 `wf-0eb-xuehai-literary-352-20261101-v1`；Snapshot `a22dc677d0c0edf34f3f8c890257c8fc7f43c06f97fd02b1026b554a67517f55`；全库SHA256 `205ac8c3b4266a780b447ac0b485e85f22b542008b9d51e1eda6452e420f65b4`；旧346条SHA256 `ead677963bf03e3152d30f92a2b9f7eb38699424cd16c553cc6ab48fb107d77a`。技术验收仅证明保存与恢复，不说明文学技能已掌握。
 
 ### 0.EC：352→357条／304→309篇；五部真实文学的声音、羞愧、误信、吴语、说书收束
