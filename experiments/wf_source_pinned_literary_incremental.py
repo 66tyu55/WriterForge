@@ -121,6 +121,8 @@ def pack_from(path:Path):
             (375,332,5,"wf-0eg-xuehai-literary-380-","classic-0eg-"),
         "wf.0eh.five-aftermath-agency-and-folklore-readings.v1":
             (380,337,5,"wf-0eh-xuehai-literary-385-","classic-0eh-"),
+        "wf.0ei.six-literary-reading-experience-economy-divinity-craft.v1":
+            (385,343,6,"wf-0ei-xuehai-literary-391-","classic-0ei-"),
     }
     expected_source_sets={
         "wf.0cq.five-public-classics-close-readings.v1": {"fs","ss"},
@@ -167,6 +169,7 @@ def pack_from(path:Path):
         "wf.0ef.five-human-constrained-world-voices.v1": {"fs","sj","ss","md","th"},
         "wf.0eg.five-martial-terrain-literary-readings.v1": {"sh","xy","xk"},
         "wf.0eh.five-aftermath-agency-and-folklore-readings.v1": {"sh","jm","rl","jh","sj"},
+        "wf.0ei.six-literary-reading-experience-economy-divinity-craft.v1": {"lz","hl","fg","fs","nh"},
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
