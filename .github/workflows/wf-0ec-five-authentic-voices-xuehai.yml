@@ -60,6 +60,7 @@ jobs:
               (Path(os.environ["RUNNER_TEMP"])/src["filename"]).write_bytes(data)
           verify_sources(p,Path(os.environ["RUNNER_TEMP"]))
           examined=0
+          duplicates=[]
           for path_old in Path("experiments").glob("wf_0*.json"):
               if path_old==path:
                   continue
@@ -80,7 +81,9 @@ jobs:
                       new_src=p["sources"][fresh["source_key"]]
                       same=(old_src.get("source_repo")==new_src["source_repo"] and old_src.get("source_blob_sha1")==new_src["source_blob_sha1"])
                       if same and max(row["original_source_start"],fresh["original_source_start"])<min(row["original_source_end"],fresh["original_source_end"]):
-                          raise AssertionError("WF0EC_DUPLICATE_ORIGINAL_SPAN "+str(path_old)+"/"+fresh["id"])
+                          duplicates.append(str(path_old)+"/"+fresh["id"]+" existing=["+str(row["original_source_start"])+","+str(row["original_source_end"])+") new=["+str(fresh["original_source_start"])+","+str(fresh["original_source_end"])+")")
+          if duplicates:
+              raise AssertionError("WF0EC_DUPLICATE_ORIGINAL_SPANS "+repr(duplicates))
           print("WF0EC_FIVE_REAL_ORIGINALS_VERIFIED_OLD_SPANS_DISJOINT",examined,flush=True)
           PY
       - name: Restore old immutable 352-entry Xuehai and append five real author readings
