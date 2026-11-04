@@ -1,0 +1,216 @@
+name: Intern S2 original novel 32000 request 20261104
+on:
+  push:
+    branches: [probe/intern-s2-novel-32000-20261104]
+    paths:
+      - '.github/workflows/intern-s2-novel-32000-20261104.yml'
+permissions: {}
+concurrency:
+  group: intern-s2-novel-32000-20261104-one-request
+  cancel-in-progress: false
+jobs:
+  one-original-novel-request:
+    if: ${{ github.run_number == 1 && github.run_attempt == 1 }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: One original fiction request with a 32000 output token cap
+        env:
+          DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+          ARTIFACT_RECIPIENT_CERT: |
+            -----BEGIN CERTIFICATE-----
+            MIIEUzCCArugAwIBAgIUSjds30cj5+wus7kbfdGkROgWIw0wDQYJKoZIhvcNAQEL
+            BQAwOTE3MDUGA1UEAwwuV3JpdGVyRm9yZ2Ugb25lLXRpbWUgb3JpZ2luYWwgZmlj
+            dGlvbiBhcnRpZmFjdDAeFw0yNjExMDQxNTQ5MTVaFw0yNjExMDYxNTQ5MTVaMDkx
+            NzA1BgNVBAMMLldyaXRlckZvcmdlIG9uZS10aW1lIG9yaWdpbmFsIGZpY3Rpb24g
+            YXJ0aWZhY3QwggGiMA0GCSqGSIb3DQEBAQUAA4IBjwAwggGKAoIBgQCnQ5Xt7MXU
+            KFeBnIFruyLb+mkfe5Be6hWpWUoChz93f/FekkOhQ8PyNlorr212f2ITOrNvpKsa
+            20Tw93+GwxjXog607BOn/36hTzmolX+9OugRAHobYqXMEAwu5x8j8JIgye1hILo+
+            eAZCQZ/7rdpnCduQQlUrXxpDP0FJZdrW1SmJ2EauaqTp/hW/3Gr/hdRFUIiyVkWk
+            y0u3oKPZMBoKn/fVEcUVvqvtUJu0w8fJHJyKlC4J8t56kyr+mf23b/DbTGEbG6PN
+            Ei/499X7zHYaR6buVDWLld4NryS7P1XkN0HIZ7O+tbv3erNbCSDl0ElhcGIysDWF
+            uX5uf9yDd0ZyDggmdlfmet/IEB/wnSQSk1BbN4AmE1T9z46Wp4Mpx8iwEXFSDLlR
+            He94tWP0O37uam4gRxWahQh6LUVDwOmvTDdbJrq6ZChXGhp4BIH7wESowEPEvnwf
+            8j3QVD4RwWOxXRZ7Rc7xiWFZKH/jqA0KC1cP6ndHaKPcJQTJ+XIod90CAwEAAaNT
+            MFEwHQYDVR0OBBYEFIeMkv6eJ1QnEDpsNP65VNn8fVHDMB8GA1UdIwQYMBaAFIeM
+            kv6eJ1QnEDpsNP65VNn8fVHDMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQEL
+            BQADggGBACHafHNVdvMpYt85DPXf9Js3VKmjcrHB/5z8a1H3Oyfkve14yvgk1vC/
+            pqthaSJ/g+JEgfGnfHbELeSDZqgXXKE9eAsdZS7526tokrveloRDrzAOUOXdr8lI
+            TFVOQP8qAB+5w7dkhgqrpTtn46ERYs/q1k8ej0B96SXikxRNcsLjIubmQvp2at/N
+            nUscr9FF9zX6WEX50jbkiZpS58GnEKEE6edcP4RIkyMYAT+i0QPS1RdvFgZKbbEf
+            pJA0kBRE4Ge8WcQNJUXkiJAQftmjSgTAeO6/AR00zbz9oNoiGtAb9BM0I5uZDh51
+            92Rgkvst+bDAz33Oxrxm7nCvZPkh6fZM14cSV8kBwTmkBWdhIYDFJWZejl56jLh7
+            a2scgXKOKC8QKPalMV5zcbbe6pwI/YJCS8pV2gtO0+pYhfyjgt8gLz+/8tbaUWa2
+            oxvtUbisSzwgHJC4DSB13qHdVViHbkRWcgxbCWlbmj+jWj7+cQR+rrpD7LkIwwk5
+            tI19Rde31w==
+            -----END CERTIFICATE-----
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYCODE'
+          """One original-fiction request, with encrypted output and metadata-only logs."""
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import ssl
+          import subprocess
+          import sys
+          import tempfile
+          import time
+          import zipfile
+          from urllib.error import HTTPError, URLError
+          from urllib.request import Request, build_opener, HTTPSHandler, HTTPRedirectHandler
+          
+          ENDPOINT = "https://discovery-api.intern-ai.org.cn/v1/chat/completions"
+          MODEL = "intern-s2"
+          REQUESTED_MAX_TOKENS = 32000
+          RESPONSE_BYTE_LIMIT = 16 * 1024 * 1024
+          PROMPT = """请直接创作一部尽可能长而完整的原创玄幻小说《寒灯渡夜》。这是一次单次生成的长输出测试，但正文里不要提及测试、模型或token。
+          
+          世界与故事种子：世上每座城都靠一盏命灯抵挡名为“失名潮”的黑暗。命灯不是吞食寿命，而是抹去人们曾做过的一件善事及所有见证者对它的记忆。女主沈照是修补碑文的低阶刻字师，发现自己父亲留下的无字碑每逢雨夜会显出一个活人的名字。被她从河里救起的少年，不但记得所有被抹去的善事，还能听见那些善事正在黑暗中长成怪物。开篇从她在刑场被要求刻掉一个自己刚刚救过的人的名字开始。
+          
+          请自行发展完整的冲突、人物和结局。法术必须有可理解的代价，战斗靠人物选择、知识和具体环境解决，不靠临时出现的无敌能力。至少三个重要人物各有合理但冲突的目标。贯穿一个误会，在中后段用早先已有线索翻转；结尾收回无字碑、雨夜名字、被遗忘善事三条伏线。普通人的生活与损失要具体，避免只有修炼等级和旁白。
+          
+          按十二至十八章连续写完整故事，每章都必须有真正推进的场景、动作、对话和后果。尽可能充分使用这一次回答的可用输出篇幅，争取写成长篇幅小说而不是故事梗概；若能在约两万汉字以内完成，仍要保证场景充分展开。不要输出提纲、创作分析、前情说明、字数说明、续写邀请，也不要照搬已有作品或人物。直接从书名和第一章开始，尽力以有余韵的明确结局收束。"""
+          
+          
+          class NoRedirect(HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  raise RuntimeError("REDIRECT_REFUSED")
+          
+          
+          def encrypt(source, target, certificate):
+              completed = subprocess.run(
+                  ["openssl", "cms", "-encrypt", "-binary", "-aes-256-gcm", "-in", str(source),
+                   "-out", str(target), "-outform", "DER", str(certificate)],
+                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30,
+              )
+              if completed.returncode != 0 or not target.exists() or target.stat().st_size == 0:
+                  raise RuntimeError("ARTIFACT_ENCRYPTION_FAILED")
+          
+          
+          def sanitized_usage(value):
+              if not isinstance(value, dict):
+                  return {}
+              allowed = ("prompt_tokens", "completion_tokens", "total_tokens", "input_tokens", "output_tokens")
+              result = {k: v for k, v in value.items() if k in allowed and type(v) is int and 0 <= v <= 10000000}
+              details = value.get("completion_tokens_details")
+              if isinstance(details, dict):
+                  result["completion_tokens_details"] = {k: v for k, v in details.items()
+                      if k in ("reasoning_tokens", "accepted_prediction_tokens", "rejected_prediction_tokens")
+                      and type(v) is int and 0 <= v <= 10000000}
+              return result
+          
+          
+          def execute(opener=None):
+              output_dir = Path("encrypted-output")
+              output_dir.mkdir(exist_ok=True)
+              metadata = {
+                  "model_requested": MODEL,
+                  "max_output_tokens_requested": REQUESTED_MAX_TOKENS,
+                  "output_hard_limit_proven": False,
+                  "generation_requests_attempted": 0,
+                  "automatic_retries": 0,
+                  "private_novel_sent": False,
+                  "original_synthetic_prompt": True,
+                  "thinking_control_requested": False,
+                  "stream": False,
+                  "status": "PREFLIGHT",
+              }
+              started = time.monotonic()
+              novel = ""
+              raw = b""
+              code = 7
+              with tempfile.TemporaryDirectory(prefix="wf-original-fiction-") as temporary:
+                  folder = Path(temporary)
+                  certificate = folder / "recipient.pem"
+                  certificate.write_text(os.environ.get("ARTIFACT_RECIPIENT_CERT", ""), encoding="ascii")
+                  fixture = folder / "preflight.txt"
+                  fixture.write_text("offline encryption preflight", encoding="utf-8")
+                  encrypt(fixture, folder / "preflight.p7m", certificate)
+                  key = os.environ.get("DISCOVERY_API_KEY", "")
+                  if not key:
+                      metadata["status"] = "SECRET_UNAVAILABLE"
+                      code = 2
+                  else:
+                      payload = {
+                          "model": MODEL,
+                          "messages": [{"role": "user", "content": PROMPT}],
+                          "max_tokens": REQUESTED_MAX_TOKENS,
+                          "stream": False,
+                      }
+                      request = Request(ENDPOINT, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+                          headers={"Authorization": "Bearer " + key, "Content-Type": "application/json", "Accept": "application/json"},
+                          method="POST")
+                      if opener is None:
+                          opener = build_opener(NoRedirect(), HTTPSHandler(context=ssl.create_default_context()))
+                      metadata["generation_requests_attempted"] = 1
+                      try:
+                          with opener.open(request, timeout=1500) as response:
+                              metadata["http_status"] = response.status
+                              raw = response.read(RESPONSE_BYTE_LIMIT + 1)
+                          if len(raw) > RESPONSE_BYTE_LIMIT:
+                              metadata["status"], code = "RESPONSE_TOO_LARGE", 5
+                          else:
+                              body = json.loads(raw)
+                              if not isinstance(body, dict):
+                                  raise ValueError("INVALID_DOCUMENT")
+                              choices = body.get("choices")
+                              choice = choices[0] if isinstance(choices, list) and choices and isinstance(choices[0], dict) else {}
+                              message = choice.get("message")
+                              message = message if isinstance(message, dict) else {}
+                              content = message.get("content")
+                              novel = content if isinstance(content, str) else ""
+                              finish = choice.get("finish_reason")
+                              finish = finish if finish in ("stop", "length", "content_filter", "tool_calls", None) else "unrecognized"
+                              model = body.get("model")
+                              metadata.update({
+                                  "provider_model": MODEL if model == MODEL else "UNEXPECTED_OR_MISSING",
+                                  "provider_model_matches": model == MODEL,
+                                  "finish_reason": finish,
+                                  "usage": sanitized_usage(body.get("usage")),
+                                  "visible_characters": len(novel),
+                                  "visible_utf8_bytes": len(novel.encode("utf-8")),
+                                  "visible_sha256": hashlib.sha256(novel.encode("utf-8")).hexdigest(),
+                                  "status": "VISIBLE_TEXT_RETURNED" if novel.strip() else "EMPTY_VISIBLE_TEXT",
+                              })
+                              code = 0 if novel.strip() else 6
+                      except HTTPError as exc:
+                          metadata.update({"status": "HTTP_ERROR", "http_status": exc.code})
+                          code = 3
+                      except (URLError, TimeoutError, OSError, RuntimeError) as exc:
+                          metadata.update({"status": "TRANSPORT_ERROR", "error_type": type(exc).__name__})
+                          code = 4
+                      except (ValueError, UnicodeError) as exc:
+                          metadata.update({"status": "INVALID_RESPONSE", "error_type": type(exc).__name__})
+                          code = 5
+                  metadata["elapsed_seconds"] = round(time.monotonic() - started, 3)
+                  metadata["artifact_encryption"] = "OpenSSL CMS AES-256-GCM with one-time RSA recipient"
+                  archive = folder / "result.zip"
+                  with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+                      bundle.writestr("novel.txt", novel)
+                      bundle.writestr("metadata.json", json.dumps(metadata, ensure_ascii=False, indent=2))
+                      bundle.writestr("synthetic_prompt.txt", PROMPT)
+                      if raw:
+                          bundle.writestr("provider_response.json", raw)
+                  encrypt(archive, output_dir / "intern-s2-original-fiction-result.p7m", certificate)
+              return metadata, code
+          
+          
+          if __name__ == "__main__":
+              try:
+                  metadata, code = execute()
+              except Exception as exc:
+                  metadata, code = {"status": "RUNNER_EXCEPTION", "error_type": type(exc).__name__, "automatic_retries": 0}, 7
+              print(json.dumps(metadata, ensure_ascii=False, indent=2))
+              sys.exit(code)
+          PYCODE
+      - name: Preserve only the encrypted result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: intern-s2-original-fiction-encrypted-20261104
+          path: encrypted-output/intern-s2-original-fiction-result.p7m
+          retention-days: 1
+          if-no-files-found: error
