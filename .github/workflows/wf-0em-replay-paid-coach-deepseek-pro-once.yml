@@ -1,0 +1,65 @@
+name: WF 0.EM reuse paid coach, DeepSeek Pro original writing A/B once
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0em-replay-paid-coach-deepseek-pro-once.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wf-0em-reuse-paid-coach-pro-ab-once
+  cancel-in-progress: false
+
+jobs:
+  reuse-real-coach-and-write-two-prose-arms:
+    if: >-
+      github.event_name == 'push' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'WF 0.EM: run paid-coach replay with DeepSeek Pro A/B once'
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WF0EM_REPLAY_APPROVAL: WF0EM_PRO_REPLAY_VERIFIED_COACH_20261105
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing WriterForge Discovery adapter
+        run: python -m pip install -e .
+      - name: Download real prior coaching from paid run, no new coach call
+        uses: actions/download-artifact@v4
+        with:
+          name: wf0em-discovery-multimodel-unreviewed-original-exercises
+          repository: 66tyu55/WriterForge
+          run-id: 42006546104
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/prior
+      - name: Verify previous coach origin and new output budget OFFLINE
+        run: |
+          python -m py_compile experiments/wf_0em_replay_paid_coach_writer.py
+          python -m unittest discover -s tests -p 'test_wf_0em_intern_s2_behavior_practice.py' -v
+          python -m experiments.wf_0em_replay_paid_coach_writer \
+            --previous-dir "$RUNNER_TEMP/prior"
+      - name: Produce ONLY two bounded original Pro drafts, no Canon or R2 writes
+        run: |
+          mkdir -p "$RUNNER_TEMP/wf0em-pro-ab"
+          python -m experiments.wf_0em_replay_paid_coach_writer \
+            --previous-dir "$RUNNER_TEMP/prior" \
+            --output-dir "$RUNNER_TEMP/wf0em-pro-ab" --live
+      - name: Retain unaccepted synthetic text and verified model usage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wf0em-verified-coach-deepseek-pro-ab-unaccepted
+          path: |
+            ${{ runner.temp }}/wf0em-pro-ab/
+          if-no-files-found: ignore
+          retention-days: 7
