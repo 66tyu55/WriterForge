@@ -129,6 +129,8 @@ def pack_from(path:Path):
             (396,354,6,"wf-0ek-xuehai-literary-402-","classic-0ek-"),
         "wf.0el.six-human-everyday-misreadings-and-aftercare.v1":
             (402,360,6,"wf-0el-xuehai-literary-408-","classic-0el-"),
+        "wf.0eo.seven-authentic-literary-material-identity-and-consequence-readings.v1":
+            (408,367,7,"wf-0eo-xuehai-literary-415-","classic-0eo-"),
     }
     expected_source_sets={
         "wf.0cq.five-public-classics-close-readings.v1": {"fs","ss"},
@@ -179,6 +181,7 @@ def pack_from(path:Path):
         "wf.0ej.five-human-voices-testimony-mourning-humor-readings.v1": {"rl","jm","md","fs","xx"},
         "wf.0ek.six-classic-agency-evidence-fantasy-and-everyday-voices.v1": {"dp","lc","fs","xx","sj","ss"},
         "wf.0el.six-human-everyday-misreadings-and-aftercare.v1": {"ek","hh","nh","jm","ss","sj"},
+        "wf.0eo.seven-authentic-literary-material-identity-and-consequence-readings.v1": {"rl","lc","md","th","fs","sj","ss"},
     }
     spec=specifications.get(p.get("format"))
     if (spec is None
