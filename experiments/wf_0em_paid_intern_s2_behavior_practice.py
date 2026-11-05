@@ -1,4 +1,4 @@
-"""0.EM: bounded paid Intern-S2 writing-behavior PRACTICE, not model fine-tuning.
+"""0.EM: bounded paid Discovery writing-behavior PRACTICE, not model fine-tuning.
 
 Uses existing DiscoveryModel / DiscoveryCallBudget. Only original synthetic
 xianxia questions and GITenberg public-domain 0.EL readings cross provider.
@@ -18,7 +18,8 @@ from writerforge.reverse_discovery_models import (
     DiscoveryCallBudget, DiscoveryModel, DiscoveryError,
 )
 
-MODEL = "intern-s2"
+COACH_MODEL = "deepseek-v4-flash-0731"
+AUTHOR_MODEL = "kimi-k2.6"
 PACK_PATH = Path(__file__).with_name(
     "wf_0el_six_lived_craft_family_misreadings_and_aftercare_readings_20261103.json"
 )
@@ -210,6 +211,7 @@ def dry_run() -> dict:
         "reference_library":FROZEN_LIBRARY,
         "reference_full_library_sha256":FROZEN_DIGEST,
         "planned_teacher_calls":2, "planned_writer_calls":4,
+        "teacher_model":COACH_MODEL,"same_author_model_for_both_arms":AUTHOR_MODEL,
         "max_provider_wire_calls":MAX_WIRE_CALLS,
         "max_reserved_completion_tokens":MAX_RESERVED_COMPLETION_TOKENS,
         "uses_public_domain_sources_only":True,
@@ -221,7 +223,7 @@ def dry_run() -> dict:
     }
 
 def paid_run(output_dir: Path) -> dict:
-    if os.getenv("WF0EM_PAID_EXPERIMENT") != "WF0EM_BOUNDED_S2_20261105":
+    if os.getenv("WF0EM_PAID_EXPERIMENT") != "WF0EM_BOUNDED_MULTI_MODEL_20261105":
         raise PracticeError("EXPLICIT_PAID_RUN_GATE_NOT_OPEN")
     key = os.getenv("DISCOVERY_API_KEY")
     if not key:
@@ -234,15 +236,15 @@ def paid_run(output_dir: Path) -> dict:
         max_calls=MAX_WIRE_CALLS,
         max_reserved_output_tokens=MAX_RESERVED_COMPLETION_TOKENS,
     )
-    # Intern-S2 by default may spend the whole allowance on hidden thinking.
-    # Official API supports explicit thinking_mode=False for visible task output.
-    teacher=DiscoveryModel(name=MODEL,role="planner",api_key=key,
-                           budget=budget,thinking_mode=False)
-    writer=DiscoveryModel(name=MODEL,role="writer",api_key=key,
-                          budget=budget,thinking_mode=False)
+    # Verified existing Discovery adapter: DeepSeek has thinking disabled by
+    # its own gateway switch; Kimi is the same author in BOTH A and B arms.
+    teacher=DiscoveryModel(name=COACH_MODEL,role="planner",api_key=key,
+                           budget=budget)
+    writer=DiscoveryModel(name=AUTHOR_MODEL,role="writer",api_key=key,
+                          budget=budget)
     record=dry_run()
     record["state"]="IN_PROGRESS"
-    record["model"]=MODEL
+    record["models"]={"coach":COACH_MODEL,"writer":AUTHOR_MODEL}
     record["results"]=[]
     manifest=output_dir / "manifest.json"
     for exercise in EXERCISES:
@@ -331,7 +333,7 @@ def main() -> int:
         return 2
     # Public Actions logs contain counts only; model text is artifact-only.
     print(json.dumps({
-        "status":d["state"],"model":MODEL,
+        "status":d["state"],"model_roles":{"coach":COACH_MODEL,"writer":AUTHOR_MODEL},
         "exercise_count":len(d["results"]),
         "complete_pairs":sum(x["phase"]=="COMPLETE_UNREVIEWED" for x in d["results"]),
         "provider_wire_calls_reserved":d.get("wire_calls_reserved",0),
