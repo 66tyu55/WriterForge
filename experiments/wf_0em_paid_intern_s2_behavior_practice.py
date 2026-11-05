@@ -137,11 +137,20 @@ def validate_coach(doc: dict, original: str) -> dict:
                for x in anchors)):
         raise PracticeError("COACH_ANCHORS_NOT_IN_SOURCE")
     questions = doc.get("habit_questions")
-    if (type(questions) is not list or len(questions) != 2
-        or any(type(x) is not dict or
-               any(type(x.get(k)) is not str or not 12 <= len(x[k]) <= 180
-                   for k in ("ask", "not_when")) for x in questions)):
-        raise PracticeError("COACH_BEHAVIOR_QUESTIONS_INVALID")
+    # A concrete question can naturally be short (e.g. "谁付钱？").
+    # Reject missing/duplicate viewpoints, not concise valid questions.
+    if type(questions) is not list or len(questions) != 2:
+        raise PracticeError("COACH_BEHAVIOR_QUESTION_COUNT_INVALID")
+    for index, question in enumerate(questions):
+        if type(question) is not dict:
+            raise PracticeError("COACH_BEHAVIOR_QUESTION_SHAPE_INVALID")
+        for key in ("ask", "not_when"):
+            value = question.get(key)
+            if type(value) is not str or not 4 <= len(value.strip()) <= 240:
+                raise PracticeError(
+                    "COACH_BEHAVIOR_QUESTION_" + key.upper() + "_INVALID")
+    if questions[0]["ask"].strip() == questions[1]["ask"].strip():
+        raise PracticeError("COACH_BEHAVIOR_QUESTIONS_IDENTICAL")
     perspectives = doc.get("perspectives")
     if (type(perspectives) is not list or len(perspectives) != 3
         or any(type(x) is not dict or any(
@@ -255,10 +264,15 @@ def paid_run(output_dir: Path) -> dict:
               "accepted":False,"literary_improvement_proven":False}
         record["results"].append(item)
         try:
-            interpretation=validate_coach(
-                teacher.ask(sys_prompt,user_prompt,num_predict=COACH_OUTPUT_TOKENS),
-                source["original"],
-            )
+            # Preserve the original provider object BEFORE format validation,
+            # so a rejected suggestion can be inspected offline without
+            # buying an identical coaching response again.
+            coach_raw=teacher.ask(
+                sys_prompt,user_prompt,num_predict=COACH_OUTPUT_TOKENS)
+            item["raw_coach"]= _save(
+                output_dir / (exercise["id"]+"-raw-coach.json"),
+                json.dumps(coach_raw,ensure_ascii=False,indent=2))
+            interpretation=validate_coach(coach_raw,source["original"])
             item["coach"]= _save(output_dir / (exercise["id"]+"-coach.json"),
                                  json.dumps(interpretation,ensure_ascii=False,indent=2))
             item["source_choice"]=interpretation["use"]
