@@ -285,3 +285,9 @@
 1. 先读取0.EM一轮实际Actions结果与输出产物，分清`offline_green`、`provider_wire_success`、`complete_A_B_pairs`、`model_usage`与真正`reader_verified_literary_uplift`。没有第三方语义审查不能宣布WF训练后明显变好。
 2. 重点检查不同观点是否**导致人物做不一样的行动**，还是只是把“船工/巡使/徒弟都很复杂”挂在嘴边；人物是否知道了不该知道的事；损失和后果是否能从实际正文找到前因。原始A、B和教练读本SHA须保留；写作行为提问可用也可拒绝，绝不伪装为永久真理。
 3. 若有可信证据，再考虑将可迁移的提问习惯以**显式可选**方式接入现有作者构思前阅读（不用第二数据库、评分器、重量级训练模块）。同时继续真实公版文学全文精读和唯一XuehaiStore增长；此次工作不应长期中断扩充。
+
+### 0.EM 真实S2空内容失败与协议修复（2026-11-05）
+
+- 第二轮真正模型回执 [Actions #42003985013](https://github.com/66tyu55/WriterForge/actions/runs/42003985013)：离线6项GREEN，随后真实intern-s2原始教练请求2次，实际HTTP已返回，provider报告总prompt_tokens=5042、completion_tokens=1206；但两次finish_reason=stop且message.content字符数均为0。保存未晋级练习manifest及原始请求元数据的受控Actions artifact，错误准确记录为\`DISCOVERY_PLANNER_EMPTY_VISIBLE_TEXT\`。没有生成小说A/B，没有可用习惯回执，没有Canon/R2写入，不能把这算作训练成功，更不能因为输出为空而重复无限收费。首次0.EM Actions #42003643495 的单字角色测试夹具错误仍是独立RED，发生在付费前。
+- 阅读[书生官方Chat Completions API](https://internlm.intern-ai.org.cn/doc/docs/Chat/)后确认\`intern-s2\`支持可选布尔\`thinking_mode\`，之前默认深思考可能耗尽本轮的短输出配额。只在原有\`writerforge/reverse_discovery_models.py\`加可选\`thinking_mode: bool|None=None\`，**只允许intern-s2**明确指定并维持其它模型字节级默认行为不变，变更提交\`236ce5e009d7b8f2bfc0340d32679129952ea820\`；0.EM练习的teacher/writer才明确传入False，提交\`8b5fbcb057cea4e80d8762a2685a3666a57d56ae\`。伪传输离线测试同时证明API payload真的带\`thinking_mode:false\`且无flag时旧协议不变，提交\`67169c5217bd499b653d18484574ae17ca10eb68\`。
+- 第三次受控一轮 [Actions #42005138159](https://github.com/66tyu55/WriterForge/actions/runs/42005138159) 由新的唯一提交消息\`WF 0.EM: one bounded Intern-S2 nonthinking behavior study\`触发。7项离线测试已全部通过，明确进入有界模型阶段；**截至本交接写入时运行仍在进行中，不能猜测实际收费和成功正文**。该Actions只在确切提交消息与第一次run_attempt启动，普通后续docs/代码提交不重新收费。若第三次模型输出仍不合格，应保留失败证据并考虑端砚TokenPlan上其他明确授权的付费写作模型，而不是将不可见推理误读为创作成果。
