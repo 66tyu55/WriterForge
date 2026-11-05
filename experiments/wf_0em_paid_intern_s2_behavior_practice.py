@@ -104,7 +104,7 @@ def coach_prompt(exercise: dict, reading: dict) -> tuple[str, str]:
         "只输出JSON，不评分、不声称已经提升写作能力。"
     )
     user = (
-        source + "\n【迁移练习题】\n" + exercise["premise"]
+        source + "\n【可直接引用的三个逐字锚点】\n" + "\n".join(reading["anchors"]) + "\n【迁移练习题】\n" + exercise["premise"]
         + "\n请返回JSON对象，字段严格如下："
         '{"use":"USE或PARTIAL或SKIP","reason":"不少于25字",'
         '"source_anchors":["原文逐字短串1","原文逐字短串2"],'
@@ -256,6 +256,9 @@ def paid_run(output_dir: Path) -> dict:
             item["coach"]= _save(output_dir / (exercise["id"]+"-coach.json"),
                                  json.dumps(interpretation,ensure_ascii=False,indent=2))
             item["source_choice"]=interpretation["use"]
+            if interpretation["use"]=="SKIP":
+                item["phase"]="SOURCE_SKIPPED_UNREVIEWED"
+                continue
             item["phase"]="BASELINE"
             original=""
             for arm in ("A","B"):
