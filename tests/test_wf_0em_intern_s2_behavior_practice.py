@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import unittest
+import json
 from unittest.mock import patch
 
 from experiments import wf_0em_paid_intern_s2_behavior_practice as em
-from writerforge.reverse_discovery_models import DiscoveryCallBudget, DiscoveryError
+from writerforge.reverse_discovery_models import DiscoveryCallBudget, DiscoveryError, DiscoveryModel
 
 class BoundedInternS2BehaviorPractice(unittest.TestCase):
     def test_exact_existing_public_snapshot_and_readings(self):
@@ -95,6 +96,34 @@ class BoundedInternS2BehaviorPractice(unittest.TestCase):
             "他写道"+source[:100]+"从此发生变化",source))
         self.assertFalse(em._copied_from_source(
             "一道白色的雨落到城墙，守门人想起了自己的孩子。",source))
+
+    def test_explicit_nonthinking_intern_s2_wire_is_opt_in_only(self):
+        observed=[]
+        def fake_transport(request):
+            body=json.loads(request.data.decode("utf8"))
+            observed.append(body)
+            return json.dumps({
+                "choices":[{"message":{"content":'{"evidence":"ok"}'},
+                            "finish_reason":"stop"}],
+                "usage":{"prompt_tokens":8,"completion_tokens":12},
+            }).encode("utf8")
+        token="safe-fixture-token"
+        budget=DiscoveryCallBudget(max_calls=2,max_reserved_output_tokens=1200)
+        m=DiscoveryModel(name="intern-s2",role="planner",api_key=token,
+                         budget=budget,transport=fake_transport,
+                         thinking_mode=False)
+        result=m.ask("你是文学批注者，要求JSON","请提供一个简洁JSON",num_predict=200)
+        self.assertEqual(result,{"evidence":"ok"})
+        self.assertIs(observed[0]["thinking_mode"],False)
+        self.assertEqual(observed[0]["model"],"intern-s2")
+        self.assertEqual(budget.calls,1)
+        other=DiscoveryModel(name="intern-s2",role="planner",api_key=token,
+                             budget=budget,transport=fake_transport)
+        other.ask("你是文学批注者，要求JSON","请提供一个简洁JSON",num_predict=200)
+        self.assertNotIn("thinking_mode",observed[1])
+        with self.assertRaisesRegex(DiscoveryError,"UNVERIFIED_THINKING_MODE"):
+            DiscoveryModel(name="glm-5.3",role="planner",api_key=token,
+                           budget=DiscoveryCallBudget(),thinking_mode=False)
 
 if __name__=="__main__":
     unittest.main()
