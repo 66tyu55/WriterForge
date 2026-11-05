@@ -15,6 +15,8 @@ class BoundedInternS2BehaviorPractice(unittest.TestCase):
         self.assertEqual(data["max_provider_wire_calls"],8)
         self.assertEqual(data["max_reserved_completion_tokens"],21000)
         self.assertEqual(len(data["tasks"]),2)
+        self.assertEqual(data["teacher_model"],"deepseek-v4-flash-0731")
+        self.assertEqual(data["same_author_model_for_both_arms"],"kimi-k2.6")
         self.assertEqual({x["source_id"] for x in data["tasks"]},
                          {"classic-0el-2-hh","classic-0el-4-jm"})
         self.assertTrue(data["uses_public_domain_sources_only"])
@@ -28,7 +30,7 @@ class BoundedInternS2BehaviorPractice(unittest.TestCase):
             with self.assertRaisesRegex(em.PracticeError,"EXPLICIT_PAID"):
                 em.paid_run(__import__("pathlib").Path("/tmp/do-not-create"))
         with patch.dict("os.environ",{
-            "WF0EM_PAID_EXPERIMENT":"WF0EM_BOUNDED_S2_20261105"
+            "WF0EM_PAID_EXPERIMENT":"WF0EM_BOUNDED_MULTI_MODEL_20261105"
             },clear=True):
             with self.assertRaisesRegex(em.PracticeError,"DISCOVERY_KEY"):
                 em.paid_run(__import__("pathlib").Path("/tmp/do-not-create"))
