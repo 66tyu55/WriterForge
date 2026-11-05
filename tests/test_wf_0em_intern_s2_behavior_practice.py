@@ -61,6 +61,33 @@ class BoundedInternS2BehaviorPractice(unittest.TestCase):
         with self.assertRaisesRegex(em.PracticeError,"COACH_DISTINCT"):
             em.validate_coach(broken,source["original"])
 
+    def test_concise_distinct_questions_allowed_not_duplicates(self):
+        source=em.load_public_sources()["ford-tax"]
+        coach={
+            "use":"PARTIAL",
+            "reason":"这篇原文提供了角色不同的见闻，但需防止把相术当作真实魔法。",
+            "source_anchors":source["anchors"][:2],
+            "habit_questions":[
+                {"ask":"谁付钱？","not_when":"无人交易"},
+                {"ask":"谁亲眼看见？","not_when":"客观已知"}
+            ],
+            "perspectives":[
+                {"actor":"船工阿福","wants":"求药","knows":"看见船","cost":"失舟"},
+                {"actor":"巡使谢凝","wants":"守关","knows":"听过令","cost":"失职"},
+                {"actor":"小徒闻笙","wants":"救人","knows":"听传闻","cost":"受罚"}
+            ],
+            "disagreement":"有人认为封江是迫不得已，有人相信征船为掩盖官府的真实缺口。",
+        }
+        result=em.validate_coach(coach,source["original"])
+        self.assertEqual(len(result["habit_questions"]),2)
+        bad={**coach,"habit_questions":[coach["habit_questions"][0]]*2}
+        with self.assertRaisesRegex(em.PracticeError,"COACH_BEHAVIOR_QUESTIONS_IDENTICAL"):
+            em.validate_coach(bad,source["original"])
+        bad={**coach,"habit_questions":[{"ask":"谁付钱？","not_when":""},
+                                        {"ask":"谁看见？","not_when":"没旁证"}]}
+        with self.assertRaisesRegex(em.PracticeError,"COACH_BEHAVIOR_QUESTION_NOT_WHEN_INVALID"):
+            em.validate_coach(bad,source["original"])
+
     def test_optional_habits_influence_prompt_not_acceptance(self):
         premise=em.EXERCISES[0]
         a=em.writer_prompt(premise,None)[1]
