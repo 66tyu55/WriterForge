@@ -1,0 +1,70 @@
+name: WF 0.EN two-scene same-length writing habit transfer once
+
+on:
+  push:
+    branches: [refactor-unified-scene-delivery-audit]
+    paths:
+      - .github/workflows/wf-0en-two-scene-habit-transfer-once.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wf-0en-two-scene-holdout-paid-once
+  cancel-in-progress: false
+
+jobs:
+  verify-old-coach-and-run-two-paid-holdouts:
+    # Never buy again on workflow rerun, docs edit, runner change, or tests.
+    if: >-
+      github.event_name == 'push' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'WF 0.EN: launch two-scene Pro habit transfer once'
+    runs-on: ubuntu-latest
+    timeout-minutes: 39
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WF0EN_PAID_APPROVAL: WF0EN_TWO_SCENE_PAID_HOLDOUT_20261105
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing Discovery model adapter only
+        run: python -m pip install -e .
+      - name: Restore verified original paid teacher and A/B proof from 0.EM
+        uses: actions/download-artifact@v4
+        with:
+          name: wf0em-verified-coach-deepseek-pro-ab-unaccepted
+          repository: 66tyu55/WriterForge
+          run-id: 42007328800
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/prior
+      - name: Zero-cost source-hash and optional-habits preflight
+        env:
+          WF0EN_SOURCE_DIR: ${{ runner.temp }}/prior
+        run: |
+          set -euo pipefail
+          python -m py_compile experiments/wf_0en_habit_transfer_holdout.py
+          python -m unittest discover -s tests -p 'test_wf_0en_habit_transfer_holdout.py' -v
+          python -m experiments.wf_0en_habit_transfer_holdout \
+            --source-dir "$RUNNER_TEMP/prior"
+      - name: Four bounded DeepSeek Pro arms, two original scenes
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/wf0en-holdout"
+          python -m experiments.wf_0en_habit_transfer_holdout \
+            --source-dir "$RUNNER_TEMP/prior" \
+            --output-dir "$RUNNER_TEMP/wf0en-holdout" --live
+      - name: Preserve unaccepted A/B prose and paid request receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wf0en-two-scene-habit-transfer-unaccepted
+          path: |
+            ${{ runner.temp }}/wf0en-holdout/
+          if-no-files-found: ignore
+          retention-days: 7
