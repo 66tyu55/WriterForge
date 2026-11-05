@@ -234,8 +234,12 @@ def paid_run(output_dir: Path) -> dict:
         max_calls=MAX_WIRE_CALLS,
         max_reserved_output_tokens=MAX_RESERVED_COMPLETION_TOKENS,
     )
-    teacher=DiscoveryModel(name=MODEL,role="planner",api_key=key,budget=budget)
-    writer=DiscoveryModel(name=MODEL,role="writer",api_key=key,budget=budget)
+    # Intern-S2 by default may spend the whole allowance on hidden thinking.
+    # Official API supports explicit thinking_mode=False for visible task output.
+    teacher=DiscoveryModel(name=MODEL,role="planner",api_key=key,
+                           budget=budget,thinking_mode=False)
+    writer=DiscoveryModel(name=MODEL,role="writer",api_key=key,
+                          budget=budget,thinking_mode=False)
     record=dry_run()
     record["state"]="IN_PROGRESS"
     record["model"]=MODEL
