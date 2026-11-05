@@ -113,6 +113,9 @@ def scene_prompt(scene: dict, arm: str) -> tuple[str,str]:
 def relative_difference(a: int,b: int) -> float:
     return round(abs(a-b)/max(a,b),4) if a and b else 1.0
 
+def han_count(text: str) -> int:
+    return sum("\u4e00" <= c <= "\u9fff" for c in text)
+
 def preflight(prior: Path) -> dict:
     coach=verify_old_coach(prior)
     scenes=[]
@@ -173,9 +176,10 @@ def live(prior: Path, output: Path) -> dict:
                     raise HoldoutError("INVALID_MODEL_PROSE_LENGTH")
                 item["arms"][arm]=_save(
                     output/(scene["id"]+"-"+arm+".md"),prose)
+                item["arms"][arm]["han_characters"]=han_count(prose)
                 item["phase"]="ARM_"+arm+"_SAVED_UNACCEPTED"
-            a=item["arms"]["A"]["characters"]
-            b=item["arms"]["B"]["characters"]
+            a=item["arms"]["A"]["han_characters"]
+            b=item["arms"]["B"]["han_characters"]
             item["length_ratio"]=relative_difference(a,b)
             item["length_comparable"]=(
                 MIN_LENGTH<=a<=MAX_LENGTH and MIN_LENGTH<=b<=MAX_LENGTH
@@ -223,8 +227,8 @@ def main() -> int:
                                  for x in doc["results"]),
             "near_length_pairs":sum(x.get("length_comparable",False)
                                     for x in doc["results"]),
-            "character_counts":{x["id"]:{a:v["characters"]
-                                       for a,v in x["arms"].items()}
+            "character_counts":{x["id"]:{a:{"unicode":v["characters"],
+                "han":v["han_characters"]} for a,v in x["arms"].items()}
                                 for x in doc["results"]},
             "wire_calls_reserved":doc.get("wire_calls_reserved",0),
             "reserved_output_tokens_not_usage":doc.get(
