@@ -78,7 +78,8 @@ class DiscoveryModel:
 
     def __init__(self, *, name: str, role: str, api_key: str,
                  budget: DiscoveryCallBudget, transport=None,
-                 reasoning_effort: str | None = None):
+                 reasoning_effort: str | None = None,
+                 thinking_mode: bool | None = None):
         if role not in ROLE_MODELS or name not in MODELS:
             raise DiscoveryError("UNSUPPORTED_DISCOVERY_ROLE_OR_MODEL")
         if not isinstance(api_key,str) or not api_key or len(api_key)>512:
@@ -86,6 +87,14 @@ class DiscoveryModel:
         if reasoning_effort is not None and not (
             name=="glm-5.3" and role=="writer" and reasoning_effort=="low"):
             raise DiscoveryError("UNVERIFIED_REASONING_EFFORT_COMBINATION")
+        # Official Intern-S2 API supports a boolean thinking_mode switch.
+        # Opt-in ONLY for Intern-S2; default remains byte-identical for old
+        # DeepSeek/GLM/Kimi/V28 production model calls.
+        if thinking_mode is not None and (
+                type(thinking_mode) is not bool or name!="intern-s2"
+                or reasoning_effort is not None):
+            raise DiscoveryError("UNVERIFIED_THINKING_MODE_COMBINATION")
+        self.thinking_mode=thinking_mode
         self.reasoning_effort=reasoning_effort
         self.name=name
         self.role=role
@@ -136,6 +145,8 @@ class DiscoveryModel:
                 "stream":False,"max_tokens":requested,
                 "temperature":1 if self.name=="kimi-k2.6" else (0.2 if turn else 0.4),
             }
+            if self.thinking_mode is not None:
+                request_data["thinking_mode"]=self.thinking_mode
             if self.reasoning_effort is not None:
                 # Optional GLM-5.3 feature gate. Default behavior unchanged.
                 # Explicit opt-in only after separate gateway compatibility
