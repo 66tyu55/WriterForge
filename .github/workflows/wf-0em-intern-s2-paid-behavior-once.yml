@@ -19,7 +19,7 @@ jobs:
     if: >-
       github.event_name == 'push' &&
       github.run_attempt == 1 &&
-      github.event.head_commit.message == 'WF 0.EM: launch one bounded Intern-S2 behavior study'
+      github.event.head_commit.message == 'WF 0.EM: paid behavior study after verified fixture repair'
     runs-on: ubuntu-latest
     timeout-minutes: 28
     env:
