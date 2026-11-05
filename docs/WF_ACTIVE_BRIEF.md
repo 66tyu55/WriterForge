@@ -1,4 +1,4 @@
-# WriterForge 最新轻量交接｜0.EL｜2026-11-03
+# WriterForge 最新轻量交接｜0.EM｜2026-11-05
 
 **下一聊天首先且只读本页**（开发分支 `refactor-unified-scene-delivery-audit`），不要全文读取 `docs/CURRENT_HANDOFF.md`；发生具体错误才看相关源码、文学资料、Git 提交与 Actions 日志。
 
@@ -270,3 +270,18 @@
 ### 下一阶段 0.EM
 
 从固定的 408条／360篇、以上R2/SHA接续，优先真正不同作品和声口中：常人遇到战事、迁移或神怪后的实际安置；代际知识不对称及童年误解；职业和身体限制如何改变争斗；亲密照料、劳动报酬与言语分寸；受伤害者的自身叙述而非主角代言。保持人类真实连续原文＋贴句批注＋开放心得，核对上游公版与旧区间再入库。用户已经允许书生InternLM等外部模型按需协助阅读、批注和对照，缺乏有效调用渠道或密钥时不要冒称已经调用；外部回复不取代真实原文和WF自己的持久学海，也不自动覆盖作者USE/SKIP。继续唯一XuehaiStore、不可变R2 successor、独立冷恢复。
+
+## 0.EM｜书生付费练习：WF的写作行为习惯与不同看法（2026-11-05）
+
+- **用户新授权：可以使用书生·端砚的付费模型训练WF写作行为习惯与不同看法。** 这里的“训练WF”先是用真正付费模型阅读、比较、写作、保存证据的**行为习惯练习**，不是修改或宣称微调Intern-S2的模型权重。既有完整原文＋批注＋心得的真实学海保留，旧已核实 `wf-0el-xuehai-literary-408-20261103-v1`（408条内容／360篇阅读，Snapshot 5f08eddb80443a9bf1eae2b0b9bf2c0a45bc5a69ec910818f340da25277f7f4a，全库SHA256 dd1efe09346e02e149d0ef942c1f56e030d6cc791109ef5ae46397e90add62a6）。本次无新学海入库，不将试验演练算作古籍原文积累。
+- 具体模型不是笼统旧InternLM接口，而是**书生·端砚 / Intern-S2**，通过现有仓库`writerforge/reverse_discovery_models.py` 的固定HTTPS Discovery接口（discovery-api.intern-ai.org.cn），API凭据由运行环境提供，GitHub Actions仅使用预存Secret表达式，不复制或打印密钥。此前另一云环境已成功HTTP 200对`intern-s2`短请求，但该成功**不是本次WF小说实验的回执**。本次不能改旧`local_chat_completion`的loopback安全限制，也不切换正式WRITE、Canon、main、Railway或Windows本地模型。
+- 实际工作程序：[`experiments/wf_0em_paid_intern_s2_behavior_practice.py`](../experiments/wf_0em_paid_intern_s2_behavior_practice.py)，首次创建提交 `54a520f6988485e669f0bb6ec3c9e9e8ecb50607`，后以`bb2d4996a864688efefbfceb34bdfd42b7e662b1`显示源原字锚点并严格遵守SKIP。只从已验证0.EL的《九命奇冤》与《海上花列傳》两篇**真实公版**原文＋三批注＋心得练习，题目是全新原创仙侠渡口征船／灵井救病。每题书生先以`USE/PARTIAL/SKIP`可选态度给出两个逐字原文锚点、两个含不适用条件的写作问题，以及三个人物各自的愿望、所知、代价和竞争解释；随后相同`intern-s2`作者模型以相同题目、相同输出预算写A普通版和B行为习惯版。若书生选择SKIP，WF不能强行教其使用古籍。两臂仍是**未接受小说候选**；教练额外调用成本单独记，字数差大须标为不可公平评判。
+- **预算与隐私**：只有显式`WF0EM_PAID_EXPERIMENT=WF0EM_BOUNDED_S2_20261105`与环境现有API密钥均存在才允许网络请求；最多8次底层请求（重试计入），最多21,000预留completion tokens，若预算不够立即失败且不循环收费。只发送自拟虚构场景与公版文学；不读取/上传私有现代小说、Canon、Railway数据、私有R2原件或GitHub密钥。原文逐字锚点不支持则拒收教练看法，防大段原文复制，原始候选及SHA保存为短期未评审Actions产物，公开日志只报状态、次数和usage；不会自动提交模型写的正文或发布新R2。
+- 离线测试 [`tests/test_wf_0em_intern_s2_behavior_practice.py`](../tests/test_wf_0em_intern_s2_behavior_practice.py)：第一次Actions [#42003643495](https://github.com/66tyu55/WriterForge/actions/runs/42003643495)在付费前因测试夹具3个角色名仅1字而RED，**0付费调用**，保留。修复提交`c4bd202f63f3b784afd5c5bf25830cc6fdae37ec`后，6项全部GREEN（真实第二轮[#42003985013](https://github.com/66tyu55/WriterForge/actions/runs/42003985013)离线步骤通过）。本次唯一付费Actions工作流 [`.github/workflows/wf-0em-intern-s2-paid-behavior-once.yml`](../.github/workflows/wf-0em-intern-s2-paid-behavior-once.yml)由该第二轮推送触发，按`run_attempt == 1`与确切触发提交消息限制自动重跑，普通源码或测试修改不会重新购买一轮。
+- **截至撰写本交接**：第二轮GitHub Actions #42003985013 已进入模型调用步骤，**实付请求数、收费、生成章节是否成功和文学质量仍待最终回执**，不得提前说“已训练成功”。如果缺API凭据、超时、输出JSON不合格或预算耗尽，要保留原失败记录，不能因为已经支付就自动晋级或追加独立评价模型调用。模型生成的比较只可能产生可选WF写作提问习惯，是否能迁移到新题仍需读者独立看原文、动机/所知、代价、语言自然度和假因果。
+
+### 下一阶段 0.EN
+
+1. 先读取0.EM一轮实际Actions结果与输出产物，分清`offline_green`、`provider_wire_success`、`complete_A_B_pairs`、`model_usage`与真正`reader_verified_literary_uplift`。没有第三方语义审查不能宣布WF训练后明显变好。
+2. 重点检查不同观点是否**导致人物做不一样的行动**，还是只是把“船工/巡使/徒弟都很复杂”挂在嘴边；人物是否知道了不该知道的事；损失和后果是否能从实际正文找到前因。原始A、B和教练读本SHA须保留；写作行为提问可用也可拒绝，绝不伪装为永久真理。
+3. 若有可信证据，再考虑将可迁移的提问习惯以**显式可选**方式接入现有作者构思前阅读（不用第二数据库、评分器、重量级训练模块）。同时继续真实公版文学全文精读和唯一XuehaiStore增长；此次工作不应长期中断扩充。
