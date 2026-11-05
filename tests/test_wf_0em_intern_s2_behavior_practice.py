@@ -43,9 +43,9 @@ class BoundedInternS2BehaviorPractice(unittest.TestCase):
                 {"ask":"眼前决定会让谁失去生计或安宁？","not_when":"这场戏没有相关物质冲突时可以跳过。"},
             ],
             "perspectives":[
-                {"actor":"甲","wants":"救病人","knows":"见过病船","cost":"损失舟船"},
-                {"actor":"乙","wants":"守城门","knows":"听过城令","cost":"失去职位"},
-                {"actor":"丙","wants":"不被牵连","knows":"只听传闻","cost":"受到责打"},
+                {"actor":"甲船工","wants":"救病人","knows":"见过病船","cost":"损失舟船"},
+                {"actor":"乙巡使","wants":"守城门","knows":"听过城令","cost":"失去职位"},
+                {"actor":"丙徒弟","wants":"不被牵连","knows":"只听传闻","cost":"受到责打"},
             ],
             "disagreement":"有人认为必须封江，有人认为城令只是迁怒百姓，两者都缺少直接证据。",
         }
@@ -69,9 +69,9 @@ class BoundedInternS2BehaviorPractice(unittest.TestCase):
                 {"ask":"谁为决定付钱","not_when":"场景没有价款"}
             ],
             "perspectives":[
-                {"actor":"甲","wants":"通行","knows":"天黑","cost":"冻伤"},
-                {"actor":"乙","wants":"封河","knows":"传闻","cost":"失职"},
-                {"actor":"丙","wants":"送药","knows":"病情","cost":"误期"}
+                {"actor":"甲船工","wants":"通行","knows":"天黑","cost":"冻伤"},
+                {"actor":"乙巡使","wants":"封河","knows":"传闻","cost":"失职"},
+                {"actor":"丙徒弟","wants":"送药","knows":"病情","cost":"误期"}
             ],"disagreement":"不同人物会以不同证据解释封河的目的。"}
         b=em.writer_prompt(premise,coach)[1]
         self.assertNotIn("可选写作问题",a)
