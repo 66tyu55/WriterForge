@@ -32,3 +32,7 @@
 5. **任何上述失败都保留**，不对同一任务继续刷模型或靠加检查模块掩盖。没有独立人工盲评，不宣称文学能力提高。
 
 第二轮属于在看到第一轮结果后作出的**透明方法修正**；即使成功，也只能说明短上下文约束方式适用于一个冻结的原创故事，不证明从完整小说中学会世界运行。
+
+## Launch receipt
+
+This commit uniquely starts the last two local model calls. All inputs and criteria were frozen beforehand. No auto re-run, no result-conditioned prompt edits.
