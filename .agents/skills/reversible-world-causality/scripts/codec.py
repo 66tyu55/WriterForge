@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 from decimal import Decimal, InvalidOperation
+from fractions import Fraction
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -87,10 +88,12 @@ def validate_observations(obs, raw, encoding):
             raise ReversibleError("ANCHOR_CUTS_CHARACTER") from exc
         require(matched == surface, "ANCHOR_NOT_IN_ORIGINAL")
         all_anchors.add(aid)
+    anchor_texts = {a["id"]: a["surface"] for a in anchors}
     for fact in facts:
         require(isinstance(fact, dict) and set(fact) ==
                 {"id", "kind", "subject_ids", "evidence_ids", "telling_seq",
-                 "story_tick", "time_axis", "epistemic", "parameters"},
+                 "story_tick", "time_axis", "epistemic", "parameters",
+                 "parameter_traces"},
                 "FACT_SCHEMA")
         fid = fact["id"]
         require(isinstance(fid, str) and IDENT.fullmatch(fid) and fid not in all_facts,
@@ -122,6 +125,39 @@ def validate_observations(obs, raw, encoding):
                 raise ReversibleError("PARAMETER_NOT_DECIMAL") from exc
             require(num.is_finite() and format(num, "f") == v,
                     "PARAMETER_NOT_CANONICAL_OR_FINITE")
+        traces = fact["parameter_traces"]
+        require(isinstance(traces, dict) and set(traces) == set(params),
+                "PARAMETER_PROVENANCE_REQUIRED")
+        for name, trace in traces.items():
+            require(isinstance(trace, dict) and set(trace) ==
+                    {"method", "evidence_ids", "inputs"}, "PARAMETER_TRACE_SCHEMA")
+            refs = trace["evidence_ids"]
+            require(isinstance(refs, list) and len(refs) >= 1 and
+                    all(isinstance(x, str) and x in fact["evidence_ids"]
+                        for x in refs), "PARAMETER_TRACE_EVIDENCE")
+            method, inputs = trace["method"], trace["inputs"]
+            if method == "source_literal":
+                require(inputs == [] and
+                        any(params[name] in anchor_texts[x] for x in refs),
+                        "PARAMETER_NOT_LITERAL_IN_SOURCE")
+            elif method == "exact_ratio":
+                require(isinstance(inputs, list) and len(inputs) == 2 and
+                        all(isinstance(v, str) and v and len(v) <= 64
+                            for v in inputs), "PARAMETER_RATIO_INPUTS")
+                try:
+                    numerator, denominator = (Decimal(v) for v in inputs)
+                    observed = Fraction(Decimal(params[name]))
+                    predicted = Fraction(numerator) / Fraction(denominator)
+                except (InvalidOperation, ZeroDivisionError, OverflowError) as exc:
+                    raise ReversibleError("PARAMETER_RATIO_INVALID") from exc
+                require(numerator.is_finite() and denominator.is_finite()
+                        and format(numerator, "f") == inputs[0]
+                        and format(denominator, "f") == inputs[1]
+                        and all(any(v in anchor_texts[x] for x in refs)
+                                for v in inputs)
+                        and observed == predicted, "PARAMETER_RATIO_NOT_EXACT_OR_GROUNDED")
+            else:
+                raise ReversibleError("PARAMETER_UNSUPPORTED_UNCALIBRATED_METHOD")
         all_facts.add(fid)
     for link in links:
         require(isinstance(link, dict) and set(link) ==
