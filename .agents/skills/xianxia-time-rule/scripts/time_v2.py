@@ -91,7 +91,8 @@ def validate(s):
         "ADVANCEMENT_RULE_FIELDS_INVALID")
     a=advance["actor_id"]
     require(a in actors and type(advance["from_realm"]) is int
-            and advance["from_realm"]==actors[a]["realm_step"]
+            and actors[a]["realm_step"] in (advance["from_realm"],
+                                           advance["to_realm"])
             and advance["to_realm"]==advance["from_realm"]+1
             and rational(advance["min_cultivation_subjective_hours"]) > 0,
             "ADVANCEMENT_RULE_INVALID")
