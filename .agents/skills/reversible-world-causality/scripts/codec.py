@@ -44,13 +44,15 @@ def hash_bytes(value):
 
 
 def decode_source(raw):
-    for encoding in ("utf-8-sig", "gb18030"):
+    codecs = (("utf-8-sig", "gb18030") if raw.startswith(b"\\xef\\xbb\\xbf")
+              else ("utf-8", "gb18030"))
+    for encoding in codecs:
         try:
             text = raw.decode(encoding, errors="strict")
-            require(text.encode(encoding) == raw, "SOURCE_CODEC_NOT_BYTE_REVERSIBLE")
-            return encoding
         except UnicodeError:
             continue
+        if text.encode(encoding) == raw:
+            return encoding
     raise ReversibleError("UNSUPPORTED_SOURCE_ENCODING")
 
 
