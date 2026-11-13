@@ -91,6 +91,10 @@ def chinese_exact(s):
     units={"十":10,"百":100,"千":1000,"万":10000,"亿":100000000}
     if not s or any(ch not in numerals and ch not in units for ch in s):
         return None
+    # Colloquial merged counts "三五年", "十七八岁" are ranges, NOT exact 5/18.
+    if any(a in numerals and b in numerals and a not in "零〇○" and b not in "零〇○"
+           for a,b in zip(s,s[1:])):
+        return None
     total,group,current=0,0,0
     try:
         for ch in s:
