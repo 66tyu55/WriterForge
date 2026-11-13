@@ -241,6 +241,70 @@ def scan(path,max_matches=50000,include_private_context=False):
                   "unreviewed_semantic_candidates":len(rows),
                   "model_weight_training_performed":False,
                   "full_story_semantic_time_coverage_proven":False}}
+
+
+def admit_frame_visit(schedule, state, *, world_day_id):
+    """Source-specific access quota. Never turn quota into elapsed/training time.
+
+    Example provenance: a private original may report three entries per day
+    and 'more than twenty shichen per entry'. The latter is an approximate
+    claim, NOT an exact numeric maximum duration or 10x effective learning.
+    No story clock or biological aging is inferred here.
+    """
+    needed={"frame_id","max_visits_per_world_day","reported_entry_duration",
+            "source_claim_status","universal_rule"}
+    if type(schedule) is not dict or set(schedule)!=needed:
+        raise ValueError("FRAME_QUOTA_SCHEMA")
+    if (type(schedule["frame_id"]) is not str or
+        type(schedule["max_visits_per_world_day"]) is not int or
+        not 1<=schedule["max_visits_per_world_day"]<=100 or
+        schedule["source_claim_status"] not in ("reported","narrated") or
+        schedule["universal_rule"] is not False):
+        raise ValueError("FRAME_QUOTA_NOT_SOURCE_BOUNDED")
+    info=schedule["reported_entry_duration"]
+    if type(info) is not dict or set(info)!={"quantity","unit","qualifier"}:
+        raise ValueError("ENTRY_DURATION_SCHEMA")
+    if (type(info["quantity"]) is not str or
+        info["unit"] not in ("shichen","hour","day") or
+        info["qualifier"] not in ("EXACT","MORE_THAN","APPROX","UNKNOWN")):
+        raise ValueError("ENTRY_DURATION_NOT_CALIBRATED")
+    if (type(state) is not dict or set(state)!={"day_id","visits_used"} or
+        type(world_day_id) is not int or world_day_id<0 or
+        type(state["visits_used"]) is not int or
+        state["visits_used"]<0 or
+        (state["day_id"] is not None and
+         (type(state["day_id"]) is not int or world_day_id<state["day_id"]))):
+        raise ValueError("FRAME_QUOTA_STATE_INVALID")
+    consumed=(state["visits_used"] if state["day_id"]==world_day_id else 0)
+    if consumed >= schedule["max_visits_per_world_day"]:
+        raise ValueError("FRAME_DAILY_ENTRY_QUOTA_EXHAUSTED")
+    return {
+        "next_state":{"day_id":world_day_id,"visits_used":consumed+1},
+        "visit_count_recorded":True,
+        "subjective_elapsed_from_visit":None,
+        "cultivation_credit_from_visit":None,
+        "biological_aging_from_visit":None,
+        "source_reported_duration_exact":info["qualifier"]=="EXACT",
+        "rate_and_quota_separately_required":True,
+    }
+
+
+def do_not_infer_aging_from_cultivation(cultivation_credit, *, direct_age_evidence=None):
+    """Dream-practice duration is not evidence of bodily aging."""
+    if cultivation_credit is None:
+        raise ValueError("CULTIVATION_DURATION_MISSING")
+    if direct_age_evidence is None:
+        return {"biological_age_increment":None,
+                "knowledge_state":"UNKNOWN_NO_DIRECT_AGING_EVIDENCE",
+                "may_not_set_to_cultivation_credit":True}
+    if type(direct_age_evidence) is not dict or set(direct_age_evidence)!={"duration","unit","epistemic"}:
+        raise ValueError("AGING_EVIDENCE_SCHEMA")
+    if direct_age_evidence["epistemic"] not in ("narrated","reported"):
+        raise ValueError("AGING_EVIDENCE_NOT_ESTABLISHED")
+    return {"biological_age_increment":direct_age_evidence["duration"],
+            "unit":direct_age_evidence["unit"],
+            "knowledge_state":"SOURCE_REPORTED_NOT_UNIVERSAL"}
+
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--source",action="append",required=True)
