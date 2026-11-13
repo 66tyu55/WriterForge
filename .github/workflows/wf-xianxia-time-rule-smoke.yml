@@ -16,5 +16,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Test standalone time rule and ablations
+      - name: Legacy v1 remains unchanged as historical baseline
         run: python -m unittest discover -s tests -p 'test_wf_xianxia_time_rule.py' -v
+      - name: V2 independent-clock and one-parameter ablations
+        run: python -m unittest discover -s tests -p 'test_wf_xianxia_time_v2.py' -v
