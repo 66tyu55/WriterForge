@@ -1,8 +1,8 @@
 """Run a frozen source-free real model inverse for WriterForge (NO original prose).
 
 A/B provide source-anchored but NOT independently verified calibration habits.
-C is a wholly different original's first-two-chapter anonymous prefix.
-All C future events and the private grading key are absent. Model weights are
+D is a previously unused complete original's first-chapter anonymized prefix.
+All D future chapters and their private grading key are absent. Model weights are
 not updated. The only actual model effects are these one-shot completions.
 """
 from __future__ import annotations
@@ -41,8 +41,8 @@ def load_case():
     assert case["format"] == "wf.non-time-original-source-inverse.v4"
     assert case["arms"] == ["baseline", "original_A_B_reading"]
     assert case["original_prose_embedded"] is False
-    assert case["independent_review_completed"] is False
-    assert case["one_to_one_complete"] is False
+    assert case["independent_semantic_review"] is False
+    assert case["model_weights_trained"] is False
     assert len(case["observations"]) == 38
     assert all(x[0] == "D%03d" % i for i,x in enumerate(case["observations"], 1))
     assert all(e["ids"] and all(t.startswith(("A","B")) for t in e["ids"])
@@ -57,7 +57,7 @@ def load_case():
 
 def prompt(case, arm):
     question = {
-      "test":case["test_world"],
+      "test":{"role_legend":case["role_legend"],"observations":case["observations"],"questions":case["questions"]},
       "read_these_first":"The observations cover a contiguous source prefix only; unseen future is withheld.",
       "epistemic_contract":"Report UNKNOWN for unobserved concrete outcomes and a CHARACTER_BELIEF for a character's conclusion.",
     }
