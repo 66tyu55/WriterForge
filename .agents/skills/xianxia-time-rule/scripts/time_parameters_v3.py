@@ -157,8 +157,8 @@ def scan(path,max_matches=50000,include_private_context=False):
         # Prevent source names like '万天明', '二天一流' from becoming duration.
         if unit in ("天","日","时") and m.end()<len(text):
             next_char=text[m.end()]
-            if next_char not in "了来后前内中间左右以而为至即这那与，。！？,.、：:；;）)]〉\n\r \t" and
-               m.group(0) in {"万天","一日","一时"}:
+            if (next_char not in "了来后前内中间左右以而为至即这那与，。！？,.、：:；;）)]〉\n\r \t"
+                    and m.group(0) in {"万天","一日","一时"}):
                 continue
         ln=bisect_right(char_off,m.start())-1
         byte_start=byte_off[ln]+len(lines[ln][:m.start()-char_off[ln]].encode(encoding))
