@@ -174,6 +174,12 @@ def scan(path,max_matches=50000,include_private_context=False):
         assert raw[byte_start:byte_start+len(bs)]==bs
         context=text[max(cut,m.start()-38):min(len(text),m.end()+38)]
         labels,rate_status=independently_coded(context,surface)
+        # A nearby negated/affirmed frame-rate statement is NOT evidence
+        # that this particular numeric duration describes frame dilation.
+        # Keep the rate claim as its own independently anchored signal.
+        labels=[x for x in labels if x!="local_time_rate"]
+        if rate_status in ("NEGATED_UNUSUAL_RATE","POTENTIAL_EXPLICIT_RATE"):
+            rate_status="NEARBY_TIME_RATE_CLAIM_NOT_THIS_DURATION"
         quantity,qual=qualified_quantity(val,unit)
         if "cultivation_efficiency" in labels and "local_time_rate" not in labels:
             rate_status="EFFICIENCY_IS_NOT_TIME_DILATION"
