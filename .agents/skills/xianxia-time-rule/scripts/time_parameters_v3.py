@@ -35,6 +35,8 @@ DOMAINS={
  "cultivation_exposure":("training_time_unit","actor","actual training time, not training effect"),
  "cultivation_efficiency":("effect_per_training_time","actor","learning/progress equivalence, NOT physical time dilation"),
  "local_time_rate":("subjective/world_duration_ratio","frame","must have evidence for different elapsed clocks"),
+ "frame_access_schedule":("visits_per_world_day and visit_duration","frame","capacity/entry limit distinct from physical rate"),
+ "actor_biological_aging_rate":("biological_age_increment/subjective_elapsed","actor","cannot derive bodily aging from dream experience"),
  "advancement_condition":("temporal_precondition","actor","candidate threshold, never auto success"),
  "travel_elapsed":("world_time_unit","journey","time spent traveling, actor/speed usually unknown"),
  "waiting_deadline":("world_time_unit","event","reported waiting or constraint, may be forecast"),
