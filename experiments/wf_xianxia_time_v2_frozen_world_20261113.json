@@ -1,0 +1,172 @@
+{
+  "format": "wf.time-rule-v2-story-experiment.v1",
+  "random_character_seed": 20261113,
+  "character": {
+    "actor_id": "P001",
+    "role": "灵田佃户",
+    "temperament": "谨慎却倔强"
+  },
+  "secondary_actor": {
+    "actor_id": "N001",
+    "role": "河堤守夜人",
+    "frame": "outside",
+    "knows_cave": false
+  },
+  "premise": "沿河的灵田在暴雨中将被淹没。洞府外的守夜人不认识主角，仍在自发修补旧堤。主角刚到洞府，计划专心修炼6个世界小时，洪水预计在世界时钟第1008小时抵达。施展护堤术需要先突破到第二境；能否突破和能否救堤都不保证。主角也可以不突破而救人、求援、逃避或失误。",
+  "before_model_calls_frozen": true,
+  "time_unit": "hour",
+  "original_v1_status": "DEPRECATED_NOT_A_UNIVERSAL_XIANXIA_TIME_MODEL",
+  "arms": [
+    "baseline",
+    "rate1",
+    "rate3"
+  ],
+  "changed_parameter_only": "time_frames.cave.numerator",
+  "baseline_information": "同样角色和洪水危机，不提供精确世界时钟、洞府时间倍率或突破时间门槛；要求原创小说，不冒充规则测试。",
+  "rate1": {
+    "format": "wf.xianxia-time-independent-parameters.v2",
+    "world_clock": {
+      "origin": "第七纪纪元零点（试验内自定）",
+      "unit": "world_hour",
+      "hour": 1000,
+      "deadline_hour": 1008
+    },
+    "time_frames": {
+      "outside": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "cave": {
+        "numerator": 1,
+        "denominator": 1
+      }
+    },
+    "actors": {
+      "P001": {
+        "frame": "cave",
+        "age_subjective_hours": "150000",
+        "lived_subjective_hours": "0",
+        "cultivation_subjective_hours": "6",
+        "realm_step": 1
+      },
+      "N001": {
+        "frame": "outside",
+        "age_subjective_hours": "220000",
+        "lived_subjective_hours": "0",
+        "cultivation_subjective_hours": "0",
+        "realm_step": 1
+      }
+    },
+    "advancement": {
+      "actor_id": "P001",
+      "from_realm": 1,
+      "to_realm": 2,
+      "min_cultivation_subjective_hours": "20"
+    },
+    "technique": {
+      "actor_id": "P001",
+      "min_realm": 2,
+      "latest_world_hour": 1008
+    },
+    "era_history": {
+      "current": "第七纪",
+      "past": [
+        "旧纪元"
+      ],
+      "past_exact_hours": null
+    },
+    "provenance": {
+      "source": "original_fictional_experiment",
+      "calibration": "scenario_assumption",
+      "is_universal_law": false
+    }
+  },
+  "rate3": {
+    "format": "wf.xianxia-time-independent-parameters.v2",
+    "world_clock": {
+      "origin": "第七纪纪元零点（试验内自定）",
+      "unit": "world_hour",
+      "hour": 1000,
+      "deadline_hour": 1008
+    },
+    "time_frames": {
+      "outside": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "cave": {
+        "numerator": 3,
+        "denominator": 1
+      }
+    },
+    "actors": {
+      "P001": {
+        "frame": "cave",
+        "age_subjective_hours": "150000",
+        "lived_subjective_hours": "0",
+        "cultivation_subjective_hours": "6",
+        "realm_step": 1
+      },
+      "N001": {
+        "frame": "outside",
+        "age_subjective_hours": "220000",
+        "lived_subjective_hours": "0",
+        "cultivation_subjective_hours": "0",
+        "realm_step": 1
+      }
+    },
+    "advancement": {
+      "actor_id": "P001",
+      "from_realm": 1,
+      "to_realm": 2,
+      "min_cultivation_subjective_hours": "20"
+    },
+    "technique": {
+      "actor_id": "P001",
+      "min_realm": 2,
+      "latest_world_hour": 1008
+    },
+    "era_history": {
+      "current": "第七纪",
+      "past": [
+        "旧纪元"
+      ],
+      "past_exact_hours": null
+    },
+    "provenance": {
+      "source": "original_fictional_experiment",
+      "calibration": "scenario_assumption",
+      "is_universal_law": false
+    }
+  },
+  "expected_mechanics": {
+    "fixed_session_world_hours": 6,
+    "rate1_after_session": {
+      "world_hour": 1006,
+      "subjective_age_delta": "6",
+      "cultivation_total": "12",
+      "can_successful_attempt": false
+    },
+    "rate3_after_session": {
+      "world_hour": 1006,
+      "subjective_age_delta": "18",
+      "cultivation_total": "24",
+      "can_successful_attempt": true
+    },
+    "offscreen_npc_elapsed_both": "6",
+    "deadline_world_hour": 1008,
+    "breakthrough_not_forced": true
+  },
+  "metrics_to_check": [
+    "one_parameter_effect",
+    "npc_time_advances",
+    "author_can_fail_even_eligible",
+    "world_vs_subjective_duration",
+    "prose_vs_event_consistency",
+    "changed_story_choice",
+    "time_window_and_technique_eligibility"
+  ],
+  "model_weight_training": false,
+  "source_novel_training": false,
+  "literary_quality_independently_proven": false
+}

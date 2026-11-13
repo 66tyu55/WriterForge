@@ -1,0 +1,63 @@
+name: WF Time V2 Compact Author Two Arms — Final One Shot
+
+on:
+  push:
+    branches: [feature/wf-xianxia-time-rule-20261113]
+    paths:
+      - .github/workflows/wf-xianxia-time-v2-compact-once.yml
+      - docs/WF_XIANXIA_TIME_V2_COMPACT_SECOND_TRIAL_20261113.md
+      - experiments/wf_xianxia_time_v2_compact_author_once.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf-time-v2-compact-final-two-arm-one-shot
+  cancel-in-progress: false
+
+jobs:
+  two-real-prose-completions:
+    if: >-
+      github.event_name == 'push' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'WF time v2 compact: one final two-arm model experiment'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify independent v2 time tests and sealed compact prompt
+        run: |
+          python -m unittest discover -s tests -p 'test_wf_xianxia_time_v2*.py' -v
+          python experiments/wf_xianxia_time_v2_compact_author_once.py --dry-run
+      - name: Install pinned local CPU inference library
+        env:
+          CMAKE_ARGS: -DGGML_NATIVE=OFF
+          CMAKE_BUILD_PARALLEL_LEVEL: '2'
+        run: python -m pip install 'llama-cpp-python==0.3.16'
+      - name: Download SHA verified Qwen2.5-3B GGUF
+        run: |
+          curl --fail --show-error --location --connect-timeout 30 --max-time 720 \
+            --output "$RUNNER_TEMP/wf-time-v2-compact.gguf" \
+            "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/254600e47ea694216f6108325376ce5b35d456a1/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+          printf '%s  %s\n' \
+            '9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94' \
+            "$RUNNER_TEMP/wf-time-v2-compact.gguf" | sha256sum --check --status
+      - name: Exactly two genuine source-free local novel prose generations
+        run: |
+          python experiments/wf_xianxia_time_v2_compact_author_once.py \
+            --model "$RUNNER_TEMP/wf-time-v2-compact.gguf" \
+            --out "$RUNNER_TEMP/wf-time-v2-compact-original-prose"
+      - name: Archive raw model replies even after failure, no retry
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-Time-V2-Compact-Real-Two-Original-Writer-Prose
+          path: ${{ runner.temp }}/wf-time-v2-compact-original-prose/
+          if-no-files-found: warn
+          retention-days: 90

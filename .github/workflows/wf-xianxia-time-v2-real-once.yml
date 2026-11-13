@@ -1,0 +1,64 @@
+name: WF Xianxia Time V2 Real Three-Arm Local Writer Once
+
+on:
+  push:
+    branches: [feature/wf-xianxia-time-rule-20261113]
+    paths:
+      - .github/workflows/wf-xianxia-time-v2-real-once.yml
+      - docs/WF_XIANXIA_TIME_V2_REAL_TEST_20261113.md
+      - experiments/wf_xianxia_time_v2_frozen_world_20261113.json
+      - experiments/wf_xianxia_time_v2_real_writer_once.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf-time-v2-single-real-local-three-arm-once
+  cancel-in-progress: false
+
+jobs:
+  real-model-time-choice:
+    if: >-
+      github.event_name == 'push' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'WF time v2: launch one-shot three-arm story test'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify fixed parameter and writer prompt before inference
+        run: |
+          python -m unittest discover -s tests -p 'test_wf_xianxia_time_v2*.py' -v
+          python experiments/wf_xianxia_time_v2_real_writer_once.py --dry-run
+      - name: Install pinned local CPU inference library
+        env:
+          CMAKE_ARGS: -DGGML_NATIVE=OFF
+          CMAKE_BUILD_PARALLEL_LEVEL: '2'
+        run: python -m pip install 'llama-cpp-python==0.3.16'
+      - name: Download source-locked local Qwen2.5-3B weights
+        run: |
+          curl --fail --show-error --location --connect-timeout 30 --max-time 720 \
+            --output "$RUNNER_TEMP/wf-xianxia-time-qwen.gguf" \
+            "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/254600e47ea694216f6108325376ce5b35d456a1/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+          printf '%s  %s\n' \
+            '9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94' \
+            "$RUNNER_TEMP/wf-xianxia-time-qwen.gguf" | sha256sum --check --status
+      - name: Exactly three original local model prose requests no paid API
+        run: |
+          python experiments/wf_xianxia_time_v2_real_writer_once.py \
+            --model "$RUNNER_TEMP/wf-xianxia-time-qwen.gguf" \
+            --out "$RUNNER_TEMP/wf-xianxia-time-v2-three-arm-originals"
+      - name: Preserve all raw outputs and partial failures without retry
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-Time-V2-Three-Original-Random-Character-Stories
+          path: ${{ runner.temp }}/wf-xianxia-time-v2-three-arm-originals/
+          if-no-files-found: warn
+          retention-days: 90
