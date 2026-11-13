@@ -28,6 +28,7 @@ class XianxiaTimeV2Tests(unittest.TestCase):
             "world_clock.hour","time_frames.*",
             "actors.*.age_subjective_hours",
             "actors.*.lived_subjective_hours",
+            "actors.*.frame",
             "actors.*.cultivation_subjective_hours",
             "advancement.min_cultivation_subjective_hours",
             "technique.latest_world_hour","era_history"
