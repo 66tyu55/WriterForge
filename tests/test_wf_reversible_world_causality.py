@@ -22,11 +22,12 @@ def fixture(text, encoding="utf-8"):
         pieces = ["甲", "屋", "三日", "市"]
     anchors = []
     for i, term in enumerate(pieces, 1):
-        start = raw.index(term.encode(encoding))
+        term_bytes = term.encode("utf-8" if encoding == "utf-8-sig" else encoding)
+        start = raw.index(term_bytes)
         anchors.append({"id": f"A{i:03}", "kind": (
             "actor" if i == 1 else
             "space" if i in (2, 4) else "time"),
-            "start": start, "end": start + len(term.encode(encoding)),
+            "start": start, "end": start + len(term_bytes),
             "surface": term})
     fact1 = {
         "id": "F001", "kind": "resource_pressure",
@@ -52,7 +53,7 @@ class ReversibleWorldTests(unittest.TestCase):
         for text, enc in [
             ("年轻人进入旧屋，三日后去了集市。", "utf-8"),
             ("年轻人进入旧屋，三日后去了集市。", "gb18030"),
-            ("\ufeff年轻人进入旧屋，三日后去了集市。", "utf-8-sig"),
+            ("年轻人进入旧屋，三日后去了集市。", "utf-8-sig"),
         ]:
             with self.subTest(encoding=enc), TemporaryDirectory() as td:
                 root = Path(td)
