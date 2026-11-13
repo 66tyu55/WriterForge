@@ -36,3 +36,7 @@
 5. **停止**：如实际作者不遵守规则或文学质量退步，保留模型原始回复和首个失败点，不再把继续增加参数当作进步；原先 river 场景不改写、不重试。
 
 对应代码：`.agents/skills/xianxia-time-rule/scripts/time_v2.py`、`time_bridge.py`、`experiments/wf_xianxia_time_v2_fresh_crossover_case_20261113.json` 和 `experiments/wf_xianxia_time_v2_fresh_action_trial_once.py`。本 Skill 继续 SHADOW，不写 WF 生产库、R2、Xuehai、Canon、Railway、main。
+
+## Frozen launch receipt
+
+This is the single, preregistered, never automatically retried execution of two fresh random-role decisions followed by two original novel prose generations. No answer-dependent prompt modification is permitted.
