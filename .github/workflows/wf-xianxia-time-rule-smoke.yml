@@ -1,0 +1,20 @@
+name: WF Xianxia Independent Time Rule Smoke
+
+on:
+  push:
+    branches: [feature/wf-xianxia-time-rule-20261113]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  time-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test standalone time rule and ablations
+        run: python -m unittest discover -s tests -p 'test_wf_xianxia_time_rule.py' -v
