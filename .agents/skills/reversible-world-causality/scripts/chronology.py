@@ -98,8 +98,8 @@ def available_prefix(obs: dict, raw: bytes, encoding: str,
         "cutoff_byte": cutoff_byte,
         "visible_fact_ids": sorted(visible_facts),
         "visible_link_indices": visible_links,
-        "hidden_fact_count": len(obs["facts"]) - len(visible_facts),
-        "hidden_link_count": len(obs["links"]) - len(visible_links),
+        # Never disclose how many held-out events/links the model cannot see.
+        # The private auditor can count them after the blinded trial.
         "source_order_is_not_story_time": True,
         "unknown_future_not_predicted": True,
         "semantic_truth_verified": False,
