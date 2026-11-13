@@ -183,6 +183,26 @@ def validate_observations(obs, raw, encoding):
     return True
 
 
+
+def require_evidence_chronology(obs):
+    """A 'telling_seq' means first time all its evidence becomes available.
+
+    This is a SOURCE REVELATION order, not fictional event occurrence time.
+    Reject silently invented/order-of-annotation indices at the archive gate.
+    """
+    anchor_ends = {a["id"]: a["end"] for a in obs["anchors"]}
+    ordered = sorted(
+        obs["facts"],
+        key=lambda fact: (
+            max(anchor_ends[ref] for ref in fact["evidence_ids"]),
+            fact["id"],
+        )
+    )
+    for rank, fact in enumerate(ordered, 1):
+        require(fact["telling_seq"] == rank,
+                "EVIDENCE_TELLING_SEQUENCE_MISMATCH")
+    return True
+
 def projection(obs):
     """No names, dialogue, descriptions, or hashes of short name strings."""
     return {
@@ -217,6 +237,7 @@ def pack(source_path, observations_path, output_dir):
     raw, encoding = checked_source(source_path)
     obs = json.loads(Path(observations_path).read_text(encoding="utf-8"))
     validate_observations(obs, raw, encoding)
+    require_evidence_chronology(obs)
     public = projection(obs)
     private_bytes, public_bytes = canonical(obs), canonical(public)
     packed = zlib.compress(raw, level=9)
@@ -266,11 +287,13 @@ def verify(bundle_dir):
             "ANONYMOUS_HASH")
     obs = json.loads(private_bytes)
     validate_observations(obs, raw, manifest["encoding"])
+    require_evidence_chronology(obs)
     require(canonical(projection(obs)) == public_bytes,
             "ANONYMOUS_INVERSE_MISMATCH")
     return {
         "source_byte_roundtrip": "PASS", "anchor_inverse": "PASS",
         "graph_projection_inverse": "PASS",
+        "evidence_revelation_order": "PASS",
         "source_bytes": len(raw), "chunks": len(manifest["chunks"]),
         "anchors": len(obs["anchors"]), "facts": len(obs["facts"]),
         "links": len(obs["links"]),
