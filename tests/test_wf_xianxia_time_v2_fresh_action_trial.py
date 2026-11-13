@@ -56,7 +56,7 @@ class FreshTimeAuthorTrialTests(unittest.TestCase):
 
     def test_bad_plan_is_explicitly_rejected_without_autocorrect(self):
         d=frozen()
-        plan,error=decode_decision('{"choice":"try_breakthrough","outcome":"success","world_hours":2,"reason":"救人"}')
+        plan,error=decode_decision('{"choice":"try_breakthrough","outcome":"success","world_hours":2,"reason":"答应救人"}')
         self.assertIsNone(plan)
         self.assertEqual(error,"DECISION_ATTEMPT_INVALID")
         report=check_decision(d,"world_rate3",plan)
