@@ -62,7 +62,7 @@ class FreshTimeAuthorTrialTests(unittest.TestCase):
         report=check_decision(d,"world_rate3",plan)
         self.assertEqual(report["reason"],"NO_VALID_DECISION")
         prose=prose_prompt(d,"world_rate3",plan,report)
-        self.assertIn("不得假装既定事情发生",prose)
+        self.assertIn("不能假装既定事情发生",prose)
 
     def test_invalid_plan_cannot_invent_time_or_fake_outcome(self):
         cases=[
