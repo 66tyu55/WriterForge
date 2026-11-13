@@ -3,6 +3,9 @@ from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import sys
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import json
 from hashlib import sha256
 
 ROOT = (Path(__file__).resolve().parents[1] /
@@ -54,6 +57,19 @@ class ChronologyTests(unittest.TestCase):
         check = chronology.audit(obs, raw, "utf-8")
         self.assertEqual(check["telling_seq_mismatches"], 2)
         self.assertFalse(check["evidence_order_verified"])
+
+    def test_pack_denies_wrong_evidence_order(self):
+        raw, obs = scenario()
+        with TemporaryDirectory() as td:
+            root = Path(td)
+            source = root / "original.txt"
+            source.write_bytes(raw)
+            annotation = root / "evidence.json"
+            annotation.write_text(
+                json.dumps(obs, ensure_ascii=False), encoding="utf-8")
+            with self.assertRaisesRegex(codec.ReversibleError,
+                                        "EVIDENCE_TELLING_SEQUENCE_MISMATCH"):
+                codec.pack(source, annotation, root / "bundle")
 
     def test_normalize_without_inventing_story_tick(self):
         raw, obs = scenario()
