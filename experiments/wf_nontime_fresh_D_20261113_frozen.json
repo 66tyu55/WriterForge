@@ -1,0 +1,351 @@
+{
+  "format": "wf.non-time-original-source-inverse.v4",
+  "status": "FROZEN_NEW_BOOK_D_NOT_A_RETEST_OF_C",
+  "new_test_original": "D chapter 1 only; chapter 2+ private withheld",
+  "training_originals": [
+    "A first four chapters, provisional",
+    "B first two fully paragraph-annotated; chapters 3-4 preliminary"
+  ],
+  "original_prose_embedded": false,
+  "model_weights_trained": false,
+  "original_book_titles_or_character_names_in_prompt": false,
+  "independent_semantic_review": false,
+  "prefix_source_sha256_public": false,
+  "genre_transfer": "high-fantasy original -> frontier science-fantasy ecology, renamed and functionally analogous sites/actors",
+  "role_legend": {
+    "P0": "young would-be specialist",
+    "P1": "experienced local mentor",
+    "P2": "sentient independent nonhuman companion",
+    "N0": "independent nest guardian species",
+    "L0": "ridge environment",
+    "L1": "lower rest niche",
+    "L2": "high overhang/nest",
+    "L3": "known descent corridor",
+    "L4": "home settlement",
+    "WORLD": "environment independent of viewpoint"
+  },
+  "observations": [
+    [
+      "D001",
+      "L0",
+      "NARRATED",
+      "A frontier planet has a long forested ridge with distinct neighboring summits and independently active small wildlife."
+    ],
+    [
+      "D002",
+      "L1",
+      "NARRATED",
+      "At a depression mid-way along one peak, a slight young gatherer carries a wicker salvage basket of botanical supplies."
+    ],
+    [
+      "D003",
+      "P0",
+      "NARRATED",
+      "Young gatherer studies a frequently reread old guild manual describing exceptional practitioners."
+    ],
+    [
+      "D004",
+      "P0",
+      "CHARACTER_BELIEF",
+      "Young gatherer longs to become an exceptional practitioner but believes lacking a rare innate interface makes it impossible, expecting ordinary healer work instead."
+    ],
+    [
+      "D005",
+      "P0",
+      "NARRATED",
+      "Despite slight physique, youth is a practiced and agile vertical climber."
+    ],
+    [
+      "D006",
+      "WORLD",
+      "NARRATED",
+      "Moist wind and looming storm clouds advance independently of all character intentions."
+    ],
+    [
+      "D007",
+      "P1",
+      "REPORTED",
+      "A respected older mentor predicted a valuable rain-dependent secretion at a particular high-altitude overhang."
+    ],
+    [
+      "D008",
+      "P0",
+      "NARRATED",
+      "The youth chooses to ascend with a rope and small container after observing the predicted storm."
+    ],
+    [
+      "D009",
+      "L2",
+      "NARRATED",
+      "Near the ridge summit a perforated overhang has many cavities and a difficult underside ledge."
+    ],
+    [
+      "D010",
+      "L2",
+      "NARRATED",
+      "Ordinary walking cannot reach the underside; without flight, a prepared offset rope swing can cross the gap."
+    ],
+    [
+      "D011",
+      "P0",
+      "NARRATED",
+      "Youth offsets the tether, grips rock face, and waits at risk of falling as wind and rain become violent."
+    ],
+    [
+      "D012",
+      "WILDLIFE",
+      "NARRATED",
+      "Fierce storm blows branches and small animals off the ridge; they have independent vulnerability."
+    ],
+    [
+      "D013",
+      "L2",
+      "NARRATED",
+      "Heavy rainfall causes dark liquid to seep out of the under-ledge rock and flow downward."
+    ],
+    [
+      "D014",
+      "P0",
+      "CHARACTER_KNOWLEDGE_LIMIT",
+      "The mechanism producing the liquid is not known to the youth."
+    ],
+    [
+      "D015",
+      "L2",
+      "NARRATED",
+      "Fluid changes color after a delay, creating a narrow collection window."
+    ],
+    [
+      "D016",
+      "P0",
+      "NARRATED",
+      "Youth waits for color change, then swings to collect a limited container volume while briefly stationary near the overhang."
+    ],
+    [
+      "D017",
+      "N0",
+      "NARRATED",
+      "Several large autonomous nest-guarding arthropods emerge from cavities and charge toward the gatherer."
+    ],
+    [
+      "D018",
+      "P0",
+      "NARRATED",
+      "Youth releases one rope to evade attack; this creates immediate lethal fall risk rather than guaranteed safety."
+    ],
+    [
+      "D019",
+      "P2",
+      "NARRATED",
+      "A small sentient companion arrives on a separate rope and catches the falling youth."
+    ],
+    [
+      "D020",
+      "P0",
+      "NARRATED",
+      "Youth and companion descend to a lower ledge; youth prioritizes protecting the collected vial."
+    ],
+    [
+      "D021",
+      "P2",
+      "NARRATED",
+      "Companion privately carries an unidentified dark shard and initially hides it when questioned."
+    ],
+    [
+      "D022",
+      "N0",
+      "NARRATED",
+      "Nest guardians autonomously continue pursuing down the rock face."
+    ],
+    [
+      "D023",
+      "P2",
+      "CHARACTER_FEELING",
+      "Companion appears anxious when pursued, but displayed fear may not reveal genuine motive."
+    ],
+    [
+      "D024",
+      "P0",
+      "CHARACTER_BELIEF",
+      "Youth states pursuing creatures do not cross the lower ridge boundary, based on past escapes."
+    ],
+    [
+      "D025",
+      "P0",
+      "NARRATED",
+      "Youth promises the companion part of the collected fluid; companion visibly cheers up."
+    ],
+    [
+      "D026",
+      "L3",
+      "NARRATED",
+      "Both travelers know repeated installed rope routes on the ridge; navigational shortcuts offset slower running speed."
+    ],
+    [
+      "D027",
+      "N0",
+      "NARRATED",
+      "Guardians seem unwilling to cross some rock zones, taking detours despite being faster; reason not identified."
+    ],
+    [
+      "D028",
+      "N0",
+      "NARRATED",
+      "Guardians stop at foot of ridge and independently retreat to their nests."
+    ],
+    [
+      "D029",
+      "WORLD",
+      "NARRATED",
+      "Storm dissipates after the escape; it is not ended by the youth."
+    ],
+    [
+      "D030",
+      "L4",
+      "NARRATED",
+      "At forest fringe, distant settlement lights mark home, separate from cliff and nest."
+    ],
+    [
+      "D031",
+      "P2",
+      "NARRATED",
+      "Companion already consumes a negotiated portion of the scarce fluid but wants more."
+    ],
+    [
+      "D032",
+      "P2",
+      "NARRATED",
+      "Companion has a prior friendship with the youth that began with conflict several years earlier."
+    ],
+    [
+      "D033",
+      "P2",
+      "NARRATED",
+      "Companion independently offers unidentified shard in exchange for more liquid."
+    ],
+    [
+      "D034",
+      "P0",
+      "NARRATED",
+      "Youth gives another portion while saying the shard is worthless; economic transaction and social generosity coexist."
+    ],
+    [
+      "D035",
+      "P2",
+      "NARRATED",
+      "Companion drinks, becomes euphoric, drops both remaining vial and shard, and leaves independently."
+    ],
+    [
+      "D036",
+      "P0",
+      "CHARACTER_KNOWLEDGE_LIMIT",
+      "Youth ends the episode holding reduced fluid and unfamiliar shard, without knowing shard origins or properties."
+    ],
+    [
+      "D037",
+      "WORLD",
+      "UNKNOWN",
+      "Nothing in observed episode proves the shard is magical, that the fluid has unlimited supply, or that the nest guardians follow a moral law."
+    ],
+    [
+      "D038",
+      "P0",
+      "UNKNOWN",
+      "Future training success, future power gains and future use of the shard are not yet observed."
+    ]
+  ],
+  "questions": [
+    "Recover, in prose not just observation IDs, causal constraints for storm, geomorphology, extraction, predation, escape and finite goods; classify witnessed fact, belief and unknown.",
+    "Explain how a smaller companion and nest guardians maintain independent motives and behaviors not controlled by protagonist.",
+    "If P0 refuses the trip, which processes continue and which events no longer follow automatically?",
+    "If companion values shard more than resource, does original exchange remain compulsory? Preserve freedom and relational history.",
+    "Do not guess exact future magic rules, promotions or cliff accidents from what was not observed."
+  ],
+  "calibration": [
+    {
+      "ids": [
+        "A011",
+        "A012"
+      ],
+      "principle": "A character's wish about an object's healing properties is belief, not observed effectiveness."
+    },
+    {
+      "ids": [
+        "A006",
+        "A007",
+        "A009",
+        "A010",
+        "A020"
+      ],
+      "principle": "Material progress consumes finite recovery assets; a benefit can cost someone else."
+    },
+    {
+      "ids": [
+        "B010",
+        "B011",
+        "B027",
+        "B033"
+      ],
+      "principle": "Institutional eligibility and actual admission are different; discretion and exceptions do not erase default policy."
+    },
+    {
+      "ids": [
+        "B015",
+        "B023"
+      ],
+      "principle": "Individual knowledge follows actual observation and communications; narrator knowledge does not teleport."
+    },
+    {
+      "ids": [
+        "A028",
+        "A029",
+        "A030",
+        "A033",
+        "A034",
+        "A035"
+      ],
+      "principle": "Repeatable environmental effects do not prove complete hidden mechanisms."
+    },
+    {
+      "ids": [
+        "B024",
+        "B025",
+        "B026"
+      ],
+      "principle": "Off-screen institutions and rival groups persist independently of protagonist activity."
+    },
+    {
+      "ids": [
+        "B_CH2_P03",
+        "B_CH2_P04",
+        "B_CH2_P11"
+      ],
+      "principle": "Named small spaces, directed routes, availability and access must survive world relocation; geography is not decoration."
+    },
+    {
+      "ids": [
+        "B_CH2_P18",
+        "B_CH2_P35",
+        "B_CH2_P36",
+        "B_CH2_P37"
+      ],
+      "principle": "Minor worker agency and side-payment/response/promise must be kept separate; future fulfillment is uncertain."
+    }
+  ],
+  "arms": [
+    "baseline",
+    "original_A_B_reading"
+  ],
+  "output_keys": [
+    "world",
+    "directed_links",
+    "epistemic",
+    "offscreen",
+    "counterfactual",
+    "unproved"
+  ],
+  "model": "Qwen2.5-3B-Instruct-Q4_K_M",
+  "model_seed": 20261113,
+  "max_completion_tokens": 1450,
+  "budget_warning": "Treatment receives additional calibration tokens; any gain is confounded by extra context. No independent adjudication guaranteed."
+}
