@@ -21,7 +21,7 @@ import re
 
 FORMAT="wf.xianxia-time-parameter-candidates.v3"
 NUMS="一二三四五六七八九十百千万亿兩两零〇○廿卅"
-QUANTITY=rf"(?:约|大约|近|将近|足足|至少|超过|不到|数|几|半|[0-9{NUMS}]{{1,8}}(?:余|多|来|几)?)"
+QUANTITY=rf"(?:半|(?:约|大约|近|将近|足足|至少|超过|不到|数|几)?[0-9{NUMS}]{{1,8}}(?:余|多|来|几)?)"
 AMOUNT=re.compile(rf"({QUANTITY})\s*(个)?\s*(年|载|月|天|日|时辰|小时|时|刻|岁|甲子)")
 CHAPTER=re.compile(r"^第[零〇○一二三四五六七八九十百千万兩两0-9]{1,12}章(?:[\s:：、.．-]+.*)?$")
 VOLUME=re.compile(r"^第[零〇○一二三四五六七八九十百千万兩两0-9]{1,12}[卷集].{0,45}(?:第[零〇○一二三四五六七八九十百千万兩两0-9]{1,12}章|魔序).{0,32}$")
@@ -123,7 +123,7 @@ def qualified_quantity(word,unit):
     marker=word
     exact=chinese_exact(word)
     if exact is not None:return str(exact),"EXACT"
-    if word.startswith(("约","大约","近","将近","数","几","至少","超过","不到")) or word.endswith(("余","多","来","几")):
+    if word.startswith(("约","大约","近","将近","足足","数","几","至少","超过","不到")) or word.endswith(("余","多","来","几")):
         return None,"BOUNDED_OR_APPROX_UNRESOLVED"
     return None,"UNRESOLVED_QUANTITY"
 
