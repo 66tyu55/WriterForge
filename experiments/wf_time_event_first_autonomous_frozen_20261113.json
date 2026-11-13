@@ -2,8 +2,15 @@
   "format": "wf.xianxia.time_autodiscovery.frozen.v1",
   "study": "Anonymous event observations from a fresh consecutive three-chapter private original. Evidence IDs map to exact private byte spans; no source prose here.",
   "scope": {
-    "visible_chapters": "15-17",
-    "sealed_chapters": "18-19",
+    "visible_chapters": [
+      15,
+      16,
+      17
+    ],
+    "sealed_chapters": [
+      18,
+      19
+    ],
     "source_view_sha256": "5249f44da82f173279b7296245fb4370db995f9f5db0ec24f5438c016cf18a82",
     "independent_human_gold": false
   },
