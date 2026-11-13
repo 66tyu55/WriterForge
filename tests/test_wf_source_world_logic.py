@@ -163,5 +163,44 @@ class TestSourceWorldLogic(unittest.TestCase):
                                                       "route_id": "R12"})["reason"], "ROUTE_ACCESS_DENIED")
 
 
+    def test_institution_exception_is_explicit_not_universal(self):
+        _, ep = fixture()
+        ep["rules"][0]["requirements"] = []
+        ep["rules"][0]["any_of"] = [
+            [{"kind": "access", "token": "within_normal_eligibility"}],
+            [{"kind": "access", "token": "explicit_patron_override"}],
+        ]
+        w = wl.initial_world(ep)
+        self.assertEqual(wl.try_proposal(w, {
+            "kind": "act", "actor_id": "A2", "action_tag": "entry_exam"
+        })["reason"], "WORLD_RULE_NO_ADMITTED_PATH")
+        w = wl.apply_proposal(w, {
+            "kind": "act", "actor_id": "A1",
+            "effects": [{"actor_id": "A2", "field": "access",
+                         "key": "explicit_patron_override", "grant": True}]
+        })
+        x = wl.try_proposal(w, {"kind": "act", "actor_id": "A2",
+                                "action_tag": "entry_exam"})
+        self.assertTrue(x["accepted"])
+        self.assertNotIn("exam_passed", x["state"]["actors"]["A2"])
+        self.assertFalse(wl.try_proposal(w, {"kind": "act", "actor_id": "A1",
+                                              "action_tag": "entry_exam"})["accepted"])
+
+    def test_invalid_rule_exception_requires_source_guard(self):
+        raw, ep = fixture()
+        ep["rules"][0]["any_of"] = [[]]
+        with self.assertRaisesRegex(wl.EpisodeError, "BAD_RULE_ALTERNATIVES"):
+            wl.validate_source(ep, raw)
+
+    def test_reported_not_automatically_known_by_witness(self):
+        raw, ep = fixture()
+        ep["facts"][0]["epistemic"] = "REPORTED"
+        wl.validate_source(ep, raw)
+        out = wl.try_proposal(wl.initial_world(ep), {
+            "kind": "witness", "actor_id": "A2", "fact_id": "F1"
+        })
+        self.assertEqual(out["reason"], "NOT_A_VERIFIED_WORLD_FACT")
+
+
 if __name__ == "__main__":
     unittest.main()
