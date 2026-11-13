@@ -88,9 +88,9 @@ class ChronologyTests(unittest.TestCase):
         cutoff = raw.index("第二章".encode())
         prefix = chronology.available_prefix(obs, raw, "utf-8", cutoff)
         self.assertEqual(prefix["visible_fact_ids"], ["F001"])
-        self.assertEqual(prefix["hidden_fact_count"], 2)
+        self.assertNotIn("hidden_fact_count", prefix)
         self.assertEqual(prefix["visible_link_indices"], [])
-        self.assertEqual(prefix["hidden_link_count"], 1)
+        self.assertNotIn("hidden_link_count", prefix)
         self.assertTrue(prefix["unknown_future_not_predicted"])
 
     def test_first_name_does_not_license_later_fact(self):
