@@ -22,3 +22,5 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_wf_xianxia_time_v2*.py' -v
       - name: V3 original temporal parameter source-mapping regressions
         run: python -m unittest discover -s tests -p 'test_wf_xianxia_time_v3*.py' -v
+      - name: V4 event-first parameter ablation and no-future leak regressions
+        run: python -m unittest discover -s tests -p 'test_wf_xianxia_time_v4*.py' -v
