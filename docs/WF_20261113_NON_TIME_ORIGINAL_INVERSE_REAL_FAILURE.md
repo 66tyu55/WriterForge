@@ -1,0 +1,125 @@
+# WF non-time original grounding → anonymous inverse: first real transfer FAILED (2026-11-13)
+
+## User's correction
+
+**"没有原著训练，也没有反推，怎么确保参数正确？"** — Correct. 12 synthetic tests and a file SHA previously were only engineering properties and never verified literary semantics. This report preserves actual source reading, its gaps, and a real local-model inverse failure. **Do not merge/promote these three Skills as trained literary understanding.**
+
+## Source handling and split
+
+Three **actual complete original plain-text files** from the user's own connected Drive were read in private local storage; all read as strict GB18030, never published into this public repo. A and B are separate calibration works, C is a separate previously unseen work for the transfer question. Private title/character crosswalk, full prose, exact byte quotes and gold remain private.
+
+- A: 8,254,082 raw bytes, 45 provisional original-anchored claims; first four chapters 37 learning atoms, next 8 held out.
+- B: 15,224,548 raw bytes, 46 provisional source atoms; first four chapters 36 learning atoms, next 10 held out.
+- C: 5,548,542 raw bytes, 41 provisional source atoms; first two chapters 30 anonymous test-prefix atoms, next 11 source-anchored future gold atoms held private.
+- **132** source-provisioned candidate observations across three works; **103 prefix + 29 heldout**, with exact private original byte-anchor checks. No independent human verification and no model-weight training.
+- Source-prefix partiality, not completeness: A first four chapters 25,234 bytes, 219 nonblank lines, 34 lines containing an anchor; B 17,579 bytes, 135 nonblank lines, 31 anchored; C first two chapters 17,548 bytes, 167 nonblank lines, 29 anchored. Therefore any full-chapter one-to-one claim **fails before inverse**. These counts are evidence of *incompleteness*, not literary accuracy rates.
+- A/B had **41 provisional open axis names**; among C's 30 test observations, **13** used previously unseen axis names (11 distinct new names). Vocabulary growth cannot be equated with logic understanding.
+- Private local SHA of frozen semantic evaluation rubric: `90c01a28fef46c51cd9cb4239a29f824b9bccba59e80971762c9809ca7f1101e`. This is authored by the same investigator, not independent gold.
+
+**Source-index error caught before model launch:** naive repeated chapter title detection picked the *last repeated chapter 1* of a later volume instead of C's original opening, giving impossible source offsets. Rewrote private indexing to select the first ascending first-volume 1..20 sequence, corrected several wrongly attributed chapter numbers, verified all 132 exact byte spans. The earlier mistaken selections are not evidence of comprehension and should not be hidden.
+
+## Causal-direction source reading
+
+A private source-anchored direction ledger captured **19 provisional** relations, with **4 whose explanation appears later in the text than the result**, plus three deliberately rejected causal arrows. Reading/display order is not event/causal chronology.
+
+Examples in generic words:
+
+- Scarce family treasury access predates observed differential strength although the narrator explains it *after* first showing the rivalry. Flipping that arrow would be an error.
+- Eligibility age is a default institutional route; a privileged older applicant can obtain an exception. An exception does **not** mean anyone is automatically accepted.
+- Competing factions and recruitment pressure operate independently of protagonist decisions.
+- A child can conclude an absent director no longer cares while that adult retains a private plan and maintains protection; child's conclusion is not the world's objective fact.
+- A repeatable strange effect can establish a candidate trigger, **not** an unseen object's final mechanism.
+
+This ledger is self-annotated and provisional. It is not a signature of semantic truth.
+
+## Real holdout model, no invented outputs
+
+Actual [GitHub Actions run #43414129666](https://github.com/66tyu55/WriterForge/actions/runs/43414129666) **SUCCESS as an execution**, not a literary pass. A pinned CPU **Qwen2.5-3B-Instruct Q4_K_M** received the same 30 anonymous C-source observations relocated into a different science-fantasy setting. Future C chapters, book title, identities and private gold were **not** in its model input. Two real calls; no retries, no paid API. All original prompts/raw engine outputs preserved in artifact `WF-NonTime-RealOriginal-SchemaVsSourceLearning-TwoArm-20261113`, artifact ID `14031262557`.
+
+| Arm | Prompt / completion tokens | JSON | Inverse literary result |
+| --- | ---: | --- | --- |
+| Baseline: C observations only | 1205 / 400 | VALID | **FAIL**: put all 30 observation IDs into `constraints` without reconstructing any stated constraints; returned only a source ID for intervention and confused known observations with unknowns |
+| Source learning from A/B: same C observations + six prior-work learning habits | 1466 / 496 | VALID | **FAIL**: again put all 30 IDs in `constraints`; listed already observed choices among possible futures, failed to explain altered-character consequences; counterfactual was only `C027` |
+
+The stronger arm had **more prompt and output tokens**; even a superficial category difference would be confounded by extra context. Crucially **neither arm generated a justified causal reconstruction**. Valid JSON ≠ source understanding. No out-of-distribution transfer or literary uplift proven. Do not run the same frozen test again or revise its prompt to manufacture passing grades.
+
+## Small source-driven correction AFTER frozen model run
+
+The runtime core now allows explicit `any_of` groups for **source-evidenced alternate admissibility paths** (e.g. default eligibility versus exceptional patron permission), while preserving separate actual outcome and protagonist choice. It also distinguishes `REPORTED`, `CHARACTER_BELIEF`, `CHARACTER_INFERENCE`, `CHARACTER_KNOWLEDGE_LIMIT` etc, and never turns hearsay into knowledge by witnessing. These are *mechanical repair hypotheses* informed by the originals, **not** a post-hoc re-scoring of frozen model replies.
+
+Targeted synthetic/mechanical preflight CI: [Actions #43415129655](https://github.com/66tyu55/WriterForge/actions/runs/43415129655) SUCCESS (15 source-world regressions + 7 source-disjoint preflight tests). Existing unmodified full WF CI still fails because of old missing external artifacts/historical dependency tests; targeted success does not override it.
+
+## Stop/promotion gate
+
+All three Skills remain SHADOW; literary transfer and 1:1 original comprehension **NOT PASSED**. The evidence has demonstrated four priorities for *source work* instead of more calculators:
+
+1. **Coverage**: one contiguous original episode must capture material daily life, unnamed people, links, all observed actions and exclusions, not just 30 important facts. Track omissions and narrative sentence coverage explicitly.
+2. **Causal identity**: require anchored directed claims, counter-examples and distinctions between presentation order, past cause, current action, contingent event, inferred mechanism, and unknown. Never backfill the exact later twist.
+3. **Character cognition**: actor-by-actor belief, witnessed fact, information channel, misconception, resource cost and irrational act; autonomous off-screen events remain real but not arbitrarily invented.
+4. **One true new heldout**: after sources and encoding are independently reviewed and frozen, use a **different original/world** as evaluation rather than recycle C and its known answers. Restore the original causal logic under renaming; changed personality should yield legitimate different outcomes while world constraints persist. Pass/fail must be adjudicated independently, with errors retained.
+
+No merge to `main`, no production WF author, Canon, R2, Xuehai, Railway, or other assistant's time branch touched. **Engineering improved; source parameter correctness and literary inverse remain UNVERIFIED/FAILED.**
+
+## Source reading after FAILED model — one contiguous chapter, every paragraph
+
+Instead of re-calling the same failed frozen decoder, the investigator performed an additional **real original-text** reading of B's entire first chapter (5,080 raw GB18030 bytes). All **38/38 nonblank paragraphs** were checked against exact private byte spans, producing **71 separate provisionally interpreted semantic atoms**. Original paragraphs and private character/world crosswalk remain outside GitHub. Private local ledger SHA256: `b9f9a1f0ceedb9d93876af52818617ae53f5eead241aae8efcbb63b454ba68d7`.
+
+The paragraph pass distinguished ordinary spatial facts that the earlier abstract encoding had missed (e.g. a damaged wall gives an acoustic observation channel, not necessarily knowledge of the conversation), independent incidental characters, compensation for rare literacy, the trust history behind an uncle's recruitment, economic promises rather than guaranteed wages, hidden aspirations and limited child understanding. The last paragraph foreshadows a later life course **to the reader** but does not grant it to the acting child. A sealed-future test must account for such narrator prolepsis already visible in the prefix.
+
+**Important:** 38/38 paragraph-level coverage is NOT sentence-atomic 1:1 mapping. It does not claim every semantic relationship has been extracted or independently approved. Current stage is `SELF_PROVISIONAL`, with no retrained model and no subsequent blind inverse. The original run's failure remains unchanged.
+
+### Complete private three-section reading, without shrinking the original to rules
+
+An immutable further **v3.1 private revision** preserves all 38 original paragraphs verbatim next to the 71 anchored micro-annotations plus **7 open-ended reading reflections** (source text + annotations + reflections). This source study follows the author's requirement that full original and observations must coexist, rather than replacing literature with numeric parameters or `add details` slogans. Private SHA256: `51b3692744b24478bac80261b68c5132f1aee694433c595db499a86023219908`. Neither file is in GitHub/R2.
+
+Key reflections include: cracked walls as an incomplete information channel; literacy and naming as pre-existing small-scale services; intersecting kinship, wealth, status and hope; a rural family's decision under a recruiter's wage claims; narrator's future foreshadow not becoming character knowledge; and why altering the child's desire in another world may change the plot while leaving the economic institution intact. **These are investigator interpretations, not independent truth or improved author prose.**
+
+
+## Continued consecutive original training study — B chapter 2 (source-only, not promoted)
+
+After the frozen local-model FAIL and the B-chapter-1 full-paragraph private study, investigator continued **the very next contiguous original chapter**, not a synthetic sample. B chapter 2 is **4,121 raw GB18030 bytes**, **37/37 nonblank original paragraphs** retained in a private source-anchored three-part `original + paragraph annotations + open reflections` ledger. **66 provisional multi-axis observations**, including incidental restaurant workers, an unnamed joking customer, travelers and a long-serving gatekeeper, route geometry/inn scarcity, institution history, independent conflict/recruitment pressures, identity-limited recognition of heraldry, a quiet unofficial payment and an officer's promise that is NOT evidence of future delivery. Six open reflections retain interconnected literary experience instead of reducing it to generic advice. Private receipt SHA256: `720c1b7ad4987e447c0672142b8fec6bc2bd4612662d2ba05ef37a959e1dc274`.
+
+The original earlier B v2 index represented **only 9 selected atoms for chapter 2** across the entire earlier 46-atom B pilot, which missed many ordinary paragraph-level actors and conditions. The 9 vs 66 numbers measure differences in *sampling granularity*, **not 7× improved accuracy**. Neither ledger is independently certified and 66 atoms do not prove every sentence-level semantic relation was recovered.
+
+## B chapters 1–2 directed reconstruction/anti-inverse audit
+
+B chapter 1 (5,080 raw bytes) and chapter 2 (4,121 raw bytes) now form a **contiguous 9,201-byte reading window**, preserving **75/75 nonblank paragraphs** and **137 provisional source-anchored semantic observations** (71 + 66), six new reflections alongside the seven earlier chapter-one reflections. A separate **private** causal ledger recorded **14 provisional cross- or within-chapter directed relations**, **4 explicitly rejected backward/unsupported cause arrows** and **2 changed-protagonist scenarios**. Causal ledger SHA256 `f9f7a94ca47f67b6c3b6eb9ac282cf354ceb6dd5f58b252e987c98c88eb307c0`.
+
+Distinctions from original: the appearance of an emblem does not grant all characters knowledge of the institution; recruitment promises motivate a parent but do not guarantee later income; the rival's economic/military pressure exists independently of the child; a money transfer followed by the officer softening is **plausible**, not universal proof of a corrupt rule, and a promise of escort protection is **not** verified fulfillment. The child declining invitation would change personal route without automatically changing the town's existing economy or rival activity. Changing the child's desire need not recreate the original subsequent events. No chronology or subjective cultivation clock semantics are claimed: time is the separate Skill owner's work.
+
+**Boundary:** This is actual original reading and provisional parameter work, **NOT new model-weight training**, **NOT a genuine blind inverse**. Current CI 12 original synthetic tests (local) passes, but those are only mechanics; original 2-call inverse remains FAILED. Full-world 1:1 and independent reviewer still absent. Private full original text/annotations remain outside public Git; do not merge to production on the strength of these records.
+
+
+## Fresh, source-disjoint original D — frozen before new model decoding
+
+A fourth previously unused **complete GB18030 original** was retrieved privately from the user's authorized Drive folder (9,519,341 raw bytes). This is NOT source C and is NOT a retry of the failed PR #72 two-call C trial. An opening author note and narrative prologue exist before chapter 1; they are **not** semantically incorporated in the D1 test, so no whole-book comprehension is claimed.
+
+- D chapter 1: 6,436 raw contiguous bytes, 48/48 source paragraphs (including the heading), **57 self-reviewed semantic atoms**, each original line's exact byte location and SHA checked against the original. Private evidence ledger SHA256 `28cc52056d6f432fb64460f319b88d3d609f46843c2559a5544cde1986aaead0`.
+- Frozen new anonymous **38** observations, remapping the source ridge/storm/ecology/resource rescue/trade sequence to an alien frontier world without the novel names or prose. Public case `experiments/wf_nontime_fresh_D_20261113_frozen.json`.
+- Source-disjoint original A/B learned comparison is only **eight source-evidenced in-context reasoning habits**, not model-weight finetuning. Both arms get the same D observations and same output cap, though learned arm has additional prompt tokens; even a gain would be confounded by that extra context.
+- A **new one-shot actual model** workflow (not C re-run): [Actions #43421269700](https://github.com/66tyu55/WriterForge/actions/runs/43421269700). D1 frozen prefix only, local pinned Qwen2.5-3B Q4_K_M; baseline and source-learning arms; no original prose or heldout D2 original supplied to model. This paragraph records launch, **not a successful model outcome**.
+- Before model replies were read, a new **10-criterion, 20-point private semantic review rubric** was recorded (SHA256 `053cd2fc2199903795a17b553b5705ad4bfcecf7e79d541af2df01fb732d99f6`). Grading is same-investigator and NOT independent. Test asks whether model can reconstruct explicit causal direction, constraints, independent ecology and collaborator agency; altered character/preference must not force the original future.
+- D chapter 2 was read **after the D1 test/prompt freeze** and recorded as a separate source-grounded holdout: 61 original nonblank paragraphs, 6,794 raw bytes, **11 provisional gold items** anchored to the original. Private ledger SHA256 `2bafd85e28a09d0ef08810224da5967b276be6ad5fd70bc8f715b2095307d80e`. Six initial lines of D2 had been inspected during source-scope discovery prior to freezing; they are explicitly excluded from later-future gold. There is no independent reviewer and no basis to demand exact surprise twists from a prefix.
+- A separate **private anonymous-packet coverage audit** maps 38 public observations to 48 source paragraphs and documents **9 known semantic compression omissions**, such as physical status signals, book cosmology, precise material phase/quantity and later shard handling. Its SHA256: `a9aa1075a51389465d8978329975530262e5b85ffdde02cbb4cc3e523012202a`. Heading is the only paragraph without any anonymous claim. The public anonymous packet **cannot** perfectly reconstruct the full source even if model decoding succeeds.
+
+Until independently audited source coverage and meaningful multi-book blind causal inverse pass, maintain **SHADOW, NOT TRAINED, NOT 1:1**; neither dry-run prompts, model calls, JSON formatting nor syntactic world-rule unit tests justify release.
+
+
+### Fresh D original inverse result — real two model calls FAILED
+
+**New [Actions run #43421269700](https://github.com/66tyu55/WriterForge/actions/runs/43421269700) completed SUCCESS at the execution layer; actual anonymous world inverse FAILED in both arms.** Artifacts `WF-NonTime-Fresh-Novel-D-Anonymous-TwoArm-20261113` (artifact ID `14034213217`), [download from Actions](https://github.com/66tyu55/WriterForge/actions/runs/43421269700/artifacts/14034213217), preserve all four prompt/raw/answer pairs and STATUS. Two actual CPU Qwen2.5-3B Q4_K_M calls, pinned model and source-free prompts, no retry, no paid API, no original prose or D2 gold disclosed.
+
+| Frozen arm | Prompt tokens | Completion tokens | JSON schema | Genuine causal inverse |
+| --- | ---: | ---: | --- | --- |
+| Baseline anonymous D1 only | 1,629 | 323 | Valid | **FAIL**: `world` is literally all 38 observation IDs, `directed_links=[]`, counterfactual only the literal label `P0_REFUSES_TRIP`, `unproved=["D038"]`; no causal reconstruction |
+| + eight A/B reading-derived habits | 1,961 | 1,450 (max) | Invalid/truncated | **FAIL**: content loops the token `storm_guard_pursue` **231** times; no complete relation graph or readable counterfactual |
+
+Original answer SHA256 values: baseline `f97046f33b0caf76bfe58b9ca6da694b870c8a2a5ea7c307b754cb7251ac3ca0`; source-reading arm `753dedaf542df8e30bbb8f7b00d51cf59907b80240c273b14f47686fbb41693d`. Model completion cap was 1,450 each. The source-learning arm has **332 extra input tokens**, so this treatment cannot be considered a controlled equal-token proof even if it had improved. It did not.
+
+**Failure localization:**
+1. Before model inference: D1 anonymous representation had **nine independently visible compression omissions**, first substantive known omission in private original physical presentation/status detail; an exact inverse is impossible from that public packet.
+2. Decoder baseline: the first output field merely enumerates observed IDs instead of reconstructing the world, followed by empty directed causal edges. This is categorical failure of user-requested inverse reasoning, regardless of schema validity.
+3. Source-reading decoder: output repeats one guardian-pursuit label 231 times to token cap and never builds answer object. More source-derived “habits” worsened this small-model run; cannot claim training transfer.
+4. The D2 private source has additional institutional/territorial and individual details outside the original D1 prefix; **these must be labelled unknown, not invented as predictions**. Some initial D2 lines inspected before the freeze were excluded from future gold. Independent semantic adjudication remains absent.
+
+**Conclusion/STOP:** No 1:1 parameter correctness, no successful changed-world logic reconstruction, no demonstration of improved literary writing. Preserve both frozen failures. Do **not** repeat the same model calls, switch prompt wording to manufacture passing grades, merge any of these Skills into WF author, or claim 38 anonymous observations reconstruct the original. Future work should prioritize lossless semantic coverage and independent source review before consuming more model tests. Prior C failure and this new D failure are different frozen trials, both remain fail.

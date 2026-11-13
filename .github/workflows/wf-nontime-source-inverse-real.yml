@@ -1,0 +1,63 @@
+name: WF Source Non-Time 3-Book Transfer Real One Shot
+
+on:
+  push:
+    branches:
+      - feature/wf-nontime-space-character-world-20261113
+    paths:
+      - .github/workflows/wf-nontime-source-inverse-real.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf-source-nontime-inverse-one-shot-20261113
+  cancel-in-progress: false
+
+jobs:
+  frozen-real-source-disjoint-inverse:
+    if: >-
+      github.event_name == 'push' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'WF non-time source inverse: launch frozen real two-arm test'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify deterministic public case source disjointness
+        run: |
+          python -m unittest discover -s tests -p 'test_wf_source_inverse_frozen_v3.py' -v
+          python -m unittest discover -s tests -p 'test_wf_source_world_logic.py' -v
+          python experiments/wf_non_time_source_inverse_local_model_once.py --dry-run
+      - name: Install pinned local CPU inference runtime
+        env:
+          CMAKE_ARGS: -DGGML_NATIVE=OFF
+          CMAKE_BUILD_PARALLEL_LEVEL: '2'
+        run: python -m pip install 'llama-cpp-python==0.3.16'
+      - name: Download pinned openly licensed local Qwen2.5 3B
+        run: |
+          curl --fail --show-error --location --connect-timeout 30 --max-time 720 \
+            --output "$RUNNER_TEMP/wf-nontime-qwen.gguf" \
+            "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/254600e47ea694216f6108325376ce5b35d456a1/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+          printf '%s  %s\n' \
+            '9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94' \
+            "$RUNNER_TEMP/wf-nontime-qwen.gguf" | sha256sum --check --status
+      - name: Execute frozen independent anonymous decoder twice (no external paid API)
+        run: |
+          python experiments/wf_non_time_source_inverse_local_model_once.py \
+            --model "$RUNNER_TEMP/wf-nontime-qwen.gguf" \
+            --out "$RUNNER_TEMP/wf-nontime-inverse-trial"
+      - name: Preserve exact real prompts, outputs and failures without retry
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-NonTime-RealOriginal-SchemaVsSourceLearning-TwoArm-20261113
+          path: ${{ runner.temp }}/wf-nontime-inverse-trial/
+          if-no-files-found: warn
+          retention-days: 90
