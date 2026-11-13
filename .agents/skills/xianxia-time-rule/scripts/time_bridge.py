@@ -58,7 +58,10 @@ def time_window(world, observed_events):
       "not_a_proof_of_good_writing":True,
     }
 
-def concise_context(window):
+def concise_context(window, *, deadline_event="截止事件", other_actors="其他人物"):
+    require(all(type(s) is str and 1 <= len(s) <= 60 and "\\n" not in s
+                and "\\r" not in s for s in (deadline_event,other_actors)),
+            "TIME_CONTEXT_LABEL_INVALID")
     require(type(window) is dict and window.get("format") ==
             "wf.time-author-window.v2","AUTHOR_TIME_WINDOW_INVALID")
     eligible = ("实修时间已满足突破尝试的最低条件，但失败或放弃仍可能。"
@@ -70,7 +73,7 @@ def concise_context(window):
       f"现在位于{frame_name}，当前时间流速为"
       f"{window['actor_time_rate_subjective_per_world_hour']}主观小时/世界小时；"
       f"现在是世界第{window['world_hour_now']}小时；"
-      f"河水预计在第{window['world_hour_deadline']}小时抵达，"
+      f"故事的{deadline_event}时限是第{window['world_hour_deadline']}小时，"
       f"外界还剩{window['world_hours_left']}小时。"
       f"主角亲身经历{window['actor_subjective_hours_elapsed']}主观小时，"
       f"已有实修{window['actor_real_cultivation_hours']}主观小时；"
@@ -78,9 +81,9 @@ def concise_context(window):
       f"若持续修炼，按目前所在位置的流速还需"
       f"{window['world_hours_of_continuous_training_needed']}个世界小时满足最低时间资格。"
       + eligible +
-      "洞外守夜人的时间也已经推进，他的未知想法和行动不必由主角决定。"
+      f"{other_actors}的时间也已经推进，相关人物的未知想法和行动不能由主角凭空知道。"
       "作者可以自由写出救人、退让、冒险、误判、偶然或失败；"
-      "必须给每个真正发生的行动付出时间，不预设突破成功或河堤得救。"
+      "必须给每个真正发生的行动付出时间，不预设突破成功或事件圆满解决。"
     )
 
 def delta(normal,altered,events):
