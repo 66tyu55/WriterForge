@@ -29,3 +29,7 @@ V1 缺陷：世界日与身体经历日相等、没有洞府时间参考系、�
 5. **停止条件**：如模型未受约束，保留全部失败；不换提示词或重复调用刷通过，明确指出是参数模型不足、模型遵从不足，还是正文/事件表不一致。
 
 **所有场景为原创测试，不以原著文字作训练。没有微调任何模型、没有对 WF 学海库/R2/Canon/生产代码写入。**
+
+## Once-only launch receipt
+
+This commit is the sole authorized push-trigger for the pinned local Qwen three-arm trial. No retries, paid API fallbacks, or re-labeling failed results as passed evaluations. The same random character and frozen parameter inputs must be retained verbatim.
