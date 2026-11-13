@@ -58,6 +58,13 @@ CONTEXT_PATTERNS={
 }
 RX={k:re.compile(p) for k,p in CONTEXT_PATTERNS.items()}
 NEGATIVE_RATE=re.compile(r"并无.{0,8}时间流速|并没有.{0,8}时间流速|没有.{0,8}时间加速")
+# Some of the most important clock relationships contain NO number at all.
+NON_NUMERIC_SIGNALS={
+ "local_time_rate":re.compile(r"时间流速|时间加速|时光加速|时光流速"),
+ "historical_era":re.compile(r"[一-鿿]{1,6}元年|第[零一二三四五六七八九十0-9]{1,6}纪(?:元)?|[上太远]古"),
+ "story_relative_order":re.compile(r"与此同时|此前|此后|当年|很久以前|多年以后"),
+ "parallel_offscreen_time":re.compile(r"与此同时|同一时间|另一边|另一处"),
+}
 EVIDENT_RATE=re.compile(r"时间流速.{0,12}(?:快|慢|不同|倍)|(?:外界|洞中).{0,15}(?:一年|一日).{0,15}(?:里面|外面|洞中|外界)")
 EFFICIENCY=re.compile(CONTEXT_PATTERNS["cultivation_efficiency"])
 AFTER=re.compile(r"之后|以后|以后|后面|后$|前$|以前|之前")
@@ -186,6 +193,33 @@ def scan(path,max_matches=50000,include_private_context=False):
             row["context_PRIVATE"]=context
         rows.append(row)
         if len(rows)>max_matches:raise ValueError("TIME_MATCH_CAP_EXCEEDED")
+    # Non-numeric expressions are source evidence too: "元年",
+    # "与此同时", "时间流速并无变化" MUST not vanish from training.
+    for parameter,signal in NON_NUMERIC_SIGNALS.items():
+        for match in signal.finditer(text,cut):
+            ln=bisect_right(char_off,match.start())-1
+            byte_start=byte_off[ln]+len(lines[ln][:match.start()-char_off[ln]].encode(encoding))
+            surface=match.group(0)
+            bs=surface.encode(encoding)
+            assert raw[byte_start:byte_start+len(bs)]==bs
+            ctx=text[max(cut,match.start()-38):min(len(text),match.end()+38)]
+            _,status=independently_coded(ctx,surface)
+            row={
+              "source_byte_start":byte_start,"source_byte_end":byte_start+len(bs),
+              "source_char_start":match.start(),"source_char_end":match.end(),
+              "surface_sha256":sha256(bs).hexdigest(),"unit":"NO_QUANTIFIED_UNIT",
+              "explicit_quantity":None,"quantity_status":"NO_NUMERIC_QUANTITY",
+              "candidate_parameter_ids":[parameter],
+              "time_rate_inference_status":status if parameter=="local_time_rate" else "NOT_APPLICABLE",
+              "semantic_review_status":"NOT_REVIEWED",
+              "actor_identity_verified":False,"story_event_time_verified":False
+            }
+            if include_private_context:
+                row["source_surface_PRIVATE"]=surface
+                row["context_PRIVATE"]=ctx
+            rows.append(row)
+            if len(rows)>max_matches:raise ValueError("TIME_MATCH_CAP_EXCEEDED")
+    rows.sort(key=lambda row:(row["source_char_start"],row["source_char_end"]))
     counts=Counter();units=Counter();quals=Counter()
     for row in rows:
         counts.update(row["candidate_parameter_ids"])
