@@ -30,3 +30,5 @@ jobs:
           python experiments/wf_time_event_first_autonomous_once.py --dry-run
       - name: Source-local parameter change/revision checks
         run: python -m unittest discover -s tests -p 'test_wf_time_event_source_delta.py' -v
+      - name: Direct-from-original episode reader and evidence-bounds tests
+        run: python -m unittest discover -s tests -p 'test_wf_time_raw_episode_reader.py' -v
