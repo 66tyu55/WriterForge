@@ -76,6 +76,11 @@ class SemanticGateTests(unittest.TestCase):
         self.assertEqual([f["id"] for f in out["model_prefix"]["facts"]],
                          ["F001","F002"])
         self.assertEqual(len(out["model_prefix"]["links"]),1)
+        for i, approved_fact in enumerate(out["model_prefix"]["facts"]):
+            self.assertEqual(approved_fact["telling_seq"],
+                             obs["facts"][i]["telling_seq"])
+            self.assertIsNone(approved_fact["story_tick"])
+            self.assertIsNone(approved_fact["time_axis"])
         self.assertFalse(out["private_audit"]["semantic_truth_machine_proven"])
 
     def test_reversing_signed_causal_link_does_not_pass(self):
