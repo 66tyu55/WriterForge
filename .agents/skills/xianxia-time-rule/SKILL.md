@@ -58,3 +58,10 @@ assert out["altered"]["accepted"] is True
 `tests/test_wf_xianxia_time_v2.py` 覆盖单参数差异、并发人物时钟、未来不停止、突破可失败、非修炼活动不加功、精确分数、未知纪元、无单位拒绝等；`tests/test_wf_xianxia_time_v2_writer_preflight.py` 冻结真实模型输入。实际生成只通过 `experiments/wf_xianxia_time_v2_real_writer_once.py` 一次性离线开源模型测试，没有重复提示词刷分、不调用付费 API、不碰现有小说原著、学海、R2 或 Canon。
 
 **双闸门**：A. 独立时间引擎对改动参数作出不同的判决；B. 同模型同故事三组真实正文体现合理差别，且没有新增加的因果/时间矛盾。A 通过但 B 失败意味着**参数是可计算的，但尚未成为写作规则**。如果 B 失败，停止本轮，说明原因而不是继续堆模块。
+
+
+## 2026-11-13 real writer checkpoint — STOP / NOT PROMOTED
+
+The standalone numerical time V2 engine **PASS** (35/35 offline tests including old v1 regression); all five actual pinned local Qwen author replies were saved. The first three raw-JSON writer arms produced only a frozen opening action, not actual choices. The final two compact computed-window prose arms produced longer 878/744-character scenes, but did not demonstrate that changing one time-rate parameter caused a valid story action to change. The ×3 story also attributed unsupported knowledge of the hidden actor's cultivation status to an offscreen guard. **Rule-to-prose transfer FAIL.**
+
+Do NOT represent this as learned novel-writing capability, release into WF Canon, or automatically retry. See `docs/WF_XIANXIA_TIME_V2_FINAL_RESULT_20261113.md`. World, subjective actor clocks, eligibility remain valid as independent time constraints; human/model choosing an action and respecting knowledge/causality requires a separate integration with existing WF narrative state. No integration is authorized by this experiment.
