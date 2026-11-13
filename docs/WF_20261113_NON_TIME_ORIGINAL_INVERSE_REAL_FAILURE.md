@@ -59,3 +59,11 @@ All three Skills remain SHADOW; literary transfer and 1:1 original comprehension
 4. **One true new heldout**: after sources and encoding are independently reviewed and frozen, use a **different original/world** as evaluation rather than recycle C and its known answers. Restore the original causal logic under renaming; changed personality should yield legitimate different outcomes while world constraints persist. Pass/fail must be adjudicated independently, with errors retained.
 
 No merge to `main`, no production WF author, Canon, R2, Xuehai, Railway, or other assistant's time branch touched. **Engineering improved; source parameter correctness and literary inverse remain UNVERIFIED/FAILED.**
+
+## Source reading after FAILED model — one contiguous chapter, every paragraph
+
+Instead of re-calling the same failed frozen decoder, the investigator performed an additional **real original-text** reading of B's entire first chapter (5,080 raw GB18030 bytes). All **38/38 nonblank paragraphs** were checked against exact private byte spans, producing **71 separate provisionally interpreted semantic atoms**. Original paragraphs and private character/world crosswalk remain outside GitHub. Private local ledger SHA256: `b9f9a1f0ceedb9d93876af52818617ae53f5eead241aae8efcbb63b454ba68d7`.
+
+The paragraph pass distinguished ordinary spatial facts that the earlier abstract encoding had missed (e.g. a damaged wall gives an acoustic observation channel, not necessarily knowledge of the conversation), independent incidental characters, compensation for rare literacy, the trust history behind an uncle's recruitment, economic promises rather than guaranteed wages, hidden aspirations and limited child understanding. The last paragraph foreshadows a later life course **to the reader** but does not grant it to the acting child. A sealed-future test must account for such narrator prolepsis already visible in the prefix.
+
+**Important:** 38/38 paragraph-level coverage is NOT sentence-atomic 1:1 mapping. It does not claim every semantic relationship has been extracted or independently approved. Current stage is `SELF_PROVISIONAL`, with no retrained model and no subsequent blind inverse. The original run's failure remains unchanged.
