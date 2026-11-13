@@ -105,7 +105,7 @@ class XianxiaTimeRuleTests(unittest.TestCase):
                 {"kind":"era_shift","days":0,"era_name":"第七纪"}])
 
     def test_model_time_claims_must_match_replayed_time(self):
-        example={"story":"山中洪水将至，佃户先去修渠，又在田边练功数日。即使修为已经达到尝试的条件，他仍可以选择暂时不突破。",
+        example={"story":"山中洪水将至，佃户先去修渠，又在田边练功数日。即使修为已经达到尝试的条件，他仍可以选择暂时不突破。夜里他听说邻村的人已经挪走谷仓，不肯立即出手相助，但洪水并不会因为谁的犹豫而停下。",
                  "time_events":[
                    {"kind":"work","days":2,"world_day_after":102,
                     "cultivation_days_after":4},
