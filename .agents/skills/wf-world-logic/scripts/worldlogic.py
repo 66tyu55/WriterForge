@@ -11,7 +11,7 @@ from hashlib import sha256
 from typing import Any
 
 FORMAT = "wf.source-world-episode.v1"
-EPISTEMIC = {"NARRATED", "CHARACTER_BELIEF", "RUMOUR", "HYPOTHESIS", "UNKNOWN", "UNEXPLAINED"}
+EPISTEMIC = {"NARRATED", "REPORTED", "CHARACTER_BELIEF", "CHARACTER_GOAL", "CHARACTER_SECRET", "CHARACTER_FEELING", "CHARACTER_HYPOTHESIS", "CHARACTER_INFERENCE", "CHARACTER_OBSERVATION", "CHARACTER_KNOWLEDGE_LIMIT", "RUMOUR", "HYPOTHESIS", "UNKNOWN", "UNEXPLAINED"}
 
 
 class EpisodeError(ValueError):
@@ -113,6 +113,14 @@ def validate_source(episode: dict, raw: bytes) -> dict:
     for rule in rules.values():
         require(isinstance(rule.get("action_tag"), str) and rule["action_tag"], "BAD_RULE_SCOPE")
         require(isinstance(rule.get("requirements", []), list), "BAD_RULE_REQUIREMENTS")
+        # A source-attested institutional exception is a separate admissible
+        # path, NOT an automatic override or a universal change to the rule.
+        branches = rule.get("any_of")
+        if branches is not None:
+            require(isinstance(branches, list) and bool(branches) and
+                    all(isinstance(group, list) and bool(group) and
+                        all(isinstance(req, dict) for req in group) for group in branches),
+                    "BAD_RULE_ALTERNATIVES")
     for f in facts.values():
         require(f.get("epistemic") in EPISTEMIC, "BAD_EPISTEMIC_AUTHORITY")
         require(f.get("place_id") is None or f["place_id"] in places, "BAD_FACT_PLACE")
@@ -185,24 +193,41 @@ def _charge(resources: dict, costs: dict) -> None:
         resources[item] = str(balance - debit)
 
 
+def _check_single_requirement(actor: dict, req: dict) -> None:
+    kind = req.get("kind")
+    if kind == "access":
+        require(req.get("token") in actor["access"], "WORLD_RULE_ACCESS_DENIED")
+    elif kind == "resource_min":
+        require(amount(actor["resources"].get(req.get("key"), "0")) >= amount(req.get("value")),
+                "WORLD_RULE_RESOURCE_DENIED")
+    elif kind == "knows":
+        require(req.get("fact_id") in actor["knows"], "WORLD_RULE_KNOWLEDGE_DENIED")
+    elif kind == "at_place":
+        require(actor["at"] == req.get("place_id"), "WORLD_RULE_PLACE_DENIED")
+    elif kind == "attribute_equals":
+        require(actor["attributes"].get(req.get("key")) == req.get("value"),
+                "WORLD_RULE_ATTRIBUTE_DENIED")
+    else:
+        raise EpisodeError("UNKNOWN_WORLD_REQUIREMENT")
+
+
 def check_rule(actor: dict, rule: dict) -> None:
-    """World rules bound feasibility, never force action or a result."""
+    """Requirements AND optional attested alternatives (OR), no automatic success."""
     for req in rule.get("requirements", []):
-        kind = req.get("kind")
-        if kind == "access":
-            require(req.get("token") in actor["access"], "WORLD_RULE_ACCESS_DENIED")
-        elif kind == "resource_min":
-            require(amount(actor["resources"].get(req.get("key"), "0")) >= amount(req.get("value")),
-                    "WORLD_RULE_RESOURCE_DENIED")
-        elif kind == "knows":
-            require(req.get("fact_id") in actor["knows"], "WORLD_RULE_KNOWLEDGE_DENIED")
-        elif kind == "at_place":
-            require(actor["at"] == req.get("place_id"), "WORLD_RULE_PLACE_DENIED")
-        elif kind == "attribute_equals":
-            require(actor["attributes"].get(req.get("key")) == req.get("value"),
-                    "WORLD_RULE_ATTRIBUTE_DENIED")
-        else:
-            raise EpisodeError("UNKNOWN_WORLD_REQUIREMENT")
+        _check_single_requirement(actor, req)
+    alternatives = rule.get("any_of")
+    if alternatives is not None:
+        require(isinstance(alternatives,list) and alternatives and
+                all(isinstance(group,list) and group for group in alternatives),
+                "BAD_RULE_ALTERNATIVES")
+        for group in alternatives:
+            try:
+                for req in group:
+                    _check_single_requirement(actor, req)
+            except EpisodeError:
+                continue
+            return
+        raise EpisodeError("WORLD_RULE_NO_ADMITTED_PATH")
 
 
 def apply_proposal(world: dict, proposal: dict) -> dict:
