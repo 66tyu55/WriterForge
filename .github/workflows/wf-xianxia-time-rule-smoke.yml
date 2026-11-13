@@ -2,7 +2,7 @@ name: WF Xianxia Independent Time Rule Smoke
 
 on:
   push:
-    branches: [feature/wf-xianxia-time-rule-20261113]
+    branches: [feature/wf-xianxia-time-rule-20261113, feature/wf-temporal-parameter-original-training-20261113]
   workflow_dispatch:
 
 permissions:
@@ -20,3 +20,5 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_wf_xianxia_time_rule.py' -v
       - name: V2 independent-clock and one-parameter ablations
         run: python -m unittest discover -s tests -p 'test_wf_xianxia_time_v2*.py' -v
+      - name: V3 original temporal parameter source-mapping regressions
+        run: python -m unittest discover -s tests -p 'test_wf_xianxia_time_v3*.py' -v
