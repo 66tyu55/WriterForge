@@ -1,0 +1,153 @@
+{
+  "format": "wf.xianxia.time_autodiscovery.frozen.v1",
+  "study": "Anonymous event observations from a fresh consecutive three-chapter private original. Evidence IDs map to exact private byte spans; no source prose here.",
+  "scope": {
+    "visible_chapters": [
+      15,
+      16,
+      17
+    ],
+    "sealed_chapters": [
+      18,
+      19
+    ],
+    "source_view_sha256": "5249f44da82f173279b7296245fb4370db995f9f5db0ec24f5438c016cf18a82",
+    "independent_human_gold": false
+  },
+  "actors": {
+    "P001": "junior learner carrying an object kept secret",
+    "P002": "labor supervisor",
+    "P003": "senior teacher with own undisclosed goals",
+    "P004": "housemate",
+    "S001": "regular work place",
+    "S002": "training garden",
+    "X001": "secret item",
+    "X002": "a treated vessel"
+  },
+  "observations": [
+    {
+      "id": "O01",
+      "source_ids": [
+        "O01",
+        "O02",
+        "O03"
+      ],
+      "text": "外面持续下雨。随身的隐秘物件似乎吸收落在附近的雨水。P001将物件藏起，打算雨停后取回；没有给出降雨总小时数。",
+      "epistemic": "NARRATED_WITH_INFERRED_EFFECT"
+    },
+    {
+      "id": "O02",
+      "source_ids": [
+        "O04",
+        "O05",
+        "O06"
+      ],
+      "text": "负责分配劳动的P002原先要求P001每天完成大量挑水，后来因更高地位者来寻找P001，改口说只需极少工作，原先要求是玩笑。P002对高层来访的含义有自己的猜测。",
+      "epistemic": "CHANGED_SOCIAL_RULE_AND_ACTOR_BELIEF"
+    },
+    {
+      "id": "O03",
+      "source_ids": [
+        "O08"
+      ],
+      "text": "P001说自己前夜返回，次日清晨得知被召见。这是角色对相对先后关系的陈述，不是绝对纪年。",
+      "epistemic": "ACTOR_REPORT"
+    },
+    {
+      "id": "O04",
+      "source_ids": [
+        "O09",
+        "O10"
+      ],
+      "text": "P003发现一个特殊容器蕴含异常性质，怀疑与植物变化有关，却认为该联系尚需检验。",
+      "epistemic": "UNTESTED_CAUSAL_HYPOTHESIS"
+    },
+    {
+      "id": "O05",
+      "source_ids": [
+        "O11",
+        "O12",
+        "O13"
+      ],
+      "text": "P003对稀有资源有强烈需求，先想让P001成为侍从，之后让其转为正式弟子；内心目的与对外说辞不完全一致。",
+      "epistemic": "NARRATOR_INTERNAL_MOTIVE"
+    },
+    {
+      "id": "O06",
+      "source_ids": [
+        "O14"
+      ],
+      "text": "P003声称P001未经许可不得离开指定住所；这是一条由人实施的权限限制，尚无证据表明永久有效。",
+      "epistemic": "REPORTED_PROHIBITION"
+    },
+    {
+      "id": "O07",
+      "source_ids": [
+        "O15",
+        "O16",
+        "O17"
+      ],
+      "text": "P001阅读至深夜，随后按一套呼吸法修习到次日清晨；当时仍未感到明显变化。没有给出精确总小时数。",
+      "epistemic": "NARRATED_INTERVAL_NO_EXACT_HOURS"
+    },
+    {
+      "id": "O08",
+      "source_ids": [
+        "O18",
+        "O19",
+        "O20"
+      ],
+      "text": "P001后来在一处环境资源较丰富的园地，短时间出现了微弱修行感受，P003却禁止其在那里继续修行。原著没有给出修炼效率的数值倍率。",
+      "epistemic": "NARRATED_EFFECT_AND_REPORTED_BAN"
+    },
+    {
+      "id": "O09",
+      "source_ids": [
+        "O21",
+        "O22"
+      ],
+      "text": "P003口头约定：P001若再交来一个有用的容器，将得到一件可能辅助修行的资源。当前观察段没有证明物品已交付或有效。",
+      "epistemic": "PROMISED_NOT_DELIVERED"
+    },
+    {
+      "id": "O10",
+      "source_ids": [
+        "O16",
+        "O18"
+      ],
+      "text": "世界时间在夜间修炼与早晨修炼之间持续推进；修行进步不能仅因时间经过而认定，尚有活动、环境与认知差异。",
+      "epistemic": "NARRATED_ORDER_NOT_CAUSAL_PROOF"
+    },
+    {
+      "id": "O11",
+      "source_ids": [
+        "O02",
+        "O09",
+        "O14"
+      ],
+      "text": "P001故意隐瞒某物件的全部来历，P003掌握部分线索但并不了解完整机制；不同人物的知识不能自动合并。",
+      "epistemic": "CHARACTER_SPECIFIC_KNOWLEDGE"
+    }
+  ],
+  "constraints": {
+    "source_exact_quantity_only": true,
+    "no_known_time_multiplier": true,
+    "no_guaranteed_breakthrough": true,
+    "no_inevitable_future": true,
+    "unknown_absolute_calendar": true,
+    "offscreen_actors_continue": true
+  },
+  "experiment": {
+    "seed": 20261113,
+    "model": "Qwen2.5-3B-Instruct-Q4_K_M",
+    "max_tokens_each": 1600,
+    "arms": [
+      "direct",
+      "event_first"
+    ],
+    "rubric_sha256": "0ea5eaf8a35ee1bb62d8e5a9d80e55d297831b37a937ca3bb629bc9cbbb61aad",
+    "source_future_sha256": "54af7e4ed0dc0bc35cb3c237d68aac95d130b7050ca6888679e4afc6f3c90644",
+    "no_model_finetune": true,
+    "external_paid_calls": 0
+  }
+}

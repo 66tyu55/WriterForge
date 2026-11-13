@@ -5,7 +5,7 @@ compatibility: Python 3.10+, no extra dependencies; optional pinned local Qwen m
 metadata:
   wf-skill-id: xianxia-time-rule
   wf-lifecycle: shadow
-  wf-version: "0.2"
+  wf-version: "0.5"
 ---
 
 # 修仙时间：从 V1 的“数字表”改成 V2 可执行独立规则
@@ -81,3 +81,67 @@ User explicitly resumed experiments after the historical river-story STOP. This 
 **Actual new fictional writer run:** [Actions #43396159475](https://github.com/66tyu55/WriterForge/actions/runs/43396159475) used Qwen2.5-3B, seed 20261114, a new random mountain-bell keeper, 2 different cave time rates, one independent decision + one original prose reply per arm. Both chose a normal one-hour alarm and correctly passed time gating; neither demonstrated a differential personality/plot effect. The 1:1 novel became severely repetitive; the 3:1 novel introduced additional movements with no corresponding clock records. **Narrative temporal consistency FAIL/UNVERIFIED and no literary gain demonstrated.** Full report: `docs/WF_XIANXIA_TIME_V2_PARAMETER_REPAIR_AND_REAL_STORY_20261113.md`.
 
 The time kernel remains **SHADOW**, does not generate or repair a story, and must not auto-promote to official WF writing. Source-original literary training and world-logic inverse remain separate unsolved goals. If a future trial occurs, it must make every author-originated action commit its time cost before subsequent prose, without hardcoding choices or borrowing omniscient NPC knowledge.
+
+
+## V3: Original-source parameter learning — NOT COMPLETE / DO NOT PROMOTE
+
+User correction: V1/V2 were only a narrow, hardcoded time-rule calculator plus some author tests. They were **not trained on complete time behavior in original xianxia novels**. Do not claim `V2 PASS` means a finished Skill. V2 remains a mechanical reference.
+
+A private study of the user's 13 whole novel text files (150,798,245 raw bytes) produced 114,877 unreviewed candidate time expressions. A weak source-driven recognizer trained on 1,162 weakly labelled examples from 10 novels performed only **13/28** on 28 manually checked held-out probes from three other novels; the method FAILED and that result is preserved. Assistant-linked 33 original excerpts spanning 13 novels now provide at least one source-anchored comparison for each of 18 independent time semantics, but six semantics have only one example and no independent reviewer has checked them. **This is an early curriculum, not complete training.**
+
+Use `scripts/time_parameters_v3.py` for source-local candidate evidence. Its open-world `DOMAINS` distinguish world elapsed time, reader reveal order, story event order, subjective/biological age, lifespan ceiling, cultivation exposure, cultivation efficiency, physical local time rate, temporal-zone admission quotas, realm time prerequisites, journey duration, waiting deadline, recurrence, epoch, offscreen overlap and epistemic uncertainty. The `frame_access_schedule` slot was learned as necessary after reading a complete novel passage that combines an unusual training-time space with limited visits per world day. An entry quota **is not** itself a number of awarded cultivation hours. An experienced dream year **is not** automatically a biological-aging year. Never interpret a cultivation effect comparison as time dilation.
+
+Source evidence must preserve exact byte offsets, unit and numeric qualifier. Semantic review defaults to NOT_REVIEWED; a literal match is only evidence that wording exists, not that a causal time rule is true. No original novel text, private source mapping or model weights from weak labels may enter the public repository or production author. In the absence of independent confirmation, do not replace UNKNOWN with invented dates, ratios, lifespan or character experience.
+
+Actual progress and strict training gaps: `docs/WF_TIME_V3_ORIGINAL_CORPUS_TRAINING_STATUS_20261113.md`. V3 tests run separately from legacy V1/V2 in GitHub Actions; CI validation of synthetic encoding and quotas is a precondition, **not** a substitute for chapter-by-chapter original-source learning and held-out fiction inference.
+
+**Gate remains SHADOW / NOT READY**. Never mark this as a finished trained time Skill until all parameter meanings survive independent source-based reconstruction and action/state transitions on unseen passages.
+
+
+## V4: Event-first original parameter localization (source-bound, not yet full training)
+
+**Finding from user-owned original stories**: pre-assigning 18 abstract time slots and scanning for time words loses what a parameter *does* and whom it affects. The correct discovery unit is a **real story change / hard outcome question**, not a keyword count or fixed type name.
+
+Use `scripts/event_first_time_locator.py`, not an LLM-generated number vector, when deciding whether a proposed temporal constraint belongs in the experiment:
+
+1. Read a contiguous segment of real original text. Pin the complete original SHA, the exact two-chapter window and each cited byte slice. If a quote occurs only outside those chapters, it cannot be used.
+2. Record each candidate as a **local, owner-specific, exact-source claim**. A reported cost, forecast, plan and physical observation are not interchangeable. Exact quantities need an original numeral token that matches the normalized rational value; even a byte-perfect source quote cannot justify inserting an arbitrary numeric value.
+3. Freeze a question about the original **event or consequence** before testing parameters. Only then run representational deletion: remove each candidate source fact, answer again and flag where the result becomes UNKNOWN. This shows the fact is necessary **for that question**, not that it is a universal genre law or a verified cause.
+4. Do not discard facts unused by a few questions; an actor's age, side character or alternate outcome may matter in later event questions. Missing input is UNKNOWN, conflicting reports stay separately attributed, and uncertainty never turns into an exact date or guaranteed death.
+5. Change a single parameter and check that it affects an externally meaningful action/condition while preserving other actors' clocks, resource costs and downstream state. Never force an author choice or future plot simply to make a numeric test pass.
+
+**Actual private two-original pilot** (not CI gold): first two consecutive chapters of two different xianxia works; 17 source-located anchors, 17 candidate facts, 7 preregistered event questions, 12 facts needed in those questions and 5 held for additional questions. The first version accepted a valid anchor with a forged numeric value; this negative test failed as intended and was repaired with `numeric_literal` source token checks. Private original-specific retest: 13/13 current local checks pass. Public source-free CI: **77/77 focused mechanics**. This is an event-first source-localization pilot, **NOT** an independently reviewed original novel decoder, full-book training or literary uplift. See `docs/WF_TIME_EVENT_FIRST_PARAMETER_LOCALIZATION_20261113.md`.
+
+**Promotion gate remains closed.** Do not wire this to production WF as a mastered original-novel Skill. The 13 original novels and previous 13/28 weak-label failure record remain in the existing V3 study; no new model-weight training or private original upload is performed by V4.
+
+
+## V5: autonomous event-first proposal FAILED; evidence delta cannot be overwritten
+
+**Real private-source experiment, 2026-11-13.** Three consecutive chapters of a fresh original were privately anchored with 21 exact source spans, then reduced to 11 anonymous observations. Later chapters 18–19 and a 9-point rubric were cryptographically frozen and excluded from model input. Two genuine pinned, offline Qwen2.5-3B model calls compared direct parameter extraction and asking event-first questions. Original responses are preserved at GitHub Actions run [#43412742909](https://github.com/66tyu55/WriterForge/actions/runs/43412742909).
+
+**Both failed** the preregistered format and meaningful rule criterion. The direct arm wrote unusable self-recursive 'time = time + time' style rules; the event-first arm merely turned observations into generic 'why' questions followed by UNKNOWN. **0 admissible independently proposed temporal rules in both arms**. This is NOT a 0% estimate of WF's performance on 13 originals, nor proof the entire method cannot work on stronger models. Only the fresh anonymized 3-chapter packet was submitted; model did not read the original text. Do not re-prompt/tune on the same frozen source to manufacture success.
+
+After both original replies were recorded, the sealed later chapters were examined. The source-backed new evidence concerns an inhibitory intervention that blocks training despite time and resources, temporary resource potency disappearing after roughly one month, changing social incentives that can waive a previously stated exchange condition, a domain-limited per-lifetime technique quota plus its own cost, and several actors acting over the same day. None was to be retroactively treated as a prior prediction.
+
+The existing Skill now also has `scripts/temporal_delta.py`: a small **candidate-only** difference tracker for two or more source-attested states. The program retains earlier evidence and does not confuse new reader knowledge with an actual physical change; a person's revised decision is not automatically a universe-wide law; a one-month qualitative observation never produces a fabricated linear decay coefficient. Unit tests `tests/test_wf_time_event_source_delta.py` cover six such cases. This **is not** an independent source-understanding model, nor a newly trained Skill.
+
+Full protocol and failed method: `docs/WF_TIME_AUTODISCOVERY_PRIVATE_SOURCE_PROTOCOL_20261113.md` and `docs/WF_TIME_AUTODISCOVERY_FAILED_AND_UNSEEN_FUTURE_20261113.md`.
+
+**Gate stays SHADOW / NOT READY.** A future end-to-end trial must first extract events directly from private original chapters with verifiable speaker/actor ownership and evidence; then propose dynamic conditional rules; finally verify those rules against held-out state changes. No direct author/Canon/Xuehai promotion.
+
+
+## V6 raw-original event ledger: source coverage FIRST, not autonomous semantic truth
+
+User asked to continue after the source-free autonomous parameter discovery model failed in both direct and event-first arms. That failure arose partly because the model only received GPT-curated observations rather than the real sequential source. The current Skill therefore introduces `scripts/raw_episode_reader.py`, operating on original edition **privately**:
+
+- It reads actual Chinese original-text chapters in file order, preserving all bytes through line receipts and tracking each candidate clause with an exact byte span and SHA. Chapter headings are retained as source metadata but not treated as practice events.
+- It records *separate possible* time expressions, use-frequency and per-visit duration, activity/constraint/change lexical cues, negation and character-belief/dialogue/rumour caution. No source text is printed by `public_summary`, no automatic training-time multiplier, causality or epoch number is invented.
+- **Speaker/actor IDs remain unresolved**: tests showed naive Chinese regex could mistake adverbs for character names. Assigning UNKNOWN is better than contaminating the next stage with false identity. The script does NOT automatically add its candidates to world canon or to `temporal_delta`.
+
+Actual private source trial: complete-text original chapters 15–17 yielded **75 candidate clauses and 96 lines**; 21/21 *previously frozen evidence spans* overlapped candidate locations. This measures input discovery coverage relative to 21 prior selected spans, **NOT** 100% event precision, true semantic recall or trained world rules.
+
+A first out-of-sample pass identified a heading falsely marked as a practice event, and a single line's visit quota plus per-entry stay duration insufficiently captured; fixes were frozen as RED→GREEN tests. A new source-edition-pinned holdout run on 3 more chapters of one original and 3 chapters of another produced **68/108** and **71/105** candidate clauses / line receipts respectively, with exact byte validation. No independent judge checked causal truth.
+
+Source-free GitHub tests in `tests/test_wf_time_raw_episode_reader.py` pass, and original private evidence remains uncommitted. See `docs/WF_TIME_RAW_SOURCE_EVENT_READER_PILOT_20261113.md`.
+
+**Very important:** Do not report a high candidate count or successful byte recovery as automatic full-novel study. Actor identity and knowledge state, real physical time, preconditions, motivations and multi-chapter consequences remain unresolved; the old real Qwen autonomous proposal failure must be preserved. Keep SHADOW / NOT READY and work next on independently grounded actor/event ownership, not on another category list.

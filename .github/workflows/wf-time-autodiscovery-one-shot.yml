@@ -1,0 +1,64 @@
+name: WF Temporal Source-First Autonomous Discovery Two Arm One Shot
+
+on:
+  push:
+    branches: [feature/wf-temporal-parameter-original-training-20261113]
+    paths:
+      - .github/workflows/wf-time-autodiscovery-one-shot.yml
+      - docs/WF_TIME_AUTODISCOVERY_PRIVATE_SOURCE_PROTOCOL_20261113.md
+      - experiments/wf_time_event_first_autonomous_frozen_20261113.json
+      - experiments/wf_time_event_first_autonomous_once.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf-original-time-autodiscovery-fresh-heldout-20261113
+  cancel-in-progress: false
+
+jobs:
+  local-model-proposes-new-parameters:
+    if: >-
+      github.event_name == 'push' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'WF event-first: launch frozen two-arm real model parameter proposal'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify new source-frozen event-first test and prompt hashes
+        run: |
+          python -m unittest discover -s tests -p 'test_wf_time_event_first_autodiscovery.py' -v
+          python experiments/wf_time_event_first_autonomous_once.py --dry-run
+      - name: Install pinned local CPU model runtime
+        env:
+          CMAKE_ARGS: -DGGML_NATIVE=OFF
+          CMAKE_BUILD_PARALLEL_LEVEL: '2'
+        run: python -m pip install 'llama-cpp-python==0.3.16'
+      - name: Download locked Qwen 3B GGUF model
+        run: |
+          curl --fail --show-error --location --connect-timeout 30 --max-time 720 \
+            --output "$RUNNER_TEMP/wf-time-proposal-qwen.gguf" \
+            "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/254600e47ea694216f6108325376ce5b35d456a1/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+          printf '%s  %s\n' \
+            '9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94' \
+            "$RUNNER_TEMP/wf-time-proposal-qwen.gguf" | sha256sum --check --status
+      - name: Run two genuine isolated novel-time parameter proposals
+        run: |
+          python experiments/wf_time_event_first_autonomous_once.py \
+            --model "$RUNNER_TEMP/wf-time-proposal-qwen.gguf" \
+            --out "$RUNNER_TEMP/wf-time-autodiscovery-original-replies"
+      - name: Preserve actual model output without retries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-Time-Original-Event-First-Autodiscovery-Frozen-Two-Arms
+          path: ${{ runner.temp }}/wf-time-autodiscovery-original-replies/
+          if-no-files-found: warn
+          retention-days: 90
