@@ -103,3 +103,23 @@ A fourth previously unused **complete GB18030 original** was retrieved privately
 - A separate **private anonymous-packet coverage audit** maps 38 public observations to 48 source paragraphs and documents **9 known semantic compression omissions**, such as physical status signals, book cosmology, precise material phase/quantity and later shard handling. Its SHA256: `a9aa1075a51389465d8978329975530262e5b85ffdde02cbb4cc3e523012202a`. Heading is the only paragraph without any anonymous claim. The public anonymous packet **cannot** perfectly reconstruct the full source even if model decoding succeeds.
 
 Until independently audited source coverage and meaningful multi-book blind causal inverse pass, maintain **SHADOW, NOT TRAINED, NOT 1:1**; neither dry-run prompts, model calls, JSON formatting nor syntactic world-rule unit tests justify release.
+
+
+### Fresh D original inverse result — real two model calls FAILED
+
+**New [Actions run #43421269700](https://github.com/66tyu55/WriterForge/actions/runs/43421269700) completed SUCCESS at the execution layer; actual anonymous world inverse FAILED in both arms.** Artifacts `WF-NonTime-Fresh-Novel-D-Anonymous-TwoArm-20261113` (artifact ID `14034213217`), [download from Actions](https://github.com/66tyu55/WriterForge/actions/runs/43421269700/artifacts/14034213217), preserve all four prompt/raw/answer pairs and STATUS. Two actual CPU Qwen2.5-3B Q4_K_M calls, pinned model and source-free prompts, no retry, no paid API, no original prose or D2 gold disclosed.
+
+| Frozen arm | Prompt tokens | Completion tokens | JSON schema | Genuine causal inverse |
+| --- | ---: | ---: | --- | --- |
+| Baseline anonymous D1 only | 1,629 | 323 | Valid | **FAIL**: `world` is literally all 38 observation IDs, `directed_links=[]`, counterfactual only the literal label `P0_REFUSES_TRIP`, `unproved=["D038"]`; no causal reconstruction |
+| + eight A/B reading-derived habits | 1,961 | 1,450 (max) | Invalid/truncated | **FAIL**: content loops the token `storm_guard_pursue` **231** times; no complete relation graph or readable counterfactual |
+
+Original answer SHA256 values: baseline `f97046f33b0caf76bfe58b9ca6da694b870c8a2a5ea7c307b754cb7251ac3ca0`; source-reading arm `753dedaf542df8e30bbb8f7b00d51cf59907b80240c273b14f47686fbb41693d`. Model completion cap was 1,450 each. The source-learning arm has **332 extra input tokens**, so this treatment cannot be considered a controlled equal-token proof even if it had improved. It did not.
+
+**Failure localization:**
+1. Before model inference: D1 anonymous representation had **nine independently visible compression omissions**, first substantive known omission in private original physical presentation/status detail; an exact inverse is impossible from that public packet.
+2. Decoder baseline: the first output field merely enumerates observed IDs instead of reconstructing the world, followed by empty directed causal edges. This is categorical failure of user-requested inverse reasoning, regardless of schema validity.
+3. Source-reading decoder: output repeats one guardian-pursuit label 231 times to token cap and never builds answer object. More source-derived “habits” worsened this small-model run; cannot claim training transfer.
+4. The D2 private source has additional institutional/territorial and individual details outside the original D1 prefix; **these must be labelled unknown, not invented as predictions**. Some initial D2 lines inspected before the freeze were excluded from future gold. Independent semantic adjudication remains absent.
+
+**Conclusion/STOP:** No 1:1 parameter correctness, no successful changed-world logic reconstruction, no demonstration of improved literary writing. Preserve both frozen failures. Do **not** repeat the same model calls, switch prompt wording to manufacture passing grades, merge any of these Skills into WF author, or claim 38 anonymous observations reconstruct the original. Future work should prioritize lossless semantic coverage and independent source review before consuming more model tests. Prior C failure and this new D failure are different frozen trials, both remain fail.
