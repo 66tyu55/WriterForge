@@ -18,4 +18,4 @@ jobs:
         with:
           python-version: "3.11"
       - name: Source-free inverse and adversarial tests
-        run: python -m unittest discover -s tests -p 'test_wf_reversible_world_causality.py' -v
+        run: python -m unittest discover -s tests -p 'test_wf_reversible_world*.py' -v
