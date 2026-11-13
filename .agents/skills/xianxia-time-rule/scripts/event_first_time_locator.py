@@ -34,6 +34,36 @@ def read_source(path):
     raise EvidenceError("SOURCE_ENCODING_NOT_REVERSIBLE")
 
 
+def _numeric_literal_value(text):
+    """Exact Chinese-number parsing, not fuzzy matching or a model guess."""
+    if type(text) is not str or not text:
+        return None
+    if text.isdecimal():
+        return Fraction(int(text))
+    numerals = {"零":0,"〇":0,"○":0,"一":1,"二":2,"两":2,"兩":2,
+                "三":3,"四":4,"五":5,"六":6,"七":7,"八":8,"九":9}
+    units = {"十":10,"百":100,"千":1000,"万":10000,"亿":100000000}
+    if any(ch not in numerals and ch not in units for ch in text):
+        return None
+    # Reject colloquial approximate compounds like 十七八 / 三五.
+    if any(a in numerals and b in numerals and
+           a not in "零〇○" and b not in "零〇○"
+           for a,b in zip(text,text[1:])):
+        return None
+    total=group=current=0
+    for ch in text:
+        if ch in numerals:
+            current=numerals[ch]
+        elif ch in "万亿":
+            group=(group+current)*units[ch]
+            total+=group
+            group=current=0
+        else:
+            group+=(current if current else 1)*units[ch]
+            current=0
+    return Fraction(total+group+current)
+
+
 def validate(package, raw=None, codec=None):
     if package.get("format") != "wf.event-first.time-invariants.v1":
         raise EvidenceError("FORMAT")
@@ -82,6 +112,26 @@ def validate(package, raw=None, codec=None):
                 Fraction(value)
             except (ValueError, ZeroDivisionError) as exc:
                 raise EvidenceError("NON_EXACT_NUMBER") from exc
+            literal=fact.get("numeric_literal")
+            if _numeric_literal_value(literal)!=Fraction(value):
+                raise EvidenceError("NUMERIC_VALUE_NOT_SOURCE_LITERAL")
+            if raw is not None:
+                number_chars = "零〇○一二三四五六七八九十百千万亿兩两0123456789"
+                grounded=False
+                for eid in fact["evidence_ids"]:
+                    ev=emap[eid]
+                    passage=raw[ev["start"]:ev["end"]].decode(codec,errors="strict")
+                    import re
+                    for match in re.finditer(re.escape(literal),passage):
+                        preceding=(passage[match.start()-1]
+                                   if match.start()>0 else "")
+                        following=(passage[match.end()]
+                                   if match.end()<len(passage) else "")
+                        if ((not preceding or preceding not in number_chars)
+                            and (not following or following not in number_chars)):
+                            grounded=True
+                if not grounded:
+                    raise EvidenceError("NUMERIC_LITERAL_NOT_EXACT_IN_ANCHOR")
     for q in questions:
         if not q["requires"] or any(x not in fmap for x in q["requires"]):
             raise EvidenceError("QUESTION_USES_NONEXISTENT_FACT")
