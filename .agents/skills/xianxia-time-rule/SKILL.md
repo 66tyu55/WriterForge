@@ -5,7 +5,7 @@ compatibility: Python 3.10+, no extra dependencies; optional pinned local Qwen m
 metadata:
   wf-skill-id: xianxia-time-rule
   wf-lifecycle: shadow
-  wf-version: "0.2"
+  wf-version: "0.3"
 ---
 
 # 修仙时间：从 V1 的“数字表”改成 V2 可执行独立规则
@@ -96,3 +96,20 @@ Source evidence must preserve exact byte offsets, unit and numeric qualifier. Se
 Actual progress and strict training gaps: `docs/WF_TIME_V3_ORIGINAL_CORPUS_TRAINING_STATUS_20261113.md`. V3 tests run separately from legacy V1/V2 in GitHub Actions; CI validation of synthetic encoding and quotas is a precondition, **not** a substitute for chapter-by-chapter original-source learning and held-out fiction inference.
 
 **Gate remains SHADOW / NOT READY**. Never mark this as a finished trained time Skill until all parameter meanings survive independent source-based reconstruction and action/state transitions on unseen passages.
+
+
+## V4: Event-first original parameter localization (source-bound, not yet full training)
+
+**Finding from user-owned original stories**: pre-assigning 18 abstract time slots and scanning for time words loses what a parameter *does* and whom it affects. The correct discovery unit is a **real story change / hard outcome question**, not a keyword count or fixed type name.
+
+Use `scripts/event_first_time_locator.py`, not an LLM-generated number vector, when deciding whether a proposed temporal constraint belongs in the experiment:
+
+1. Read a contiguous segment of real original text. Pin the complete original SHA, the exact two-chapter window and each cited byte slice. If a quote occurs only outside those chapters, it cannot be used.
+2. Record each candidate as a **local, owner-specific, exact-source claim**. A reported cost, forecast, plan and physical observation are not interchangeable. Exact quantities need an original numeral token that matches the normalized rational value; even a byte-perfect source quote cannot justify inserting an arbitrary numeric value.
+3. Freeze a question about the original **event or consequence** before testing parameters. Only then run representational deletion: remove each candidate source fact, answer again and flag where the result becomes UNKNOWN. This shows the fact is necessary **for that question**, not that it is a universal genre law or a verified cause.
+4. Do not discard facts unused by a few questions; an actor's age, side character or alternate outcome may matter in later event questions. Missing input is UNKNOWN, conflicting reports stay separately attributed, and uncertainty never turns into an exact date or guaranteed death.
+5. Change a single parameter and check that it affects an externally meaningful action/condition while preserving other actors' clocks, resource costs and downstream state. Never force an author choice or future plot simply to make a numeric test pass.
+
+**Actual private two-original pilot** (not CI gold): first two consecutive chapters of two different xianxia works; 17 source-located anchors, 17 candidate facts, 7 preregistered event questions, 12 facts needed in those questions and 5 held for additional questions. The first version accepted a valid anchor with a forged numeric value; this negative test failed as intended and was repaired with `numeric_literal` source token checks. Private original-specific retest: 13/13 current local checks pass. Public source-free CI: **77/77 focused mechanics**. This is an event-first source-localization pilot, **NOT** an independently reviewed original novel decoder, full-book training or literary uplift. See `docs/WF_TIME_EVENT_FIRST_PARAMETER_LOCALIZATION_20261113.md`.
+
+**Promotion gate remains closed.** Do not wire this to production WF as a mastered original-novel Skill. The 13 original novels and previous 13/28 weak-label failure record remain in the existing V3 study; no new model-weight training or private original upload is performed by V4.
