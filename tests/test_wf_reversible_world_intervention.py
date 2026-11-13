@@ -33,7 +33,8 @@ class CounterfactualTests(unittest.TestCase):
         self.assertEqual(branch["source_visible_fact_ids"],["F001"])
         self.assertEqual(branch["prior_original_future_facts_in_branch"],[])
         self.assertEqual(branch["prior_original_future_links_in_branch"],[])
-        self.assertEqual(branch["withheld_original_fact_count"],2)
+        self.assertNotIn("withheld_original_fact_count", branch)
+        self.assertFalse(branch["original_future_knowledge_disclosed"])
         self.assertFalse(branch["replay_original_future_after_change"])
 
     def test_modified_fact_must_be_visible(self):
@@ -97,7 +98,7 @@ class CounterfactualTests(unittest.TestCase):
 
     def test_contract_tampering_does_not_promote_candidate(self):
         _,_,branch=frozen()
-        branch["withheld_original_fact_count"]=0
+        branch["original_future_knowledge_disclosed"]=True
         with self.assertRaisesRegex(codec.ReversibleError,
                                     "BRANCH_CONTRACT_TAMPERED"):
             intervention.validate_proposal(branch,proposed(branch,[]))
