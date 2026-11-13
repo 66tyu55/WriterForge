@@ -77,6 +77,23 @@ Input schema (private; `source_sha256` refers to actual raw novel bytes):
 
 Here `kind` and `parameters` are open extensible **ASCII codes**, not genre-dependent name lists. An evidence anchor can overlap another anchor. Some facts have no actor, but every fact needs at least one source anchor. The synthetic sample is a **shape**, not a truthful analysis of any novel.
 
+## Time, evidence availability and non-deterministic branches (mandatory)
+
+**Critical real-original bug found**: the initial pilot used annotation-index \`telling_seq\`. Of 20 privately anchored candidate facts from two full originals, 15 were in a different order from the final cited evidence. The previous bundles are preserved as historical failures; revised private copies are normalized **without changing story ticks, facts, links, or source text**.
+
+Run \`chronology.py audit --source PRIVATE_ORIGINAL --observations PRIVATE_LEDGER\`. Do not pack a candidate while \`telling_seq_mismatches > 0\`; \`codec.pack\` and \`codec.verify\` now reject \`EVIDENCE_TELLING_SEQUENCE_MISMATCH\`. Use \`chronology.py normalize --source PRIVATE_ORIGINAL --observations PRIVATE_LEDGER --out NEW_PRIVATE_LEDGER\` to write a new, non-overwriting source-evidence-revelation order. All needed evidence must be *visible* before a fact can be used. **This is not story event order**; a flashback in chapter 500 can describe an event thousands of years earlier.
+
+For a sealed next-event trial, \`chronology.py prefix --source PRIVATE_ORIGINAL --observations PRIVATE_LEDGER --cutoff-byte N\` returns ONLY facts/links fully evidenced before N. Neither later-source text nor the count of future gold facts/links may enter a writer-model prompt. No automatic semantic gain follows from this mechanical boundary.
+
+Use \`intervention.prepare_branch\` with that source cutoff and either:
+- \`modify\`: a visible earlier action/fact changes. Never silently replay the original downstream events.
+- \`insert\`: a genuinely unforeseen event enters, with no pre-established cause required.
+
+Treat all generated future events as \`POSSIBLE\`, \`UNKNOWN\`, or \`UNEXPLAINED\` until an independent reviewer compares a truly sealed later episode. A proposed new event without preconditions is allowed only as explicitly uncertain/unexplained, not as a claimed universal causality. The branch SHA detects accidental alteration relative to the supplied digest; **it is not an authentication signature**. An external trusted record is needed to attest trial chronology and prevent deliberately forged hashes.
+
+Do not use the full \`anonymous.json\` as the source for a *blind* prediction: it contains the whole observed graph, and would reveal future facts. Only the source-prefix/fork contract may be passed to that trial. Name swapping alone is a metamorphic representation test, not proof that a changed personality will act identically.
+
+
 ## Hard gates and falsification
 
 - Source bytes/UTF-8-or-GB18030 codec, every physical source line, chunk coverage, hashes, each anchor's exact location, full private-to-anonymous inverse and recovery MUST be **100%** before a bundle is admitted to the *mechanical* stage. Tampering and source mismatches must fail.
