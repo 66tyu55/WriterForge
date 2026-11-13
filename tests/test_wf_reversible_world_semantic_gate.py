@@ -12,6 +12,7 @@ ROOT = (Path(__file__).resolve().parents[1] /
 sys.path.insert(0, str(ROOT))
 import codec
 import semantic_gate
+import intervention
 from test_wf_reversible_world_chronology import scenario
 
 # A fixture-only key. Never use this for private novels or any real review.
@@ -128,6 +129,48 @@ class SemanticGateTests(unittest.TestCase):
         self.assertEqual(out["model_prefix"]["links"],[])
         self.assertNotIn("hidden_fact_count",out["model_prefix"])
         self.assertNotIn(obs["source_sha256"],str(out["model_prefix"]))
+
+    def test_author_fork_fails_closed_on_unreviewed_original_claim(self):
+        raw, obs = scenario()
+        cutoff = raw.index("第二章".encode("utf-8"))
+        change = {"id": "I011", "mode": "modify",
+                  "target_fact_id": "F001", "kind": "actor.choice",
+                  "cause_tag": "irrational_choice"}
+        with self.assertRaisesRegex(codec.ReversibleError,
+                                    "UNREVIEWED_INTERVENTION_TARGET_BLOCKED"):
+            intervention.prepare_reviewed_branch(
+                obs, raw, "utf-8", cutoff_byte=cutoff, change=change)
+        reviewed = intervention.prepare_reviewed_branch(
+            obs, raw, "utf-8", cutoff_byte=cutoff, change=change,
+            reviews=[receipt(obs, "F001")], trusted_key=SYNTHETIC_FIXTURE_KEY)
+        self.assertEqual(reviewed["source_visible_fact_ids"], ["F001"])
+        self.assertEqual([f["id"] for f in
+                          reviewed["reviewed_prefix"]["facts"]], ["F001"])
+        self.assertNotIn(obs["source_sha256"], str(reviewed))
+        check = intervention.validate_proposal(
+            reviewed, {"contract_sha256": reviewed["contract_sha256"],
+                       "candidate_futures": [{
+                           "id": "H001", "kind": "world.possible_consequence",
+                           "basis_fact_ids": ["F001"], "status": "POSSIBLE",
+                           "cause_tag": "contingency"}]})
+        self.assertTrue(check["structurally_accepted"])
+
+    def test_author_fork_seals_future_even_if_future_was_reviewed(self):
+        raw, obs = scenario()
+        cutoff = raw.index("第二章".encode("utf-8"))
+        change = {"id": "I013", "mode": "insert",
+                  "target_fact_id": None, "kind": "random.new_event",
+                  "cause_tag": "unknown_origin"}
+        notes = [receipt(obs, f["id"]) for f in obs["facts"]]
+        notes.append(receipt(obs, "L000"))
+        fork = intervention.prepare_reviewed_branch(
+            obs, raw, "utf-8", cutoff_byte=cutoff, change=change,
+            reviews=notes, trusted_key=SYNTHETIC_FIXTURE_KEY)
+        self.assertEqual(fork["source_visible_fact_ids"],["F001"])
+        self.assertEqual(fork["reviewed_prefix"]["links"],[])
+        self.assertFalse(fork["original_future_knowledge_disclosed"])
+        self.assertNotIn("hidden_fact_count",str(fork))
+        self.assertTrue(fork["unexplained_events_permitted"])
 
     def test_no_original_prose_in_forwarded_model_prefix(self):
         raw,obs=scenario()
