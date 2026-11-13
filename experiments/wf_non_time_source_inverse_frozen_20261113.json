@@ -1,0 +1,291 @@
+{
+  "format": "wf.non-time-original-source-inverse.v3",
+  "status": "FROZEN_SOURCE_FREE_EXPERIMENT_ONLY",
+  "learned_from": [
+    "A: chapters 1-4",
+    "B: chapters 1-4"
+  ],
+  "unseen_source": "C: first two chapters only; subsequent original chapters private",
+  "training_not_model_weights": true,
+  "original_prose_embedded": false,
+  "independent_review_completed": false,
+  "one_to_one_complete": false,
+  "prior_method": "Unsupervised labels and SHA do not prove narrative truth. PR #69 failed real semantic inverse.",
+  "calibration": [
+    {
+      "ids": [
+        "A011",
+        "A012"
+      ],
+      "lesson": "A character's wish for a resource's healing effect is a belief until its effect is observed."
+    },
+    {
+      "ids": [
+        "A006",
+        "A007",
+        "A009",
+        "A010",
+        "A020"
+      ],
+      "lesson": "Physical improvement consumes scarce resources; one person's choice can impose costs on others."
+    },
+    {
+      "ids": [
+        "B010",
+        "B011",
+        "B027",
+        "B033"
+      ],
+      "lesson": "Official access requirements differ from exceptions granted through personal influence or discretionary decisions; an exception does not repeal the general rule."
+    },
+    {
+      "ids": [
+        "B015",
+        "B023"
+      ],
+      "lesson": "The focal child lacks information available to some other people; do not transfer a narrator's knowledge or a rumour into the child's mind."
+    },
+    {
+      "ids": [
+        "A028",
+        "A029",
+        "A030",
+        "A033",
+        "A034",
+        "A035"
+      ],
+      "lesson": "Coincidence and repeatable effects can support a suspected trigger while leaving the actual mechanism unknown."
+    },
+    {
+      "ids": [
+        "B024",
+        "B025",
+        "B026"
+      ],
+      "lesson": "Pressure from ongoing off-screen conflict can alter institutions and ordinary lives independently of the protagonist."
+    }
+  ],
+  "test_world": {
+    "genre": "science-fantasy colony; all roles and places relabeled, no novel names",
+    "role_legend": {
+      "P0": "young dependent",
+      "P1": "parental director",
+      "P2": "technical adviser",
+      "P3": "older sibling",
+      "P6": "incidental worker",
+      "P7": "concealed patrol",
+      "L0": "metropolitan zone",
+      "L1": "administration citadel",
+      "L2": "inner courtyard",
+      "L3": "restricted council chamber",
+      "L4": "distant highland outpost",
+      "WORLD": "unobserved wider world"
+    },
+    "observations": [
+      [
+        "C001",
+        "L0",
+        "NARRATED",
+        "Large population center and regional administration."
+      ],
+      [
+        "C002",
+        "L1",
+        "NARRATED",
+        "Public citadel gate is open but staffed with armed watchers."
+      ],
+      [
+        "C003",
+        "P7",
+        "NARRATED",
+        "Watchers and trained beasts have regular independent shifts."
+      ],
+      [
+        "C004",
+        "WORLD",
+        "NARRATED",
+        "Ordinary residents avoid the citadel despite an open entry."
+      ],
+      [
+        "C005",
+        "L2",
+        "NARRATED",
+        "A small secluded yard lies inside the government compound."
+      ],
+      [
+        "C006",
+        "P0",
+        "NARRATED",
+        "Child attends an evaluation but does not know its consequences."
+      ],
+      [
+        "C007",
+        "P1",
+        "NARRATED",
+        "Director commissioned several advisers to assess young dependent."
+      ],
+      [
+        "C008",
+        "P0",
+        "REPORTED",
+        "Advisers judge child not inclined toward governance."
+      ],
+      [
+        "C009",
+        "P2",
+        "REPORTED",
+        "Specialist believes child's physical system cannot store internal power conventionally."
+      ],
+      [
+        "C010",
+        "P0",
+        "CHARACTER_KNOWLEDGE_LIMIT",
+        "Child does not understand the specialist or leadership terms."
+      ],
+      [
+        "C011",
+        "P1",
+        "NARRATED",
+        "Director assigns distant research outpost and security crew to child."
+      ],
+      [
+        "C012",
+        "P0",
+        "CHARACTER_BELIEF",
+        "Child likes remote scenery and believes outpost is an ordinary gift."
+      ],
+      [
+        "C013",
+        "P1",
+        "NARRATED",
+        "Director's reassuring expression masks private grief."
+      ],
+      [
+        "C014",
+        "L3",
+        "NARRATED",
+        "Classified room receives only senior council, not child."
+      ],
+      [
+        "C015",
+        "P1",
+        "CHARACTER_SECRET",
+        "Director and advisers discuss a consequential operation outside child hearing."
+      ],
+      [
+        "C016",
+        "P0",
+        "NARRATED",
+        "Child is sent away before classified discussion."
+      ],
+      [
+        "C017",
+        "WORLD",
+        "NARRATED",
+        "Director's family commands frontier military and territory."
+      ],
+      [
+        "C018",
+        "WORLD",
+        "NARRATED",
+        "Dangerous frontier ecology and defensive forces exist without child observing."
+      ],
+      [
+        "C019",
+        "L4",
+        "NARRATED",
+        "Remote outpost lies amid highland paths."
+      ],
+      [
+        "C020",
+        "P6",
+        "NARRATED",
+        "Incidental pregnant worker carries supplies up a rough path."
+      ],
+      [
+        "C021",
+        "P0",
+        "NARRATED",
+        "Child tries to help worker, overextends and trips, without major injury."
+      ],
+      [
+        "C022",
+        "P7",
+        "NARRATED",
+        "Concealed patrol follows child and does not interrupt this small mishap."
+      ],
+      [
+        "C023",
+        "P7",
+        "CHARACTER_KNOWLEDGE_LIMIT",
+        "Patrol does not know director's classified aims."
+      ],
+      [
+        "C024",
+        "P0",
+        "CHARACTER_FEELING",
+        "Child treasures rare older-sibling visit and is lonely when it ends."
+      ],
+      [
+        "C025",
+        "P3",
+        "NARRATED",
+        "Sibling inadvertently reveals time spent training with director."
+      ],
+      [
+        "C026",
+        "P0",
+        "CHARACTER_BELIEF",
+        "Child concludes absent director no longer values them."
+      ],
+      [
+        "C027",
+        "P0",
+        "CHARACTER_GOAL",
+        "Child wants director's personal praise more than public authority."
+      ],
+      [
+        "C028",
+        "P0",
+        "CHARACTER_HYPOTHESIS",
+        "Child wonders whether all effective fighting disciplines require internal power storage."
+      ],
+      [
+        "C029",
+        "P0",
+        "NARRATED",
+        "Child decides to try an alternative training route rather than accept the prevailing judgment."
+      ],
+      [
+        "C030",
+        "P7",
+        "NARRATED",
+        "Unseen patrol continues following after child's decision."
+      ]
+    ],
+    "questions": [
+      "Separate narrated conditions, reported judgements, character beliefs and unknown facts.",
+      "Reconstruct world conditions existing independently of P0 and important small-scale actors.",
+      "Deduce why P0 changed intended behavior, noting knowledge limitations and uncertainty about success.",
+      "P0 thinks the director no longer cares. Is this objectively established? Justify.",
+      "What can plausibly happen when the child requests unconventional training, without asserting a compulsory future?",
+      "Counterfactual: P0 no longer wants parental praise and instead values simple trade. Which choices may change? Which independent world constraints persist?",
+      "State which exact later teachers, secret plans and technical results cannot be derived from these prefix observations."
+    ]
+  },
+  "expected_answer_keys": [
+    "constraints",
+    "epistemic",
+    "possible_future",
+    "unknowns",
+    "counterfactual",
+    "unsafe_claims"
+  ],
+  "frozen_model": "Qwen2.5-3B-Instruct-Q4_K_M",
+  "model_seed": 20261113,
+  "max_completion_tokens": 1150,
+  "arms": [
+    "baseline",
+    "trained_on_source_A_B"
+  ]
+}
