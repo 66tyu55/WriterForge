@@ -34,7 +34,7 @@ For each original work, process every chapter in source order and also audit pre
 - **Actors**: named/unnamed, protagonist, opponent, neutral, irrelevant and one-line passersby; record observation and knowledge state separately, including off-screen actions if the text supports them. `actor.kind` is **not** a permanent protagonist/NPC essence; roles can change.
 - **Relations and transitions**: environment, scarcity, institutions, trade, conflict, misunderstanding, irrational choice, accidental death, resources, costs and downstream consequences. Record consequences that did *not* happen as negative or absent evidence only when the original genuinely supports that distinction.
 - **Epistemic authority**: `narrated`, `character_belief`, `rumour`, `inferred`, `unknown`, `contingent`, `unexplained`. Never quietly turn a rumor into an objective world fact.
-- **Parameters**: typed open-world predicates and exact decimal strings, e.g. `"-0.0129"`, `"0.145"` **only if a calibration/derivation record actually exists**. The codec preserves such values exactly, but does not fit, invent or certify them.
+- **Parameters**: typed open-world predicates and exact decimal strings, e.g. `"-0.0129"`, `"0.145"` **only if a calibration/derivation record actually exists**. The codec preserves such values exactly, but does not fit, invent or certify them. Every nonempty `parameters` entry MUST have a matching `parameter_traces` record with `method=source_literal` and a source anchor containing the exact decimal, or `method=exact_ratio` with two source-anchored decimal operands and exact rational equality. Values like `+0.145` without such proof are rejected, not silently stored as trained weights. Even a mathematically valid ratio is not proof of a true causal relationship.
 
 Each `anchor` uses exact **source byte offsets** plus a private literal `surface`. Each `fact` links to anchored evidence; each `link` states epistemic authority. Keep unsupported narrative interpretations unconfirmed. Propose open kinds as needed; do not force chapters into a fixed fantasy trope catalog.
 
@@ -42,14 +42,17 @@ Each `anchor` uses exact **source byte offsets** plus a private literal `surface
 
 1. Copy an authorized original to local private storage (Google Drive novel folder is an eligible user-owned input). Record source edition, byte SHA256, strict codec, chapter audit and unresolved gaps. Be especially careful about GB18030 vs UTF-8 and author notes before the first chapter.
 2. Extract source spans and candidates in temporal reading order; keep exact source offsets. **Independent readers must review any semantic claim**; text containment alone does not make the claim true. Preserve omissions as unfinished coverage, not as nonexistent world events.
-3. Create a **private** `observations.json` (format below). Store this next to the local source, never in Git.
-4. Run:
-   `python .agents/skills/reversible-world-causality/scripts/codec.py pack --source PRIVATE_ORIGINAL.txt --observations PRIVATE_OBSERVATIONS.json --out PRIVATE_BUNDLE_DIR`
+3. First build a byte-exhaustive, non-semantic index using:
+   `python .agents/skills/reversible-world-causality/scripts/source_index.py scan --source PRIVATE_ORIGINAL.txt --out PRIVATE_LINE_INDEX`
+   This records every preface, blank line, chapter-heading candidate and body line without publishing any text. Verify with `source_index.py verify --source PRIVATE_ORIGINAL.txt --index PRIVATE_LINE_INDEX`. A candidate heading is not a verified chapter; manually inspect out-of-order and missing chapter numbers. The index is a precondition, **not** a world model.
+4. Create a **private** `observations.json` (format below). Store this next to the local source, never in Git.
 5. Run:
+   `python .agents/skills/reversible-world-causality/scripts/codec.py pack --source PRIVATE_ORIGINAL.txt --observations PRIVATE_OBSERVATIONS.json --out PRIVATE_BUNDLE_DIR`
+6. Run:
    `python .agents/skills/reversible-world-causality/scripts/codec.py verify --bundle PRIVATE_BUNDLE_DIR`
-6. To prove original-byte reconstruction (private, explicit opt-in only):
+7. To prove original-byte reconstruction (private, explicit opt-in only):
    `python .agents/skills/reversible-world-causality/scripts/codec.py recover --bundle PRIVATE_BUNDLE_DIR --out PRIVATE_RESTORED.txt --allow-private-original-output`
-7. **Do not train model weights or promote literary skill automatically.** Once evidence coverage is actually complete, freeze a new held-out original and test hidden-event reconstruction and genuinely different world/characters. Preserve all errors and counterexamples.
+8. **Do not train model weights or promote literary skill automatically.** Once evidence coverage is actually complete, freeze a new held-out original and test hidden-event reconstruction and genuinely different world/characters. Preserve all errors and counterexamples.
 
 Input schema (private; `source_sha256` refers to actual raw novel bytes):
 
@@ -65,7 +68,7 @@ Input schema (private; `source_sha256` refers to actual raw novel bytes):
       "id": "F001", "kind": "resource_constraint",
       "subject_ids": ["A001"], "evidence_ids": ["A001"],
       "telling_seq": 1, "story_tick": null, "time_axis": null,
-      "epistemic": "narrated", "parameters": {}
+      "epistemic": "narrated", "parameters": {}, "parameter_traces": {}
     }
   ],
   "links": []
@@ -76,7 +79,7 @@ Here `kind` and `parameters` are open extensible **ASCII codes**, not genre-depe
 
 ## Hard gates and falsification
 
-- Source bytes/UTF-8-or-GB18030 codec, chunk coverage, hashes, each anchor's exact location, full private-to-anonymous inverse and recovery MUST be **100%** before a bundle is admitted to the *mechanical* stage. Tampering and source mismatches must fail.
+- Source bytes/UTF-8-or-GB18030 codec, every physical source line, chunk coverage, hashes, each anchor's exact location, full private-to-anonymous inverse and recovery MUST be **100%** before a bundle is admitted to the *mechanical* stage. Tampering and source mismatches must fail.
 - **Semantic coverage is separately measured**: every chapter and claimed object/actor/time/space/event must be reviewed; the codec deliberately reports `NOT_ESTABLISHED` until that is actually done. No claiming whole-book causal comprehension from source-byte coverage.
 - **Training test protocol**: first freeze (a) source chapter sets, (b) held-out later events, (c) new-world substitutions and character-trait perturbations, (d) scoring rubric and model-call budget. Measure exact entity/time/space/state/epistemic recovery, missing links and invented causal edges, false certainty, and whether random/irrational events remain possible. Train and evaluate on **disjoint material**.
 - **Name replacement metamorphic test**: replacing names and decorative lore must preserve *abstract observed relations*; role/trait/resource interventions need **not** preserve the original event sequence. Force WF to state what changed and why.
