@@ -94,6 +94,19 @@ Treat all generated future events as \`POSSIBLE\`, \`UNKNOWN\`, or \`UNEXPLAINED
 Do not use the full \`anonymous.json\` as the source for a *blind* prediction: it contains the whole observed graph, and would reveal future facts. Only the source-prefix/fork contract may be passed to that trial. Name swapping alone is a metamorphic representation test, not proof that a changed personality will act identically.
 
 
+## **Critical semantic gate after real-original adversarial test**
+
+A real original-backed red-team demonstrated that the former \`codec.validate_observations\` **accepted reversed causal arrows, fabricated fact kinds, reassigned actor subjects and arbitrarily inserted story ticks**: source span equality is not semantic evidence. In two complete author-provided novels, all four classes were accepted, **8/8 bad probes**. Those failures remain recorded; the source archive SHA is unchanged.
+
+The new \`scripts/semantic_gate.py\` is now a **mandatory boundary** whenever a graph would be exposed to an author or a real writing model. Call \`audit_and_model_prefix(obs, raw, encoding, reviews=..., trusted_key=..., cutoff_byte=...)\`. Do **not** pass \`codec.projection\`, \`chronology.available_prefix\` or the developer-only \`intervention.prepare_branch\` to a writer, because these retain unreviewed candidates. For narrative counterfactuals, use **\`intervention.prepare_reviewed_branch\`**, which filters the source graph through the semantic gate first.
+
+A review must bind to the original edition SHA, exact candidate kind/subjects/epistemic/quantities, exact directed edge, complete source-anchor positions/surfaces and a specific human editorial decision. Any mutation invalidates the receipt. The trusted signing key is provided out-of-band to the separate reviewer, never generated or stored in this Skill; the author/learning model may NOT sign itself. An independent model's signed critique or a human \`PARTIAL\` judgement stays quarantined. **A signature authenticates the attested review bytes but does not make the literary judgement correct.** Use an independently administered review and a second heldout evaluation before claiming causal accuracy.
+
+No independent reviewed receipts are provisioned for the current private pilot. Thus **all 28 currently recorded candidate facts and all 9 links remain QUARANTINED, zero approved for real author context**. More corpus ingestion cannot by itself graduate these into approved causality.
+
+Approved-only model context retains \`telling_seq\` separately from \`story_tick\` and \`time_axis\` (unknown remains null). No original text, evidence offsets, source edition SHA, private reviewer rationale, or future gold counts enter the model-facing prefix. Actor-identity resolution, real-world causal truth and cross-world accuracy remain unproven.
+
+
 ## Hard gates and falsification
 
 - Source bytes/UTF-8-or-GB18030 codec, every physical source line, chunk coverage, hashes, each anchor's exact location, full private-to-anonymous inverse and recovery MUST be **100%** before a bundle is admitted to the *mechanical* stage. Tampering and source mismatches must fail.
