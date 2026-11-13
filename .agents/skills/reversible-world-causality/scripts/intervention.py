@@ -54,8 +54,8 @@ def prepare_branch(obs, raw, encoding, *, cutoff_byte, change):
         "intervention": change,
         "prior_original_future_facts_in_branch": [],
         "prior_original_future_links_in_branch": [],
-        "withheld_original_fact_count": prefix["hidden_fact_count"],
-        "withheld_original_link_count": prefix["hidden_link_count"],
+        # No count/shape information about the sealed original future.
+        "original_future_knowledge_disclosed": False,
         "candidate_futures": [],
         "past_is_not_rewritten": True,
         "replay_original_future_after_change": False,
