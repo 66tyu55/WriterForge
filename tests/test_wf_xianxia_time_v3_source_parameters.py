@@ -21,6 +21,7 @@ class XianxiaTimeV3SourceTests(unittest.TestCase):
               "actor_subjective_elapsed","actor_biological_age",
               "lifespan_ceiling","cultivation_exposure",
               "cultivation_efficiency","local_time_rate",
+              "frame_access_schedule","actor_biological_aging_rate",
               "advancement_condition","travel_elapsed",
               "waiting_deadline","recurrence_period","historical_era",
               "parallel_offscreen_time","uncertainty"}
