@@ -134,6 +134,9 @@ def parameter_dictionary():
       "actors.*.age_subjective_hours":{
         "unit":"subjective_hour","scope":"actor",
         "update":"elapsed world_hours × frame rate for that actor"},
+      "actors.*.frame":{
+        "unit":"time_frame_id","scope":"actor",
+        "update":"only explicit time-charged cross_frame; no teleport"},
       "actors.*.lived_subjective_hours":{
         "unit":"subjective_hour","scope":"actor",
         "update":"elapsed world_hours × frame rate, independent of POV"},
@@ -183,6 +186,66 @@ def apply_event(world,event):
             "actors_advanced":sorted(out["actors"]),
             "observed_activities":activities,
             "unspecified_activity_is_unknown":True,
+        }
+    if k=="cross_frame":
+        # Crossing a temporal boundary is an actual event consuming global
+        # world time. The travelling actor spends origin_world_hours inside
+        # the old frame and destination_world_hours inside the new one.
+        # All *other* actors advance concurrently at their own frame rates.
+        require(set(event)=={
+            "kind","actor_id","to_frame","origin_world_hours",
+            "destination_world_hours","activities"},
+            "CROSSING_EVENT_FIELDS")
+        actor, destination = event["actor_id"], event["to_frame"]
+        require(type(actor) is str and actor in out["actors"],
+                "CROSSING_ACTOR_UNKNOWN")
+        require(type(destination) is str and destination in out["time_frames"],
+                "CROSSING_TARGET_UNKNOWN")
+        origin_frame=out["actors"][actor]["frame"]
+        require(destination!=origin_frame,"CROSSING_ALREADY_IN_FRAME")
+        origin_hours=event["origin_world_hours"]
+        destination_hours=event["destination_world_hours"]
+        require(unsigned(origin_hours,maximum=MAX_HOURS_PER_EVENT) and
+                unsigned(destination_hours,maximum=MAX_HOURS_PER_EVENT),
+                "CROSSING_DURATION_INVALID")
+        hours=origin_hours+destination_hours
+        require(0<hours<=MAX_HOURS_PER_EVENT,
+                "CROSSING_REQUIRES_ELAPSED_WORLD_TIME")
+        activities=event["activities"]
+        require(type(activities) is dict and actor not in activities,
+                "CROSSING_ACTOR_MUST_TRAVEL")
+        require(all(a in out["actors"] and type(activity) is str and
+                    activity in ACTIVITIES
+                    for a,activity in activities.items()),"ACTIVITY_INVALID")
+        require(out["world_clock"]["hour"]+hours<=INT_MAX,
+                "WORLD_CLOCK_OVERFLOW")
+        out["world_clock"]["hour"]+=hours
+        for other,p in out["actors"].items():
+            if other==actor:
+                elapsed=(origin_hours*rate(out["time_frames"][origin_frame])
+                         +destination_hours*rate(out["time_frames"][destination]))
+            else:
+                elapsed=hours*rate(out["time_frames"][p["frame"]])
+            p["age_subjective_hours"]=show(
+                rational(p["age_subjective_hours"])+elapsed)
+            p["lived_subjective_hours"]=show(
+                rational(p["lived_subjective_hours"])+elapsed)
+            # Moving is not cultivation. Other actors can cultivate only
+            # if their independent activity is explicitly observed.
+            if other!=actor and activities.get(other)=="cultivate":
+                p["cultivation_subjective_hours"]=show(
+                    rational(p["cultivation_subjective_hours"])+elapsed)
+        out["actors"][actor]["frame"]=destination
+        validate(out)
+        return out,{
+            "kind":"cross_frame","actor_id":actor,
+            "from_frame":origin_frame,"to_frame":destination,
+            "origin_world_hours":origin_hours,
+            "destination_world_hours":destination_hours,
+            "world_hours_charged":hours,
+            "unknown_npc_activity_not_imputed":True,
+            "crossing_is_not_cultivation":True,
+            "clock_applied_before_and_after_boundary":True,
         }
     if k=="attempt":
         require(set(event)=={"kind","actor_id","outcome"} and
@@ -241,7 +304,7 @@ def replay(world, events):
                         a:{"subjective_hours":p["lived_subjective_hours"],
                            "age_hours":p["age_subjective_hours"],
                            "cultivation_hours":p["cultivation_subjective_hours"],
-                           "realm_step":p["realm_step"]}
+                           "realm_step":p["realm_step"],"frame":p["frame"]}
                         for a,p in out["actors"].items()},
                       "event":evt,"meta":meta})
     return {
