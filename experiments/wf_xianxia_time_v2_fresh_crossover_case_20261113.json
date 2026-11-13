@@ -1,0 +1,170 @@
+{
+  "format": "wf.xianxia-time-fresh-movement-story.v1",
+  "seed": 20261114,
+  "character": {
+    "actor_id": "P001",
+    "role": "山门守钟人",
+    "temperament": "多疑但重诺"
+  },
+  "secondary": {
+    "actor_id": "N001",
+    "role": "山门挑水老人",
+    "knowledge_of_P001_cultivation": "UNKNOWN",
+    "independent_goal": "把水送去山门避难营"
+  },
+  "premise": "雪山山门的冰桥有坍塌危险，暮钟纪世界时刻2012前避难队必须过桥，山门守钟人曾承诺敲响告警钟但对山上来客疑心很重。他进入临崖静钟洞修炼六个世界小时，门外挑水老人继续做自己的事；离洞去桥必须花费两个世界小时，跨越洞内外时间边界。告警秘术须第二境方可用，但普通示警、求援、撤离始终可尝试。没有预定结局。",
+  "world_rate1": {
+    "format": "wf.xianxia-time-independent-parameters.v2",
+    "world_clock": {
+      "origin": "原创世界·暮钟纪零点",
+      "unit": "world_hour",
+      "hour": 2000,
+      "deadline_hour": 2012
+    },
+    "time_frames": {
+      "outside": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "cave": {
+        "numerator": 1,
+        "denominator": 1
+      }
+    },
+    "actors": {
+      "P001": {
+        "frame": "cave",
+        "age_subjective_hours": "120000",
+        "lived_subjective_hours": "0",
+        "cultivation_subjective_hours": "8",
+        "realm_step": 1
+      },
+      "N001": {
+        "frame": "outside",
+        "age_subjective_hours": "180000",
+        "lived_subjective_hours": "0",
+        "cultivation_subjective_hours": "0",
+        "realm_step": 1
+      }
+    },
+    "advancement": {
+      "actor_id": "P001",
+      "from_realm": 1,
+      "to_realm": 2,
+      "min_cultivation_subjective_hours": "22"
+    },
+    "technique": {
+      "actor_id": "P001",
+      "min_realm": 2,
+      "latest_world_hour": 2012
+    },
+    "era_history": {
+      "current": "暮钟纪",
+      "past": [
+        "旧边纪"
+      ],
+      "past_exact_hours": null
+    },
+    "provenance": {
+      "source": "original_fictional_experiment",
+      "calibration": "scenario_assumption",
+      "is_universal_law": false
+    }
+  },
+  "world_rate3": {
+    "format": "wf.xianxia-time-independent-parameters.v2",
+    "world_clock": {
+      "origin": "原创世界·暮钟纪零点",
+      "unit": "world_hour",
+      "hour": 2000,
+      "deadline_hour": 2012
+    },
+    "time_frames": {
+      "outside": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "cave": {
+        "numerator": 3,
+        "denominator": 1
+      }
+    },
+    "actors": {
+      "P001": {
+        "frame": "cave",
+        "age_subjective_hours": "120000",
+        "lived_subjective_hours": "0",
+        "cultivation_subjective_hours": "8",
+        "realm_step": 1
+      },
+      "N001": {
+        "frame": "outside",
+        "age_subjective_hours": "180000",
+        "lived_subjective_hours": "0",
+        "cultivation_subjective_hours": "0",
+        "realm_step": 1
+      }
+    },
+    "advancement": {
+      "actor_id": "P001",
+      "from_realm": 1,
+      "to_realm": 2,
+      "min_cultivation_subjective_hours": "22"
+    },
+    "technique": {
+      "actor_id": "P001",
+      "min_realm": 2,
+      "latest_world_hour": 2012
+    },
+    "era_history": {
+      "current": "暮钟纪",
+      "past": [
+        "旧边纪"
+      ],
+      "past_exact_hours": null
+    },
+    "provenance": {
+      "source": "original_fictional_experiment",
+      "calibration": "scenario_assumption",
+      "is_universal_law": false
+    }
+  },
+  "common_events": [
+    {
+      "kind": "advance",
+      "world_hours": 6,
+      "activities": {
+        "P001": "cultivate",
+        "N001": "work"
+      }
+    },
+    {
+      "kind": "cross_frame",
+      "actor_id": "P001",
+      "to_frame": "outside",
+      "origin_world_hours": 1,
+      "destination_world_hours": 1,
+      "activities": {
+        "N001": "work"
+      }
+    }
+  ],
+  "checks": {
+    "world_hour_after": 2008,
+    "outside_hours_left": 4,
+    "offscreen_subjective_hours": "8",
+    "rate1_training_hours": "14",
+    "rate3_training_hours": "26",
+    "min_required_hours": "22",
+    "time_mechanics_only": true
+  },
+  "success_criteria": {
+    "action_rule": "Author must choose a concrete action without being forced to succeed",
+    "no_future_knowledge": "NPC cannot know private cultivation state without evidence",
+    "crossing": "Movement incurs 2 world hours and stops cave dilation once outside",
+    "consequence": "Prose depicts one action and its cost or consequence, not just an intention"
+  },
+  "independent_gold_reader": false,
+  "source_novel": false,
+  "model_weight_training": false
+}
