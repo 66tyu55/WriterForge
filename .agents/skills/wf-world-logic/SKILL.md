@@ -40,3 +40,17 @@ The kernel checks source/ID references, containment cycles, directed route gate/
 Read entire original works **progressively**, recording all small-scale daily-life facts and minor actors rather than chapter title keywords. Freeze a reviewed consecutive source prefix and unseen future evidence. Randomly rename world/roles; change one trait/affiliation/resource; attempt inverse of world constraints, state transitions, motives and missing information. Compare with independent original readers, count fabricated facts, reversed causes, omitted facts and premature knowledge. If the inverse fails, fix the representation or halt, NOT tailor labels/validators to the failed holdout or auto-publish guessed corrections.
 
 No original passage, private source-name map or paid model calls in public Git. No second XuehaiStore, Canon, R2, Railway or official author. Author keeps USE/SKIP. **Status SHADOW, NOT fully trained or source-complete.**
+
+## 2026-11-13 original-grounded reality check — FAILED literary inverse
+
+The owner rejected numeric/unit-only skills as proof of source understanding. We privately checked 132 exact original-anchored **candidate** observations across three complete novels, but the consecutive chapters are **not semantically exhausted** and no independent human review has approved them. The first two books supplied 73 pre-future observations; a third disjoint work supplied 30 anonymized prefix observations and kept later chapters outside the model input.
+
+The **actual** pinned Qwen2.5-3B source-disjoint two-arm run [#43414129666](https://github.com/66tyu55/WriterForge/actions/runs/43414129666) failed: neither arm reconstructed a causal argument; both listed every source observation ID under the `constraints` key and did not reason through a changed protagonist motive. The learned arm used more prompt tokens, so no gain is established.
+
+**Do not call this a trained source Skill or an approved author context.** Preserve the raw model failures and provisional source errors. Stop this frozen test: future experiments require source-complete consecutive reading, independent cause-arrow review, and a new unseen book/scene rather than tweaking the failed prompt.
+
+Full report: `docs/WF_20261113_NON_TIME_ORIGINAL_INVERSE_REAL_FAILURE.md`.
+
+### Source-observed eligibility exceptions
+
+The original-source reading exposed an age/eligibility rule with a privileged exception: an institutional rule is not simply a universal boolean. Source-anchored world rules may now state `any_of` lists of explicit alternative groups alongside normal conjunctive requirements. Each alternative must have original evidence and author review. Being eligible to **attempt** an examination still never guarantees winning it. Reported claims and character thoughts remain distinct from observed facts. Targeted tests PASS; narrative inverse still FAILED.
