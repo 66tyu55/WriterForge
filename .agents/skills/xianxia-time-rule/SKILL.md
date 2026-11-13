@@ -5,7 +5,7 @@ compatibility: Python 3.10+, no extra dependencies; optional pinned local Qwen m
 metadata:
   wf-skill-id: xianxia-time-rule
   wf-lifecycle: shadow
-  wf-version: "0.4"
+  wf-version: "0.5"
 ---
 
 # 修仙时间：从 V1 的“数字表”改成 V2 可执行独立规则
@@ -128,3 +128,20 @@ The existing Skill now also has `scripts/temporal_delta.py`: a small **candidate
 Full protocol and failed method: `docs/WF_TIME_AUTODISCOVERY_PRIVATE_SOURCE_PROTOCOL_20261113.md` and `docs/WF_TIME_AUTODISCOVERY_FAILED_AND_UNSEEN_FUTURE_20261113.md`.
 
 **Gate stays SHADOW / NOT READY.** A future end-to-end trial must first extract events directly from private original chapters with verifiable speaker/actor ownership and evidence; then propose dynamic conditional rules; finally verify those rules against held-out state changes. No direct author/Canon/Xuehai promotion.
+
+
+## V6 raw-original event ledger: source coverage FIRST, not autonomous semantic truth
+
+User asked to continue after the source-free autonomous parameter discovery model failed in both direct and event-first arms. That failure arose partly because the model only received GPT-curated observations rather than the real sequential source. The current Skill therefore introduces `scripts/raw_episode_reader.py`, operating on original edition **privately**:
+
+- It reads actual Chinese original-text chapters in file order, preserving all bytes through line receipts and tracking each candidate clause with an exact byte span and SHA. Chapter headings are retained as source metadata but not treated as practice events.
+- It records *separate possible* time expressions, use-frequency and per-visit duration, activity/constraint/change lexical cues, negation and character-belief/dialogue/rumour caution. No source text is printed by `public_summary`, no automatic training-time multiplier, causality or epoch number is invented.
+- **Speaker/actor IDs remain unresolved**: tests showed naive Chinese regex could mistake adverbs for character names. Assigning UNKNOWN is better than contaminating the next stage with false identity. The script does NOT automatically add its candidates to world canon or to `temporal_delta`.
+
+Actual private source trial: complete-text original chapters 15–17 yielded **75 candidate clauses and 96 lines**; 21/21 *previously frozen evidence spans* overlapped candidate locations. This measures input discovery coverage relative to 21 prior selected spans, **NOT** 100% event precision, true semantic recall or trained world rules.
+
+A first out-of-sample pass identified a heading falsely marked as a practice event, and a single line's visit quota plus per-entry stay duration insufficiently captured; fixes were frozen as RED→GREEN tests. A new source-edition-pinned holdout run on 3 more chapters of one original and 3 chapters of another produced **68/108** and **71/105** candidate clauses / line receipts respectively, with exact byte validation. No independent judge checked causal truth.
+
+Source-free GitHub tests in `tests/test_wf_time_raw_episode_reader.py` pass, and original private evidence remains uncommitted. See `docs/WF_TIME_RAW_SOURCE_EVENT_READER_PILOT_20261113.md`.
+
+**Very important:** Do not report a high candidate count or successful byte recovery as automatic full-novel study. Actor identity and knowledge state, real physical time, preconditions, motivations and multi-chapter consequences remain unresolved; the old real Qwen autonomous proposal failure must be preserved. Keep SHADOW / NOT READY and work next on independently grounded actor/event ownership, not on another category list.
