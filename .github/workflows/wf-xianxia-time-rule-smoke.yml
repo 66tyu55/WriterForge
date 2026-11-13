@@ -19,4 +19,4 @@ jobs:
       - name: Legacy v1 remains unchanged as historical baseline
         run: python -m unittest discover -s tests -p 'test_wf_xianxia_time_rule.py' -v
       - name: V2 independent-clock and one-parameter ablations
-        run: python -m unittest discover -s tests -p 'test_wf_xianxia_time_v2.py' -v
+        run: python -m unittest discover -s tests -p 'test_wf_xianxia_time_v2*.py' -v
