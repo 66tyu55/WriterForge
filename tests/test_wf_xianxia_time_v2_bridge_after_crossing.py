@@ -52,5 +52,17 @@ class AuthorAfterCrossingTests(unittest.TestCase):
         self.assertIn("仍可能",desc)
         self.assertNotIn("必定突破",desc)
 
+
+    def test_time_rule_has_no_hardcoded_river_or_guard_narrative(self):
+        w=b.time_window(worlds()["rate3"],[SIX,MOVE])
+        text=b.concise_context(w)
+        self.assertNotIn("河水预计",text)
+        self.assertNotIn("洞外守夜人",text)
+        self.assertIn("第1008小时",text)
+        label=b.concise_context(w,deadline_event="冰桥封闭",other_actors="挑水老人")
+        self.assertIn("冰桥封闭",label)
+        self.assertIn("挑水老人",label)
+        self.assertNotIn("河水",label)
+
 if __name__=="__main__":
     unittest.main()
