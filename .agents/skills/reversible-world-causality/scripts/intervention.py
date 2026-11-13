@@ -67,6 +67,64 @@ def prepare_branch(obs, raw, encoding, *, cutoff_byte, change):
     return result
 
 
+
+
+def prepare_reviewed_branch(obs, raw, encoding, *, cutoff_byte,
+                            change, reviews=(), trusted_key=None):
+    """Strictly model-safe fork. Unreviewed facts never enter this interface.
+
+    Unlike prepare_branch (developer-only candidate receipt), the source
+    graph is filtered through independent, source-pinned review receipts.
+    No trusted key/reviews => no accepted visible facts; modify fails closed.
+    """
+    try:
+        from .semantic_gate import audit_and_model_prefix
+    except ImportError:
+        from semantic_gate import audit_and_model_prefix
+
+    gate = audit_and_model_prefix(
+        obs, raw, encoding, reviews=reviews,
+        trusted_key=trusted_key, cutoff_byte=cutoff_byte)
+    safe = gate["model_prefix"]
+    visible_ids = {f["id"] for f in safe["facts"]}
+    require(isinstance(change, dict) and set(change) ==
+            {"id", "mode", "target_fact_id", "kind", "cause_tag"},
+            "INTERVENTION_SCHEMA")
+    require(type(change["id"]) is str and
+            IDENT.fullmatch(change["id"]) and change["id"].startswith("I"),
+            "INTERVENTION_ID")
+    require(change["mode"] in KINDS and
+            type(change["kind"]) is str and CODE.fullmatch(change["kind"]) and
+            change["cause_tag"] in CAUSE_TAGS,
+            "INTERVENTION_KIND_OR_CAUSE_INVALID")
+    if change["mode"] == "modify":
+        require(change["target_fact_id"] in visible_ids,
+                "UNREVIEWED_INTERVENTION_TARGET_BLOCKED")
+    else:
+        require(change["target_fact_id"] is None,
+                "INSERT_CANNOT_TARGET_ORIGINAL_FUTURE")
+    result = {
+        "format": "wf.world-counterfactual-branch.v1",
+        # This contract is intended for a writing model, so never pass
+        # private source SHA, source offsets, review count or future sizes.
+        "reviewed_prefix": safe,
+        "source_visible_fact_ids": sorted(visible_ids),
+        "source_visible_link_indices": [],
+        "intervention": change,
+        "prior_original_future_facts_in_branch": [],
+        "prior_original_future_links_in_branch": [],
+        "original_future_knowledge_disclosed": False,
+        "candidate_futures": [],
+        "past_is_not_rewritten": True,
+        "replay_original_future_after_change": False,
+        "unexplained_events_permitted": True,
+        "no_predicted_outcome_marked_certain": True,
+        "semantic_claims_not_verified": True,
+        "real_model_causality_not_proven": True,
+    }
+    result["contract_sha256"] = sha256(canonical(result)).hexdigest()
+    return result
+
 def validate_proposal(branch, proposal):
     """Reject hidden-original answers and unsupported certainty assertions.
 
