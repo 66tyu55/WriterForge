@@ -6,9 +6,9 @@ informational constraint sheet for an autonomous author, not its decision.
 from __future__ import annotations
 
 try:
-    from .time_v2 import replay, validate, rational, show, require, TimeV2Error
+    from .time_v2 import replay, validate, rational, show, rate, require, TimeV2Error
 except ImportError:
-    from time_v2 import replay, validate, rational, show, require, TimeV2Error
+    from time_v2 import replay, validate, rational, show, rate, require, TimeV2Error
 
 def time_window(world, observed_events):
     validate(world)
@@ -21,6 +21,10 @@ def time_window(world, observed_events):
     req=rational(state["advancement"]["min_cultivation_subjective_hours"])
     practiced=rational(person["cultivation_subjective_hours"])
     gap=max(req-practiced,0)
+    current_frame=person["frame"]
+    current_rate=rate(state["time_frames"][current_frame])
+    required_world_hours=gap/current_rate
+    can_reach_before_deadline=(hour<=limit and required_world_hours<=limit-hour)
     can_attempt_success=(person["realm_step"]>=state["advancement"]["to_realm"] or
                          gap==0)
     npc_clocks={
@@ -35,6 +39,10 @@ def time_window(world, observed_events):
       "world_hour_deadline":limit,
       "world_hours_left":max(limit-hour,0),
       "world_deadline_already_passed":hour>limit,
+      "actor_current_time_frame":current_frame,
+      "actor_time_rate_subjective_per_world_hour":show(current_rate),
+      "world_hours_of_continuous_training_needed":show(required_world_hours),
+      "time_requirement_reachable_before_deadline":can_reach_before_deadline,
       "actor_subjective_hours_elapsed":person["lived_subjective_hours"],
       "actor_real_cultivation_hours":person["cultivation_subjective_hours"],
       "minimum_cultivation_for_possible_success":show(req),
@@ -56,13 +64,19 @@ def concise_context(window):
     eligible = ("实修时间已满足突破尝试的最低条件，但失败或放弃仍可能。"
                 if window["could_succeed_if_attempted_now"] else
                 "实修时间还未满足成功突破的最低条件，不能直接写成已经突破。")
+    frame_name = {"cave": "洞府", "outside": "洞外"}.get(
+        window["actor_current_time_frame"],window["actor_current_time_frame"])
     return (
+      f"现在位于{frame_name}，当前时间流速为"
+      f"{window['actor_time_rate_subjective_per_world_hour']}主观小时/世界小时；"
       f"现在是世界第{window['world_hour_now']}小时；"
       f"河水预计在第{window['world_hour_deadline']}小时抵达，"
       f"外界还剩{window['world_hours_left']}小时。"
       f"主角亲身经历{window['actor_subjective_hours_elapsed']}主观小时，"
       f"已有实修{window['actor_real_cultivation_hours']}主观小时；"
       f"本世界此次突破资格至少需{window['minimum_cultivation_for_possible_success']}实修小时。"
+      f"若持续修炼，按目前所在位置的流速还需"
+      f"{window['world_hours_of_continuous_training_needed']}个世界小时满足最低时间资格。"
       + eligible +
       "洞外守夜人的时间也已经推进，他的未知想法和行动不必由主角决定。"
       "作者可以自由写出救人、退让、冒险、误判、偶然或失败；"
