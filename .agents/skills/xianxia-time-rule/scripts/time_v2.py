@@ -59,8 +59,8 @@ def validate(s):
     require(type(w) is dict and set(w)=={"origin","unit","hour","deadline_hour"}
             and type(w["origin"]) is str and 1 <= len(w["origin"]) <= 80
             and w["unit"]=="world_hour"
-            and unsigned(w["hour"]) and unsigned(w["deadline_hour"])
-            and w["hour"] <= w["deadline_hour"],"WORLD_CLOCK_INVALID")
+            and unsigned(w["hour"]) and unsigned(w["deadline_hour"]),
+            "WORLD_CLOCK_INVALID")
     frames=s["time_frames"]
     require(type(frames) is dict and 1 <= len(frames) <= 8,
             "TIME_FRAMES_REQUIRED")
