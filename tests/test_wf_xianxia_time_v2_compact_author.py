@@ -19,7 +19,7 @@ class CompactTimeAuthorTests(unittest.TestCase):
         data=frozen()
         for arm in ARMS:
             prompt=request(data,arm)
-            self.assertIn("河水预计在第1008小时抵达",prompt)
+            self.assertIn("截止事件时限是第1008小时",prompt)
             self.assertIn("灵田佃户",prompt)
             self.assertNotIn('"time_frames"',prompt)
             self.assertNotIn('"advancement"',prompt)
