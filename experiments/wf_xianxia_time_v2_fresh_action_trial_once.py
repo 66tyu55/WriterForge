@@ -51,8 +51,11 @@ def frozen():
 def window(doc,arm):
  return b.time_window(doc[arm],doc["common_events"])
 
-def scene_context(doc,arm):
- w=window(doc,arm)
+def scene_context(doc,arm,*,observed_events=None):
+ # The next writing turn must observe the most recently COMMITTED action,
+ # not stale pre-action time. Rejected actions are never committed.
+ w=(window(doc,arm) if observed_events is None
+    else b.time_window(doc[arm],observed_events))
  return (
   "这是全新原创故事：一座雪山山门的冰桥正在开裂，过桥避难队可能在"
   "世界第2012小时失去通道。主角是多疑但重诺的山门守钟人，"
@@ -130,6 +133,10 @@ def check_decision(doc,arm,decision):
           "source_action":event}
 
 def prose_prompt(doc,arm,decision,audit):
+ committed=(decision is not None and audit["accepted"])
+ effective_events=(doc["common_events"]+[action_from_decision(decision)]
+                   if committed else doc["common_events"])
+ context=scene_context(doc,arm,observed_events=effective_events)
  why=("作者的原始决定是："+json.dumps(decision,ensure_ascii=False)+
       "；时间引擎审查："+json.dumps(audit,ensure_ascii=False))
  if decision is None:
@@ -145,7 +152,8 @@ def prose_prompt(doc,arm,decision,audit):
     "。该动作在计时上可行，但这不证明人物一定救得了所有人。"
   )
  return (
-  scene_context(doc,arm)+why+
+  context+("刚通过的行动已实际发生，时钟已推进；请写后果，不要把同一动作再次当作尚未执行。"
+           if committed else "拒绝的动作没有发生，不能假装付过时间或得到结果。")+why+
   "请继续写一个约350-600汉字的自然小说场景，"
   "要有至少一次人物实际行动与其具体后果、人物对话、物件和真实代价。"
   "不要在小说中写字段名、参数、审查报告或结论说明。"
