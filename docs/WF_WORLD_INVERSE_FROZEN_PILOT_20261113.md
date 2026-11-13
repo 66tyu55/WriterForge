@@ -31,3 +31,7 @@ Crucially these arms are **not a balanced demonstration of neural training**. Th
 - **User's actual final pass** requires source-disjoint examples, separately adjudicated gold and actual world/character/personality swaps. Four model answers cannot establish full-book learning or a reliable accuracy rate.
 
 Preserve raw prompts and completions including invalid JSON or failures, and freeze the first failed run. No deployment, no merge, no Xuehai/R2/Canon change.
+
+## Experiment launch receipt
+
+The frozen four-arm prompt file and runner are now committed on this experimental branch. This one-shot commit is intentionally the **only** trigger for actual local Qwen inference. No additional calls, automatic retries or tuning against the first results are permitted.
