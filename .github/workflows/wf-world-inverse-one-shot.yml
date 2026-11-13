@@ -1,0 +1,63 @@
+name: WF Inverse Structure Real Local Model Four Arm One Shot
+
+on:
+  push:
+    branches:
+      - feature/reversible-world-causality-20261113
+    paths:
+      - .github/workflows/wf-world-inverse-one-shot.yml
+      - experiments/wf_world_inverse_local_one_shot_20261113.py
+      - experiments/wf_world_inverse_anonymous_cases_20261113.json
+      - docs/WF_WORLD_INVERSE_FROZEN_PILOT_20261113.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf-novel-world-inverse-one-time-20261113
+  cancel-in-progress: false
+
+jobs:
+  real-open-weight-blind-decoder:
+    if: >-
+      github.event_name == 'push' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'WF inverse trial: launch four pinned local model calls'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Freeze prompt hashes before inference, zero API or original text
+        run: python experiments/wf_world_inverse_local_one_shot_20261113.py --dry-run
+      - name: Install fixed local model execution library
+        env:
+          CMAKE_ARGS: -DGGML_NATIVE=OFF
+          CMAKE_BUILD_PARALLEL_LEVEL: '2'
+        run: python -m pip install 'llama-cpp-python==0.3.16'
+      - name: Download pinned open-weight Qwen2.5 3B from upstream
+        run: |
+          curl --fail --show-error --location --connect-timeout 30 --max-time 720 \
+            --output "$RUNNER_TEMP/wf-qwen3b.gguf" \
+            "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/254600e47ea694216f6108325376ce5b35d456a1/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+          printf '%s  %s\n' \
+            '9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94' \
+            "$RUNNER_TEMP/wf-qwen3b.gguf" | sha256sum --check --status
+      - name: Run FOUR actual local model decodes no provider or original prose
+        run: |
+          python experiments/wf_world_inverse_local_one_shot_20261113.py \
+            --model "$RUNNER_TEMP/wf-qwen3b.gguf" \
+            --out "$RUNNER_TEMP/wf-world-inverse-real-trial"
+      - name: Preserve all raw answers or partial failure, no automatic retries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-World-Inverse-Original-Qwen3B-Four-Anonymous-Decodes
+          path: ${{ runner.temp }}/wf-world-inverse-real-trial/
+          if-no-files-found: warn
+          retention-days: 90

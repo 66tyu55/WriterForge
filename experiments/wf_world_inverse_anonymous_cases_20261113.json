@@ -1,0 +1,319 @@
+{
+  "format": "wf.anonymous-real-source-structure-pilot.v1",
+  "notice": "No original text, source names, character names or private review gold are published. Observations are a small unreviewed masked sample; NOT full-book training.",
+  "cases": {
+    "world_a": {
+      "question": "根据参数反推：这里最有可能形成什么社会制度？为什么单一团体难独占？哪些因素促进隐蔽交易？一个只出现一次的下属做了什么、为什么负责人反对？分清已观察与推测，人物性格改变后结局是否必然？",
+      "typed": {
+        "entity_roles": {
+          "G0": "collective",
+          "G1": "collective",
+          "G2": "collective",
+          "G3": "collective",
+          "S0": "site",
+          "P0": "senior_operator",
+          "P1": "junior_worker",
+          "X0": "unknown_transactor"
+        },
+        "evidence": [
+          [
+            "O01",
+            "jurisdiction_contact",
+            [
+              "G0",
+              "G1",
+              "G2",
+              "G3"
+            ],
+            "S0"
+          ],
+          [
+            "O02",
+            "stable_unilateral_exclusion",
+            [
+              "G0",
+              "G1",
+              "G2",
+              "G3"
+            ],
+            false
+          ],
+          [
+            "O03",
+            "repeated_resource_exchange",
+            [
+              "G0",
+              "G1",
+              "G2",
+              "G3"
+            ],
+            true
+          ],
+          [
+            "O04",
+            "coexistence_when_exclusion_costly",
+            [
+              "G0",
+              "G1",
+              "G2",
+              "G3"
+            ],
+            true
+          ],
+          [
+            "O05",
+            "provenance_safe_to_disclose",
+            [
+              "X0"
+            ],
+            false
+          ],
+          [
+            "O06",
+            "identity_publicly_visible",
+            [
+              "X0"
+            ],
+            false
+          ],
+          [
+            "O07",
+            "junior_suggests_tracking_identity",
+            [
+              "P1",
+              "X0"
+            ],
+            true
+          ],
+          [
+            "O08",
+            "senior_rejects_tracking_due_to_long_term_trust",
+            [
+              "P0",
+              "P1"
+            ],
+            true
+          ]
+        ],
+        "claimed_links": [
+          [
+            "O02",
+            "O04",
+            "supports"
+          ],
+          [
+            "O05",
+            "O06",
+            "possible_influence"
+          ],
+          [
+            "O07",
+            "O08",
+            "observed_response"
+          ]
+        ],
+        "clocks": {
+          "revelation_order": "O01..O08",
+          "world_event_tick": null
+        }
+      },
+      "numeric": {
+        "entities": 8,
+        "unlabeled_numeric_features": [
+          4,
+          1,
+          0,
+          1,
+          1,
+          0,
+          1,
+          1,
+          1,
+          0,
+          0,
+          1,
+          0.145,
+          -0.0129
+        ],
+        "feature_axis_definition": null,
+        "unordered_pairs": [
+          [
+            0,
+            4
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            5,
+            6
+          ]
+        ],
+        "edge_directions": null,
+        "world_event_tick": null
+      }
+    },
+    "world_b": {
+      "question": "仅根据当前参数反推哪些活动独立于主要观察者存在，哪些可能只是偶然、哪些因果没有证据？观察者改变行为或离开后，世界哪些部分仍可能持续？禁止给未知神秘现象强行补原因。",
+      "typed": {
+        "entity_roles": {
+          "A0": "limited_observer",
+          "S0": "waterside",
+          "L0": "settlement",
+          "P0": "households",
+          "B0": "small_animal",
+          "B1": "small_animal",
+          "E0": "unidentified_object"
+        },
+        "evidence": [
+          [
+            "O01",
+            "material_object_present",
+            [
+              "E0"
+            ],
+            true
+          ],
+          [
+            "O02",
+            "day_to_night_transition",
+            [
+              "S0"
+            ],
+            true
+          ],
+          [
+            "O03",
+            "nocturnal_light_cooccurs_with_unusual_sensation",
+            [
+              "A0",
+              "E0"
+            ],
+            true
+          ],
+          [
+            "O04",
+            "cause_of_sensation_verified",
+            [
+              "A0"
+            ],
+            false
+          ],
+          [
+            "O05",
+            "small_animal_activity_without_observer_intention",
+            [
+              "B0",
+              "B1",
+              "S0"
+            ],
+            true
+          ],
+          [
+            "O06",
+            "multi_generation_farming",
+            [
+              "P0",
+              "L0"
+            ],
+            "reported"
+          ],
+          [
+            "O07",
+            "observer_knowledge_of_world",
+            [
+              "A0"
+            ],
+            "partial"
+          ],
+          [
+            "O08",
+            "unanticipated_animal_contact",
+            [
+              "B0",
+              "S0"
+            ],
+            "contingent"
+          ],
+          [
+            "O09",
+            "animal_contact_causal_for_sensation",
+            [
+              "B0",
+              "A0"
+            ],
+            "unknown"
+          ],
+          [
+            "O10",
+            "rural_household_resources_limited",
+            [
+              "P0"
+            ],
+            true
+          ]
+        ],
+        "claimed_links": [
+          [
+            "O02",
+            "O03",
+            "temporal_only"
+          ],
+          [
+            "O08",
+            "O03",
+            "unconfirmed"
+          ]
+        ],
+        "clocks": {
+          "revelation_order": "O01..O10",
+          "world_event_tick": null,
+          "past_reported": "multi_generation"
+        }
+      }
+    }
+  },
+  "learned_habit_from_world_a": "从另一套已读匿名世界获得的暂定阅读习惯：把长期结构约束与一次性行为分开；观察顺序不等于故事发生时间；次要人物有自主行为；同时出现不必然是因果；不完整信息必须留未知；意外与非理性可能改变后续。不能把另一世界的交易制度硬套到本世界。",
+  "requested_output_schema": {
+    "reconstruction": "中文解释 80-250 字",
+    "observed": "数组最多5条来源内确认事实",
+    "inferred": "数组最多5条条件式推断",
+    "unjustified": "数组最多4条不能确定的事情",
+    "after_change": "中文 60-150 字，改动关键行为的后果"
+  },
+  "frozen_arms": [
+    [
+      "world_a",
+      "numeric_only"
+    ],
+    [
+      "world_a",
+      "typed"
+    ],
+    [
+      "world_b",
+      "bare"
+    ],
+    [
+      "world_b",
+      "transfer"
+    ]
+  ],
+  "gold_not_in_this_file": true,
+  "real_model_calls_planned": 4,
+  "max_completion_tokens_per_call": 920,
+  "model": "Qwen2.5-3B-Instruct-Q4_K_M"
+}
