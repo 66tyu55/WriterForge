@@ -180,7 +180,8 @@ def audit_candidate(rule:TimeWorldRule, initial:TimeParameters, candidate:dict):
     need(type(story) is str and 80 <= len(story) <= 2000,
          "STORY_LENGTH_INVALID")
     events=candidate["time_events"]
-    need(type(events) is list, "EVENTS_REQUIRED")
+    need(type(events) is list and 1 <= len(events) <= MAX_ACTIONS,
+         "EVENTS_REQUIRED")
     actions=[]
     for event in events:
         need(type(event) is dict and
