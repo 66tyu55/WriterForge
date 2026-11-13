@@ -5,7 +5,7 @@ compatibility: Python 3.10+, no extra dependencies; optional pinned local Qwen m
 metadata:
   wf-skill-id: xianxia-time-rule
   wf-lifecycle: shadow
-  wf-version: "0.3"
+  wf-version: "0.4"
 ---
 
 # 修仙时间：从 V1 的“数字表”改成 V2 可执行独立规则
@@ -113,3 +113,18 @@ Use `scripts/event_first_time_locator.py`, not an LLM-generated number vector, w
 **Actual private two-original pilot** (not CI gold): first two consecutive chapters of two different xianxia works; 17 source-located anchors, 17 candidate facts, 7 preregistered event questions, 12 facts needed in those questions and 5 held for additional questions. The first version accepted a valid anchor with a forged numeric value; this negative test failed as intended and was repaired with `numeric_literal` source token checks. Private original-specific retest: 13/13 current local checks pass. Public source-free CI: **77/77 focused mechanics**. This is an event-first source-localization pilot, **NOT** an independently reviewed original novel decoder, full-book training or literary uplift. See `docs/WF_TIME_EVENT_FIRST_PARAMETER_LOCALIZATION_20261113.md`.
 
 **Promotion gate remains closed.** Do not wire this to production WF as a mastered original-novel Skill. The 13 original novels and previous 13/28 weak-label failure record remain in the existing V3 study; no new model-weight training or private original upload is performed by V4.
+
+
+## V5: autonomous event-first proposal FAILED; evidence delta cannot be overwritten
+
+**Real private-source experiment, 2026-11-13.** Three consecutive chapters of a fresh original were privately anchored with 21 exact source spans, then reduced to 11 anonymous observations. Later chapters 18–19 and a 9-point rubric were cryptographically frozen and excluded from model input. Two genuine pinned, offline Qwen2.5-3B model calls compared direct parameter extraction and asking event-first questions. Original responses are preserved at GitHub Actions run [#43412742909](https://github.com/66tyu55/WriterForge/actions/runs/43412742909).
+
+**Both failed** the preregistered format and meaningful rule criterion. The direct arm wrote unusable self-recursive 'time = time + time' style rules; the event-first arm merely turned observations into generic 'why' questions followed by UNKNOWN. **0 admissible independently proposed temporal rules in both arms**. This is NOT a 0% estimate of WF's performance on 13 originals, nor proof the entire method cannot work on stronger models. Only the fresh anonymized 3-chapter packet was submitted; model did not read the original text. Do not re-prompt/tune on the same frozen source to manufacture success.
+
+After both original replies were recorded, the sealed later chapters were examined. The source-backed new evidence concerns an inhibitory intervention that blocks training despite time and resources, temporary resource potency disappearing after roughly one month, changing social incentives that can waive a previously stated exchange condition, a domain-limited per-lifetime technique quota plus its own cost, and several actors acting over the same day. None was to be retroactively treated as a prior prediction.
+
+The existing Skill now also has `scripts/temporal_delta.py`: a small **candidate-only** difference tracker for two or more source-attested states. The program retains earlier evidence and does not confuse new reader knowledge with an actual physical change; a person's revised decision is not automatically a universe-wide law; a one-month qualitative observation never produces a fabricated linear decay coefficient. Unit tests `tests/test_wf_time_event_source_delta.py` cover six such cases. This **is not** an independent source-understanding model, nor a newly trained Skill.
+
+Full protocol and failed method: `docs/WF_TIME_AUTODISCOVERY_PRIVATE_SOURCE_PROTOCOL_20261113.md` and `docs/WF_TIME_AUTODISCOVERY_FAILED_AND_UNSEEN_FUTURE_20261113.md`.
+
+**Gate stays SHADOW / NOT READY.** A future end-to-end trial must first extract events directly from private original chapters with verifiable speaker/actor ownership and evidence; then propose dynamic conditional rules; finally verify those rules against held-out state changes. No direct author/Canon/Xuehai promotion.
