@@ -40,19 +40,19 @@ def spec():
         {"id":"E07","literal":"百年有效的约定"},
       ],
       "facts":[
-        {"id":"F01","owner":"A","metric":"recurrence","value":"3","unit":"year","state":"REPORTED",
+        {"id":"F01","owner":"A","metric":"recurrence","value":"3","numeric_literal":"三","unit":"year","state":"REPORTED",
          "qualifier":"REPORTED","scope":"this_story_only","evidence_ids":["E01"]},
-        {"id":"F02","owner":"A","metric":"protection_expiry","value":"3","unit":"year","state":"FORECAST",
+        {"id":"F02","owner":"A","metric":"protection_expiry","value":"3","numeric_literal":"三","unit":"year","state":"FORECAST",
          "qualifier":"REPORTED","scope":"this_story_only","evidence_ids":["E02"]},
         {"id":"F03","owner":"A","metric":"if_untreated_risk","value":None,"unit":None,"state":"FORECAST",
          "qualifier":"CONDITIONAL","scope":"this_story_only","evidence_ids":["E03"]},
-        {"id":"F04","owner":"B","metric":"medical_life_cost","value":"3","unit":"life_year","state":"REPORTED",
+        {"id":"F04","owner":"B","metric":"medical_life_cost","value":"3","numeric_literal":"三","unit":"life_year","state":"REPORTED",
          "qualifier":"REPORTED","scope":"this_story_only","evidence_ids":["E04"]},
-        {"id":"F05","owner":"B","metric":"reported_total_cost","value":"36","unit":"life_year","state":"REPORTED",
+        {"id":"F05","owner":"B","metric":"reported_total_cost","value":"36","numeric_literal":"三十六","unit":"life_year","state":"REPORTED",
          "qualifier":"REPORTED","scope":"this_story_only","evidence_ids":["E05"]},
-        {"id":"F06","owner":"C","metric":"ritual_plan","value":"3","unit":"day","state":"SCHEDULED",
+        {"id":"F06","owner":"C","metric":"ritual_plan","value":"3","numeric_literal":"三","unit":"day","state":"SCHEDULED",
          "qualifier":"PLANNED","scope":"this_story_only","evidence_ids":["E06"]},
-        {"id":"F07","owner":"D","metric":"social_oath","value":"100","unit":"year","state":"REPORTED",
+        {"id":"F07","owner":"D","metric":"social_oath","value":"100","numeric_literal":"百","unit":"year","state":"REPORTED",
          "qualifier":"PROMISE","scope":"this_story_only","evidence_ids":["E07"]},
       ],
       "questions":[
@@ -119,6 +119,22 @@ class EventFirstTimeTests(unittest.TestCase):
             result=loc.ablation(p)
             self.assertEqual(len(result["needed_within_current_questions"]),7)
             self.assertFalse(result["full_novel_time_model_complete"])
+        finally:r.cleanup()
+
+    def test_source_anchor_cannot_launder_a_forged_number(self):
+        r,path,p=fixture()
+        try:
+            raw,_,codec=loc.read_source(path)
+            tampered=deepcopy(p)
+            tampered["facts"][0]["value"]="9000"
+            with self.assertRaisesRegex(loc.EvidenceError,
+                                        "NUMERIC_VALUE_NOT_SOURCE_LITERAL"):
+                loc.validate(tampered,raw,codec)
+            tampered=deepcopy(p)
+            tampered["facts"][4]["numeric_literal"]="三"
+            with self.assertRaisesRegex(loc.EvidenceError,
+                                        "NUMERIC_VALUE_NOT_SOURCE_LITERAL"):
+                loc.validate(tampered,raw,codec)
         finally:r.cleanup()
 
     def test_source_tamper_and_wrong_unit_are_not_silent(self):
