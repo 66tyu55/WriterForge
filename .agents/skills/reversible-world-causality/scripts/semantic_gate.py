@@ -146,7 +146,8 @@ def audit_and_model_prefix(obs, raw, encoding, *,
     facts = [
         {"id": f["id"], "kind": f["kind"],
          "subject_ids": f["subject_ids"], "epistemic": f["epistemic"],
-         "parameters": f["parameters"]}
+         "telling_seq": f["telling_seq"], "story_tick": f["story_tick"],
+         "time_axis": f["time_axis"], "parameters": f["parameters"]}
         for f in obs["facts"] if f["id"] in visible
     ]
     links = [
