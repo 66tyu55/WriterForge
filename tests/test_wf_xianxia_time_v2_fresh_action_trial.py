@@ -77,5 +77,27 @@ class FreshTimeAuthorTrialTests(unittest.TestCase):
                 self.assertIsNone(decision)
                 self.assertIsNotNone(err)
 
+
+    def test_second_stage_must_use_post_action_clock_if_action_committed(self):
+        d=frozen()
+        choice={"choice":"ring_manual_bell","outcome":"none",
+                "world_hours":1,"reason":"先把桥下旅人叫醒"}
+        result=check_decision(d,"world_rate1",choice)
+        self.assertTrue(result["accepted"])
+        prompt=prose_prompt(d,"world_rate1",choice,result)
+        self.assertIn("现在是世界第2009小时",prompt)
+        self.assertIn("外界还剩3小时",prompt)
+        self.assertNotIn("现在是世界第2008小时",prompt)
+
+    def test_rejected_action_must_not_advance_world_clock(self):
+        d=frozen()
+        choice={"choice":"try_breakthrough","outcome":"success",
+                "world_hours":0,"reason":"急于兑现敲钟承诺"}
+        result=check_decision(d,"world_rate1",choice)
+        self.assertFalse(result["accepted"])
+        prompt=prose_prompt(d,"world_rate1",choice,result)
+        self.assertIn("现在是世界第2008小时",prompt)
+        self.assertIn("无法按宣称结果执行",prompt)
+
 if __name__=="__main__":
  unittest.main()
