@@ -1,0 +1,61 @@
+name: WF Fresh Novel D NonTime Anonymous Inverse One Shot
+
+on:
+  push:
+    branches:
+      - feature/wf-nontime-space-character-world-20261113
+    paths:
+      - .github/workflows/wf-nontime-fresh-D-once.yml
+      - experiments/wf_nontime_fresh_D_20261113_frozen.json
+      - experiments/wf_nontime_fresh_D_model_once.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf-nontime-new-book-D-one-time-20261113
+  cancel-in-progress: false
+
+jobs:
+  fresh-d-real-blind:
+    if: >-
+      github.event_name == 'push' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'WF fresh D inverse trial: launch two pinned local model calls'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Freeze anonymous source prefix and prompt hashes before inference
+        run: python experiments/wf_nontime_fresh_D_model_once.py --dry-run
+      - name: Install pinned local model engine
+        env:
+          CMAKE_ARGS: -DGGML_NATIVE=OFF
+          CMAKE_BUILD_PARALLEL_LEVEL: '2'
+        run: python -m pip install 'llama-cpp-python==0.3.16'
+      - name: Download pinned CPU Qwen2.5-3B
+        run: |
+          curl --fail --show-error --location --connect-timeout 30 --max-time 720 \
+            --output "$RUNNER_TEMP/wf-qwen3b.gguf" \
+            "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/254600e47ea694216f6108325376ce5b35d456a1/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+          printf '%s  %s\n' \
+            '9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94' \
+            "$RUNNER_TEMP/wf-qwen3b.gguf" | sha256sum --check --status
+      - name: Perform two real model calls baseline and source learned
+        run: |
+          python experiments/wf_nontime_fresh_D_model_once.py \
+            --model "$RUNNER_TEMP/wf-qwen3b.gguf" \
+            --out "$RUNNER_TEMP/wf-nontime-fresh-D"
+      - name: Preserve raw prompts and model completions with no retries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WF-NonTime-Fresh-Novel-D-Anonymous-TwoArm-20261113
+          path: ${{ runner.temp }}/wf-nontime-fresh-D/
+          if-no-files-found: warn
+          retention-days: 90
