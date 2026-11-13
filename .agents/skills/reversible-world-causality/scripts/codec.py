@@ -44,7 +44,7 @@ def hash_bytes(value):
 
 
 def decode_source(raw):
-    codecs = (("utf-8-sig", "gb18030") if raw.startswith(b"\\xef\\xbb\\xbf")
+    codecs = (("utf-8-sig", "gb18030") if raw.startswith(b"\xef\xbb\xbf")
               else ("utf-8", "gb18030"))
     for encoding in codecs:
         try:
