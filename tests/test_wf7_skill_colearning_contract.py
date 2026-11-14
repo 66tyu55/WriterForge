@@ -74,6 +74,14 @@ class CoLearningIsolationTests(unittest.TestCase):
         self.assertEqual(split[lab.EMOTION][0]["value"],"UNKNOWN")
         self.assertEqual(split[lab.TIME],[])
 
+    def test_owner_cannot_self_certify_source_truth_without_review_receipt(self):
+        s=blank()
+        forged=record(lab.TIME,"T_verified","life_years","9000")
+        forged["epistemic"]="INDEPENDENT_TESTED"
+        with self.assertRaisesRegex(lab.ContractError,
+                                    "INDEPENDENT_REVIEW_RECEIPT_REQUIRED"):
+            lab.owned_update(s,lab.TIME,forged)
+
     def test_sender_cannot_claim_peer_message_is_approved_truth(self):
         s=blank();h=hint(lab.SPACE,lab.TIME)
         h["status"]="SOURCE_REVIEWED"
