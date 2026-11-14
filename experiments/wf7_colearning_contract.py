@@ -92,6 +92,8 @@ def validate(s:dict)->bool:
             ensure(x["epistemic"] in EPISTEMIC and
                    type(x["dimension"]) is str and bool(x["dimension"]),
                    "UNCERTAIN_OR_UNTYPED_PARAMETER")
+            ensure(x["epistemic"] in ("UNKNOWN","PROVISIONAL"),
+                   "INDEPENDENT_REVIEW_RECEIPT_REQUIRED")
     seen_signal=set()
     for sig in s["inbox"]:
         ensure(type(sig) is dict and
@@ -180,5 +182,5 @@ def public_summary(s:dict)->dict:
       "accuracy":"NOT_MEASURED",
       "literary_improvement":"NOT_MEASURED",
       "skills_have_trained_their_parameters":False,
-      "private_source_text_exposed":False
+      "original_text_not_required_by_interface":True
     }
