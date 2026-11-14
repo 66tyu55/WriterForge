@@ -1,0 +1,33 @@
+name: V56 adversarial actual WF relation graph audit (production unchanged)
+on:
+  push:
+    branches: [v56-relation-network-adversarial-audit]
+    paths:
+      - '.github/workflows/v56-relation-adversarial.yml'
+      - 'scripts/audit_v56_relations.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audited-prod-reality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - name: Existing V55 relation tests must pass (baseline not rewritten)
+        run: python -m unittest discover -s tests -p 'test_v55_bitemporal_graph.py' -v
+      - name: Record every independent adversarial case and its failures
+        run: python -m scripts.audit_v56_relations
+      - name: Strict capability acceptance must fail when real defects exist
+        run: python -m scripts.audit_v56_relations --strict
+      - name: Upload original machine evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: V56_Actual_Relation_Network_Audit
+          path: v56_relation_adversarial_receipt.json
+          retention-days: 90
