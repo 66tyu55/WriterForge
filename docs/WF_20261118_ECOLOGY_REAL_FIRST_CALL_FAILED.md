@@ -31,3 +31,11 @@
 不得增加模型调用以制造阳性结果。只有在**通过不生成正文的 provider 路由/模型访问可用性检查，并重新确定一次性费用许可**后，才有资格启动**新的、有明确区别的模型实验**。真实对照仍需冻结 3 人有限认知，区别于作者把全知材料重新排成“伏笔”的失败路径；真正成功需产出模型独立决策原始回包和原始两版正文，且经独立匿名读者检查“编排感”。
 
 **没有 main merge、没有正式 WF 作者/Canon/R2/Xuehai 变更、没有 Railway deploy。**
+
+
+## 同日无文本生成的模型权限核验（新结果）
+
+- [GitHub Actions #44307577267](https://github.com/66tyu55/WriterForge/actions/runs/44307577267)：经原密钥调用 `GET https://discovery-api.intern-ai.org.cn/v1/models` 一次，执行 SUCCESS，HTTP **200**。
+- 返回可见模型目录共有 **11** 个 ID；精确匹配 `deepseek-v4-pro-0813` = **False**；`deepseek-v4-flash-0731` = **False**；`intern-s2` = **True**。
+- 这证明密钥至少能访问模型列表，且 **当前列出的可用模型里没有原脚本所指定的 DeepSeek Pro ID**。与前述补全请求 HTTP 404 相符；仍不能据此证明具体后台错误子原因或实际计费。
+- 此只读工作流没有调用 ChatCompletions，没有生成作者正文，没有发起新的有费用的模型推理，也没有重跑上述失败的一次性作业。此前付费闸门保持关闭。
