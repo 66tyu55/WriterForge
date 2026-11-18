@@ -88,9 +88,13 @@ class Chapter:
 
 def parse_original(text: str, *, require_hundred: bool = True,
                    expected_count: int | None = None,
-                   include_prologue: bool = False) -> tuple[Chapter, ...]:
+                   include_prologue: bool = False,
+                   sequence_start: int = 1) -> tuple[Chapter, ...]:
     if not isinstance(text, str) or len(text) > MAX_DOWNLOAD_BYTES:
         raise StudyError("source too large or not UTF-8 text")
+    if (type(sequence_start) is not int or not 1 <= sequence_start <= 200
+        or (sequence_start != 1 and (require_hundred or include_prologue))):
+        raise StudyError("non-first chapter start only valid for partial original without prologue")
     # Strip Gutenberg licence/postface; its English prose must not be learned.
     marker = re.search(r"(?mi)^\*{3}\s*END OF (?:THE )?PROJECT GUTENBERG", text)
     if marker:
@@ -116,12 +120,12 @@ def parse_original(text: str, *, require_hundred: bool = True,
         raise StudyError("no original Chinese chapter headings; refused to ingest")
     # Reject duplicate or nonsequential headings; no silent skipped chapters.
     nums = [chapter_number(m.group(1)) for m in matches]
-    if nums != list(range(1, len(nums) + 1)):
-        pos = next((i for i,n in enumerate(nums) if n!=i+1), 0)
+    if nums != list(range(sequence_start, sequence_start + len(nums))):
+        pos = next((i for i,n in enumerate(nums) if n != sequence_start + i), 0)
         excerpt=[(nums[i],(matches[i].group(2) or "")[:50])
                  for i in range(max(0,pos-3),min(len(nums),pos+5))]
         raise StudyError(f"chapter order malformed at index {pos}, "
-                         f"expected {pos+1}, got {nums[pos]}; neighborhood={excerpt}")
+                         f"expected {sequence_start+pos}, got {nums[pos]}; neighborhood={excerpt}")
     if require_hundred and len(matches) != 100:
         raise StudyError(f"expected all 100 original chapters, found {len(matches)}")
     if expected_count is not None and len(matches) != expected_count:
@@ -265,13 +269,15 @@ class OriginalStudy:
         expected_count: int | None = None,
         include_prologue: bool = False,
         wrapped_lines: bool = False,
+        source_sequence_start: int = 1,
     ) -> dict:
         self.runtime.require(Mode.LEARN)
         if not work_id or len(work_id) > 128:
             raise StudyError("invalid work ID")
         chapters = parse_original(text, require_hundred=require_hundred,
                                   expected_count=expected_count,
-                                  include_prologue=include_prologue)
+                                  include_prologue=include_prologue,
+                                  sequence_start=source_sequence_start)
         if max_chapters is not None and not 1 <= max_chapters <= len(chapters):
             raise StudyError("max_chapters outside the source")
         content_hash = sha256(text.encode("utf-8")).hexdigest()
