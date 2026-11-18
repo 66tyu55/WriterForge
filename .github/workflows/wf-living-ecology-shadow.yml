@@ -6,6 +6,8 @@ on:
     paths:
       - '.agents/skills/wf-living-ecology/**'
       - 'tests/test_wf_living_ecology_shadow.py'
+      - 'tests/test_wf_living_ecology_real_ab_once_20261118.py'
+      - 'experiments/wf_living_ecology_real_ab_once_20261118.py'
       - '.github/workflows/wf-living-ecology-shadow.yml'
   workflow_dispatch:
 
@@ -23,5 +25,9 @@ jobs:
           python-version: '3.11'
       - name: Run isolated zero-model tests
         run: python -m unittest discover -s tests -p test_wf_living_ecology_shadow.py -v
+      - name: Run real A/B pilot OFFLINE source and paid-gate preflight
+        run: |
+          python -m unittest discover -s tests -p test_wf_living_ecology_real_ab_once_20261118.py -v
+          python -m experiments.wf_living_ecology_real_ab_once_20261118 --dry-run
       - name: Example with no API requests
         run: python .agents/skills/wf-living-ecology/scripts/ecology_shadow.py
