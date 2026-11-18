@@ -184,9 +184,8 @@ def public_events(decisions):
         observable = ACTION_RESULTS[actor_id][action]
         if observable is None:
             continue
-        events.append({"scene_tick": "afternoon_to_evening", "source_actor": actor_id,
-                       "action_code": action, "visible_result": observable,
-                       "truth_scope": "only_attested_immediate_observation"})
+        events.append({"scene_tick": "afternoon_to_evening",
+                       "visible_result": observable})
     return events
 
 
