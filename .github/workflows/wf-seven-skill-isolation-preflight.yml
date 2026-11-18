@@ -1,0 +1,32 @@
+name: WF Seven Skill Ownership / Isolation Preflight
+
+on:
+  push:
+    branches:
+      - feature/wf-seven-skill-colearning-shadow-20261114
+    paths:
+      - '.agents/skills/wf-personality-affect/**'
+      - '.agents/skills/wf-appearance-body/**'
+      - '.agents/skills/wf-atmosphere-prose/**'
+      - 'experiments/wf7_colearning_contract.py'
+      - 'tests/test_wf7_skill_colearning_contract.py'
+      - 'docs/WF_SEVEN_SKILL_COTRAINING_GATE_20261114.md'
+      - '.github/workflows/wf-seven-skill-isolation-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shadow-interface-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check independent parameter ownership and no peer-result copying
+        run: python -m unittest discover -s tests -p 'test_wf7_skill_colearning_contract.py' -v
