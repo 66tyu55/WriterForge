@@ -1,0 +1,53 @@
+name: WF ecology real independent NPC plus writer A-B ONCE
+
+on:
+  push:
+    branches:
+      - experiment/wf-light-continuity-over-sevenskill-20261118
+    paths:
+      - .github/workflows/wf-ecology-real-npc-writer-ab-one-shot.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wf-ecology-real-npc-writer-ab-one-shot-20261118
+  cancel-in-progress: false
+
+jobs:
+  bounded-independent-npcs-and-author:
+    if: >-
+      github.event_name == 'push' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'WF ecology: launch one bounded independent-actors A/B once'
+    runs-on: ubuntu-latest
+    timeout-minutes: 29
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+      WF_ECOLOGY_PAID_APPROVAL: WF_ECOLOGY_ONE_SCENE_INDEPENDENT_ONCE_20261118
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Strict free preflight before any third-party model call
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_wf_living_ecology_real_ab_once_20261118.py -v
+          python -m experiments.wf_living_ecology_real_ab_once_20261118 --dry-run > /dev/null
+      - name: Only three isolated NPC choices and two free-prose model drafts
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/wf-ecology-real-ab"
+          python -m experiments.wf_living_ecology_real_ab_once_20261118 \
+            --output-dir "$RUNNER_TEMP/wf-ecology-real-ab" --live
+      - name: Preserve prompts, independent NPC replies, prose and paid receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wf-ecology-real-npc-ab-private-unaccepted-20261118
+          path: ${{ runner.temp }}/wf-ecology-real-ab/
+          retention-days: 7
+          if-no-files-found: ignore
