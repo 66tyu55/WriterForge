@@ -1,0 +1,51 @@
+name: WF Discovery model-route metadata GET read-only ONCE
+
+on:
+  push:
+    branches: [experiment/wf-light-continuity-over-sevenskill-20261118]
+    paths:
+      - .github/workflows/wf-discovery-model-route-readonly-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  readonly-provider-catalog:
+    if: >-
+      github.event_name == 'push' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'WF ecology: query provider model catalog GET once no completions'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      DISCOVERY_API_KEY: ${{ secrets.DISCOVERY__API__KEY }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Exact one GET to publicly documented models catalog, no inference
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request, urllib.error
+          key=os.getenv('DISCOVERY_API_KEY','')
+          if not key or len(key)>512:
+              print('DISCOVERY_KEY_UNAVAILABLE'); raise SystemExit(0)
+          url='https://discovery-api.intern-ai.org.cn/v1/models'
+          request=urllib.request.Request(url,method='GET',
+                   headers={'Authorization':'Bearer '+key,
+                            'Accept':'application/json'})
+          try:
+              with urllib.request.urlopen(request,timeout=20) as r:
+                  blob=r.read(250000)
+                  print('GET_MODELS_HTTP',r.status)
+              doc=json.loads(blob)
+              ids=[x.get('id') for x in doc.get('data',[]) if isinstance(x,dict)]
+              print('GET_MODELS_TOTAL_IDS',len(ids))
+              print('DEEPSEEK_PRO_ID_LISTED', 'deepseek-v4-pro-0813' in ids)
+              print('DEEPSEEK_FLASH_ID_LISTED', 'deepseek-v4-flash-0731' in ids)
+              print('INTERN_S2_ID_LISTED', 'intern-s2' in ids)
+          except urllib.error.HTTPError as e:
+              print('GET_MODELS_HTTP',e.code)
+          except Exception as e:
+              print('GET_MODELS_FAILURE_CATEGORY',type(e).__name__)
+          PY
